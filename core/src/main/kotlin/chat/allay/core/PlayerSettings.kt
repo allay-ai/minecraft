@@ -9,8 +9,16 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
-/** One player's Allay settings; [language] is a `lang/` code they chose, null to have it picked for them. */
-@Serializable data class Settings(val chat_mode: Boolean = false, val hints: Boolean = true, val language: String? = null)
+/**
+ * One player's Allay settings; [language] is a `lang/` code they chose, null to have it picked for them. [outputs] is
+ * where each kind of automation puts what it made, when the player said so once: `inventory`, `auto`, or chests.
+ */
+@Serializable data class Settings(
+  val chat_mode: Boolean = false,
+  val hints: Boolean = true,
+  val language: String? = null,
+  val outputs: Map<String, String> = emptyMap(),
+)
 
 /** Each player's settings in `players.json`. Chat reads them off the server thread, so the map is concurrent. */
 class PlayerSettings(private val folder: File, private val log: Logger) {

@@ -4,6 +4,7 @@ import chat.allay.core.*
 import chat.allay.core.tools.*
 
 import chat.allay.spigot.automation.Chests
+import chat.allay.spigot.automation.Undo
 import chat.allay.spigot.send
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -93,6 +94,14 @@ object ActionTools {
 
   private val sortInventory = tool("sort_inventory") { context, player, args ->
     val inventory = player.inventory
+    val undo = context.features.automation.undo
+    val minutes = context.features.config().automation.undoMinutes
+    // “Put it back”: the last sort or chest change, newest first.
+    if (args.bool("undo") == true) {
+      val restored = undo.restore(player, minutes)
+      return@tool ToolOutput(buildJsonObject { put("restored", true); if (restored.chests > 0) put("chests_restored", restored.chests) }, context.lang.text("summary.sort_undone"))
+    }
+    val before = Chests.pack(player)
     // Slots 9–35 by default: the hotbar is muscle memory, armor and offhand live elsewhere. The player may ask for both,
     // and the hotbar then holds the pins and what's held in hand, not the first items of the alphabet.
     val pins = (args["pins"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }?.map { pin ->
@@ -120,6 +129,11 @@ object ActionTools {
     // In creative the client keeps its own copy of an open inventory and would write it back over this.
     if (player.gameMode == org.bukkit.GameMode.CREATIVE) player.closeInventory()
     sorted.slots.forEach { (slot, stack) -> inventory.setItem(slot, stack) }
+    val after = Chests.pack(player)
+    if (after != before) {
+      undo.keep(player.uniqueId, Undo.Change(emptyList(), emptyMap(), emptyMap(), before to after))
+      context.buttons += Button.Undo(context.lang.text("automation.undo"))
+    }
     val merged = sorted.merged.toLong()
     val result = buildJsonObject {
       put("merged_stacks", merged)

@@ -170,6 +170,7 @@ summary:
   respawn_none: "sem ponto de renascimento"
   sorted: "arrumado"
   sorted_merged: "juntei {stacks} {stacks|pilha|pilhas}"
+  sort_undone: "devolvi como estava"
   task_started: "“{name}” começou"
   task_messaged: "passado para “{name}”"
   task_cancelled: "“{name}” parado"
@@ -388,6 +389,7 @@ automation:
   chests_done: "Pronto: {count} {count|baú|baús}. As placas mostram o que foi para onde."
   undo: "Devolver"
   restored: "&aDevolvi {count} {count|baú|baús} como estavam."
+  restored_inventory: "&aDevolvi seu inventário como estava."
   not_restored: "&7Não deu para devolver: {reason}"
   empty: "vazio"
   reason:

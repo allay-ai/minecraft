@@ -130,7 +130,7 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
       return
     }
     val settings = automation.settings()
-    val unfit = if (session.kind == Kind.CHESTS) Blocks.unsuitable(player, block) else Blocks.unusable(player, block, settings.radius, settings.lineOfSight)
+    val unfit = if (session.kind == Kind.CHESTS) Blocks.unsuitable(player, block, adding = true) else Blocks.unusable(player, block, settings.radius, settings.lineOfSight)
     if (unfit != null) {
       val flash = Blocks.halves(block).map { Marks.box(it, Marks.Hue.RED) }
       Marks.reveal(plugin, player, flash)

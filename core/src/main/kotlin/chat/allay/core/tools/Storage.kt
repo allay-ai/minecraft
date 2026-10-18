@@ -162,37 +162,103 @@ object Storage {
   }
 
   /**
-   * Moves what [wanted] matches out of every chest but [targets] into the targets, merging into their stacks first.
-   * What doesn't fit stays where it was and comes back in [Plan.left]; the rest of each chest stays put.
+   * Pours up to [amount] of [item] into [into]: the like stacks with room first, wherever they are, then the empty
+   * slots in [order] (every slot by default). Returns how much didn't fit.
    */
-  fun <T> move(chests: List<Chest<T>>, targets: Set<String>, wanted: (T) -> Boolean, stacks: Stacks<T>): Plan<T> {
+  private fun <T> pour(item: T, amount: Int, into: MutableList<T?>, stacks: Stacks<T>, order: List<Int>? = null, accepts: (T) -> Boolean = { true }): Int {
+    var left = amount
+    if (left > 0 && !accepts(item)) return left
+    for (slot in into.indices) {
+      if (left == 0) break
+      val there = into[slot] ?: continue
+      if (!stacks.similar(there, item) || stacks.amount(there) >= stacks.max(there)) continue
+      val put = minOf(left, stacks.max(there) - stacks.amount(there))
+      into[slot] = stacks.withAmount(there, stacks.amount(there) + put)
+      left -= put
+    }
+    for (slot in order ?: into.indices.toList()) {
+      if (left == 0) break
+      if (into[slot] != null) continue
+      val put = minOf(left, stacks.max(item))
+      into[slot] = stacks.withAmount(item, put)
+      left -= put
+    }
+    return left
+  }
+
+  /**
+   * Moves what [wanted] matches out of every chest but [targets] into the targets, merging into their stacks first.
+   * At most [limit] items move in all, when given. [fixed] slots of a chest give nothing (the hotbar, the hand), and
+   * [order] says which empty slots of a target fill first (the main inventory before the hotbar). [accepts] tells what
+   * a target may hold: a shulker box takes no shulker box. What doesn't fit stays where it was and comes back in
+   * [Plan.left]; the rest of each chest stays put.
+   */
+  fun <T> move(
+    chests: List<Chest<T>>,
+    targets: Set<String>,
+    wanted: (T) -> Boolean,
+    stacks: Stacks<T>,
+    limit: Int? = null,
+    fixed: Map<String, Set<Int>> = emptyMap(),
+    order: Map<String, List<Int>> = emptyMap(),
+    accepts: (String, T) -> Boolean = { _, _ -> true },
+  ): Plan<T> {
     val slots = chests.associate { it.key to it.slots.toMutableList() }
     val left = mutableMapOf<String, Int>()
+    var budget = limit ?: Int.MAX_VALUE
     for (source in chests.filter { it.key !in targets }) {
       val from = slots[source.key]!!
       for (index in from.indices) {
+        if (budget <= 0) break
+        if (index in fixed[source.key].orEmpty()) continue
         val item = from[index] ?: continue
         if (!wanted(item)) continue
-        var amount = stacks.amount(item)
+        val moving = minOf(stacks.amount(item), budget)
+        var amount = moving
         for (target in chests.filter { it.key in targets }) {
-          val into = slots[target.key]!!
-          for (slot in into.indices) {
-            if (amount == 0) break
-            val there = into[slot]
-            if (there == null) {
-              val put = minOf(amount, stacks.max(item))
-              into[slot] = stacks.withAmount(item, put)
-              amount -= put
-            } else if (stacks.similar(there, item) && stacks.amount(there) < stacks.max(there)) {
-              val put = minOf(amount, stacks.max(there) - stacks.amount(there))
-              into[slot] = stacks.withAmount(there, stacks.amount(there) + put)
-              amount -= put
-            }
-          }
+          amount = pour(item, amount, slots[target.key]!!, stacks, order[target.key]) { accepts(target.key, it) }
         }
-        from[index] = if (amount > 0) stacks.withAmount(item, amount) else null
+        budget -= moving - amount
+        val stays = stacks.amount(item) - (moving - amount)
+        from[index] = if (stays > 0) stacks.withAmount(item, stays) else null
         if (amount > 0) left.merge(stacks.id(item), amount, Int::plus)
       }
+    }
+    return Plan(slots, chests.associate { it.key to it.assign?.category }, left)
+  }
+
+  /**
+   * Stashes what [source] holds (the player's inventory) into [chests], given nearest first, the way a player would:
+   * each item into the chests that already hold it, then into those a sign or frame gives it ([Chest.assign] items,
+   * then category), merging first. Nothing else moves. [fixed] slots of the source stay, and so does what [wanted]
+   * leaves out and what no chest is for; [Plan.left] lists what had a chest but no room in it.
+   */
+  fun <T> stash(
+    source: Chest<T>,
+    chests: List<Chest<T>>,
+    stacks: Stacks<T>,
+    fixed: Set<Int> = emptySet(),
+    wanted: (T) -> Boolean = { true },
+    accepts: (String, T) -> Boolean = { _, _ -> true },
+  ): Plan<T> {
+    val slots = (chests + source).associate { it.key to it.slots.toMutableList() }
+    val from = slots[source.key]!!
+    val left = mutableMapOf<String, Int>()
+    for (index in from.indices) {
+      if (index in fixed) continue
+      val item = from[index] ?: continue
+      if (!wanted(item)) continue
+      val id = stacks.id(item)
+      // What the chests held before the stash, so an item never follows another that only just arrived.
+      val holding = chests.filter { chest -> chest.slots.any { it != null && stacks.similar(it, item) } }
+      val named = chests.filter { id in it.assign?.items.orEmpty() } +
+        chests.filter { it.assign?.category != null && it.assign.category == category(id, stacks.edible(item)) }
+      val homes = (holding + named).distinct()
+      if (homes.isEmpty()) continue
+      var amount = stacks.amount(item)
+      for (home in homes) amount = pour(item, amount, slots[home.key]!!, stacks) { accepts(home.key, it) }
+      from[index] = if (amount > 0) stacks.withAmount(item, amount) else null
+      if (amount > 0) left.merge(id, amount, Int::plus)
     }
     return Plan(slots, chests.associate { it.key to it.assign?.category }, left)
   }

@@ -170,6 +170,7 @@ summary:
   respawn_none: "sin punto de reaparición"
   sorted: "ordenado"
   sorted_merged: "{stacks} {stacks|pila juntada|pilas juntadas}"
+  sort_undone: "devuelto como estaba"
   task_started: "“{name}” se pone a ello"
   task_messaged: "pasado a “{name}”"
   task_cancelled: "“{name}” detenido"
@@ -388,6 +389,7 @@ automation:
   chests_done: "Listo: {count} {count|cofre|cofres}. Los letreros muestran qué fue a dónde."
   undo: "Devolver"
   restored: "&aDevueltos {count} {count|cofre|cofres} como estaban."
+  restored_inventory: "&aTu inventario volvió a estar como antes."
   not_restored: "&7No se pudo devolver: {reason}"
   empty: "vacío"
   reason:

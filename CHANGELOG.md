@@ -2,6 +2,23 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.11.0
+
+Pairs with Allay Server 5.9.0, which tells the agents about the new modes and options; older servers keep working without them.
+
+- 📥 **Take things out of chests.** “Get me 64 iron” or “top my torches up to a stack” is the chests mode `take`: it searches the chests you name, or every chest around, and puts what it finds into your main inventory first, then the hotbar. `count` caps it, `up_to` counts what you already carry.
+- 🗃️ **Put your loot away.** “Put my loot away” is the chests mode `stash`: each item goes into the chests around that already hold it, then into chests a sign or an item frame names for it, merging into stacks first. The hotbar and the offhand stay unless you ask, and what no chest is for stays with you and comes back in `no_chest_for`.
+- 🎯 **Say what to move the way you'd say it.** `move` and `take` understand the same words as a layout: “all the iron” is raw iron, ingots, nuggets, and blocks; “tools”, “enchanted”, a category, or an id. `count` moves at most that many, and `keep` leaves things alone (“except the enchanted”). Moving from your inventory never takes the item in your hand or your offhand.
+- ↩️ **Undo goes five steps back, and covers the inventory.** **[Put back]** undoes the last five chest changes, one by one, each while nothing it touched has changed. Sorting the inventory gets the same button under the answer, and “put it back” asks `sort_inventory` with `undo`.
+- 🧰 **Copper chests and shulker boxes count.** Copper chests at every stage, and placed shulker boxes, are chests for every mode, for “All nearby”, and for ingredients; a shulker box never gets a shulker box put inside.
+- ⬇️ **A sorter's input chest takes things.** A chest a hopper feeds or empties was left out of everything. Now `move`, `stash`, and outputs may put things into it, and a click may pick it, while sorting it or taking from it is still refused, so the machine never races the agent.
+- 🔥 **Smelting delivers by itself, with the experience.** With `to` on start, a full furnace empties itself into the output and everything goes there at the end, so a big load never stalls at 64 waiting for the agent. Collecting pays the experience the furnace kept, as taking the output by hand does (on Paper; on Spigot it stays in the furnace for whoever takes from it next). Empty buckets lava leaves behind come back too.
+- ➕ **Add to a running smelt.** “Add 20 more ore” is `smelt` action `add`: more of what the job cooks, spread over its furnaces with the fuel that takes, and a furnace that already finished starts again.
+- 🪵 **More fuels.** Without coal the agent burns your planks, then sticks or bamboo; logs and a bucket of lava when you ask (one bucket a furnace, 100 items). Crimson and warped wood never counted as fuel in the game, and now it doesn't here either. A furnace burning another fuel is left out and listed instead of failing the whole start, and a furnace with output waiting takes a load that makes the same.
+- 🧪 **Several potions at once, in rounds.** `brew` start takes `potions`, each with its form and count, in stands of its own. More than the stands hold, up to 64, brews in rounds on the same stands, each round's potions going to the output before the next goes in.
+- 💧 **Water bottles from your glass bottles.** When water bottles run short, the agent fills your glass bottles at water or a cauldron near, a cauldron losing a level a bottle.
+- 📍 **It remembers where things go.** `to` takes `auto`: the chests that already hold the same, the rest to your inventory. Say “always into my inventory” once, and the agent keeps that choice per kind of work in `players.json`; `scan` shows it as `player_output`.
+
 ## 5.10.2
 
 Pairs with Allay Server 5.8.2, which tells the chests agent about `from`; older servers keep working.

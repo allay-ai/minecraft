@@ -126,4 +126,47 @@ class StorageTest {
     assertEquals(mapOf("iron_ingot" to 36), plan.left)
     assertEquals(mapOf("iron_ingot" to 164, "bread" to 5), totals(plan))
   }
+
+  @Test fun `a move takes no more than its limit and leaves fixed slots alone`() {
+    val chests = listOf(
+      chest("inventory", 4, Item("torch", 10), Item("torch", 30), Item("torch", 30)),
+      chest("target", 3),
+    )
+    val plan = Storage.move(chests, setOf("target"), { it.id == "torch" }, stacks, limit = 35, fixed = mapOf("inventory" to setOf(0)))
+    assertEquals(listOf(Item("torch", 10), null, Item("torch", 25), null), plan.chests["inventory"])
+    assertEquals(35, plan.chests["target"]!!.filterNotNull().sumOf { it.amount })
+    assertEquals(emptyMap(), plan.left)
+  }
+
+  @Test fun `taking into the inventory merges, then fills the main rows before the hotbar`() {
+    val chests = listOf(
+      chest("chest", 2, Item("bread", 64), Item("bread", 20)),
+      chest("inventory", 4, null, Item("bread", 60)),
+    )
+    // Slots 2 and 3 stand for the main inventory, 0 for the hotbar.
+    val plan = Storage.move(chests, setOf("inventory"), { true }, stacks, order = mapOf("inventory" to listOf(2, 3, 0)))
+    assertEquals(listOf(null, Item("bread", 64), Item("bread", 64), Item("bread", 16)), plan.chests["inventory"])
+  }
+
+  @Test fun `a target that refuses an item takes none of it`() {
+    val chests = listOf(chest("source", 1, Item("shulker_box", 1, max = 1)), chest("box", 2))
+    val plan = Storage.move(chests, setOf("box"), { true }, stacks, accepts = { _, item -> item.id != "shulker_box" })
+    assertEquals(listOf(Item("shulker_box", 1, max = 1)), plan.chests["source"])
+    assertEquals(mapOf("shulker_box" to 1), plan.left)
+  }
+
+  @Test fun `stashing puts each item where it already lies, then where a sign says`() {
+    val inventory = chest("inventory", 5, Item("diamond_sword", 1, max = 1), Item("cobblestone", 40), Item("iron_ingot", 10), Item("bread", 5), Item("music_disc_cat", 1, max = 1))
+    val chests = listOf(
+      chest("stone", 2, Item("cobblestone", 50)),
+      chest("ores", 2, assign = Storage.Assign(Category.ORES)),
+      chest("food", 1, Item("bread", 64)),
+    )
+    val plan = Storage.stash(inventory, chests, stacks, fixed = setOf(0))
+    assertEquals(listOf(Item("cobblestone", 64), Item("cobblestone", 26)), plan.chests["stone"])
+    assertEquals(listOf(Item("iron_ingot", 10), null), plan.chests["ores"])
+    // The sword sits in a fixed slot, the bread has no room, and nothing is for the disc.
+    assertEquals(listOf(Item("diamond_sword", 1, max = 1), null, null, Item("bread", 5), Item("music_disc_cat", 1, max = 1)), plan.chests["inventory"])
+    assertEquals(mapOf("bread" to 5), plan.left)
+  }
 }

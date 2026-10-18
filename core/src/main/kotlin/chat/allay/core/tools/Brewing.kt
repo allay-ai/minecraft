@@ -53,6 +53,17 @@ object Brewing {
     return loads
   }
 
+  /**
+   * Hands [loads] out to [stands] stands, one round after another: the first [stands] loads start at once, and each
+   * later one waits in a stand's queue for the load before it to finish, the queues as even as can be.
+   */
+  fun <T> rounds(loads: List<T>, stands: Int): List<List<T>> {
+    if (stands <= 0) return emptyList()
+    val queues = List(minOf(stands, loads.size)) { mutableListOf<T>() }
+    loads.forEachIndexed { index, load -> queues[index % queues.size] += load }
+    return queues
+  }
+
   /** The brews in one recipe file: one per input potion. Tags and shapes the game doesn't ship give none. */
   fun parse(json: String): List<Brew> = runCatching {
     val root = Json.parseToJsonElement(json).jsonObject

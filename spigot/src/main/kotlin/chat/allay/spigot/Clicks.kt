@@ -150,7 +150,9 @@ class Clicks(
       is Button.Reply -> features.automation.reply(player, button.task, button.reply)
       is Button.Pick -> features.automation.picking.button(player, button.action)
       is Button.Undo -> try {
-        lang.send(player, "automation.restored", "count" to features.automation.undo.restore(player, features.config().automation.undoMinutes))
+        val restored = features.automation.undo.restore(player, features.config().automation.undoMinutes)
+        if (restored.chests > 0) lang.send(player, "automation.restored", "count" to restored.chests)
+        else lang.send(player, "automation.restored_inventory")
       } catch (error: ToolError) {
         lang.send(player, "automation.not_restored", "reason" to (error.message ?: ""))
       }

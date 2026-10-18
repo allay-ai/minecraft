@@ -74,4 +74,10 @@ class BrewingTest {
     assertEquals(listOf(Brewing.Fill(2, 2), Brewing.Fill(1, 3), Brewing.Fill(0, 2)), Brewing.fill(7, 4, mapOf(1 to 3, 2 to 2)))
     assertEquals(listOf(Brewing.Fill(0, 3), Brewing.Fill(0, 3)), Brewing.fill(9, 2, emptyMap()))
   }
+
+  @Test fun `more loads than stands brew in rounds, evenly`() {
+    assertEquals(listOf(listOf(1, 3, 5), listOf(2, 4)), Brewing.rounds(listOf(1, 2, 3, 4, 5), 2))
+    assertEquals(listOf(listOf(1), listOf(2)), Brewing.rounds(listOf(1, 2), 4))
+    assertEquals(emptyList(), Brewing.rounds(listOf(1), 0))
+  }
 }

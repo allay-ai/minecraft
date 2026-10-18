@@ -1,5 +1,7 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.PlayerSettings
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.ToolError
 import chat.allay.spigot.tools.Tool
@@ -8,6 +10,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import org.bukkit.Tag
 import org.bukkit.block.Block
 import org.bukkit.block.Container
 import org.bukkit.entity.Player
@@ -77,28 +80,84 @@ object Jobs : Listener {
     automation.interfered(job.task, automation.text(job.task, "automation.reason.broken", "block" to event.block.type.key.key, "x" to event.block.x, "y" to event.block.y, "z" to event.block.z))
   }
 
-  /** Where output goes: `"inventory"`, or chests by coordinates. */
+  /** Where output goes: `"inventory"`, `"auto"` (the chests around that hold the same, else the inventory), or chests by coordinates. */
   sealed interface Output {
     data object Inventory : Output
+    data object Auto : Output
     data class Chests(val blocks: List<Block>) : Output
   }
 
   fun output(player: Player, value: JsonElement?): Output? = when {
     value == null -> null
     value is JsonPrimitive && value.contentOrNull?.trim()?.lowercase() == "inventory" -> Output.Inventory
+    value is JsonPrimitive && value.contentOrNull?.trim()?.lowercase() == "auto" -> Output.Auto
     value is JsonArray -> Output.Chests(Blocks.list(player, value, automation.settings().pauseDistance).map(Blocks::root).onEach { block ->
-      Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+      // Output only goes in, so a sorter's input chest is fine.
+      Blocks.unsuitable(player, block, adding = true)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
     })
-    else -> throw ToolError("to is \"inventory\" or a list of chests by x, y, z")
+    else -> throw ToolError("to is \"inventory\", \"auto\", or a list of chests by x, y, z")
+  }
+
+  /**
+   * Where [kind]'s output goes for this call: [value] when given, else what the player chose before. With [remember]
+   * the choice is kept in their settings for later tasks of the kind.
+   */
+  fun target(player: Player, value: JsonElement?, kind: Kind, settings: PlayerSettings, remember: Boolean): Output? {
+    val given = output(player, value)
+    if (given != null && remember) settings.update(player.uniqueId) { it.copy(outputs = it.outputs + (kind.wire to encode(given))) }
+    return given ?: settings.of(player.uniqueId).outputs[kind.wire]?.let { runCatching { decode(player, it) }.getOrNull() }
+  }
+
+  /** Where [to] puts things, for the model. */
+  fun describe(to: Output) = when (to) {
+    Output.Inventory -> "the inventory"
+    Output.Auto -> "the chests that hold the same, the rest to the inventory"
+    is Output.Chests -> to.blocks.joinToString("; ") { "the chest at ${it.x} ${it.y} ${it.z}" }
+  }
+
+  /** The output the player chose for [kind], as a tool result shows it, or null. */
+  fun saved(player: Player, kind: Kind, settings: PlayerSettings): String? = settings.of(player.uniqueId).outputs[kind.wire]
+
+  private fun encode(output: Output): String = when (output) {
+    Output.Inventory -> "inventory"
+    Output.Auto -> "auto"
+    is Output.Chests -> "chests:" + output.blocks.joinToString(";") { "${it.world.name}:${it.x},${it.y},${it.z}" }
+  }
+
+  /** A saved output, or null when its chests are in another world now, gone, or out of reach. */
+  private fun decode(player: Player, text: String): Output? = when {
+    text == "inventory" -> Output.Inventory
+    text == "auto" -> Output.Auto
+    text.startsWith("chests:") -> {
+      val blocks = text.removePrefix("chests:").split(';').mapNotNull { spot ->
+        val (world, place) = spot.split(':', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+        if (world != player.world.name) return@mapNotNull null
+        val (x, y, z) = place.split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } ?: return@mapNotNull null
+        player.world.getBlockAt(x, y, z).takeIf { block ->
+          block.location.add(0.5, 0.5, 0.5).distance(player.location) <= automation.settings().pauseDistance && Blocks.unsuitable(player, block, adding = true) == null
+        }
+      }
+      if (blocks.isEmpty()) null else Output.Chests(blocks)
+    }
+    else -> null
   }
 
   /** Puts [items] where [to] says; what doesn't fit goes to the inventory, then at the player's feet. */
   fun deliver(player: Player, items: List<ItemStack>, to: Output) {
     var left = items
-    if (to is Output.Chests) {
-      for (block in to.blocks) {
-        val inventory = (block.state as? Container)?.inventory ?: continue
-        left = left.flatMap { inventory.addItem(it).values }
+    val chests = when (to) {
+      is Output.Chests -> to.blocks
+      // The chests around that already hold each item, nearest first, as a player would put it away.
+      Output.Auto -> Blocks.near(player.location, automation.settings().radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct()
+        .filter { Blocks.unsuitable(player, it, adding = true) == null }
+      Output.Inventory -> emptyList()
+    }
+    for (block in chests) {
+      val inventory = (block.state as? Container)?.inventory ?: continue
+      val box = Blocks.box(block)
+      left = left.flatMap { item ->
+        val holds = to !is Output.Auto || inventory.contents.any { it != null && it.isSimilar(item) }
+        if (!holds || (box && Tag.SHULKER_BOXES.isTagged(item.type))) listOf(item) else inventory.addItem(item).values.toList()
       }
     }
     give(player, left)

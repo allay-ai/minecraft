@@ -161,6 +161,16 @@ class AutomationTest {
     assertEquals(0, Workshop.fuelFor(9, "dirt"))
   }
 
+  @Test fun `sticks, bamboo, and lava burn as in the game, and nether wood doesn't`() {
+    assertEquals(2, Workshop.fuelFor(1, "stick"))
+    assertEquals(4, Workshop.fuelFor(1, "bamboo"))
+    assertEquals(1, Workshop.fuelFor(100, "lava_bucket"))
+    assertEquals(2, Workshop.fuelFor(101, "lava_bucket"))
+    assertEquals(300, Workshop.burnTicks("bamboo_block"))
+    assertNull(Workshop.burnTicks("crimson_planks"))
+    assertNull(Workshop.burnTicks("warped_stem"))
+  }
+
   @Test fun `a load spreads evenly over furnaces`() {
     assertEquals(listOf(4, 3, 3), Workshop.spread(10, 3))
     assertEquals(listOf(64, 64), Workshop.spread(200, 2))

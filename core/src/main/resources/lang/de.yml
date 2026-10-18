@@ -170,6 +170,7 @@ summary:
   respawn_none: "kein Wiedereinstiegspunkt"
   sorted: "sortiert"
   sorted_merged: "{stacks} {stacks|Stapel|Stapel} zusammengelegt"
+  sort_undone: "zurückgestellt, wie es war"
   task_started: "„{name}“ ist dran"
   task_messaged: "an „{name}“ weitergegeben"
   task_cancelled: "„{name}“ angehalten"
@@ -388,6 +389,7 @@ automation:
   chests_done: "Fertig: {count} {count|Truhe|Truhen}. Die Schilder darüber zeigen, was wohin kam."
   undo: "Zurückstellen"
   restored: "&a{count} {count|Truhe|Truhen} zurückgestellt, wie sie waren."
+  restored_inventory: "&aDein Inventar ist wieder, wie es war."
   not_restored: "&7Zurückstellen ging nicht: {reason}"
   empty: "leer"
   reason:

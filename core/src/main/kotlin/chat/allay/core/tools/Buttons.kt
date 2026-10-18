@@ -49,7 +49,7 @@ sealed interface Button {
   /** Ends picking blocks for an automation agent: [action] is done, all, or cancel. */
   data class Pick(override val label: String, val action: String) : Button
 
-  /** Puts back what an automation agent moved in chests, within its undo time. */
+  /** Puts back the last change to chests or the inventory (an agent's plan, a sort), within its undo time. */
   data class Undo(override val label: String) : Button
 
   /** Turns chat mode on, from the tip under an answer. */

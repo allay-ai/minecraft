@@ -170,6 +170,7 @@ summary:
   respawn_none: "no respawn point"
   sorted: "sorted"
   sorted_merged: "merged {stacks} {stacks|stack|stacks}"
+  sort_undone: "put back as it was"
   task_started: "“{name}” is on it"
   task_messaged: "passed on to “{name}”"
   task_cancelled: "“{name}” stopped"
@@ -388,6 +389,7 @@ automation:
   chests_done: "Done: {count} {count|chest|chests}. The labels show what went where."
   undo: "Put back"
   restored: "&aPut back {count} {count|chest|chests} as they were."
+  restored_inventory: "&aPut your inventory back as it was."
   not_restored: "&7Couldn't put it back: {reason}"
   empty: "empty"
   reason:

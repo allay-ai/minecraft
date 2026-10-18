@@ -170,6 +170,7 @@ summary:
   respawn_none: "точки возрождения нет"
   sorted: "разложил по порядку"
   sorted_merged: "объединил {stacks} {stacks|стак|стака|стаков}"
+  sort_undone: "вернул как было"
   task_started: "«{name}» взялся"
   task_messaged: "передал агенту «{name}»"
   task_cancelled: "«{name}» остановлен"
@@ -388,6 +389,7 @@ automation:
   chests_done: "Готово: {count} {count|сундук|сундука|сундуков}. Подписи над ними показывают, что куда легло."
   undo: "Вернуть как было"
   restored: "&aВернул {count} {count|сундук|сундука|сундуков} как было."
+  restored_inventory: "&aВернул инвентарь как было."
   not_restored: "&7Не получилось вернуть: {reason}"
   empty: "пусто"
   reason:

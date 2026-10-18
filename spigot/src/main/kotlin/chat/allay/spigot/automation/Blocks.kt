@@ -33,7 +33,12 @@ object Blocks {
 
   fun inventory(player: Player) = "inventory:${player.uniqueId}"
 
-  fun storage(type: Material) = type == Material.CHEST || type == Material.TRAPPED_CHEST || type == Material.BARREL
+  /** Chests, barrels, copper chests at every stage, and placed shulker boxes. */
+  fun storage(type: Material) = type == Material.CHEST || type == Material.TRAPPED_CHEST || type == Material.BARREL ||
+    Tag.COPPER_CHESTS.isTagged(type) || Tag.SHULKER_BOXES.isTagged(type)
+
+  /** A placed shulker box, which takes no shulker box, as in the game. */
+  fun box(block: Block) = Tag.SHULKER_BOXES.isTagged(block.type)
 
   fun furnace(type: Material) = type == Material.FURNACE || type == Material.BLAST_FURNACE || type == Material.SMOKER
 
@@ -139,12 +144,15 @@ object Blocks {
     val key get() = "automation.unfit.${name.lowercase()}"
   }
 
-  /** Why a storage container can't be used, or null when it can. */
-  fun unsuitable(player: Player, block: Block): Unfit? {
+  /**
+   * Why a storage container can't be used, or null when it can. With [adding] a hopper is fine: putting things into a
+   * sorter's input chest is what it's for, only rearranging or taking from one would race the machine.
+   */
+  fun unsuitable(player: Player, block: Block, adding: Boolean = false): Unfit? {
     if (!storage(block.type)) return Unfit.TYPE
     val state = block.state as? Container ?: return Unfit.TYPE
     if (!Claims.mayOpen(player, state)) return Unfit.CLAIM
-    if (hopperLinked(block)) return Unfit.HOPPER
+    if (!adding && hopperLinked(block)) return Unfit.HOPPER
     if (open(block)) return Unfit.OPEN
     return null
   }

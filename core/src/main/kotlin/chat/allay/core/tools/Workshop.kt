@@ -11,12 +11,18 @@ object Workshop {
   /** How long each fuel burns in a standard furnace, in ticks, as the game's fuel values have it. */
   val FUELS: Map<String, Int> = linkedMapOf(
     "coal" to 1600, "charcoal" to 1600, "coal_block" to 16000, "blaze_rod" to 2400, "dried_kelp_block" to 4001, "lava_bucket" to 20000,
+    "stick" to 100, "bamboo" to 50, "scaffolding" to 50,
   )
 
   /** Logs, wood, and planks burn too; the platform knows which ids those are. */
   const val WOOD_TICKS = 300
 
-  fun burnTicks(id: String): Int? = FUELS[id] ?: if (id.endsWith("_log") || id.endsWith("_wood") || id.endsWith("_planks") || id.endsWith("_stem") || id.endsWith("_hyphae")) WOOD_TICKS else null
+  /** Burn ticks of [id], or null when it isn't fuel. Crimson and warped wood never burns, as in the game. */
+  fun burnTicks(id: String): Int? = FUELS[id] ?: if (wood(id)) WOOD_TICKS else null
+
+  /** Logs, wood, planks, and bamboo blocks that burn. */
+  fun wood(id: String): Boolean = !id.startsWith("crimson_") && !id.startsWith("warped_") && !id.startsWith("stripped_crimson_") && !id.startsWith("stripped_warped_") &&
+    (id.endsWith("_log") || id.endsWith("_wood") || id.endsWith("_planks") || id == "bamboo_block" || id == "stripped_bamboo_block")
 
   /** Fuel items for [items] smelts, after [banked] ticks already burning or waiting in the furnace. */
   fun fuelFor(items: Int, fuel: String, banked: Int = 0): Int {

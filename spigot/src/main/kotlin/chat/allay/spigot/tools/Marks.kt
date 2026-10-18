@@ -171,7 +171,7 @@ object Marks : Listener {
   /** Blocks the client draws with a block entity renderer: a block display shows nothing for them. */
   private fun rendersAsEntity(type: Material): Boolean =
     type == Material.CHEST || type == Material.TRAPPED_CHEST || type == Material.ENDER_CHEST || type == Material.DECORATED_POT ||
-      type == Material.CONDUIT || type == Material.BELL || Tag.SHULKER_BOXES.isTagged(type) || Tag.BEDS.isTagged(type) ||
+      type == Material.CONDUIT || type == Material.BELL || Tag.SHULKER_BOXES.isTagged(type) || Tag.COPPER_CHESTS.isTagged(type) || Tag.BEDS.isTagged(type) ||
       Tag.BANNERS.isTagged(type) || Tag.ALL_SIGNS.isTagged(type) || type.name.endsWith("_HEAD") || type.name.endsWith("_SKULL")
 
   /** Before the entity enters the world: nobody sees it by default, it isn't saved with the chunk, and it glows in [hue]. */
