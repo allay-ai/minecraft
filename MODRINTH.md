@@ -19,6 +19,7 @@
 - 💸 **Spending limits** per player tier (`allay.quota.<tier>`) and a model per tier (`allay.model.<tier>`), for any way of paying.
 - 🔌 **A redstone debugger** that reads the machine under the crosshair and finds the faults the game's rules make certain, only where the player may build.
 - 📒 **A notebook, goals with a boss bar, and reminders.**
+- 🧠 **It remembers what it looked up**, so a follow-up like “and how many were in that chest?” needs no second look (Allay Server 5.5).
 - 🪟 **Buttons under answers** and **recipe, brewing, anvil, enchanting, and villager windows** that only show pictures, so nothing can be taken from them. Potions come from the game's own brewing recipes; the anvil plan uses the books and items the player really has.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German come bundled, picked by the player's country, then by their game's language.
 - 📊 **Plan**, if you have it: chat mode, goals, notes, and language on each player's page, and who pays for the model in the server's overview.
