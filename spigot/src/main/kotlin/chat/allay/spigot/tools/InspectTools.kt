@@ -110,12 +110,14 @@ object InspectTools {
     listOf("head" to EquipmentSlot.HEAD, "chest" to EquipmentSlot.CHEST, "legs" to EquipmentSlot.LEGS, "feet" to EquipmentSlot.FEET)
       .forEach { (name, slot) -> stack("armor", name, inventory.getItem(slot)) }
     player.enderChest.contents.forEachIndexed { slot, item -> stack("enderchest", slot, item) }
+    val found = mutableListOf<Pair<Container, Int>>()
     containersNear(player, radius).forEach { container ->
       var direct = 0
       var nested = 0
       container.inventory.contents.forEach { item -> count(item).let { (d, n) -> direct += d; nested += n } }
       if (direct + nested == 0) return@forEach
       total += direct + nested
+      found += container to direct + nested
       places += buildJsonObject {
         put("where", "container")
         put("type", container.type.key.key)
@@ -125,8 +127,10 @@ object InspectTools {
         if (nested > 0) put("inside_boxes", nested)
       }
     }
+    val highlighted = highlight(context, player, found, query)
     val result = buildJsonObject {
       put("query", query)
+      if (highlighted) put("highlighted", "the chests glow with a label for the player; a way button is under the answer when the nearest is far or out of sight")
       if (exact == null) put("matched_ids", buildJsonArray { ids.take(20).forEach { add(JsonPrimitive(it)) } })
       put("total", total)
       put("radius", radius)
@@ -134,6 +138,25 @@ object InspectTools {
       if (places.size > MAX_PLACES) put("more_places", places.size - MAX_PLACES)
     }
     ToolOutput(result, if (total == 0) context.lang.text("summary.find_none") else context.lang.text("summary.find", "total" to total, "places" to places.size))
+  }
+
+  /**
+   * The chests find_item found glow for the asker with “diamond ×12” over them, so the model needn't call show_marks;
+   * when the nearest is far or behind a wall, a way button goes under the answer. False when marks are switched off.
+   */
+  private fun highlight(context: ToolContext, player: Player, found: List<Pair<Container, Int>>, query: String): Boolean {
+    val settings = context.features.config().tools
+    if (found.isEmpty() || !settings.enabled("show_marks")) return false
+    val name = query.replace('_', ' ')
+    val marks = found.take(settings.maxMarks).flatMap { (container, count) ->
+      chat.allay.spigot.automation.Blocks.halves(container.block).mapIndexed { index, half -> Marks.Mark(half, null, if (index == 0) "$name ×$count" else null, Marks.Hue.YELLOW) }
+    }
+    Marks.show(context.plugin, player, marks, settings.marksSeconds)
+    val nearest = found.first().first.block
+    if (nearest.location.distance(player.location) > 12 || !chat.allay.spigot.automation.Blocks.sees(player, nearest)) {
+      if (context.buttons.size < 6) context.buttons += Button.Point(context.lang.text("buttons.way_to_chest"), nearest.x, nearest.y, nearest.z, Dimensions.id(player.world))
+    }
+    return true
   }
 
   private val spawnCheck = tool("get_light_spawn_check") { context, player, args ->
