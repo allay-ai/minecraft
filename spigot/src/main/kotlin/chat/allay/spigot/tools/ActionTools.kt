@@ -3,6 +3,7 @@ package chat.allay.spigot.tools
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
+import chat.allay.spigot.automation.Chests
 import chat.allay.spigot.send
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -104,17 +105,17 @@ object ActionTools {
     // A pinned item may come from anywhere in the inventory but the armor; the slot it leaves stays empty.
     val stacks = ((0..35) + Pins.OFFHAND).mapNotNull { slot -> item(slot)?.let { slot to it } }.toMap()
     val data = stacks.mapValues { it.value.data()!! }
-    val picked = Pins.pick(pins, data) { it.id.let { id -> org.bukkit.Material.matchMaterial(id)?.isBlock == true } }
+    val picked = Pins.pick(pins, data, Chests.block)
+    val layout = Layout.parse(args["layout"] as? JsonObject, Layout.By.NAME)
+    Layout.problem(layout, 27)?.let { throw ToolError(it) }
     val sorted = Pins.arrange(
       items = stacks,
       picked = picked,
       hotbar = args.bool("hotbar") == true,
       offhand = args.bool("offhand") == true,
-      data = { it.data()!! },
-      amount = ItemStack::getAmount,
-      maxStack = ItemStack::getMaxStackSize,
-      similar = ItemStack::isSimilar,
-      withAmount = { item, amount -> item.clone().apply { this.amount = amount } },
+      spec = layout,
+      stacks = Chests.stacks,
+      block = Chests.block,
     ) ?: throw ToolError("the inventory has overstacked items or wouldn't fit back, so it can't be sorted safely")
     // In creative the client keeps its own copy of an open inventory and would write it back over this.
     if (player.gameMode == org.bukkit.GameMode.CREATIVE) player.closeInventory()
@@ -126,6 +127,8 @@ object ActionTools {
       // The hotbar as it ends up, so the answer says what's really there.
       put("hotbar", buildJsonArray { (0..8).forEach { slot -> add(item(slot)?.type?.key?.key?.let(::JsonPrimitive) ?: JsonNull) } })
       put("offhand", item(Pins.OFFHAND)?.type?.key?.key)
+      // And the main inventory's three rows, for “iron in the first row” and the like.
+      put("rows", buildJsonArray { (0..2).forEach { row -> add(buildJsonArray { (0..8).forEach { add(item(9 + row * 9 + it)?.type?.key?.key?.let(::JsonPrimitive) ?: JsonNull) } }) } })
       pins.filter { it.slot !in picked }.takeIf { it.isNotEmpty() }?.let { missing -> put("not_found", missing.joinToString { it.item }) }
     }
     ToolOutput(result, if (merged > 0) context.lang.text("summary.sorted_merged", "stacks" to merged) else context.lang.text("summary.sorted"))

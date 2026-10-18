@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tools.Layout
 import chat.allay.core.tools.Storage
 import chat.allay.core.tools.Storage.Category
 import kotlin.test.Test
@@ -109,7 +110,7 @@ class StorageTest {
 
   @Test fun `sorting each chest keeps them apart`() {
     val chests = listOf(chest("a", 3, Item("stone", 10), null, Item("stone", 10)), chest("b", 2, Item("dirt", 1)))
-    val plan = assertNotNull(Storage.sortEach(chests, stacks, compareBy { it.id }))
+    val plan = assertNotNull(Storage.sortEach(chests, stacks, Layout.Spec()))
     assertEquals(listOf(Item("stone", 20), null, null), plan.chests["a"])
     assertEquals(listOf(Item("dirt", 1), null), plan.chests["b"])
   }

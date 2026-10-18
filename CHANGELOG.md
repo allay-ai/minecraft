@@ -4,7 +4,11 @@ The “Release” workflow takes the notes for a version from its section here, 
 
 ## 5.8.0
 
-- 📌 **Pins in the main inventory.** “Three bundles at the start of the inventory” pins `inventory:1`–`inventory:27`, row by row from the top left, as the hotbar's 1–9 do. What the slot held joins the sort. Needs Allay Server 5.6.
+Layouts and main inventory pins need Allay Server 5.6.
+
+- 🗂️ **Layouts, the same for the inventory and chests.** Say how things should lie and `sort_inventory` or the chests agent's `sort` and `group` follow it: an order (“iron first, then gold”, every stack of each), zones (“food in the last row”, “bundles in the right column”, “slots 1–5”, “at the start”, “at the end”), the rest by name, category, or the biggest pile, each category on its own row while there's room, items that stay where they are (“don't touch the books”), or only merging stacks. Items are named by id, group, material (`iron` is raw iron, ingots, nuggets, blocks, and ore, not tools), chest category, or `enchanted`, `named`, `damaged`. In `group` the order also gives its categories the nearest chests. A zone's empty cells fill last, what a zone can't hold flows on, and a layout where any item's total would change isn't applied.
+- 📌 **Pins in the main inventory.** “Three bundles at the start of the inventory” pins `inventory:1`–`inventory:27`, row by row from the top left, as the hotbar's 1–9 do. What the slot held joins the sort.
+- 🔎 **`sort_inventory` reports the main inventory's rows** besides the hotbar and offhand, so the assistant checks a layout against what's really there.
 
 ## 5.7.1
 

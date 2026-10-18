@@ -5,6 +5,7 @@ import chat.allay.spigot.Claims
 import chat.allay.spigot.tools.Marks
 import chat.allay.spigot.tools.Tool
 import chat.allay.spigot.tools.ToolContext
+import chat.allay.spigot.tools.data
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -38,9 +39,11 @@ object Chests {
     override fun similar(a: ItemStack, b: ItemStack) = a.isSimilar(b)
     override fun withAmount(item: ItemStack, amount: Int) = item.clone().apply { this.amount = amount }
     override fun edible(item: ItemStack) = item.type.isEdible
+    override fun data(item: ItemStack) = item.data()!!
   }
 
-  private val order = compareBy<ItemStack>({ Storage.category(it.type.key.key, it.type.isEdible).ordinal }, { it.type.key.key }).thenByDescending { it.amount }
+  /** Blocks, for a `block` selector in a layout or a pin. */
+  val block = { item: ItemData -> org.bukkit.Material.matchMaterial(item.id)?.isBlock == true }
 
   private fun contents(block: Block): List<ItemStack?> = (block.state as Container).inventory.contents.map { it?.takeUnless { item -> item.type.isAir }?.clone() }
 
@@ -147,9 +150,12 @@ object Chests {
       Read(blocks, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) })
     }
     val chests = read.blocks.map { Storage.Chest(Blocks.place(it), read.before[Blocks.place(it)]!!, read.assign[Blocks.place(it)]) }
+    // Chests sort by category unless the layout says otherwise; a zone a small chest lacks is skipped there.
+    val layout = Layout.parse(args["layout"] as? JsonObject, Layout.By.CATEGORY)
+    Layout.problem(layout, chests.maxOf { it.slots.size })?.let { throw ToolError(it) }
     val plan = when (mode) {
-      "sort" -> Storage.sortEach(chests, stacks, order) ?: throw ToolError("a chest holds overstacked items and can't be sorted safely")
-      "group" -> Storage.group(chests, stacks) ?: throw ToolError("everything together doesn't fit into these chests; pick more chests")
+      "sort" -> Storage.sortEach(chests, stacks, layout, block) ?: throw ToolError("a chest holds overstacked items and can't be sorted safely")
+      "group" -> Storage.group(chests, stacks, layout, block) ?: throw ToolError("everything together doesn't fit into these chests; pick more chests")
       "move" -> {
         if (read.targets.isEmpty()) throw ToolError("move needs to: the chests to put things in")
         val ids = (args["items"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(Pins::normalize) }?.toSet().orEmpty()

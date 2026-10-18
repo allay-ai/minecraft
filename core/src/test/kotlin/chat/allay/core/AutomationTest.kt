@@ -71,15 +71,22 @@ class AutomationTest {
     assertEquals(mapOf(8 to 12, 7 to 13, 6 to 10, 5 to 14), picked)
   }
 
-  /** Sorts [items] as `sort_inventory` does, items without durability stacking to 64, and returns every slot after it. */
-  private fun arrange(items: Map<Int, ItemData>, pins: List<Pins.Pin>, hotbar: Boolean, block: (ItemData) -> Boolean = { false }): Map<Int, ItemData?> {
-    val sorted = Pins.arrange(
-      items, Pins.pick(pins, items, block), hotbar, offhand = false,
-      data = { it }, amount = ItemData::count, maxStack = { if (it.maxDamage > 0 || it.id == "bundle") 1 else 64 },
-      similar = { a, b -> a.copy(count = 0) == b.copy(count = 0) }, withAmount = { item, count -> item.copy(count = count) },
-    )!!
-    return items + sorted.slots
+  /** Items without durability stack to 64, as in the game. */
+  private val stacks = object : chat.allay.core.tools.Storage.Stacks<ItemData> {
+    override fun id(item: ItemData) = item.id
+    override fun amount(item: ItemData) = item.count
+    override fun max(item: ItemData) = if (item.maxDamage > 0 || item.id == "bundle") 1 else 64
+    override fun similar(a: ItemData, b: ItemData) = a.copy(count = 0) == b.copy(count = 0)
+    override fun withAmount(item: ItemData, amount: Int) = item.copy(count = amount)
+    override fun edible(item: ItemData) = item.food != null
+    override fun data(item: ItemData) = item
   }
+
+  /** Sorts [items] as `sort_inventory` does and returns every slot after it. */
+  private fun arrange(
+    items: Map<Int, ItemData>, pins: List<Pins.Pin>, hotbar: Boolean, spec: chat.allay.core.tools.Layout.Spec = chat.allay.core.tools.Layout.Spec(),
+    block: (ItemData) -> Boolean = { false },
+  ): Map<Int, ItemData?> = items + Pins.arrange(items, Pins.pick(pins, items, block), hotbar, offhand = false, spec, stacks, block)!!.slots
 
   private fun tool(id: String) = ItemData(id, 1, maxDamage = 1561)
 

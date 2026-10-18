@@ -119,23 +119,24 @@ object Pins {
   /**
    * A whole inventory sort: what every slot it touches ends up holding. [items] are slots 0–35 and [OFFHAND] (armor
    * never moves), [picked] comes from [pick]. Pinned slots take their items, in the hotbar or the main inventory; the
-   * main inventory's other slots (9–35) take all the rest, merged and sorted. With [hotbar] the slots no pin takes are emptied into it; without pins the hotbar keeps
-   * what it holds that's held in hand, sorted by [HAND] from the first slot. A hotbar slot left empty takes only what
-   * the main inventory can't fit, so a sort never fills the hotbar with arrows and bundles. With [offhand], the offhand
-   * keeps a hand item and gives up anything else. Null when the items wouldn't fit back.
+   * main inventory's other slots (9–35) take all the rest, laid out by [spec]. With [hotbar] the slots no pin takes are
+   * emptied into it; without pins the hotbar keeps what it holds that's held in hand, sorted by [HAND] from the first
+   * slot. A hotbar slot left empty takes only what the main inventory can't fit, so a sort never fills the hotbar with
+   * arrows and bundles. With [offhand], the offhand keeps a hand item and gives up anything else. What [Layout.Spec.keep]
+   * names stays wherever it is. Null when the items wouldn't fit back.
    */
   fun <T> arrange(
     items: Map<Int, T>,
     picked: Map<Int, Int>,
     hotbar: Boolean,
     offhand: Boolean,
-    data: (T) -> ItemData,
-    amount: (T) -> Int,
-    maxStack: (T) -> Int,
-    similar: (T, T) -> Boolean,
-    withAmount: (T, Int) -> T,
+    spec: Layout.Spec,
+    stacks: Storage.Stacks<T>,
+    block: (ItemData) -> Boolean = { false },
   ): Arranged<T>? {
+    val data = stacks::data
     val result = HashMap<Int, T?>()
+    val kept = { item: T -> spec.keep.any { Layout.matches(it, data(item), block) } }
     // What isn't pinned away from its slot.
     val left = items.filterKeys { it !in picked.values }
     picked.forEach { (slot, from) -> result[slot] = items.getValue(from) }
@@ -148,26 +149,30 @@ object Pins {
       if (slot in picked) { left[slot]?.let(pool::add); continue }
       val item = left[slot]
       when {
-        !hotbar -> if (item == null) open += slot
+        item != null && kept(item) -> {}
+        !hotbar || spec.mergeOnly -> if (item == null) open += slot
         picked.isEmpty() && item != null && hand(data(item)) != null -> { held += item; open += slot }
         else -> { item?.let(pool::add); open += slot }
       }
     }
     left[OFFHAND]?.let { item ->
-      if (OFFHAND in picked) pool += item else if (offhand && hand(data(item)) == null) { pool += item; result[OFFHAND] = null }
+      if (OFFHAND in picked) pool += item
+      else if (offhand && !spec.mergeOnly && !kept(item) && hand(data(item)) == null) { pool += item; result[OFFHAND] = null }
     }
-    // A pinned main slot gives up what it held, as a pinned hotbar slot does.
-    (9..35).forEach { slot -> left[slot]?.let(pool::add) }
-    val order = compareBy<T> { data(it).id }.thenByDescending(amount)
     // Held items come first in the hotbar, weapons leading; the slots after them take only what the main inventory can't.
-    val hand = Sorter.sort(held, amount, maxStack, similar, compareBy<T> { hand(data(it)) }.then(order), withAmount) ?: return null
-    val kept = hand.slots.filterNotNull()
-    kept.forEachIndexed { index, stack -> result[open[index]] = stack }
-    val room = (9..35).filter { it !in picked } + open.drop(kept.size)
-    val sorted = Sorter.sort(pool + List((room.size - pool.size).coerceAtLeast(0)) { null }, amount, maxStack, similar, order, withAmount)
-      ?.takeIf { it.slots.drop(room.size).all { slot -> slot == null } } ?: return null
-    room.forEachIndexed { index, slot -> result[slot] = sorted.slots[index] }
-    return Arranged(result, sorted.merged + hand.merged)
+    val order = compareBy<T> { data(it).id }.thenByDescending(stacks::amount)
+    val hand = Sorter.sort(held, stacks::amount, stacks::max, stacks::similar, compareBy<T> { hand(data(it)) }.then(order), stacks::withAmount) ?: return null
+    val inHand = hand.slots.filterNotNull()
+    inHand.forEachIndexed { index, stack -> result[open[index]] = stack }
+    // A pinned main slot gives up what it held, as a pinned hotbar slot does.
+    val main = (9..35).map { slot -> if (slot in picked) null else left[slot] }
+    val blocked = (9..35).filter { it in picked }.map { it - 9 }.toSet()
+    val laid = Layout.lay(main, pool + (9..35).filter { it in picked }.mapNotNull { left[it] }, blocked, spec, stacks, block) ?: return null
+    laid.cells.forEachIndexed { index, stack -> if (index !in blocked) result[index + 9] = stack }
+    val room = open.drop(inHand.size)
+    if (laid.extra.size > room.size) return null
+    room.forEachIndexed { index, slot -> result[slot] = laid.extra.getOrNull(index) }
+    return Arranged(result, laid.merged + hand.merged)
   }
 
   /** A pin's item as the model wrote it: a group, or an id without the namespace. */

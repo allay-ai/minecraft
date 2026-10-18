@@ -11,7 +11,7 @@
 - 👀 **It sees what the player sees:** the block under the crosshair with its drops, a chest's contents, an enchanting table's bookshelves, a mob and the hits it takes, a villager's trades.
 - 🎒 **It knows the player's things:** inventory, armor, the ender chest, bundles and shulker boxes, and any item in full, down to a weapon's damage and speed as the tooltip shows them.
 - 🔍 **It finds things** in the inventory, the ender chest, and the chests nearby, inside shulker boxes too, and lights up the chests it found.
-- 🧹 **A tidy inventory** with pinned slots: “sword first, water second”, the best item of a kind in each, the hotbar only when asked.
+- 🧹 **A tidy inventory** with pinned slots: “sword first, water second”, the best item of a kind in each, the hotbar only when asked; and a layout for the rest, the same for chests: “iron first”, “food in the last row”, “by category, each kind on its own row”, “don't touch the books”.
 - 🧭 **It shows the way** with the compass and a particle trail: to a death point, a village, a biome, or a place from the player's notebook. The trail lasts as long as the walk needs, in a dozen looks, and goes out on arrival. The way to another player follows them as they run.
 - ✨ **It marks blocks** that only the asker sees, glowing through walls: the chests that hold what they look for, labeled with what's inside, and ghost torches on dark spots. Ores, spawners, and vaults never glow, and containers only when the player could open them.
 - 🏗️ **Drafts of any build** up to 20×15×20 as glowing ghosts, layer by layer, checked against what the player places, with a bar counting; bigger builds come in parts.

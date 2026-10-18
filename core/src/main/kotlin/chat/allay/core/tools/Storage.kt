@@ -24,6 +24,8 @@ object Storage {
     fun withAmount(item: T, amount: Int): T
     /** Food the player can eat; the platform knows. */
     fun edible(item: T): Boolean = false
+    /** The item as [Layout] matches it: enchantments, names, potions. */
+    fun data(item: T): ItemData = ItemData(id(item), amount(item))
   }
 
   /** A chest (a double chest is one) with its slots; [assign] is what belongs in it, if anything. */
@@ -96,7 +98,7 @@ object Storage {
    * category, and the categories nobody assigned take the free chests in order, the most stacks first. A category
    * that doesn't fit flows into the next chest. Null when everything together doesn't fit.
    */
-  fun <T> group(chests: List<Chest<T>>, stacks: Stacks<T>): Plan<T>? {
+  fun <T> group(chests: List<Chest<T>>, stacks: Stacks<T>, spec: Layout.Spec = Layout.Spec(by = Layout.By.CATEGORY), block: (ItemData) -> Boolean = { false }): Plan<T>? {
     val pools = pool(chests.flatMap { it.slots }, stacks)
     val category = { pool: Pool<T> -> category(stacks.id(pool.item), stacks.edible(pool.item)) }
     val free = chests.map { it.slots.size }.toMutableList()
@@ -123,8 +125,10 @@ object Storage {
 
     // The rest by category, the biggest first, into chests nobody assigned, continuing into the next one.
     val unassigned = chests.indices.filter { chests[it].assign == null }.toMutableList()
+    // What the layout's order names first takes the nearest chests; the rest the biggest first.
+    val rank = { pool: Pool<T> -> spec.order.indexOfFirst { Layout.matches(it, stacks.data(pool.item), block) }.let { if (it < 0) spec.order.size else it } }
     val byCategory = pools.filter { waiting[it]!!.isNotEmpty() }.groupBy(category)
-      .entries.sortedByDescending { (_, list) -> list.sumOf { waiting[it]!!.size } }
+      .entries.sortedWith(compareBy<Map.Entry<Category, List<Pool<T>>>> { (_, list) -> list.minOf(rank) }.thenByDescending { (_, list) -> list.sumOf { waiting[it]!!.size } })
     for ((kind, list) in byCategory) {
       val start = unassigned.firstOrNull { free[it] > 0 && (labels[it] == null || labels[it] == kind) } ?: break
       val order = unassigned.dropWhile { it != start }
@@ -136,18 +140,23 @@ object Storage {
     pools.forEach { pool -> fill(pool, chests.indices.toList()) }
     if (waiting.values.any { it.isNotEmpty() }) return null
 
+    // Inside each chest the layout decides; keep has nothing to keep, since everything moved.
+    val inside = spec.copy(keep = emptyList(), mergeOnly = false)
     val result = chests.indices.associate { index ->
-      val sorted = placed[index].sortedWith(compareBy<T>({ category(stacks.id(it), stacks.edible(it)).ordinal }, { stacks.id(it) }).thenByDescending { stacks.amount(it) })
-      chests[index].key to sorted + List(chests[index].slots.size - sorted.size) { null }
+      val laid = Layout.lay(placed[index] + List(chests[index].slots.size - placed[index].size) { null }, emptyList(), emptySet(), inside, stacks, block) ?: return null
+      if (laid.extra.isNotEmpty()) return null
+      chests[index].key to laid.cells
     }
     if (totals(result.values, stacks) != totals(chests.map { it.slots }, stacks)) return null
     return Plan(result, chests.indices.associate { chests[it].key to labels[it] })
   }
 
-  /** Sorts each chest on its own, as [Sorter] does an inventory. Null when one doesn't fit back. */
-  fun <T> sortEach(chests: List<Chest<T>>, stacks: Stacks<T>, order: Comparator<T>): Plan<T>? {
+  /** Lays each chest out on its own by [spec], as the inventory is. Null when one doesn't fit back. */
+  fun <T> sortEach(chests: List<Chest<T>>, stacks: Stacks<T>, spec: Layout.Spec = Layout.Spec(by = Layout.By.CATEGORY), block: (ItemData) -> Boolean = { false }): Plan<T>? {
     val result = chests.associate { chest ->
-      chest.key to (Sorter.sort(chest.slots, stacks::amount, stacks::max, stacks::similar, order, stacks::withAmount)?.slots ?: return null)
+      val laid = Layout.lay(chest.slots, emptyList(), emptySet(), spec, stacks, block) ?: return null
+      if (laid.extra.isNotEmpty()) return null
+      chest.key to laid.cells
     }
     return Plan(result, chests.associate { it.key to it.assign?.category })
   }
