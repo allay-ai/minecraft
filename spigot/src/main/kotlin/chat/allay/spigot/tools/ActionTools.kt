@@ -88,21 +88,51 @@ object ActionTools {
     return ToolOutput(result, lang.text("summary.distance_to", "name" to target.name, "blocks" to distance, "direction" to lang.text("directions.$direction")))
   }
 
-  private val sortInventory = tool("sort_inventory") { context, player, _ ->
+  private val sortInventory = tool("sort_inventory") { context, player, args ->
     val inventory = player.inventory
-    // Slots 9–35: the hotbar is muscle memory, armor and offhand live elsewhere.
-    val main = (9..35).map { inventory.getItem(it)?.takeUnless { item -> item.type.isAir } }
+    // Slots 9–35 by default: the hotbar is muscle memory, armor and offhand live elsewhere. The player may ask for both.
+    val pins = (args["pins"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }?.map { pin ->
+      val slot = when (val raw = pin["slot"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.lowercase() }) {
+        "offhand" -> Pins.OFFHAND
+        else -> raw?.toIntOrNull()?.takeIf { it in 1..9 }?.minus(1) ?: throw ToolError("a pin's slot is 1–9 for the hotbar, or offhand")
+      }
+      Pins.Pin(slot, Pins.normalize(pin.string("item") ?: throw ToolError("each pin needs an item: an id or a group (${Pins.GROUPS.keys.joinToString()})")))
+    }.orEmpty()
+    if (pins.map { it.slot }.toSet().size != pins.size) throw ToolError("two pins name the same slot")
+    val involved = buildList {
+      addAll(9..35)
+      if (args.bool("hotbar") == true) addAll(0..8)
+      if (args.bool("offhand") == true) add(Pins.OFFHAND)
+      pins.forEach { if (it.slot !in this) add(it.slot) }
+    }.sorted()
+    val item = { slot: Int -> inventory.getItem(slot)?.takeUnless { it.type.isAir } }
+    // A pinned item may come from anywhere in the inventory but the armor; the slot it leaves stays empty.
+    val candidates = ((0..35) + Pins.OFFHAND).mapNotNull { slot -> item(slot)?.data()?.let { slot to it } }.toMap()
+    val picked = Pins.pick(pins, candidates) { it.id.let { id -> org.bukkit.Material.matchMaterial(id)?.isBlock == true } }
+    val pinned = picked.mapValues { (_, from) -> item(from)!! }
+    val free = involved.filter { it !in picked.keys }
+    val pool = (involved.mapNotNull { slot -> if (slot in picked.values) null else item(slot) })
     val sorted = Sorter.sort(
-      items = main,
+      items = pool + List(free.size - pool.size.coerceAtMost(free.size)) { null },
       amount = ItemStack::getAmount,
       maxStack = ItemStack::getMaxStackSize,
       similar = ItemStack::isSimilar,
       order = compareBy<ItemStack> { it.type.key.key }.thenByDescending { it.amount },
       withAmount = { item, amount -> item.clone().apply { this.amount = amount } },
-    ) ?: throw ToolError("the inventory has overstacked items and can't be sorted safely")
-    sorted.slots.forEachIndexed { index, item -> inventory.setItem(9 + index, item) }
+    )?.takeIf { result -> result.slots.count { it != null } <= free.size }
+      ?: throw ToolError("the inventory has overstacked items or wouldn't fit back, so it can't be sorted safely")
+    // In creative the client keeps its own copy of an open inventory and would write it back over this.
+    if (player.gameMode == org.bukkit.GameMode.CREATIVE) player.closeInventory()
+    picked.values.filter { it !in involved }.forEach { inventory.setItem(it, null) }
+    pinned.forEach { (slot, stack) -> inventory.setItem(slot, stack) }
+    free.forEachIndexed { index, slot -> inventory.setItem(slot, sorted.slots.getOrNull(index)) }
     val merged = sorted.merged.toLong()
-    ToolOutput(buildJsonObject { put("merged_stacks", merged) }, if (merged > 0) context.lang.text("summary.sorted_merged", "stacks" to merged) else context.lang.text("summary.sorted"))
+    val result = buildJsonObject {
+      put("merged_stacks", merged)
+      if (pins.isNotEmpty()) put("pinned", kotlinx.serialization.json.buildJsonObject { pinned.forEach { (slot, stack) -> put(if (slot == Pins.OFFHAND) "offhand" else "${slot + 1}", stack.type.key.key) } })
+      pins.filter { it.slot !in picked }.takeIf { it.isNotEmpty() }?.let { missing -> put("not_found", missing.joinToString { it.item }) }
+    }
+    ToolOutput(result, if (merged > 0) context.lang.text("summary.sorted_merged", "stacks" to merged) else context.lang.text("summary.sorted"))
   }
 
   /** Reminders in one tool: `action` add, list, or cancel. */
