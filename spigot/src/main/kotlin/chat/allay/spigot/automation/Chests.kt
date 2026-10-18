@@ -236,28 +236,40 @@ object Chests {
     val wanted = selectors(args, "items")
     val kinds = (args["categories"] as? JsonArray)?.mapNotNull { Storage.Category.parse((it as? JsonPrimitive)?.contentOrNull) }?.toSet().orEmpty()
     val keep = selectors(args, "keep")
+    // amounts: a limit for each item of its own, “6 lapis and 8 coal”; count still caps them all together.
+    class Amount(val item: String, val count: Int?, val upTo: Int?)
+    val amounts = (args["amounts"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.map { entry ->
+      val item = entry.string("item") ?: throw ToolError("each of amounts needs an item")
+      if ((entry.int("count") == null) == (entry.int("up_to") == null)) throw ToolError("each of amounts needs exactly one of count or up_to")
+      Amount(item, entry.int("count"), entry.int("up_to"))
+    }.orEmpty()
+    if (amounts.any { it.upTo != null } && mode != "take") throw ToolError("up_to in amounts is for take")
+    val share = { item: ItemStack -> amounts.indexOfFirst { answers(listOf(it.item), item) }.takeIf { it >= 0 && !answers(keep, item) } }
     val matches = { item: ItemStack ->
-      (answers(wanted, item) || Storage.category(item.type.key.key, item.type.isEdible) in kinds) && !answers(keep, item)
+      ((answers(wanted, item) || Storage.category(item.type.key.key, item.type.isEdible) in kinds) && !answers(keep, item)) || share(item) != null
     }
+    // up_to counts what the player carries already; one they have enough of takes nothing.
+    val carried = { index: Int -> read.inventory?.take(OFFHAND)?.filterNotNull()?.filter { share(it) == index }?.sumOf { it.amount } ?: 0 }
+    val shares = amounts.indices.associateWith { index -> amounts[index].count ?: (amounts[index].upTo!! - carried(index)).coerceAtLeast(0) }
     val count = args.int("count")
     val plan = when (mode) {
       "sort" -> Storage.sortEach(chests, stacks, layout, block) ?: throw ToolError("a chest holds overstacked items and can't be sorted safely")
       "group" -> Storage.group(chests, stacks, layout, block) ?: throw ToolError("everything together doesn't fit into these chests; pick more chests")
       "move" -> {
         if (read.targets.isEmpty()) throw ToolError("move needs to: the chests to put things in")
-        if (wanted.isEmpty() && kinds.isEmpty()) throw ToolError("move needs items or categories")
+        if (wanted.isEmpty() && kinds.isEmpty() && amounts.isEmpty()) throw ToolError("move needs items, categories, or amounts")
         // The item in hand and the offhand stay with the player.
-        Storage.move(withInventory, read.targets, matches, stacks, count, mapOf(INVENTORY to setOf(read.held, OFFHAND)), accepts = accepts)
+        Storage.move(withInventory, read.targets, matches, stacks, count, mapOf(INVENTORY to setOf(read.held, OFFHAND)), accepts = accepts, share = share, shares = shares)
       }
       "take" -> {
-        if (wanted.isEmpty() && kinds.isEmpty()) throw ToolError("take needs items or categories")
+        if (wanted.isEmpty() && kinds.isEmpty() && amounts.isEmpty()) throw ToolError("take needs items, categories, or amounts")
         // up_to: how many the player should end up with, counting what they carry.
         val limit = args.int("up_to")?.let { upTo ->
           val has = read.inventory!!.take(OFFHAND).filterNotNull().filter(matches).sumOf { it.amount }
           if (has >= upTo) throw ToolError("the player already carries $has of it, not fewer than $upTo")
           upTo - has
         } ?: count
-        Storage.move(withInventory, setOf(INVENTORY), matches, stacks, limit, order = mapOf(INVENTORY to MAIN_FIRST))
+        Storage.move(withInventory, setOf(INVENTORY), matches, stacks, limit, order = mapOf(INVENTORY to MAIN_FIRST), share = share, shares = shares)
       }
       "stash" -> {
         // The hotbar is the player's kit and stays, unless they ask; the item in hand and the offhand always do.
@@ -293,6 +305,28 @@ object Chests {
             if (homeless.isNotEmpty()) putJsonArray("no_chest_for") { homeless.take(16).forEach { add(it) } }
           }
           if (mode == "take" && gained.isEmpty()) put("found_none", "nothing matching lies in these chests")
+        }
+        if (amounts.isNotEmpty()) {
+          // Each amount as asked and as planned, so a shortfall is plain: “6 lapis, only 4 in the chests”.
+          // Take: what left the chests. Move: what arrived in the target chests.
+          val moved = amounts.indices.associateWith { 0 }.toMutableMap()
+          val sign = if (mode == "take") 1 else -1
+          read.blocks.filter { mode == "take" || Blocks.place(it) in read.targets }.forEach { block ->
+            read.before[Blocks.place(block)]!!.filterNotNull().forEach { item -> share(item)?.let { moved.merge(it, sign * item.amount, Int::plus) } }
+            plan.chests[Blocks.place(block)]!!.filterNotNull().forEach { item -> share(item)?.let { moved.merge(it, -sign * item.amount, Int::plus) } }
+          }
+          putJsonArray("amounts") {
+            amounts.forEachIndexed { index, amount ->
+              val got = moved[index]!!
+              add(buildJsonObject {
+                put("item", amount.item)
+                amount.count?.let { put("asked", it) }
+                amount.upTo?.let { put("up_to", it); put("carried", carried(index)) }
+                put("planned", got)
+                if (got < shares[index]!!) put("short", shares[index]!! - got)
+              })
+            }
+          }
         }
         if (plan.left.isNotEmpty()) putJsonObject("did_not_fit") { plan.left.forEach { (id, n) -> put(id, n) } }
         // Outside claims nobody's rights say whose chests these are, so grouping across them waits for a yes.

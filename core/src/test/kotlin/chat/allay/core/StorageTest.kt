@@ -169,4 +169,15 @@ class StorageTest {
     assertEquals(listOf(Item("diamond_sword", 1, max = 1), null, null, Item("bread", 5), Item("music_disc_cat", 1, max = 1)), plan.chests["inventory"])
     assertEquals(mapOf("bread" to 5), plan.left)
   }
+
+  @Test fun `each item may have a limit of its own`() {
+    val chests = listOf(
+      chest("chest", 3, Item("lapis_lazuli", 64), Item("coal", 5), Item("coal", 20)),
+      chest("inventory", 3),
+    )
+    val part = { item: Item -> mapOf("lapis_lazuli" to 0, "coal" to 1)[item.id] }
+    val plan = Storage.move(chests, setOf("inventory"), { true }, stacks, share = part, shares = mapOf(0 to 6, 1 to 8))
+    assertEquals(mapOf("lapis_lazuli" to 6, "coal" to 8), plan.chests["inventory"]!!.filterNotNull().groupBy { it.id }.mapValues { (_, l) -> l.sumOf { it.amount } })
+    assertEquals(listOf(Item("lapis_lazuli", 58), null, Item("coal", 17)), plan.chests["chest"])
+  }
 }

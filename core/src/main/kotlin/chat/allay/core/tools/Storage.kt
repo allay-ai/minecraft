@@ -190,7 +190,8 @@ object Storage {
    * Moves what [wanted] matches out of every chest but [targets] into the targets, merging into their stacks first.
    * At most [limit] items move in all, when given. [fixed] slots of a chest give nothing (the hotbar, the hand), and
    * [order] says which empty slots of a target fill first (the main inventory before the hotbar). [accepts] tells what
-   * a target may hold: a shulker box takes no shulker box. What doesn't fit stays where it was and comes back in
+   * a target may hold: a shulker box takes no shulker box. [share] puts an item under a per-item limit of [shares]
+   * (“6 lapis and 8 coal”), counted on top of [limit]. What doesn't fit stays where it was and comes back in
    * [Plan.left]; the rest of each chest stays put.
    */
   fun <T> move(
@@ -202,10 +203,13 @@ object Storage {
     fixed: Map<String, Set<Int>> = emptyMap(),
     order: Map<String, List<Int>> = emptyMap(),
     accepts: (String, T) -> Boolean = { _, _ -> true },
+    share: (T) -> Int? = { null },
+    shares: Map<Int, Int> = emptyMap(),
   ): Plan<T> {
     val slots = chests.associate { it.key to it.slots.toMutableList() }
     val left = mutableMapOf<String, Int>()
     var budget = limit ?: Int.MAX_VALUE
+    val own = shares.toMutableMap()
     for (source in chests.filter { it.key !in targets }) {
       val from = slots[source.key]!!
       for (index in from.indices) {
@@ -213,12 +217,15 @@ object Storage {
         if (index in fixed[source.key].orEmpty()) continue
         val item = from[index] ?: continue
         if (!wanted(item)) continue
-        val moving = minOf(stacks.amount(item), budget)
+        val part = share(item)
+        val moving = minOf(stacks.amount(item), budget, part?.let { own[it] } ?: Int.MAX_VALUE)
+        if (moving <= 0) continue
         var amount = moving
         for (target in chests.filter { it.key in targets }) {
           amount = pour(item, amount, slots[target.key]!!, stacks, order[target.key]) { accepts(target.key, it) }
         }
         budget -= moving - amount
+        part?.let { own.computeIfPresent(it) { _, n -> n - (moving - amount) } }
         val stays = stacks.amount(item) - (moving - amount)
         from[index] = if (stays > 0) stacks.withAmount(item, stays) else null
         if (amount > 0) left.merge(stacks.id(item), amount, Int::plus)

@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.11.1
+
+Pairs with Allay Server 5.9.1, which tells the chests agent about `amounts`.
+
+- 🔢 **A number for each item.** “Get me 6 lapis and 8 coal” is one plan now: `take` and `move` accept `amounts`, each item with its own `count` (or `up_to` for take: “top my torches and steaks up to a stack”). Before, `count` capped everything together, so 14 could all be lapis. The plan says what each item got and what fell short.
+
 ## 5.11.0
 
 Pairs with Allay Server 5.9.0, which tells the agents about the new modes and options; older servers keep working without them.
