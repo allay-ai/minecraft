@@ -10,10 +10,13 @@
 - 📖 **It explains itself** from the commands and settings each player really has, and knows your server's plugins and their versions.
 - 👀 **It sees what the player sees:** the block under the crosshair with its drops, a chest's contents, an enchanting table's bookshelves, a mob and the hits it takes, a villager's trades.
 - 🎒 **It knows the player's things:** inventory, armor, the ender chest, bundles and shulker boxes, and any item in full, down to a weapon's damage and speed as the tooltip shows them.
-- 🔍 **It finds things** in the inventory, the ender chest, and the chests nearby, inside shulker boxes too.
+- 🔍 **It finds things** in the inventory, the ender chest, and the chests nearby, inside shulker boxes too, and lights up the chests it found.
+- 🧹 **A tidy inventory** with pinned slots: “sword first, water second”, the best item of a kind in each, the hotbar only when asked.
 - 🧭 **It shows the way** with the compass and a particle trail: to a death point, a village, a biome, or a place from the player's notebook. The trail lasts as long as the walk needs, in a dozen looks, and goes out on arrival. The way to another player follows them as they run.
 - ✨ **It marks blocks** that only the asker sees, glowing through walls: the chests that hold what they look for, labeled with what's inside, and ghost torches on dark spots. Ores, spawners, and vaults never glow, and containers only when the player could open them.
 - 🏗️ **Drafts of any build** up to 20×15×20 as glowing ghosts, layer by layer, checked against what the player places, with a bar counting; bigger builds come in parts.
+- 🤖 **Automation agents** take the chores at the base in the background: sort or group chests by category (the player picks them with left clicks; signs and item frames say what goes where), smelt evenly with exactly the fuel needed, brew potions step by step, and craft at a real crafting table. They talk under their own name with buttons, wait for furnaces for free, work only near the player and with blocks in plain sight, and stop when someone takes what they count on. **[Put back]** undoes chest sorting for 5 minutes.
+- 💸 **Spending limits** per player tier (`allay.quota.<tier>`) and a model per tier (`allay.model.<tier>`), for any way of paying.
 - 🔌 **A redstone debugger** that reads the machine under the crosshair and finds the faults the game's rules make certain, only where the player may build.
 - 📒 **A notebook, goals with a boss bar, and reminders.**
 - 🪟 **Buttons under answers** and **recipe, brewing, anvil, enchanting, and villager windows** that only show pictures, so nothing can be taken from them. Potions come from the game's own brewing recipes; the anvil plan uses the books and items the player really has.
@@ -75,7 +78,7 @@ The country lookup needs no account and sends no address anywhere. On the first 
 | `/allay status`, `/allay link` | Who pays for the model and how the subscription stands; a link to pay in Telegram |
 | `/allay locale [player]` | Which language a player reads Allay in, and why |
 
-`allay.ask`, `allay.askall`, and `allay.chat` are everyone's by default; `allay.askx`, `allay.askall.nocooldown`, `allay.reload`, and `allay.admin` (status, link, locale, and the subscription notes) belong to operators. Allay tells a player only about containers they could open themselves: outside claims, or with container trust in GriefPrevention, and never an unopened structure chest.
+`allay.ask`, `allay.askall`, `allay.chat`, and `allay.automation` with `.chests`, `.furnaces`, `.brewing`, and `.crafting` are everyone's by default; `allay.askx`, `allay.askall.nocooldown`, `allay.reload`, and `allay.admin` (status, link, locale, and the subscription notes) belong to operators. Allay tells a player only about containers they could open themselves: outside claims, or with container trust in GriefPrevention, and never an unopened structure chest.
 
 ## Plan
 

@@ -13,10 +13,14 @@
 - 🧩 **It knows the server's plugins.** Questions about graves, claims, or AFK get answers for the plugin and version that really run.
 - 👀 **It sees what the player sees.** One look covers the block under the crosshair with its drops, a chest's contents, an enchanting table's bookshelves, a mob and the hits it takes, a villager's trades.
 - 🎒 **It knows the player's things.** Inventory, armor, the ender chest, what's inside bundles and shulker boxes, and any item in full: enchantments, potion durations, trims, a weapon's damage and speed as the tooltip shows them.
-- 🔍 **It finds things.** Where an item is and how many there are: in the inventory, the ender chest, and the chests nearby, inside shulker boxes too.
+- 🔍 **It finds things.** Where an item is and how many there are: in the inventory, the ender chest, and the chests nearby, inside shulker boxes too. The chests it finds light up with what's inside written over them, and when the nearest is far or behind a wall, a button shows the way.
+- 🧹 **A tidy inventory.** “Sort my inventory, sword first, water in the second slot”: stacks merge at once, the hotbar and offhand move only when you ask, and a pinned slot takes the best item of its kind. Ask the assistant to remember the layout, and next time “sort my inventory” is enough.
 - 🧭 **It shows the way.** A compass and a particle trail to a death point, a village, a cherry grove, or a place from the player's notebook. The trail lasts as long as the player asks or the walk needs, comes in a dozen looks from flames to hearts, and goes out once they're there. Ask for the way to another player, and the trail follows them as they run.
 - ✨ **It marks blocks for you.** “Where's my redstone?” lights up the chests that hold it, with what's inside written over them; “where do I put torches?” puts glowing ghost torches on the dark spots. Only you see the marks, and they glow through walls, so Allay never marks ores, spawners, or vaults, and only containers you could open yourself.
 - 🏗️ **It drafts what you want to build.** “How do I build a small oak house?” or “draw me a sugar cane farm” puts the build in front of you as glowing ghosts, layer by layer, up to 20×15×20. Each block you place goes out, a wrong one turns red and says what belongs there, and the next layer lights up when one is done; a bar counts. Bigger builds come in parts. Ask to turn or move it, or to check it against what you built.
+- 🤖 **Automation agents do the chores at your base.** “Sort my chests by category”, “smelt all my raw gold evenly”, “brew three night vision potions”, “craft me a set of diamond tools”. The chat hands the job to an agent that works in the background while you keep chatting. It writes to you under its name, asks with buttons, and waits for furnaces and brewing stands without costing anything. You stay near: it pauses while you're away from the base, and every furnace, stand, and crafting table it uses must be in plain sight, with nothing solid, glass included, in between.
+- 📦 **Chests the way you want them.** Left-click the chests to pick them, or press “All nearby”. The agent reads the signs and item frames on them and sorts each chest, groups everything by category across them, or moves what you name; it asks when a sign doesn't say enough. Labels over the chests show what went where, and **[Put back]** undoes it for 5 minutes. Chests a hopper feeds or empties, chests someone has open, and chests you couldn't open yourself stay out.
+- 🔥 **Furnaces, brewing stands, and the crafting table.** Smelting spreads evenly over free furnaces, blast furnaces, and smokers, each by what it can cook, with exactly the fuel it needs; coal blocks split into coal. Brewing starts where a stand already is (an awkward potion saves a step), takes only what's needed, and turns a blaze rod into powder. Crafting needs a real crafting table nearby and takes ingredients from the inventory, bundles, the ender chest, and the chests around, never from inside shulker boxes. What's left over goes back. If you or anyone else takes what an agent counts on, it stops and says so.
 - 🔌 **It debugs redstone.** “Why doesn't my door open?” reads the machine you look at: dust power, repeater delays, comparators, pistons, torches. The game's rules point at the fault (dust running past the door, a burned-out torch, a jammed piston), and red marks show where. Only in places you may build.
 - 📒 **A notebook, goals, and reminders.** “Remember there's an arrow trader here”, “set a goal to collect 16 diamonds” (a boss bar at the top), “remind me in 5 minutes”. The assistant knows which dimension the player is in, so a bastion noted in the Nether stays in the Nether. `/allay memory <text>` keeps something without asking the assistant.
 - 🪟 **Buttons and windows.** Answers end with buttons: a follow-up question, the way to a spot, coordinates to copy, a recipe, the brewing steps, the anvil plan, enchantments, the villagers around. The assistant reads potions from the game's own brewing recipes, and plans the anvil with the books and items you really have: which goes left, which right, and what each step costs. The recipe, brewing, anvil, enchanting, and villager windows show pictures only, so nothing can be taken from them.
@@ -25,7 +29,7 @@
 - 🧩 **PlaceholderAPI**, if you have it: `{papi:luckperms_prefix}` in a text, and `%allay_chat_mode%` and friends for TAB and scoreboards.
 - 🪽 **It sounds like an allay.** A curious hum while it works, a happy chortle with the answer, a soft sigh when something fails, each a little different from the last.
 - ✻ **A live status like Claude Code:** a spinner and a changing verb in the action bar, and a chat line for each tool the assistant uses.
-- 🔒 **Private and safe.** Tools know only the player who asked. Other players show up only as the asker's locator bar shows them: a name, a distance, and a direction, and nobody who hides from the bar by crouching, a pumpkin, or invisibility. Tools that give items or change the world are offered to operators only, and the plugin checks again before running one. Every tool can be switched off.
+- 🔒 **Private and safe.** Tools know only the player who asked. Other players show up only as the asker's locator bar shows them: a name, a distance, and a direction, and nobody who hides from the bar by crouching, a pumpkin, or invisibility. Tools that give items or change the world are offered to operators only, and the plugin checks again before running one. Automation only moves the player's own things between containers they could open, and crafts only at a real table from real ingredients. Every tool can be switched off.
 - 👻 **Vanish stays vanish.** A player hidden by SuperVanish, PremiumVanish, Essentials, or any plugin that marks them `vanished` drops out of the online count, what the assistant sees around a player, and `/allay locale`, for everyone but themself and operators. Their `/askall` or `?` question stays private, with a line telling them why.
 
 ## Try it live
@@ -93,6 +97,23 @@ Each plan has a usage limit per period. Allay checks the subscription every 5 mi
 
 An [Allay Server](https://github.com/allay-ai/server) started with `SELFHOSTED=1` has no billing: it answers every plugin on its own key. Point `server.url` at it, and there's nothing to pay or link; `/allay status` says so.
 
+### Limits per player
+
+Whoever pays, you can cap what Allay spends. `quota.monthly_usd` is the whole server's budget for a month, and each tier gets a share of it per player through the permission `allay.quota.<tier>`, with any tier names you like:
+
+```yaml
+quota:
+  enabled: true
+  monthly_usd: 20.0
+  tiers:
+    default: "0.05"     # everyone: 5% of the budget a month
+    vip: "0.30"         # players with allay.quota.vip: 30%
+models:
+  vip: "anthropic/claude-sonnet-5.5"   # players with allay.model.vip get this model
+```
+
+A player with several tiers gets the biggest share, and operators get the biggest there is. Players over their share hear that it starts over next month. The shares together must not pass 1.0: otherwise Allay answers nobody, tells admins what's wrong when they join, and asks players to talk to an admin. Spending lives in `quota.json`. A model by tier replaces `provider.byok.model`, and a self-hosted backend honors it too.
+
 ## Coming from MCBuddy
 
 Allay is MCBuddy under a new name, from 4.0.0 on. Swap `mcbuddy-spigot-*.jar` for `allay-spigot-*.jar` and start the server; don't run both.
@@ -155,6 +176,8 @@ Chat mode stays on between visits; the plugin reminds you when you join. `player
 | `allay.askx` | operators | `/askx` and `!` in chat mode |
 | `allay.askall.nocooldown` | operators | Asking everyone without the cooldown |
 | `allay.reload` | operators | `/allay reload` |
+| `allay.automation` | everyone | Automation agents at all; each kind also needs `allay.automation.chests`, `.furnaces`, `.brewing`, or `.crafting` (everyone by default). Take them away from regular players with your permission plugin to keep automation for, say, VIPs |
+| `allay.quota.<tier>`, `allay.model.<tier>` | nobody | A tier of `quota.tiers` or `models` in `config.yml`, see “Limits per player” |
 | `allay.admin` | operators | `/allay status`, `/allay link`, `/allay locale`, notes about the subscription, and the hint under an error that a payment or `config.yml` fixes |
 
 ## PlaceholderAPI
@@ -195,6 +218,8 @@ Plan's labels are in English, since its panel is for admins. Allay never shows a
 | `tools.locate_structure_radius`, `tools.locate_biome_radius`, `tools.villager_radius` | Search radii |
 | `tools.point_to.default_seconds`, `tools.point_to.follow_seconds`, `tools.point_to.max_seconds` | How long a way trail lasts when nobody says: to a spot (30) and to a player (180); and at most (600) |
 | `tools.server.hidden_plugins` | Plugins `get_server` leaves out of its list, such as an anti-cheat |
+| `automation.*` | Automation agents: on or off as a whole and per kind (`chests`, `furnaces`, `brewing`, `crafting`); agents per player at once (2); how long one runs (30 minutes) and how many requests it may make (40); how far its blocks may be (16) and how far the player may walk off before it pauses (48); whether blocks must be in plain sight (on). `automation.chests.gap` (6) and `max` (64) set how far “All nearby” reaches and how many chests at once: a bigger gap reaches more chests and takes longer |
+| `quota.*`, `models` | Spending limits by tier and a model by tier, see “Limits per player” |
 | `askall.cooldown_seconds` | How long a player waits between two questions everyone sees (30) |
 | `time.zone` | The players' default time zone; a player can tell the assistant theirs |
 | `ui.*` | The action bar, tool lines, particles, sounds, and the author of the assistant's books |
