@@ -10,10 +10,12 @@ import chat.allay.core.tools.Workshop
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AutomationTest {
   private val player = UUID.randomUUID()
@@ -210,6 +212,41 @@ class AutomationTest {
     val plan = assertIs<Workshop.Plan>(Workshop.plan("diamond_pickaxe", 1, mapOf("diamond" to 3, "stick" to 5), recipes))
     assertEquals(mapOf("diamond" to 3, "stick" to 2), plan.takes)
     assertEquals(listOf("diamond_pickaxe"), plan.steps.map { it.recipe.result })
+  }
+
+  private val woods: (String) -> List<Workshop.Recipe> = { id ->
+    val planks = setOf("dark_oak_planks", "oak_planks", "jungle_planks")
+    when (id) {
+      "chest" -> listOf(Workshop.Recipe(id, 1, List(8) { planks }))
+      "crafting_table" -> listOf(Workshop.Recipe(id, 1, List(4) { planks }, small = true))
+      "dark_oak_planks", "oak_planks", "jungle_planks" -> listOf(Workshop.Recipe(id, 4, listOf(setOf(id.replace("planks", "log"))), small = true))
+      else -> emptyList()
+    }
+  }
+
+  @Test fun `planks come from the wood the player carries`() {
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("chest", 8, mapOf("jungle_log" to 37), woods))
+    assertEquals(mapOf("jungle_log" to 16), plan.takes)
+    assertEquals(listOf("jungle_planks", "chest"), plan.steps.map { it.recipe.result })
+    assertTrue(plan.needsTable)
+  }
+
+  @Test fun `planks of several woods add up`() {
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("chest", 8, mapOf("oak_log" to 6, "jungle_log" to 10, "dark_oak_planks" to 3), woods))
+    // 64 planks: 3 already there, 61 from 16 logs, with 3 left over.
+    assertEquals(16, plan.takes.filterKeys { it.endsWith("_log") }.values.sum())
+    assertEquals(3, plan.takes["dark_oak_planks"])
+    assertEquals(3, plan.makes.filterKeys { it.endsWith("_planks") }.values.sum())
+  }
+
+  @Test fun `a crafting table needs no crafting table`() {
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("crafting_table", 1, mapOf("oak_log" to 1), woods))
+    assertEquals(mapOf("oak_log" to 1), plan.takes)
+    assertFalse(plan.needsTable)
+  }
+
+  @Test fun `too little wood is missing`() {
+    assertIs<Workshop.Missing>(Workshop.plan("chest", 8, mapOf("jungle_log" to 15), woods))
   }
 
   private fun quota(text: String) = QuotaSettings.parse(YamlConfig(YamlConfig.parse(text)))

@@ -73,22 +73,29 @@ object Workshop {
     return parts.toList()
   }
 
-  /** A crafting recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. */
-  data class Recipe(val result: String, val count: Int, val slots: List<Set<String>>)
+  /**
+   * A crafting recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. [small] when it
+   * fits the player's own 2×2 grid, so it needs no crafting table: planks, sticks, the table itself.
+   */
+  data class Recipe(val result: String, val count: Int, val slots: List<Set<String>>, val small: Boolean = false)
 
   /** One craft of [recipe], [times] over, with the ids it used for each slot. */
   data class Step(val recipe: Recipe, val times: Int, val used: Map<String, Int>)
 
   /** What [plan] found: the steps, intermediate parts first, and what they take from the player. */
-  data class Plan(val steps: List<Step>, val takes: Map<String, Int>, val makes: Map<String, Int>)
+  data class Plan(val steps: List<Step>, val takes: Map<String, Int>, val makes: Map<String, Int>) {
+    /** Whether some step needs a 3×3 grid, so a crafting table. */
+    val needsTable get() = steps.any { !it.recipe.small }
+  }
 
   /** Why nothing could be planned: the items missing for the cheapest way the planner saw. */
   data class Missing(val items: Map<String, Int>)
 
   /**
    * How to craft [count] of [item] from [have] (id to count), crafting parts it lacks from [recipes] up to [depth]
-   * levels down: sticks from planks, planks from logs. Each slot takes the choice the player has most of. Returns
-   * a [Plan], or [Missing] with what's short.
+   * levels down: sticks from planks, planks from logs. A slot that takes any of several items (any planks) takes what
+   * the player has first, then crafts the rest from whichever kind they can make it of: jungle planks from jungle logs
+   * when that's the wood they carry. Returns a [Plan], or [Missing] with what's short.
    */
   fun plan(item: String, count: Int, have: Map<String, Int>, recipes: (String) -> List<Recipe>, depth: Int = 3): Any {
     val planner = Planner(have, recipes, depth)
@@ -105,40 +112,97 @@ object Workshop {
     val steps = mutableListOf<Step>()
     val missing = mutableMapOf<String, Int>()
 
-    private fun available(id: String) = (stock[id] ?: 0) + (spare[id] ?: 0)
+    private class Saved(val stock: Map<String, Int>, val spare: Map<String, Int>, val steps: Int, val missing: Map<String, Int>)
 
-    /** Takes [amount] of [id]: spare parts first, then the player's, then crafts the rest. */
-    fun need(id: String, amount: Int, level: Int): Boolean {
-      var short = amount
-      val fromSpare = minOf(short, spare[id] ?: 0)
-      spare[id] = (spare[id] ?: 0) - fromSpare
-      short -= fromSpare
-      val fromStock = minOf(short, stock[id] ?: 0)
-      stock[id] = (stock[id] ?: 0) - fromStock
-      short -= fromStock
-      return short == 0 || craft(id, short, level)
+    private fun save() = Saved(stock.toMap(), spare.toMap(), steps.size, missing.toMap())
+
+    private fun restore(saved: Saved) {
+      stock.clear(); stock.putAll(saved.stock)
+      spare.clear(); spare.putAll(saved.spare)
+      while (steps.size > saved.steps) steps.removeAt(steps.lastIndex)
+      missing.clear(); missing.putAll(saved.missing)
     }
 
+    /** Runs [block] and keeps what it did only when it worked. */
+    private fun attempt(block: () -> Boolean): Boolean {
+      val saved = save()
+      if (block()) return true
+      restore(saved)
+      return false
+    }
+
+    private fun available(id: String) = (stock[id] ?: 0) + (spare[id] ?: 0)
+
+    /** Takes [amount] of [id] the player has or a craft left over, spare parts first. */
+    private fun take(id: String, amount: Int) {
+      val fromSpare = minOf(amount, spare[id] ?: 0)
+      spare[id] = (spare[id] ?: 0) - fromSpare
+      stock[id] = (stock[id] ?: 0) - (amount - fromSpare)
+    }
+
+    /** Crafts [short] of [id], trying its recipes from the one the player has most for; a failure leaves what's missing. */
     fun craft(id: String, short: Int, level: Int): Boolean {
-      val recipe = if (level < depth) recipes(id).maxByOrNull { recipe -> recipe.slots.sumOf { slot -> slot.maxOf(::available) } } else null
-      if (recipe == null) {
+      val options = if (level < depth) recipes(id).sortedByDescending { recipe -> recipe.slots.sumOf { slot -> slot.maxOf(::available) } } else emptyList()
+      if (options.isEmpty()) {
         missing.merge(id, short, Int::plus)
         return false
       }
+      for (recipe in options) if (attempt { use(recipe, id, short, level) }) return true
+      // Nothing works: the likeliest way says what's missing.
+      use(options.first(), id, short, level)
+      return false
+    }
+
+    private fun use(recipe: Recipe, id: String, short: Int, level: Int): Boolean {
       val times = (short + recipe.count - 1) / recipe.count
       val used = mutableMapOf<String, Int>()
       var ok = true
-      // Slots with the same choices take one kind: a pickaxe's three planks all of the kind there is most of.
-      recipe.slots.groupBy { it }.forEach { (choices, same) ->
-        val pick = choices.maxBy(::available)
-        val wanted = same.size * times
-        used.merge(pick, wanted, Int::plus)
-        if (!need(pick, wanted, level + 1)) ok = false
-      }
+      recipe.slots.groupBy { it }.forEach { (choices, same) -> if (!fill(choices, same.size * times, level + 1, used)) ok = false }
       if (!ok) return false
       steps += Step(recipe, times, used)
       spare.merge(id, times * recipe.count - short, Int::plus)
       return true
+    }
+
+    /** Finds [wanted] items for slots that take any of [choices]: what's there first, then crafted from one kind or several. */
+    private fun fill(choices: Set<String>, wanted: Int, level: Int, used: MutableMap<String, Int>): Boolean {
+      var left = wanted
+      for (choice in choices.sortedByDescending(::available)) {
+        val n = minOf(left, available(choice))
+        if (n == 0) continue
+        take(choice, n)
+        used.merge(choice, n, Int::plus)
+        left -= n
+      }
+      if (left == 0) return true
+      for (choice in choices) if (attempt { craft(choice, left, level) }) {
+        used.merge(choice, left, Int::plus)
+        return true
+      }
+      // No one kind makes it all: as much of each kind as it can make, like 6 oak logs and 10 jungle logs for 64 planks.
+      val before = save()
+      for (choice in choices) {
+        val one = save()
+        val any = craft(choice, 1, level)
+        restore(one)
+        if (!any) continue
+        var low = 1
+        var high = left
+        while (low < high) {
+          val middle = (low + high + 1) / 2
+          val saved = save()
+          if (craft(choice, middle, level)) low = middle else high = middle - 1
+          restore(saved)
+        }
+        if (low == 0) continue
+        craft(choice, low, level)
+        used.merge(choice, low, Int::plus)
+        left -= low
+        if (left == 0) return true
+      }
+      restore(before)
+      craft(choices.first(), left, level)
+      return false
     }
   }
 }

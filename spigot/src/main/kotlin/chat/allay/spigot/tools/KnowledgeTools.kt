@@ -13,6 +13,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.Tag
 import org.bukkit.inventory.CookingRecipe
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.Recipe
@@ -45,12 +46,23 @@ object KnowledgeTools {
       return ToolOutput(result, if (found.isEmpty()) context.lang.text("summary.recipes_none") else context.lang.text("summary.recipes", "count" to all.size))
     }
 
+    /** Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. */
+    private val tags: Map<Set<Material>, String> by lazy {
+      Bukkit.getTags(Tag.REGISTRY_ITEMS, Material::class.java).groupBy({ it.values }, { it.key.key }).mapValues { (_, keys) -> keys.minBy { it.length } }
+    }
+
     private fun choice(choice: RecipeChoice?): String = when (choice) {
-      is RecipeChoice.MaterialChoice -> choice.choices.take(3).joinToString(" | ") { it.key.key }
-      is RecipeChoice.ExactChoice -> choice.choices.take(3).joinToString(" | ") { it.type.key.key }
+      is RecipeChoice.MaterialChoice -> choice.choices.toSet().let { kinds ->
+        tags[kinds].takeIf { kinds.size > 1 }?.let { "#$it (any of ${kinds.size})" } ?: alternatives(kinds.map { it.key.key })
+      }
+      is RecipeChoice.ExactChoice -> alternatives(choice.choices.map { it.type.key.key }.distinct())
       null -> ""
       else -> choice.itemStack.type.key.key
     }
+
+    /** Every alternative, or the first ones and how many more, so a long list never reads as complete. */
+    private fun alternatives(ids: List<String>): String =
+      if (ids.size <= 8) ids.joinToString(" | ") else ids.take(6).joinToString(" | ") + " | … ${ids.size - 6} more"
 
     private fun describe(recipe: Recipe): JsonObject? = buildJsonObject {
       if (recipe.result.amount > 1) put("makes", recipe.result.amount)

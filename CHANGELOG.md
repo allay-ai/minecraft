@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.9.1
+
+- 🪵 **Crafting uses the wood you carry.** A recipe that takes any planks, like a chest, now makes them from your jungle, birch, or any other logs, several kinds together when one isn't enough. Before, the agent always asked for the first wood on the list: “8 chests” with 37 jungle logs said 15 dark oak logs were missing.
+- 🧰 **2×2 recipes need no crafting table**, as in the game: planks, sticks, and the crafting table itself. Before, `craft` wanted a table for everything, so a player without one couldn't get one from Allay.
+- 📖 **`get_recipes` names whole groups**: a chest takes `#planks (any of 12)`, not three planks that read as the only ones. Long lists of alternatives say how many more there are.
+
 ## 5.9.0
 
 `/allay init` needs Allay Server 5.7; older backends say they have no panel.

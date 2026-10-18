@@ -22,9 +22,9 @@ import org.bukkit.inventory.ShapedRecipe
 import org.bukkit.inventory.ShapelessRecipe
 
 /**
- * `craft`: crafts at a real crafting table the player can see, from this server's recipes, with plain ingredients from
- * the inventory, bundles, the ender chest when one is near, and chests near the player may open. Parts it lacks
- * (sticks, planks) it crafts first, three levels down at most.
+ * `craft`: crafts from this server's recipes, with plain ingredients from the inventory, bundles, the ender chest when
+ * one is near, and chests near the player may open. Parts it lacks (sticks, planks) it crafts first, three levels down
+ * at most. A 3×3 recipe needs a real crafting table the player can see; 2×2 ones, the table itself among them, don't.
  */
 object Crafting {
   /** The server's crafting recipes as data, by result id; recipes that want an exact item (a named one) are left out. */
@@ -38,10 +38,14 @@ object Crafting {
         is ShapelessRecipe -> recipe.choiceList
         else -> continue
       }
+      val small = when (recipe) {
+        is ShapedRecipe -> recipe.shape.size <= 2 && recipe.shape.all { it.length <= 2 }
+        else -> slots.size <= 4
+      }
       val choices = slots.filterNotNull().map { choice -> (choice as? RecipeChoice.MaterialChoice)?.choices?.map { it.key.key }?.toSet() ?: emptySet() }
       if (choices.isEmpty() || choices.any { it.isEmpty() }) continue
       val result = recipe.result
-      found.getOrPut(result.type.key.key) { mutableListOf() } += Workshop.Recipe(result.type.key.key, result.amount, choices)
+      found.getOrPut(result.type.key.key) { mutableListOf() } += Workshop.Recipe(result.type.key.key, result.amount, choices, small)
     }
     return found
   }
@@ -76,8 +80,6 @@ object Crafting {
       automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
       val item = InteractTools.material(args.string("item") ?: throw ToolError("item is required"))
       val count = (args.int("count") ?: 1).coerceIn(1, 64)
-      val table = table(player, settings.radius, settings.lineOfSight)
-        ?: throw ToolError("no crafting table near the player in plain sight; crafting needs a real one")
       val recipes = recipes(player.server)
       if (recipes[item.key.key].isNullOrEmpty()) throw ToolError("${item.key.key} has no crafting recipe on this server")
       val sources = Sources.around(player, settings.radius)
@@ -94,11 +96,13 @@ object Crafting {
         is Workshop.Plan -> planned
         else -> throw ToolError("couldn't plan the craft")
       }
+      val table = if (!plan.needsTable) null else table(player, settings.radius, settings.lineOfSight)
+        ?: throw ToolError("no crafting table near the player in plain sight; 3×3 recipes need a real one")
       val described = buildJsonObject {
         putJsonObject("takes") { plan.takes.forEach { (id, n) -> put(id, n) } }
         putJsonObject("makes") { plan.makes.forEach { (id, n) -> put(id, n) } }
         put("steps", buildJsonArray { plan.steps.forEach { add("${it.times} × ${it.recipe.result}") } })
-        put("table", buildJsonObject { put("x", table.x); put("y", table.y); put("z", table.z) })
+        if (table != null) put("table", buildJsonObject { put("x", table.x); put("y", table.y); put("z", table.z) })
       }
       if (args.bool("dry_run") == true) return ToolOutput(JsonObject(described + ("crafted" to kotlinx.serialization.json.JsonPrimitive(false))), lang.text("summary.craft_plan"))
 
@@ -128,7 +132,7 @@ object Crafting {
         (0 until (n + max - 1) / max).map { ItemStack(type, minOf(max, n - it * max)) }
       }
       give(player, made + remains)
-      Marks.show(context.plugin, player, listOf(Marks.Mark(table, null, "${count} × ${item.key.key.replace('_', ' ')}", Marks.Hue.GREEN)), 10)
+      if (table != null) Marks.show(context.plugin, player, listOf(Marks.Mark(table, null, "${count} × ${item.key.key.replace('_', ' ')}", Marks.Hue.GREEN)), 10)
       return ToolOutput(JsonObject(described + ("crafted" to kotlinx.serialization.json.JsonPrimitive(true))), lang.text("summary.crafted", "count" to count, "item" to item.key.key))
     }
   }
