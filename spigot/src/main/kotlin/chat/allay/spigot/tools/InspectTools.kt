@@ -19,6 +19,7 @@ import org.bukkit.block.data.Levelled
 import org.bukkit.block.data.type.Farmland
 import org.bukkit.entity.Animals
 import org.bukkit.entity.Player
+import org.bukkit.inventory.DoubleChestInventory
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
 import chat.allay.core.tools.Facts.place
@@ -42,10 +43,14 @@ object InspectTools {
     return result
   }
 
-  /** Containers within the radius that the player could open themself ([chat.allay.spigot.Claims]), nearest first. */
+  /**
+   * Containers within the radius that the player could open themself ([chat.allay.spigot.Claims]), nearest first.
+   * Both halves of a double chest hold the whole inventory, so the nearer half stands for it and the other is dropped.
+   */
   private fun containersNear(player: Player, radius: Int): List<Container> =
     blockEntitiesNear(player.location, radius).filterIsInstance<Container>().filter { chat.allay.spigot.Claims.mayOpen(player, it) }
       .sortedBy { it.location.distanceSquared(player.location) }
+      .distinctBy { ((it.inventory as? DoubleChestInventory)?.leftSide?.location ?: it.location).toVector() }
 
   private val scanContainers = tool("scan_nearby_containers") { context, player, args ->
     val radius = (args.int("radius") ?: 8).coerceIn(1, 12)

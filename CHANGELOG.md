@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.6.1
+
+- 📦 A double chest counts once. `find_item` and `scan_nearby_containers` read both halves, and each half holds the whole chest, so everything in it was counted twice.
+
 ## 5.6.0
 
 Works with any Allay Server 5.x; drafts and the redstone debugger need Allay Server 5.4.
