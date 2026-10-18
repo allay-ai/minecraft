@@ -72,6 +72,8 @@ tools:
   point_to: "Показываю дорогу"
   get_nearby_players: "Смотрю на локатор"
   show_marks: "Подсвечиваю блоки"
+  inspect_redstone: "Разбираю редстоун"
+  show_draft: "Рисую драфт"
   ping_me: "Подаю сигнал"
   sort_inventory: "Навожу порядок в инвентаре"
   reminders:
@@ -114,6 +116,10 @@ summary:
   players_none: "на локаторе никого"
   marks: "{count} {count|метка|метки|меток}"
   marks_cleared: "метки убраны"
+  redstone: "{count} {count|деталь|детали|деталей}, {issues} {issues|поломка|поломки|поломок}"
+  draft: "{blocks} {blocks|блок|блока|блоков}, {layers} {layers|слой|слоя|слоёв}"
+  draft_check: "{done}/{total} на месте"
+  draft_cleared: "драфт убран"
   look_nothing: "ничего"
   look_block: "{id}"
   look_container: "{id}: занято {used} из {slots}"
@@ -213,6 +219,7 @@ messages:
   trail_lost: "&7{name} больше нет на твоём локаторе, тропа погасла."
   trail_stopped: "&7Убрал след."
   marks_cleared: "&7Метки убраны."
+  draft_cleared: "&7Драфт убран."
   reminder: "&e⏰ Напоминание: &f{text}"
   commands_in_order: "&aВыполняю {count} {count|команду|команды|команд} по очереди…"
   commands_at_once: "&aВыполняю {count} {count|команду|команды|команд}…"
@@ -308,6 +315,15 @@ buttons:
   note_saved: "&aЗаписал в блокнот: &f{text}"
   book_taken: "&aКнига у тебя в инвентаре."
   book_gone: "&7Этой книги уже нет. Попроси расписать ещё раз."
+
+# Драфты: постройка призраками, слой за слоем; {block} — id блока с его состояниями.
+drafts:
+  bar: "{title} · слой {layer}/{layers} · {done}/{total}"
+  bar_all: "{title} · {done}/{total}"
+  layer_done: "&aСлой {layer} готов. Дальше слой {next}."
+  done: "&a{title}: всё построено!"
+  needs: "нужен {block}"
+  clear: "убрать"
 
 # Цели с полосой сверху экрана; {title} — название цели.
 goals:

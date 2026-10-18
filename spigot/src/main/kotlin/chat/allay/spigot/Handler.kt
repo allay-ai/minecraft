@@ -3,6 +3,7 @@ package chat.allay.spigot
 import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.ToolContext
+import chat.allay.spigot.tools.Drafts
 import chat.allay.spigot.tools.Marks
 import chat.allay.spigot.tools.Trails
 
@@ -43,11 +44,12 @@ class Handler(
     val run = runs.remove(key(sender))
     if (run == null) {
       if (sender is Player) {
-        // Both may be out at once; one /allay cancel hides both.
+        // Several may be out at once; one /allay cancel hides them all.
         val trail = Trails.stop(sender)
         val marks = Marks.clear(sender)
-        if (trail || marks) {
-          locales.of(sender).send(sender, if (marks) "messages.marks_cleared" else "messages.trail_stopped")
+        val draft = Drafts.clear(sender)
+        if (trail || marks || draft) {
+          locales.of(sender).send(sender, if (draft) "messages.draft_cleared" else if (marks) "messages.marks_cleared" else "messages.trail_stopped")
           return true
         }
       }

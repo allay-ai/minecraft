@@ -21,6 +21,7 @@ import chat.allay.spigot.menus.SettingsMenu
 import chat.allay.core.tools.Books
 import chat.allay.core.tools.ButtonStore
 import chat.allay.spigot.tools.Deaths
+import chat.allay.spigot.tools.Drafts
 import chat.allay.spigot.tools.Marks
 import chat.allay.spigot.tools.Features
 import chat.allay.spigot.tools.Goals
@@ -93,7 +94,8 @@ class Zygote : JavaPlugin(), TabCompleter {
       villagerRadius = { configuration.tools.villagerRadius },
     )
     menus = MenuListener(this)
-    listOf(goals, deaths, menus, locales, chat, Marks).forEach { server.pluginManager.registerEvents(it, this) }
+    listOf(goals, deaths, menus, locales, chat, Marks, Drafts).forEach { server.pluginManager.registerEvents(it, this) }
+    Drafts.start(this, locales)
     goals.start()
     initializeComponents()
     // Allay loads at STARTUP, before PlaceholderAPI and Plan; by the first tick every plugin is on.
@@ -174,6 +176,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     if (::goals.isInitialized) goals.stop()
     if (::menus.isInitialized) menus.stop()
     Marks.clearAll()
+    Drafts.stop()
     if (::animator.isInitialized) animator.stopAllAnimations()
     locales.stop()
     scope.cancel()

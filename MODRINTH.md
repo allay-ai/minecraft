@@ -13,6 +13,8 @@
 - 🔍 **It finds things** in the inventory, the ender chest, and the chests nearby, inside shulker boxes too.
 - 🧭 **It shows the way** with the compass and a particle trail: to a death point, a village, a biome, or a place from the player's notebook. The trail lasts as long as the walk needs, in a dozen looks, and goes out on arrival. The way to another player follows them as they run.
 - ✨ **It marks blocks** that only the asker sees, glowing through walls: the chests that hold what they look for, labeled with what's inside, and ghost torches on dark spots. Ores, spawners, and vaults never glow, and containers only when the player could open them.
+- 🏗️ **Drafts of any build** up to 20×15×20 as glowing ghosts, layer by layer, checked against what the player places, with a bar counting; bigger builds come in parts.
+- 🔌 **A redstone debugger** that reads the machine under the crosshair and finds the faults the game's rules make certain, only where the player may build.
 - 📒 **A notebook, goals with a boss bar, and reminders.**
 - 🪟 **Buttons under answers** and **recipe, brewing, anvil, enchanting, and villager windows** that only show pictures, so nothing can be taken from them. Potions come from the game's own brewing recipes; the anvil plan uses the books and items the player really has.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German come bundled, picked by the player's country, then by their game's language.

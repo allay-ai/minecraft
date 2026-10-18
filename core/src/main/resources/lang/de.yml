@@ -72,6 +72,8 @@ tools:
   point_to: "Zeige den Weg"
   get_nearby_players: "Schaue auf die Ortungsleiste"
   show_marks: "Markiere Blöcke"
+  inspect_redstone: "Lese den Redstone"
+  show_draft: "Zeichne den Entwurf"
   ping_me: "Sende ein Signal"
   sort_inventory: "Räume dein Inventar auf"
   reminders:
@@ -114,6 +116,10 @@ summary:
   players_none: "niemand auf der Leiste"
   marks: "{count} {count|Markierung|Markierungen}"
   marks_cleared: "Markierungen weg"
+  redstone: "{count} {count|Teil|Teile}, {issues} {issues|Fehler|Fehler}"
+  draft: "{blocks} {blocks|Block|Blöcke}, {layers} {layers|Schicht|Schichten}"
+  draft_check: "{done}/{total} an Ort und Stelle"
+  draft_cleared: "Entwurf entfernt"
   look_nothing: "nichts"
   look_block: "{id}"
   look_container: "{id}: {used} von {slots} Plätzen belegt"
@@ -213,6 +219,7 @@ messages:
   trail_lost: "&7{name} ist von deiner Ortungsleiste verschwunden, die Spur ist weg."
   trail_stopped: "&7Spur ausgeblendet."
   marks_cleared: "&7Markierungen ausgeblendet."
+  draft_cleared: "&7Entwurf entfernt."
   reminder: "&e⏰ Erinnerung: &f{text}"
   commands_in_order: "&aFühre {count} {count|Befehl|Befehle} nacheinander aus…"
   commands_at_once: "&aFühre {count} {count|Befehl|Befehle} aus…"
@@ -308,6 +315,15 @@ buttons:
   note_saved: "&aIm Notizbuch gespeichert: &f{text}"
   book_taken: "&aDas Buch ist in deinem Inventar."
   book_gone: "&7Dieses Buch gibt es nicht mehr. Frag noch mal nach der ausführlichen Antwort."
+
+# Entwürfe: ein Bau als Geister, Schicht für Schicht; {block} ist eine Block-ID mit ihren Zuständen.
+drafts:
+  bar: "{title} · Schicht {layer}/{layers} · {done}/{total}"
+  bar_all: "{title} · {done}/{total}"
+  layer_done: "&aSchicht {layer} ist fertig. Weiter mit Schicht {next}."
+  done: "&a{title}: alles gebaut!"
+  needs: "hier gehört {block} hin"
+  clear: "wegräumen"
 
 # Ziele mit einer Leiste oben am Bildschirm; {title} ist der Name des Ziels.
 goals:

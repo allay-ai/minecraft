@@ -2,6 +2,15 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.6.0
+
+Works with any Allay Server 5.x; drafts and the redstone debugger need Allay Server 5.4.
+
+- 🏗️ **Drafts of any build.** A new tool, `show_draft`, takes a build the assistant writes as layers of characters over a palette, up to 20×15×20, and puts it in front of you as glowing ghosts only you see, turned the way you look. One layer lights up at a time from the bottom. Every half second the plugin compares it with the world: a block in place goes out, a wrong one gets a red box naming what belongs there, and once a layer is done the next one lights up, with a sound and a boss bar counting. The assistant adds bigger builds in parts, moves and turns a draft, and checks it against what you built. Only where you may build; one draft per player, dropped on `/allay cancel`, when you leave, or on a restart.
+- 🔌 **A redstone debugger.** `inspect_redstone` reads the machine under the crosshair: dust power and where it connects, repeater delays with where the signal comes from and goes, comparator modes, torches, observers, pistons, levers, lamps, doors, hoppers, and the signal each mechanism receives. The plugin finds the faults the game's rules make certain: a dot of dust, a burned-out torch, a piston jammed by an immovable block or more than 12, a locked hopper or repeater, dust that runs past a lamp or a door. Only where you may build: outside claims, or with build trust in GriefPrevention.
+- 👻 Ghosts of chests, beds, signs, banners, heads, and shulker boxes show as their item: a block display can't draw blocks the client renders as entities.
+- New texts in `lang/`: `tools.inspect_redstone`, `tools.show_draft`, `summary.redstone`, `summary.draft`, `summary.draft_check`, `summary.draft_cleared`, `messages.draft_cleared`, and the `drafts` section.
+
 ## 5.5.0
 
 Works with any Allay Server 5.x; marks need Allay Server 5.3.

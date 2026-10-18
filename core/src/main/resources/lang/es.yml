@@ -72,6 +72,8 @@ tools:
   point_to: "Mostrando el camino"
   get_nearby_players: "Mirando la barra localizadora"
   show_marks: "Marcando bloques"
+  inspect_redstone: "Leyendo el redstone"
+  show_draft: "Dibujando el boceto"
   ping_me: "Enviando una señal"
   sort_inventory: "Ordenando tu inventario"
   reminders:
@@ -114,6 +116,10 @@ summary:
   players_none: "nadie en la barra"
   marks: "{count} {count|marca|marcas}"
   marks_cleared: "marcas ocultas"
+  redstone: "{count} {count|pieza|piezas}, {issues} {issues|fallo|fallos}"
+  draft: "{blocks} {blocks|bloque|bloques}, {layers} {layers|capa|capas}"
+  draft_check: "{done}/{total} en su sitio"
+  draft_cleared: "boceto quitado"
   look_nothing: "nada"
   look_block: "{id}"
   look_container: "{id}: {used} de {slots} huecos ocupados"
@@ -213,6 +219,7 @@ messages:
   trail_lost: "&7{name} ya no está en tu barra localizadora, el rastro se apagó."
   trail_stopped: "&7He quitado el rastro."
   marks_cleared: "&7Marcas ocultas."
+  draft_cleared: "&7Boceto quitado."
   reminder: "&e⏰ Recordatorio: &f{text}"
   commands_in_order: "&aEjecutando {count} {count|comando|comandos} en orden…"
   commands_at_once: "&aEjecutando {count} {count|comando|comandos}…"
@@ -308,6 +315,15 @@ buttons:
   note_saved: "&aApuntado en la libreta: &f{text}"
   book_taken: "&aEl libro está en tu inventario."
   book_gone: "&7Este libro ya no existe. Vuelve a pedir la respuesta detallada."
+
+# Bocetos: una construcción en fantasmas, capa a capa; {block} es el id de un bloque con sus estados.
+drafts:
+  bar: "{title} · capa {layer}/{layers} · {done}/{total}"
+  bar_all: "{title} · {done}/{total}"
+  layer_done: "&aLa capa {layer} está lista. Ahora la capa {next}."
+  done: "&a{title}: ¡todo construido!"
+  needs: "va {block}"
+  clear: "quitar esto"
 
 # Objetivos con una barra arriba de la pantalla; {title} es el nombre del objetivo.
 goals:

@@ -72,6 +72,8 @@ tools:
   point_to: "Showing the way"
   get_nearby_players: "Checking the locator bar"
   show_marks: "Marking blocks"
+  inspect_redstone: "Reading the redstone"
+  show_draft: "Drafting"
   ping_me: "Sending a signal"
   sort_inventory: "Tidying your inventory"
   reminders:
@@ -114,6 +116,10 @@ summary:
   players_none: "nobody on the bar"
   marks: "{count} {count|mark|marks}"
   marks_cleared: "marks hidden"
+  redstone: "{count} {count|part|parts}, {issues} {issues|fault|faults}"
+  draft: "{blocks} {blocks|block|blocks}, {layers} {layers|layer|layers}"
+  draft_check: "{done}/{total} in place"
+  draft_cleared: "draft removed"
   look_nothing: "nothing"
   look_block: "{id}"
   look_container: "{id}: {used} of {slots} slots taken"
@@ -213,6 +219,7 @@ messages:
   trail_lost: "&7{name} is off your locator bar, so the trail is gone."
   trail_stopped: "&7Trail hidden."
   marks_cleared: "&7Marks hidden."
+  draft_cleared: "&7Draft removed."
   reminder: "&e⏰ Reminder: &f{text}"
   commands_in_order: "&aRunning {count} {count|command|commands} in order…"
   commands_at_once: "&aRunning {count} {count|command|commands}…"
@@ -308,6 +315,15 @@ buttons:
   note_saved: "&aSaved to the notebook: &f{text}"
   book_taken: "&aThe book is in your inventory."
   book_gone: "&7This book is gone. Ask for the detailed answer again."
+
+# Drafts: a build drawn as ghosts, layer by layer; {block} is a block id with its states.
+drafts:
+  bar: "{title} · layer {layer}/{layers} · {done}/{total}"
+  bar_all: "{title} · {done}/{total}"
+  layer_done: "&aLayer {layer} is done. On to layer {next}."
+  done: "&a{title}: all built!"
+  needs: "needs {block}"
+  clear: "clear this"
 
 # Goals with a bar at the top of the screen; {title} is the goal's name.
 goals:

@@ -72,6 +72,8 @@ tools:
   point_to: "Mostrando o caminho"
   get_nearby_players: "Olhando a barra localizadora"
   show_marks: "Marcando blocos"
+  inspect_redstone: "Lendo o redstone"
+  show_draft: "Desenhando o rascunho"
   ping_me: "Mandando um sinal"
   sort_inventory: "Arrumando seu inventário"
   reminders:
@@ -114,6 +116,10 @@ summary:
   players_none: "ninguém na barra"
   marks: "{count} {count|marca|marcas}"
   marks_cleared: "marcas escondidas"
+  redstone: "{count} {count|peça|peças}, {issues} {issues|defeito|defeitos}"
+  draft: "{blocks} {blocks|bloco|blocos}, {layers} {layers|camada|camadas}"
+  draft_check: "{done}/{total} no lugar"
+  draft_cleared: "rascunho removido"
   look_nothing: "nada"
   look_block: "{id}"
   look_container: "{id}: {used} de {slots} espaços ocupados"
@@ -213,6 +219,7 @@ messages:
   trail_lost: "&7{name} saiu da sua barra localizadora, o rastro sumiu."
   trail_stopped: "&7Tirei o rastro."
   marks_cleared: "&7Marcas escondidas."
+  draft_cleared: "&7Rascunho removido."
   reminder: "&e⏰ Lembrete: &f{text}"
   commands_in_order: "&aExecutando {count} {count|comando|comandos} em ordem…"
   commands_at_once: "&aExecutando {count} {count|comando|comandos}…"
@@ -308,6 +315,15 @@ buttons:
   note_saved: "&aAnotado no caderno: &f{text}"
   book_taken: "&aO livro está no seu inventário."
   book_gone: "&7Esse livro não existe mais. Peça a resposta detalhada de novo."
+
+# Rascunhos: uma construção em fantasmas, camada por camada; {block} é o id de um bloco com seus estados.
+drafts:
+  bar: "{title} · camada {layer}/{layers} · {done}/{total}"
+  bar_all: "{title} · {done}/{total}"
+  layer_done: "&aA camada {layer} está pronta. Agora a camada {next}."
+  done: "&a{title}: tudo construído!"
+  needs: "vai {block}"
+  clear: "tirar isto"
 
 # Metas com uma barra no topo da tela; {title} é o nome da meta.
 goals:

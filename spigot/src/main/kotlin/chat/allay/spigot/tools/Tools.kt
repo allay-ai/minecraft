@@ -62,5 +62,5 @@ typealias Tool = ClientTool<ToolContext>
 /** Every tool this plugin offers. */
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
-    NotebookTools.all + ActionTools.all + MarkTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all
+    NotebookTools.all + ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all
 }

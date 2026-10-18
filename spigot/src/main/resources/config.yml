@@ -136,6 +136,7 @@ tools:
     get_food_options: true        # Food in the inventory: hunger, saturation, side effects
     get_anvil_plan: true          # The cheapest order of books on the anvil for the item in hand
     get_light_spawn_check: true   # Dark spots around where hostile mobs can spawn
+    inspect_redstone: true        # A machine's parts and the faults the game's rules make certain; only where the player may build
     get_brewing_items: true       # Everything for brewing in the inventory and brewing stands nearby
     get_brewing_recipe: true      # How to brew a potion, step by step, from the game's own recipes
     scan_farm: true               # The farm around: crops by stage, farmland, animals, spawners
@@ -155,6 +156,7 @@ tools:
     # Harmless actions: they give nothing and change nothing in the world
     point_to: true                # Point the compass at a spot or a player on the locator bar and draw a trail there (only the asker sees it)
     show_marks: true              # Glowing boxes, ghost blocks, and labels over blocks that only the asker sees: their chests, where to put torches
+    show_draft: true              # A build of up to 20×15×20 as glowing ghosts, layer by layer, checked against what the player places
     sort_inventory: true          # Merge stacks and sort the inventory (the hotbar stays)
     reminders: true               # Remind the player in 1–120 minutes; list and cancel reminders
     ping_me: true                 # A sound and particles over the player, seen and heard by everyone nearby

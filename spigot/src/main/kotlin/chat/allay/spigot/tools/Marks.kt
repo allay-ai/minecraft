@@ -21,6 +21,7 @@ import org.bukkit.block.data.BlockData
 import org.bukkit.entity.BlockDisplay
 import org.bukkit.entity.Display
 import org.bukkit.entity.Entity
+import org.bukkit.entity.ItemDisplay
 import org.bukkit.entity.Player
 import org.bukkit.entity.TextDisplay
 import org.bukkit.event.EventHandler
@@ -28,6 +29,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitTask
 import org.bukkit.util.Transformation
@@ -107,49 +109,81 @@ object Marks : Listener {
 
   private fun draw(plugin: Plugin, player: Player, mark: Mark): List<Entity> {
     val block = mark.block
-    val world = block.world
-    val corner = Location(world, block.x.toDouble(), block.y.toDouble(), block.z.toDouble())
     // The box hugs what's really there (a chest is lower than a block); air and ghosts get a whole block.
     val bounds = block.boundingBox.takeIf { mark.ghost == null && it.volume > 0 }
-    val min = Vector3f(
-      (bounds?.minX?.minus(block.x) ?: 0.0).toFloat(), (bounds?.minY?.minus(block.y) ?: 0.0).toFloat(), (bounds?.minZ?.minus(block.z) ?: 0.0).toFloat())
-    val size = Vector3f((bounds?.widthX ?: 1.0).toFloat(), (bounds?.height ?: 1.0).toFloat(), (bounds?.widthZ ?: 1.0).toFloat())
     val made = mutableListOf<Entity>()
-    made += world.spawn(corner, BlockDisplay::class.java) { display ->
-      hidden(display)
-      display.block = mark.ghost ?: mark.hue.glass.createBlockData()
-      display.transformation = if (mark.ghost != null) {
-        // A ghost is a little smaller than the real thing, so it reads as “put it here”, not as a block.
-        Transformation(Vector3f(0.1f, 0f, 0.1f), AxisAngle4f(), Vector3f(0.8f, 0.8f, 0.8f), AxisAngle4f())
-      } else {
-        Transformation(Vector3f(min.x - EDGE, min.y - EDGE, min.z - EDGE), AxisAngle4f(), Vector3f(size.x + 2 * EDGE, size.y + 2 * EDGE, size.z + 2 * EDGE), AxisAngle4f())
-      }
-      display.isGlowing = true
-      display.glowColorOverride = mark.hue.glow
-      display.brightness = Display.Brightness(15, 15)
-    }
-    mark.label?.let { label ->
-      val top = (bounds?.maxY ?: (block.y + 1.0)) + 0.35
-      made += world.spawn(Location(world, block.x + 0.5, top, block.z + 0.5), TextDisplay::class.java) { text ->
-        hidden(text)
-        text.text = mark.hue.text.toString() + label
-        text.billboard = Display.Billboard.CENTER
-        text.isSeeThrough = true
-        text.isShadowed = true
-        text.transformation = Transformation(Vector3f(), AxisAngle4f(), Vector3f(0.7f, 0.7f, 0.7f), AxisAngle4f())
-        text.brightness = Display.Brightness(15, 15)
-      }
-    }
-    // Shown once it's in the world, so the server's tracker sends it to this player alone.
-    made.forEach { player.showEntity(plugin, it) }
+    made += if (mark.ghost != null) ghost(block, mark.ghost, mark.hue) else box(block, mark.hue)
+    mark.label?.let { made += label(block, it, mark.hue, (bounds?.maxY ?: (block.y + 1.0)) + 0.35) }
+    reveal(plugin, player, made)
     return made
   }
 
-  /** Before the entity enters the world: nobody sees it by default, and it isn't saved with the chunk. */
-  private fun hidden(entity: Display) {
+  /** A glowing glass box around what stands at [block], hugging its shape. */
+  fun box(block: Block, hue: Hue): Entity {
+    val bounds = block.boundingBox.takeIf { it.volume > 0 }
+    val min = Vector3f((bounds?.minX?.minus(block.x) ?: 0.0).toFloat(), (bounds?.minY?.minus(block.y) ?: 0.0).toFloat(), (bounds?.minZ?.minus(block.z) ?: 0.0).toFloat())
+    val size = Vector3f((bounds?.widthX ?: 1.0).toFloat(), (bounds?.height ?: 1.0).toFloat(), (bounds?.widthZ ?: 1.0).toFloat())
+    return block.world.spawn(corner(block), BlockDisplay::class.java) { display ->
+      hidden(display, hue)
+      display.block = hue.glass.createBlockData()
+      display.transformation = Transformation(Vector3f(min.x - EDGE, min.y - EDGE, min.z - EDGE), AxisAngle4f(), Vector3f(size.x + 2 * EDGE, size.y + 2 * EDGE, size.z + 2 * EDGE), AxisAngle4f())
+    }
+  }
+
+  /**
+   * A glowing ghost of [data] at [block], a little smaller than the real thing so it reads as “put it here”.
+   * Chests, beds, signs, heads, and the like are drawn by the client's block entity renderer, which a block
+   * display doesn't run, so they'd be invisible: those come as their item instead.
+   */
+  fun ghost(block: Block, data: BlockData, hue: Hue): Entity {
+    val world = block.world
+    if (rendersAsEntity(data.material)) {
+      val item = data.placementMaterial.takeIf { it.isItem } ?: data.material
+      return world.spawn(corner(block).add(0.5, 0.45, 0.5), ItemDisplay::class.java) { display ->
+        hidden(display, hue)
+        display.setItemStack(ItemStack(item))
+        display.transformation = Transformation(Vector3f(), AxisAngle4f(), Vector3f(0.8f, 0.8f, 0.8f), AxisAngle4f())
+      }
+    }
+    return world.spawn(corner(block), BlockDisplay::class.java) { display ->
+      hidden(display, hue)
+      display.block = data
+      display.transformation = Transformation(Vector3f(0.1f, 0.1f, 0.1f), AxisAngle4f(), Vector3f(0.8f, 0.8f, 0.8f), AxisAngle4f())
+    }
+  }
+
+  /** A line of text over a block at height [y], turned toward whoever looks. */
+  fun label(block: Block, text: String, hue: Hue, y: Double): Entity =
+    block.world.spawn(Location(block.world, block.x + 0.5, y, block.z + 0.5), TextDisplay::class.java) { display ->
+      hidden(display, null)
+      display.text = hue.text.toString() + text
+      display.billboard = Display.Billboard.CENTER
+      display.isSeeThrough = true
+      display.isShadowed = true
+      display.transformation = Transformation(Vector3f(), AxisAngle4f(), Vector3f(0.7f, 0.7f, 0.7f), AxisAngle4f())
+    }
+
+  /** Shows entities made here to [player] once they're in the world, so the server's tracker sends them to this player alone. */
+  fun reveal(plugin: Plugin, player: Player, entities: Iterable<Entity>) = entities.forEach { player.showEntity(plugin, it) }
+
+  private fun corner(block: Block) = Location(block.world, block.x.toDouble(), block.y.toDouble(), block.z.toDouble())
+
+  /** Blocks the client draws with a block entity renderer: a block display shows nothing for them. */
+  private fun rendersAsEntity(type: Material): Boolean =
+    type == Material.CHEST || type == Material.TRAPPED_CHEST || type == Material.ENDER_CHEST || type == Material.DECORATED_POT ||
+      type == Material.CONDUIT || type == Material.BELL || Tag.SHULKER_BOXES.isTagged(type) || Tag.BEDS.isTagged(type) ||
+      Tag.BANNERS.isTagged(type) || Tag.ALL_SIGNS.isTagged(type) || type.name.endsWith("_HEAD") || type.name.endsWith("_SKULL")
+
+  /** Before the entity enters the world: nobody sees it by default, it isn't saved with the chunk, and it glows in [hue]. */
+  private fun hidden(entity: Display, hue: Hue?) {
     entity.isVisibleByDefault = false
     entity.isPersistent = false
     entity.viewRange = 2f
+    entity.brightness = Display.Brightness(15, 15)
+    if (hue != null) {
+      entity.isGlowing = true
+      entity.glowColorOverride = hue.glow
+    }
   }
 
   /** Blocks that never glow for anyone: what Paper's anti-xray hides, and what players hunt underground. */

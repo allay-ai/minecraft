@@ -23,14 +23,24 @@ object Claims {
 
   fun mayOpen(player: Player, state: BlockState): Boolean {
     if ((state as? Lootable)?.lootTable != null) return false
+    return ask { GriefPreventionHook.allows(player, state.location, build = false) }
+  }
+
+  /**
+   * Whether the player could build at [location]: outside any claim, or in one where they may build (their own,
+   * or with build trust). Allay reads redstone and compares drafts only there, so nobody takes apart a neighbor's machine.
+   */
+  fun mayBuild(player: Player, location: Location): Boolean = ask { GriefPreventionHook.allows(player, location, build = true) }
+
+  private fun ask(check: () -> Boolean): Boolean {
     if (!available) return true
     return try {
-      GriefPreventionHook.mayOpen(player, state.location)
+      check()
     } catch (error: Throwable) {
       // A GriefPrevention whose API moved: closed is the safe side, and one line in the log says why.
       if (!warned) {
         warned = true
-        JavaPlugin.getProvidingPlugin(Claims::class.java).logger.log(Level.WARNING, "Couldn't ask GriefPrevention about a claim, so Allay keeps claimed containers hidden", error)
+        JavaPlugin.getProvidingPlugin(Claims::class.java).logger.log(Level.WARNING, "Couldn't ask GriefPrevention about a claim, so Allay treats claims as closed", error)
       }
       false
     }
@@ -38,11 +48,12 @@ object Claims {
 
   // Only touched when GriefPrevention is enabled; its classes aren't on the classpath otherwise.
   private object GriefPreventionHook {
-    fun mayOpen(player: Player, location: Location): Boolean {
+    /** Container trust, or with [build], build trust. */
+    fun allows(player: Player, location: Location, build: Boolean): Boolean {
       val plugin = GriefPrevention.instance ?: return true
       if (!plugin.claimsEnabledForWorld(location.world)) return true
       val claim = plugin.dataStore.getClaimAt(location, false, null) ?: return true
-      return claim.checkPermission(player, ClaimPermission.Inventory, null) == null
+      return claim.checkPermission(player, if (build) ClaimPermission.Build else ClaimPermission.Inventory, null) == null
     }
   }
 }
