@@ -112,6 +112,9 @@ class Clicks(
     is Button.TakeBook -> lang.text("buttons.hover.take_book", "title" to (features.books.find(player.uniqueId, button.book)?.title ?: ""))
     is Button.ChatMode -> lang.text("chat_mode.tip_enable_hover")
     is Button.HideTips -> lang.text("chat_mode.tip_hide_hover")
+    is Button.Reply -> lang.text("buttons.hover.reply")
+    is Button.Pick -> lang.text("buttons.hover.pick_${button.action}")
+    is Button.Undo -> lang.text("buttons.hover.undo")
   }
 
   /** `/allay do <id>`. */
@@ -144,6 +147,13 @@ class Clicks(
       } ?: lang.send(player, "buttons.book_gone")
       is Button.ChatMode -> features.chat.set(player, true)
       is Button.HideTips -> features.chat.hints(player, false)
+      is Button.Reply -> features.automation.reply(player, button.task, button.reply)
+      is Button.Pick -> features.automation.picking.button(player, button.action)
+      is Button.Undo -> try {
+        lang.send(player, "automation.restored", "count" to features.automation.undo.restore(player.uniqueId, features.config().automation.undoMinutes))
+      } catch (error: ToolError) {
+        lang.send(player, "automation.not_restored", "reason" to (error.message ?: ""))
+      }
     }
   }
 

@@ -26,6 +26,12 @@ interface ClientTool<in C> {
   /** Changes the game for the asker; offered to operators only. */
   val operator: Boolean get() = false
 
+  /**
+   * Runs off the server thread and reaches the world through the context's own hop onto it, so long work (planning
+   * sixty chests) doesn't stall the game: read in one tick, think elsewhere, write in another.
+   */
+  val offMain: Boolean get() = false
+
   fun run(context: C, args: JsonObject): ToolOutput
 }
 

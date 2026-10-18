@@ -34,6 +34,8 @@ class Handler(
   /** The hint operators get under an error a payment or the config fixes. */
   private val billing: () -> BillingCommands,
   private val clicks: () -> Clicks,
+  private val quota: QuotaGate,
+  private val automation: chat.allay.spigot.automation.Automation,
 ) {
   private val runs = ConcurrentHashMap<String, Run>()
   /** When each player last asked everyone, for `askall.cooldown_seconds`. */
@@ -48,6 +50,8 @@ class Handler(
         val trail = Trails.stop(sender)
         val marks = Marks.clear(sender)
         val draft = Drafts.clear(sender)
+        // Agents say themselves that they stopped.
+        if (automation.cancel(sender)) return true
         if (trail || marks || draft) {
           locales.of(sender).send(sender, if (draft) "messages.draft_cleared" else if (marks) "messages.marks_cleared" else "messages.trail_stopped")
           return true
@@ -98,6 +102,7 @@ class Handler(
       }
       lastPublic[key(sender)] = now
     }
+    if (!quota.allows(sender)) return true
     plugin.logger.info("🔄 Handling ${if (public) "public " else ""}${mode.wire} question")
 
     if (public) broadcast("public.question", sender, message)
@@ -109,6 +114,7 @@ class Handler(
     runs.remove(key(sender))?.cancel()
     val run = Run(SenderAsker(sender), mode, lang, configuration.ui.verbSeconds, public)
     run.tip = tip
+    run.model = quota.model(sender)
     runs[key(sender)] = run
     animator.start(run)
 
@@ -135,6 +141,7 @@ class Handler(
         }
       } finally {
         runs.remove(key(sender), run)
+        quota.spent((sender as? Player)?.uniqueId, run.cost)
       }
     }
     return true

@@ -32,6 +32,9 @@ object Claims {
    */
   fun mayBuild(player: Player, location: Location): Boolean = ask { GriefPreventionHook.allows(player, location, build = true) }
 
+  /** Whether [location] lies in a GriefPrevention claim; false without GriefPrevention. */
+  fun claimed(location: Location): Boolean = available && runCatching { GriefPreventionHook.claimed(location) }.getOrDefault(false)
+
   private fun ask(check: () -> Boolean): Boolean {
     if (!available) return true
     return try {
@@ -48,6 +51,11 @@ object Claims {
 
   // Only touched when GriefPrevention is enabled; its classes aren't on the classpath otherwise.
   private object GriefPreventionHook {
+    fun claimed(location: Location): Boolean {
+      val plugin = GriefPrevention.instance ?: return false
+      return plugin.claimsEnabledForWorld(location.world) && plugin.dataStore.getClaimAt(location, false, null) != null
+    }
+
     /** Container trust, or with [build], build trust. */
     fun allows(player: Player, location: Location, build: Boolean): Boolean {
       val plugin = GriefPrevention.instance ?: return true

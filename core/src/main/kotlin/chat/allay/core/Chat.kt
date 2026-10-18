@@ -10,6 +10,13 @@ object Permissions {
   const val RELOAD = "allay.reload"
   /** Paying for Allay and seeing why a player got their language: `/allay link`, `/allay status`, `/allay locale`. */
   const val ADMIN = "allay.admin"
+  /** Automation agents at all; each kind also needs its own, `allay.automation.chests` and so on. */
+  const val AUTOMATION = "allay.automation"
+  fun automation(kind: chat.allay.core.tasks.Kind) = "$AUTOMATION.${kind.wire}"
+  /** A tier of `quota.tiers` in config.yml: `allay.quota.vip`. */
+  fun quota(tier: String) = "allay.quota.$tier"
+  /** A tier of `models` in config.yml: `allay.model.vip`. */
+  fun model(tier: String) = "allay.model.$tier"
 }
 
 /** Chat mode's prefixes: where a line a player writes in chat goes, by its first character. */

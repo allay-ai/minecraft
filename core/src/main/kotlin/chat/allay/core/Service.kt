@@ -190,7 +190,7 @@ class Service<C>(
       Protocol.ToolResult(ok = false, error = NOT_OPERATOR)
     } else {
       try {
-        val output = host.onMain(config.http.toolTimeout) { tool.run(context, call.args) }
+        val output = if (tool.offMain) tool.run(context, call.args) else host.onMain(config.http.toolTimeout) { tool.run(context, call.args) }
         listener.toolFinished(call.call_id, output.summary, failed = false)
         Protocol.ToolResult(ok = true, result = output.result)
       } catch (error: Exception) {

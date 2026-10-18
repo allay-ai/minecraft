@@ -48,3 +48,18 @@ permissions:
   allay.admin:
     description: See and pay for Allay's model with /allay status and /allay link, and see why a player got their language with /allay locale; hear about the subscription
     default: op
+  allay.automation:
+    description: Start automation agents that sort chests, smelt, brew, and craft near the base; each kind also needs its own permission
+    default: true
+  allay.automation.chests:
+    description: Automation agents that sort, group, and move items between chests
+    default: true
+  allay.automation.furnaces:
+    description: Automation agents that load furnaces, blast furnaces, and smokers
+    default: true
+  allay.automation.brewing:
+    description: Automation agents that brew potions in brewing stands
+    default: true
+  allay.automation.crafting:
+    description: Automation agents that craft at a crafting table
+    default: true

@@ -157,9 +157,21 @@ tools:
     point_to: true                # Point the compass at a spot or a player on the locator bar and draw a trail there (only the asker sees it)
     show_marks: true              # Glowing boxes, ghost blocks, and labels over blocks that only the asker sees: their chests, where to put torches
     show_draft: true              # A build of up to 20×15×20 as glowing ghosts, layer by layer, checked against what the player places
-    sort_inventory: true          # Merge stacks and sort the inventory (the hotbar stays)
+    sort_inventory: true          # Merge stacks and sort the inventory; the hotbar and offhand only when asked, with pinned slots (“sword first”)
     reminders: true               # Remind the player in 1–120 minutes; list and cancel reminders
     ping_me: true                 # A sound and particles over the player, seen and heard by everyone nearby
+    # Automation agents (see automation below): the chat starts and steers them, each agent uses the rest
+    start_task: true              # Hand a job to an automation agent that works in the background
+    message_task: true            # Pass the player's answer on to a running agent
+    cancel_task: true             # Stop a running agent
+    say: true                     # An agent's line to its player, with buttons
+    wait: true                    # An agent sleeps until the player answers, its job ends, or a time passes
+    finish: true                  # An agent's last line
+    pick_blocks: true             # The player picks chests, furnaces, or brewing stands with left clicks
+    chests: true                  # Sort, group, and move items between chests, with a preview and undo
+    smelt: true                   # Load furnaces evenly with exactly the fuel needed
+    brew: true                    # Brew a potion in brewing stands, step by step
+    craft: true                   # Craft at a crafting table from what the player has around
   # Tools that change the game for the asker: items, teleports, and the like. The
   # assistant gets them only when the player is an operator, and the plugin checks
   # again before running one. A regular player can't talk it into a sword.
@@ -203,6 +215,58 @@ tools:
     # Plugins get_server leaves out of its list, by name, such as an anti-cheat.
     hidden_plugins: []
 
+# Automation agents: “sort these chests”, “smelt all my gold ore”, “brew night vision for
+# me”, “craft me a set of tools”. The chat hands the job to an agent that works in the
+# background, writes to the player under its name, and waits for answers or for the
+# furnaces without costing anything. It works only near the player: it pauses while they're
+# away and touches only what they could open themself (GriefPrevention's container trust).
+# Chests take part only without a hopper on them and while nobody has them open. If someone
+# takes what an agent counts on, it stops and says so. Permissions: allay.automation and
+# allay.automation.chests, .furnaces, .brewing, .crafting (everyone by default).
+automation:
+  enabled: true               # false: no automation at all
+  chests:
+    enabled: true
+    # “Sort all” reaches chests from the picked ones across gaps of up to this many blocks.
+    # A higher number reaches more chests and takes longer to sort.
+    gap: 6
+    max: 64                   # Chests one agent may take at once (1–256)
+    undo_minutes: 5           # How long “put it back” works, if nobody touched the chests since
+  furnaces:
+    enabled: true
+  brewing:
+    enabled: true
+  crafting:
+    enabled: true
+  max_tasks: 2                # Agents one player may run at once, the agents they start included
+  max_minutes: 30             # An agent stops after this long
+  max_wakes: 40               # Each wake is one request to the model; this bounds what an agent costs
+  max_wait_seconds: 600       # The longest an agent may sleep before it looks again
+  radius: 16                  # How far furnaces, stands, crafting tables, and chests to take from may be
+  pause_distance: 48          # An agent pauses while its player is farther than this from where it started
+  # A furnace, brewing stand, or crafting table counts only when nothing solid, glass
+  # included, stands between it and the player's eyes.
+  line_of_sight: true
+
+# Spending limits, whoever pays (your own key, a self-hosted backend, or the subscription).
+# monthly_usd is what the whole server may spend a month. Each tier is a share of it per
+# player, given by the permission allay.quota.<tier> (any name you like: vip, p10, p99).
+# default needs no permission. A player with several tiers gets the biggest; operators get
+# the biggest there is. The shares together must not pass 1.0, or Allay answers nobody and
+# tells admins why. A player over their share hears so until the next month.
+quota:
+  enabled: false
+  monthly_usd: 20.0
+  tiers:
+    default: "0.05"
+  #  vip: "0.30"
+
+# A model per tier of players: allay.model.<tier> picks it, the first tier in this list
+# the player has; operators get the first. With your own key (provider.mode byok) it
+# replaces provider.byok.model; a self-hosted backend (SELFHOSTED=1) honors it too.
+models: {}
+#  vip: "anthropic/claude-sonnet-5.5"
+
 # Questions everyone sees: /askall, or ? in chat mode. The question and the answer
 # go to every player online.
 askall:
@@ -216,7 +280,7 @@ time:
   zone: "Europe/Moscow"       # An IANA time zone, such as Europe/Berlin or America/New_York
 
 # Commands /askx may never run, whatever the request. Who may use the commands is up to
-# permissions: allay.ask, allay.askall, and allay.chat (everyone by default),
+# permissions: allay.ask, allay.askall, allay.chat, and allay.automation (everyone by default),
 # allay.askx, allay.askall.nocooldown, and allay.reload (operators).
 blocked_commands:
   - "ban"

@@ -43,6 +43,15 @@ sealed interface Button {
   /** Puts a book Allay wrote into the player's inventory, once. */
   data class TakeBook(override val label: String, val book: String) : Button
 
+  /** Answers an automation agent's question: the click wakes agent [task] with [reply]. */
+  data class Reply(override val label: String, val task: String, val reply: String) : Button
+
+  /** Ends picking blocks for an automation agent: [action] is done, all, or cancel. */
+  data class Pick(override val label: String, val action: String) : Button
+
+  /** Puts back what an automation agent moved in chests, within its undo time. */
+  data class Undo(override val label: String) : Button
+
   /** Turns chat mode on, from the tip under an answer. */
   data class ChatMode(override val label: String) : Button
 

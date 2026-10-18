@@ -49,12 +49,19 @@ object AllayTools {
           FEATURES.filterValues(config.tools::enabled).keys.forEach { add(it) }
           add("windows")
           if (sender.isOp && OperatorTools.NAMES.any(config.tools::enabled)) add("operator_tools")
+          // Automation the player may start here: their permissions and the server's switches together.
+          (sender as? org.bukkit.entity.Player)?.let { player ->
+            chat.allay.core.tasks.Kind.entries.filter { context.features.automation.allowed(player, it) == null && config.tools.enabled("start_task") }
+              .forEach { add("automation_${it.wire}") }
+          }
         })
         putJsonObject("limits") {
           put("notes", config.tools.maxNotes)
           put("reminders", config.tools.maxReminders)
           put("goals", config.tools.maxGoals)
           put("askall_cooldown_seconds", config.askall.cooldownSeconds)
+          put("automation_agents_at_once", config.automation.maxTasks)
+          put("automation_radius", config.automation.radius)
         }
       }
       return ToolOutput(result, context.lang.text("summary.guide", "count" to commands.size))

@@ -36,6 +36,8 @@ class Features(
   val structureRadius: () -> Int,
   val biomeRadius: () -> Int,
   val villagerRadius: () -> Int,
+  /** Automation agents, their picking, jobs, and undo. */
+  val automation: chat.allay.spigot.automation.Automation,
 )
 
 /**
@@ -43,7 +45,13 @@ class Features(
  * other players only what the asker's locator bar shows ([Locator]).
  * [buttons] collects what goes under the answer; the handler shows them once the answer is out.
  */
-class ToolContext(val sender: CommandSender, val features: Features, val buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf())) {
+class ToolContext(
+  val sender: CommandSender,
+  val features: Features,
+  val buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
+  /** The automation agent whose wake this is; null in the main chat. */
+  val task: chat.allay.core.tasks.Task? = null,
+) {
   /** The asker's language, for the summaries under tool lines. */
   val lang: Lang get() = features.locales.of(sender)
 
@@ -54,6 +62,13 @@ class ToolContext(val sender: CommandSender, val features: Features, val buttons
   val player: Player? get() = sender as? Player
 
   fun requirePlayer(): Player = player ?: throw chat.allay.core.tools.ToolError("there is no player: the question came from the console")
+
+  /** The automation agent of this wake, or a [chat.allay.core.tools.ToolError] for the main chat. */
+  fun requireTask(): chat.allay.core.tasks.Task = task ?: throw chat.allay.core.tools.ToolError("only an automation agent may use this; start one with start_task")
+
+  /** Runs [block] on the server thread from an off-thread tool ([chat.allay.core.tools.ClientTool.offMain]) and waits for it. */
+  fun <T> main(block: () -> T): T =
+    if (plugin.server.isPrimaryThread) block() else plugin.server.scheduler.callSyncMethod(plugin) { block() }.get(10, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 /** A game tool on Bukkit: it reads the world through the [ToolContext]. */
@@ -62,5 +77,6 @@ typealias Tool = ClientTool<ToolContext>
 /** Every tool this plugin offers. */
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
-    NotebookTools.all + ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all
+    NotebookTools.all + ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all +
+    chat.allay.spigot.automation.TaskTools.all + chat.allay.spigot.automation.Chests.all + chat.allay.spigot.automation.Jobs.all
 }

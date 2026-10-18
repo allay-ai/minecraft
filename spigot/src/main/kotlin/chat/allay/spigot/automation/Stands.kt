@@ -1,0 +1,292 @@
+package chat.allay.spigot.automation
+
+import chat.allay.core.tasks.Task
+import chat.allay.core.tools.*
+import chat.allay.spigot.tools.BrewingRecipes
+import chat.allay.spigot.tools.Marks
+import chat.allay.spigot.tools.Tool
+import chat.allay.spigot.tools.ToolContext
+
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import org.bukkit.Material
+import org.bukkit.block.Block
+import org.bukkit.block.BrewingStand
+import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.PotionMeta
+
+/**
+ * `brew`: brews a potion for the player in stands near them, step by step from the game's own recipes. A stand that
+ * already holds a step of the way (an awkward potion) starts there. Everything it needs is reserved up front; each
+ * step's end ([org.bukkit.event.inventory.BrewEvent]) puts in the next reagent.
+ */
+object Stands {
+  /** Blaze powder gives a stand this many brews. */
+  private const val BREWS_PER_POWDER = 20
+
+  private fun stand(block: Block) = block.state as? BrewingStand
+
+  /** What a bottle in a stand is, as the recipes name bottles; null for an empty slot or something else. */
+  fun bottle(item: ItemStack?): Brewing.Bottle? {
+    if (item == null || item.type.isAir) return null
+    val meta = item.itemMeta as? PotionMeta ?: return null
+    if (meta.hasCustomEffects()) return null
+    return Brewing.Bottle(item.type.key.key, meta.basePotionType?.key?.key ?: return null)
+  }
+
+  private fun bottles(block: Block) = (0..2).map { stand(block)!!.inventory.getItem(it) }
+
+  private fun plain(type: Material): (ItemStack) -> Boolean = { it.type == type && Sources.plain(it) }
+
+  private val water: (ItemStack) -> Boolean = { item -> bottle(item) == Brewing.WATER && (item.itemMeta as? PotionMeta)?.hasCustomEffects() != true }
+
+  /** Where in [chain] a stand stands: the step whose bottle all its bottles are, with how many; -1 when they don't fit. */
+  private fun step(block: Block, chain: List<Brewing.Brew>): Pair<Int, Int> {
+    val present = bottles(block).filterNotNull()
+    if (present.isEmpty()) return 0 to 0
+    val kinds = present.map(::bottle).distinct()
+    if (kinds.size != 1 || kinds.first() == null) return -1 to 0
+    val kind = kinds.first()!!
+    val index = chain.indexOfFirst { it.from == kind }
+    return when {
+      index >= 0 -> index to present.size
+      chain.lastOrNull()?.to == kind -> chain.size to present.size
+      else -> -1 to 0
+    }
+  }
+
+  private class Load(val block: Block, var step: Int, val bottles: Int)
+
+  private class Job(override val task: Task, val player: Player, val chain: List<Brewing.Brew>, val loads: List<Load>, val sources: Sources) : Jobs.BlockJob {
+    override val blocks get() = loads.map { it.block }
+
+    override fun brewed(block: Block) {
+      val load = loads.firstOrNull { it.block == block } ?: return
+      val brew = chain[load.step]
+      val now = bottles(block).filterNotNull().map(::bottle)
+      if (now.size != load.bottles || now.any { it != brew.to }) {
+        return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to block.type.key.key, "x" to block.x, "y" to block.y, "z" to block.z))
+      }
+      load.step++
+      if (load.step < chain.size) {
+        if (!feed(load)) return
+      }
+      if (loads.all { it.step >= chain.size }) {
+        Jobs.remove(this)
+        val target = chain.last().to
+        Jobs.automation.post(task, "[job] brewing done: ${loads.sumOf { it.bottles }} × ${target.item} of ${target.potion} in ${loads.size} stands (${loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }}); collect them")
+      }
+    }
+
+    /** Puts the reagent of the load's step into its stand, from what was reserved. False when someone took it. */
+    fun feed(load: Load): Boolean {
+      val reagent = Material.matchMaterial(chain[load.step].reagent)!!
+      val (taken, short) = sources.takeReserved(plain(reagent), reagent.key.key, 1, Jobs.automation.reservations, task.id)
+      if (short != null || taken.isEmpty()) {
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to reagent.key.key, "place" to (short?.block?.let { "${it.type.key.key} ${it.x} ${it.y} ${it.z}" } ?: "?")))
+        return false
+      }
+      val inventory = stand(load.block)!!.inventory
+      if (inventory.ingredient != null) {
+        give(player, taken)
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.type.key.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
+        return false
+      }
+      inventory.ingredient = taken.first().apply { amount = 1 }
+      return true
+    }
+
+    /** Loads that looked wrong at the last check: a step's end and the next reagent are a tick apart, so it takes two looks. */
+    private val suspect = mutableSetOf<Block>()
+
+    override fun check() {
+      for (load in loads) {
+        if (load.step >= chain.size) continue
+        val state = stand(load.block) ?: continue
+        // Between steps the stand brews; an empty ingredient slot with nothing brewing means someone took the reagent.
+        if (state.brewingTime > 0 || state.inventory.ingredient != null) {
+          suspect -= load.block
+        } else if (suspect.add(load.block).not()) {
+          return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.type.key.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
+        }
+      }
+    }
+
+    override fun cancel() {
+      Jobs.remove(this)
+    }
+  }
+
+  val tool = object : Tool {
+    override val name = "brew"
+
+    override fun run(context: ToolContext, args: JsonObject): ToolOutput {
+      val player = context.requirePlayer()
+      val task = context.requireTask()
+      val automation = context.features.automation
+      val settings = automation.settings()
+      val lang = context.lang
+      val chain = args.string("potion")?.let { potion ->
+        val (brews, target) = BrewingRecipes.target(player.server, potion, args.string("form"))
+        Brewing.chain(brews, target) ?: throw ToolError("the brewing stand can't make ${target.item} of ${target.potion}")
+      }
+      return when (val action = args.string("action")?.lowercase()) {
+        "scan" -> {
+          val marks = mutableListOf<Marks.Mark>()
+          val rows = buildJsonArray {
+            Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND }.forEach { block ->
+              val state = stand(block) ?: return@forEach
+              val unfit = Blocks.unusable(player, block, settings.radius, settings.lineOfSight)
+              val busy = state.brewingTime > 0 || state.inventory.ingredient != null || Jobs.busy(block)
+              val start = chain?.let { step(block, it) }
+              add(buildJsonObject {
+                put("x", block.x); put("y", block.y); put("z", block.z)
+                putJsonArray("bottles") { bottles(block).forEach { item -> add(bottle(item)?.let { "${it.item} ${it.potion}" } ?: item?.type?.key?.key ?: "empty") } }
+                put("fuel", state.fuelLevel)
+                when {
+                  unfit != null -> put("unsuitable", unfit.model)
+                  busy -> put("busy", true)
+                  start != null && start.first < 0 -> put("unsuitable", "its bottles aren't a step toward this potion")
+                  start != null -> put("starts_at_step", start.first + 1)
+                }
+              })
+              marks += Marks.Mark(block, null, null, if (unfit == null && !busy && (start == null || start.first >= 0)) Marks.Hue.GREEN else Marks.Hue.RED)
+            }
+          }
+          if (marks.isNotEmpty()) Marks.show(context.plugin, player, marks, context.features.config().tools.marksSeconds)
+          val sources = Sources.around(player, settings.radius)
+          val result = buildJsonObject {
+            put("stands", rows)
+            put("note", "green glow: usable; red: busy or not fit; the player sees it")
+            putJsonObject("at_hand") {
+              put("water_bottles", sources.count(water))
+              put("blaze_powder", sources.count(plain(Material.BLAZE_POWDER)))
+              put("blaze_rod", sources.count(plain(Material.BLAZE_ROD)))
+              chain?.map { it.reagent }?.distinct()?.forEach { id -> Material.matchMaterial(id)?.let { put(id, sources.count(plain(it))) } }
+            }
+            chain?.let { steps -> putJsonArray("steps") { steps.forEach { add("${it.from.potion} + ${it.reagent} → ${it.to.item} ${it.to.potion}") } } }
+          }
+          ToolOutput(result, lang.text("summary.stands", "count" to rows.size))
+        }
+        "start" -> start(context, player, task, args, chain ?: throw ToolError("start needs potion"))
+        "status" -> {
+          val job = automation.agent(task).job as? Job ?: throw ToolError("no brewing running for this task")
+          ToolOutput(buildJsonObject {
+            put("steps", job.chain.size)
+            put("stands", buildJsonArray { job.loads.forEach { add(buildJsonObject { put("x", it.block.x); put("y", it.block.y); put("z", it.block.z); put("step", minOf(it.step + 1, job.chain.size)); put("done", it.step >= job.chain.size) }) } })
+          }, lang.text("summary.brewing_status"))
+        }
+        "collect" -> {
+          val to = Jobs.output(player, args["to"]) ?: throw ToolError("to is required: \"inventory\" or chests; ask the player")
+          val job = automation.agent(task).job as? Job
+          val blocks = Blocks.list(player, args["stands"]).ifEmpty { job?.blocks?.toList().orEmpty() }
+          if (blocks.isEmpty()) throw ToolError("which stands? pass stands")
+          if (job != null && job.loads.any { it.step < job.chain.size }) throw ToolError("still brewing; wait for the job to end")
+          val taken = blocks.flatMap { block ->
+            Blocks.unusable(player, block, settings.radius, false)?.let { throw ToolError("the stand at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+            val inventory = stand(block)?.inventory ?: return@flatMap emptyList()
+            (0..2).mapNotNull { slot -> inventory.getItem(slot)?.also { inventory.setItem(slot, null) } }
+          }
+          Jobs.deliver(player, taken, to)
+          ToolOutput(buildJsonObject { put("collected", taken.sumOf { it.amount }) }, lang.text("summary.collected", "count" to taken.sumOf { it.amount }))
+        }
+        else -> throw ToolError("action must be scan, start, status, or collect, not $action")
+      }
+    }
+  }
+
+  private fun start(context: ToolContext, player: Player, task: Task, args: JsonObject, chain: List<Brewing.Brew>): ToolOutput {
+    val automation = context.features.automation
+    val settings = automation.settings()
+    val holds = automation.reservations
+    if (automation.agent(task).job != null) throw ToolError("this task already runs a job; one per task")
+    val wanted = (args.int("bottles") ?: 3).coerceIn(1, 3)
+    val named = Blocks.list(player, args["stands"]).ifEmpty { automation.picking.picked(player, task) }
+    val candidates = named.ifEmpty { Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND } }
+      .filter { it.type == Material.BREWING_STAND && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && !Jobs.busy(it) }
+      .filter { stand(it)!!.let { state -> state.brewingTime <= 0 && state.inventory.ingredient == null } }
+    val plans = candidates.map { it to step(it, chain) }.filter { it.second.first >= 0 && it.second.first < chain.size }
+    if (plans.isEmpty()) throw ToolError("no stand near the player fits: each needs to be idle with no bottles, water bottles, or a step of this potion in it")
+
+    // What every stand needs: water bottles for empty ones, a reagent per step left, and fuel for those steps.
+    val sources = Sources.around(player, settings.radius)
+    val needs = mutableMapOf<String, Int>()
+    var waterNeeded = 0
+    var powder = 0
+    plans.forEach { (block, start) ->
+      if (start.second == 0) waterNeeded += wanted
+      chain.drop(start.first).forEach { needs.merge(it.reagent, 1, Int::plus) }
+      val brews = chain.size - start.first
+      val fuel = stand(block)!!.fuelLevel
+      if (brews > fuel) powder += (brews - fuel + BREWS_PER_POWDER - 1) / BREWS_PER_POWDER
+    }
+    val missing = mutableMapOf<String, Int>()
+    if (waterNeeded > 0) (waterNeeded - sources.free(water, "water_bottle", holds, task.id)).takeIf { it > 0 }?.let { missing["water_bottle"] = it }
+    needs.forEach { (id, n) ->
+      val material = Material.matchMaterial(id) ?: return@forEach
+      (n - sources.free(plain(material), id, holds, task.id)).takeIf { it > 0 }?.let { missing[id] = it }
+    }
+    val havePowder = sources.free(plain(Material.BLAZE_POWDER), "blaze_powder", holds, task.id)
+    val rods = if (powder > havePowder) (powder - havePowder + 1) / 2 else 0
+    if (rods > 0) (rods - sources.free(plain(Material.BLAZE_ROD), "blaze_rod", holds, task.id)).takeIf { it > 0 }?.let { missing["blaze_powder"] = powder - havePowder }
+    if (missing.isNotEmpty()) {
+      return ToolOutput(buildJsonObject {
+        put("started", false)
+        putJsonObject("missing") { missing.forEach { (id, n) -> put(id, n) } }
+        put("note", "tell the player what's missing and where it comes from; nothing was taken")
+      }, context.lang.text("summary.brewing_missing", "count" to missing.size))
+    }
+
+    // Reserve it all, then put in the bottles and the fuel; the first reagents go in last, and the stands start.
+    fun reserve(match: (ItemStack) -> Boolean, key: String, n: Int) {
+      if (n > 0 && !sources.reserve(match, key, n, holds, task.id)) throw ToolError("someone took the $key meanwhile")
+    }
+    reserve(water, "water_bottle", waterNeeded)
+    needs.forEach { (id, n) -> reserve(plain(Material.matchMaterial(id)!!), id, n) }
+    reserve(plain(Material.BLAZE_POWDER), "blaze_powder", minOf(powder, havePowder))
+    reserve(plain(Material.BLAZE_ROD), "blaze_rod", rods)
+    val (rodsTaken, rodsShort) = sources.takeReserved(plain(Material.BLAZE_ROD), "blaze_rod", rods, holds, task.id)
+    if (rodsShort != null) throw ToolError("the blaze rods changed meanwhile")
+    val (powderTaken, powderShort) = sources.takeReserved(plain(Material.BLAZE_POWDER), "blaze_powder", minOf(powder, havePowder), holds, task.id)
+    if (powderShort != null) throw ToolError("the blaze powder changed meanwhile")
+    // A blaze rod makes two powder, as the crafting table does.
+    var powderPool = powderTaken.sumOf { it.amount } + rodsTaken.sumOf { it.amount } * 2
+    val loads = plans.map { (block, start) ->
+      val inventory = stand(block)!!.inventory
+      if (start.second == 0) {
+        val (bottles, short) = sources.takeReserved(water, "water_bottle", wanted, holds, task.id)
+        if (short != null) throw ToolError("the water bottles changed meanwhile")
+        val split = bottles.flatMap { stack -> List(stack.amount) { stack.clone().apply { amount = 1 } } }
+        split.forEachIndexed { slot, bottle -> inventory.setItem(slot, bottle) }
+      }
+      val state = stand(block)!!
+      val brews = chain.size - start.first
+      if (brews > state.fuelLevel && powderPool > 0) {
+        val n = minOf(powderPool, (brews - state.fuelLevel + BREWS_PER_POWDER - 1) / BREWS_PER_POWDER)
+        val fuel = inventory.fuel
+        inventory.fuel = ItemStack(Material.BLAZE_POWDER, (fuel?.takeIf { it.type == Material.BLAZE_POWDER }?.amount ?: 0) + n)
+        powderPool -= n
+      }
+      Load(block, start.first, if (start.second == 0) wanted else start.second)
+    }
+    if (powderPool > 0) give(player, listOf(ItemStack(Material.BLAZE_POWDER, powderPool)))
+    val job = Job(task, player, chain, loads, sources)
+    for (load in loads) if (!job.feed(load)) return ToolOutput(buildJsonObject { put("started", false) }, "")
+    automation.agent(task).job = job
+    Jobs.add(job)
+    Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, chain.last().to.potion.replace('_', ' '), Marks.Hue.PURPLE) }, context.features.config().tools.marksSeconds)
+    val result = buildJsonObject {
+      put("started", true)
+      put("stands", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("from_step", load.step + 1); put("bottles", load.bottles) }) } })
+      put("steps", chain.size)
+      put("note", "each step brews 20 seconds; wait now, you wake when it's all done")
+    }
+    return ToolOutput(result, context.lang.text("summary.brewing_started", "count" to loads.size))
+  }
+}

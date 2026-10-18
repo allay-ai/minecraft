@@ -4,6 +4,8 @@ import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.BrewingRecipes
 import chat.allay.spigot.tools.ToolContext
+import chat.allay.spigot.automation.Automation
+import chat.allay.spigot.automation.Jobs
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,8 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var license: License
   private lateinit var announcements: Announcements
   private lateinit var billing: BillingCommands
+  private lateinit var quota: QuotaGate
+  private lateinit var automation: Automation
   private var watch: BillingWatch? = null
   private var placeholders: AutoCloseable? = null
   private var plan: AutoCloseable? = null
@@ -76,6 +80,8 @@ class Zygote : JavaPlugin(), TabCompleter {
     val deaths = Deaths()
     val settings = PlayerSettings(dataFolder, logger)
     chat = ChatMode(this, locales, settings) { handler }
+    quota = QuotaGate(this, locales, { configuration }, QuotaBook(dataFolder, logger) { runCatching { java.time.ZoneId.of(configuration.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
+    automation = Automation(this, locales, { configuration }, { service }, { clicks }, { quota }, scope)
     features = Features(
       plugin = this,
       locales = locales,
@@ -92,10 +98,13 @@ class Zygote : JavaPlugin(), TabCompleter {
       structureRadius = { configuration.tools.structureRadius },
       biomeRadius = { configuration.tools.biomeRadius },
       villagerRadius = { configuration.tools.villagerRadius },
+      automation = automation,
     )
     menus = MenuListener(this)
-    listOf(goals, deaths, menus, locales, chat, Marks, Drafts).forEach { server.pluginManager.registerEvents(it, this) }
+    listOf(goals, deaths, menus, locales, chat, Marks, Drafts, quota, automation, automation.picking, Jobs).forEach { server.pluginManager.registerEvents(it, this) }
     Drafts.start(this, locales)
+    Jobs.automation = automation
+    automation.start()
     goals.start()
     initializeComponents()
     // Allay loads at STARTUP, before PlaceholderAPI and Plan; by the first tick every plugin is on.
@@ -119,14 +128,15 @@ class Zygote : JavaPlugin(), TabCompleter {
     if (::animator.isInitialized) animator.stopAllAnimations()
     animator = Animator(this, configuration)
     val tools = ToolRegistry(Tools.all(), configuration.tools::enabled)
-    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials)
+    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book)
+    quota.report()
     val licenses = Billing(client, configuration, license)
     billing = BillingCommands(this, configuration, locales, licenses, credentials, features.zones, scope)
     watch?.stop()
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }) { clicks }
+    handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation)
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
   }
@@ -151,7 +161,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     override val pluginVersion: String get() = description.version
     override val software: String get() = server.name
     override val gameVersion: String get() = WorldTools.version(server.bukkitVersion)
-    override fun context(run: Run) = ToolContext(run.sender, features, run.buttons)
+    override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task)
     override fun <T> onMain(seconds: Long, block: () -> T): T = server.scheduler.callSyncMethod(this@Zygote) { block() }.get(seconds, TimeUnit.SECONDS)
   }
 
@@ -171,6 +181,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     placeholders?.close()
     plan?.close()
     if (::handler.isInitialized) handler.cancelAll()
+    if (::automation.isInitialized) automation.stop()
     watch?.stop()
     if (::reminders.isInitialized) reminders.cancelAll()
     if (::goals.isInitialized) goals.stop()
