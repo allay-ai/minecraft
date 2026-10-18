@@ -150,7 +150,7 @@ class Clicks(
       is Button.Reply -> features.automation.reply(player, button.task, button.reply)
       is Button.Pick -> features.automation.picking.button(player, button.action)
       is Button.Undo -> try {
-        lang.send(player, "automation.restored", "count" to features.automation.undo.restore(player.uniqueId, features.config().automation.undoMinutes))
+        lang.send(player, "automation.restored", "count" to features.automation.undo.restore(player, features.config().automation.undoMinutes))
       } catch (error: ToolError) {
         lang.send(player, "automation.not_restored", "reason" to (error.message ?: ""))
       }

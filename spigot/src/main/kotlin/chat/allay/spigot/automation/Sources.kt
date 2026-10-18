@@ -67,21 +67,20 @@ class Sources private constructor(val list: List<Source>) {
 
   fun count(match: (ItemStack) -> Boolean) = list.sumOf { it.count(match) }
 
-  /** How many [match] finds that no other task than [task] holds. */
+  /** How many [match] finds that nobody holds yet, [task] included: a task never books the same items twice. */
   fun free(match: (ItemStack) -> Boolean, key: String, holds: Reservations, task: String): Int =
-    list.sumOf { (it.count(match) - holds.held(it.place, key, except = task)).coerceAtLeast(0) }
+    list.sumOf { (it.count(match) - holds.held(it.place, key)).coerceAtLeast(0) }
 
   /** Reserves [amount] of [key] for [task], from the places that have them; false when there aren't enough. */
   fun reserve(match: (ItemStack) -> Boolean, key: String, amount: Int, holds: Reservations, task: String): Boolean {
     var left = amount
     for (source in list) {
       if (left <= 0) break
-      val free = (source.count(match) - holds.held(source.place, key, except = task)).coerceAtLeast(0)
+      val free = (source.count(match) - holds.held(source.place, key)).coerceAtLeast(0)
       val take = minOf(left, free)
       if (take > 0) holds.reserve(task, source.place, key, take)
       left -= take
     }
-    if (left > 0) holds.release(task)
     return left <= 0
   }
 
@@ -125,8 +124,9 @@ class Sources private constructor(val list: List<Source>) {
       if (ender) list += Source("ender:${player.uniqueId}", true, null, { player.enderChest.contents.toList() }, { player.enderChest.contents = it.toTypedArray() })
       Blocks.near(player.location, radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct().forEach { block ->
         val state = block.state as? Container ?: return@forEach
-        if (!Claims.mayOpen(player, state) || Blocks.open(block)) return@forEach
-        list += Source(Blocks.place(block), false, block, { (block.state as Container).inventory.contents.toList() }, { (block.state as Container).inventory.contents = it.toTypedArray() })
+        // A farm's output or a sorter's chest (a hopper on it) stays out, as it does for sorting.
+        if (state !is Container || Blocks.unsuitable(player, block) != null) return@forEach
+        list += Source(Blocks.place(block), false, block, { (block.state as? Container)?.inventory?.contents?.toList().orEmpty() }, { items -> (block.state as? Container)?.inventory?.contents = items.toTypedArray() })
       }
       return Sources(list)
     }

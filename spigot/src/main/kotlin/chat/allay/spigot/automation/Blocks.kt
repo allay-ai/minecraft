@@ -145,12 +145,17 @@ object Blocks {
     return null
   }
 
-  /** The blocks an argument names: `[{x, y, z}, …]` in the player's world. */
-  fun list(player: Player, value: Any?): List<Block> = (value as? JsonArray)?.mapNotNull { element ->
+  /**
+   * The blocks an argument names: `[{x, y, z}, …]` in the player's world, each within [limit] blocks of them. Checked
+   * before the block is touched, so a far spot never loads a chunk and no base across the map can be reached.
+   */
+  fun list(player: Player, value: Any?, limit: Int): List<Block> = (value as? JsonArray)?.mapNotNull { element ->
     val spot = element as? JsonObject ?: return@mapNotNull null
     val x = spot.int("x") ?: throw ToolError("each block needs x, y, and z")
     val y = spot.int("y") ?: throw ToolError("each block needs x, y, and z")
     val z = spot.int("z") ?: throw ToolError("each block needs x, y, and z")
+    val here = player.location
+    if (Location(player.world, x + 0.5, y + 0.5, z + 0.5).distance(here) > limit) throw ToolError("the block at $x $y $z is farther than $limit blocks from the player")
     player.world.getBlockAt(x, y, z)
   }.orEmpty()
 }

@@ -96,7 +96,8 @@ object Furnaces {
 
     override fun check() {
       for (load in loads) {
-        val inventory = furnace(load.block)?.inventory ?: continue
+        val inventory = furnace(load.block)?.inventory
+          ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "furnace", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         val input = inventory.smelting?.takeIf { it.type == item }?.amount ?: 0
         if (input >= load.expected) {
           suspect -= load.block
@@ -122,6 +123,7 @@ object Furnaces {
       val automation = context.features.automation
       val settings = automation.settings()
       val lang = context.lang
+      automation.require(player, task, chat.allay.core.tasks.Kind.FURNACES)
       val around = { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
       return when (val action = args.string("action")?.lowercase()) {
         "scan" -> {
@@ -162,7 +164,7 @@ object Furnaces {
         "collect" -> {
           val to = Jobs.output(player, args["to"]) ?: throw ToolError("to is required: \"inventory\" or chests; ask the player")
           val job = automation.agent(task).job as? Job
-          val blocks = Blocks.list(player, args["furnaces"]).ifEmpty { job?.blocks?.toList().orEmpty() }
+          val blocks = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { job?.blocks?.toList().orEmpty() }
           if (blocks.isEmpty()) throw ToolError("which furnaces? pass furnaces")
           val taken = blocks.mapNotNull { block ->
             Blocks.unusable(player, block, settings.radius, false)?.let { throw ToolError("the furnace at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
@@ -181,10 +183,10 @@ object Furnaces {
     val automation = context.features.automation
     val settings = automation.settings()
     val holds = automation.reservations
-    if (automation.agent(task).job != null) throw ToolError("this task already runs a job; one per task")
+    automation.agent(task).job?.let { if (Jobs.active(it)) throw ToolError("this task already runs a job; one per task") }
     val item = InteractTools.material(args.string("item") ?: throw ToolError("item is required, like raw_gold"))
     val sample = ItemStack(item)
-    val named = Blocks.list(player, args["furnaces"]).ifEmpty { automation.picking.picked(player, task) }
+    val named = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
     val blocks = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
       .filter { Blocks.furnace(it.type) && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && free(it) && recipe(player.server, it, sample) != null }
     if (blocks.isEmpty()) throw ToolError("no free furnace near the player can cook ${item.key.key}")
@@ -212,44 +214,55 @@ object Furnaces {
     val perFurnace = used.map { (block, share) -> Workshop.fuelFor(share, fuel, banked(block)) }
     if (perFurnace.any { it > 64 }) throw ToolError("one furnace would need more than 64 $fuel; use more furnaces or a stronger fuel")
 
-    // Reserve everything first: nothing moves unless all of it is there.
-    if (!sources.reserve(plain(item), item.key.key, total, holds, task.id)) throw ToolError("someone took the ${item.key.key} meanwhile")
     val fuelNeeded = perFurnace.sum()
+    used.forEachIndexed { index, (block, _) ->
+      val there = furnace(block)!!.inventory.fuel?.amount ?: 0
+      if (perFurnace[index] > 0 && there + perFurnace[index] > fuelType.maxStackSize) throw ToolError("the fuel slot of the furnace at ${block.x} ${block.y} ${block.z} can't hold that much $fuel; use more furnaces or another fuel")
+    }
+
+    // Reserve everything, then take everything; only when all of it is in hand does anything go into a furnace.
+    // Whatever fails on the way goes back to the player and frees the holds, so nothing is lost.
+    val inHand = mutableListOf<ItemStack>()
+    val spare = mutableListOf<Pair<ItemStack, Sources.Source?>>()
+    val firsts = used.map { (_, share) -> minOf(64, share) }
+    fun fail(reason: String): Nothing {
+      give(player, inHand)
+      holds.release(task.id)
+      throw ToolError(reason)
+    }
+    if (!sources.reserve(plain(item), item.key.key, total, holds, task.id)) fail("someone took the ${item.key.key} meanwhile")
     val fromCoal = if (fuel == "coal") minOf(fuelNeeded, coal()) else fuelNeeded
-    if (fromCoal > 0 && !sources.reserve(plain(fuelType), fuel, fromCoal, holds, task.id)) throw ToolError("someone took the $fuel meanwhile")
-    var spare = mutableListOf<Pair<ItemStack, Sources.Source?>>()
-    val fuelStacks = mutableListOf<ItemStack>()
+    if (fromCoal > 0 && !sources.reserve(plain(fuelType), fuel, fromCoal, holds, task.id)) fail("someone took the $fuel meanwhile")
+    val blocksNeeded = if (fuel == "coal" && fuelNeeded > fromCoal) (fuelNeeded - fromCoal + 8) / 9 else 0
+    if (blocksNeeded > 0 && !sources.reserve(plain(Material.COAL_BLOCK), "coal_block", blocksNeeded, holds, task.id)) fail("someone took the coal blocks meanwhile")
     val (gotFuel, shortFuel) = sources.takeReserved(plain(fuelType), fuel, fromCoal, holds, task.id)
-    if (shortFuel != null) throw ToolError("the $fuel changed meanwhile")
-    fuelStacks += gotFuel
-    if (fuel == "coal" && fuelNeeded > fromCoal) {
+    inHand += gotFuel
+    if (shortFuel != null) fail("the $fuel changed meanwhile")
+    if (blocksNeeded > 0) {
       // Coal blocks split into coal, as the crafting table does; what's left over goes back where the block was.
-      val blocksNeeded = (fuelNeeded - fromCoal + 8) / 9
-      if (!sources.reserve(plain(Material.COAL_BLOCK), "coal_block", blocksNeeded, holds, task.id)) throw ToolError("someone took the coal blocks meanwhile")
       val source = sources.list.firstOrNull { it.count(plain(Material.COAL_BLOCK)) > 0 }
       val (taken, short) = sources.takeReserved(plain(Material.COAL_BLOCK), "coal_block", blocksNeeded, holds, task.id)
-      if (short != null) throw ToolError("the coal blocks changed meanwhile")
+      inHand += taken
+      if (short != null) fail("the coal blocks changed meanwhile")
+      inHand.removeAll(taken)
       val pieces = taken.sumOf { it.amount } * 9
-      fuelStacks += ItemStack(Material.COAL, fuelNeeded - fromCoal)
+      inHand += ItemStack(Material.COAL, fuelNeeded - fromCoal)
       val left = pieces - (fuelNeeded - fromCoal)
       if (left > 0) spare += ItemStack(Material.COAL, left) to source
     }
+    val loadsInHand = firsts.map { first ->
+      val (taken, short) = sources.takeReserved(plain(item), item.key.key, first, holds, task.id)
+      inHand += taken
+      if (short != null) fail("the ${item.key.key} changed meanwhile")
+      taken.sumOf { it.amount }
+    }
 
-    // Load each furnace: its share of the item up to a stack, and its fuel.
-    var fuelPool = fuelStacks.sumOf { it.amount }
+    // Everything is here: each furnace gets its share up to a stack, and its fuel.
     val loads = used.mapIndexed { index, (block, share) ->
       val inventory = furnace(block)!!.inventory
-      val first = minOf(64, share)
-      val (taken, short) = sources.takeReserved(plain(item), item.key.key, first, holds, task.id)
-      if (short != null) throw ToolError("the ${item.key.key} changed meanwhile")
-      inventory.smelting = ItemStack(item, taken.sumOf { it.amount })
-      val fuelHere = minOf(perFurnace[index], fuelPool)
-      if (fuelHere > 0) {
-        val current = inventory.fuel?.amount ?: 0
-        inventory.fuel = ItemStack(fuelType, current + fuelHere)
-        fuelPool -= fuelHere
-      }
-      Load(block, taken.sumOf { it.amount }, share)
+      inventory.smelting = ItemStack(item, loadsInHand[index])
+      if (perFurnace[index] > 0) inventory.fuel = ItemStack(fuelType, (inventory.fuel?.amount ?: 0) + perFurnace[index])
+      Load(block, loadsInHand[index], share)
     }
     spare.forEach { (stack, source) -> give(player, listOf(stack), source) }
     val job = Job(task, player, item, result, loads, sources, total)

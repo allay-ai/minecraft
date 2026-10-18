@@ -51,6 +51,9 @@ object Jobs : Listener {
 
   fun busy(block: Block) = of(block) != null
 
+  /** Whether [job] still works; a finished one stays on its agent for collect. */
+  fun active(job: Automation.Job) = job in running
+
   fun start(plugin: Plugin) {
     plugin.server.scheduler.runTaskTimer(plugin, Runnable { running.toList().forEach(BlockJob::check) }, 20L, 20L)
   }
@@ -83,7 +86,7 @@ object Jobs : Listener {
   fun output(player: Player, value: JsonElement?): Output? = when {
     value == null -> null
     value is JsonPrimitive && value.contentOrNull?.trim()?.lowercase() == "inventory" -> Output.Inventory
-    value is JsonArray -> Output.Chests(Blocks.list(player, value).map(Blocks::root).onEach { block ->
+    value is JsonArray -> Output.Chests(Blocks.list(player, value, automation.settings().pauseDistance).map(Blocks::root).onEach { block ->
       Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
     })
     else -> throw ToolError("to is \"inventory\" or a list of chests by x, y, z")

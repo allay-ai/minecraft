@@ -87,6 +87,15 @@ class Automation(
     book.all().forEach { end(it, null) }
   }
 
+  /**
+   * For the tools: [task] is an agent of [kind], and its player may still run that kind (an admin may have taken the
+   * permission away meanwhile). A chests agent can't smelt, so one permission never opens another.
+   */
+  fun require(player: Player, task: Task, kind: Kind) {
+    if (task.kind != kind) throw ToolError("this is a ${task.kind.wire} agent; ${kind.wire} needs its own, started with start_task")
+    allowed(player, kind)?.let { throw ToolError(it) }
+  }
+
   /** Whether [player] may run automations of [kind] here: the switches in config.yml, then the permissions. */
   fun allowed(player: Player, kind: Kind): String? = when {
     !config().automation.on(kind) -> "automation of ${kind.wire} is switched off on this server"
@@ -150,6 +159,7 @@ class Automation(
     agent?.job?.cancel()
     reservations.release(task.id)
     picking.stop(player, task)
+    book.of(task.owner).filter { it.parent == task.id }.forEach { end(it, null) }
   }
 
   /** A line from the agent to its player, with [buttons] under it. */
@@ -189,6 +199,8 @@ class Automation(
     val message = generateSequence { task.inbox.poll() }.joinToString("\n").take(2000)
     task.wakes++
     task.running = true
+    // Whatever woke it, an old timer has nothing left to say.
+    task.wakeAt = null
     task.waited = false
     task.state = Task.State.WORKING
     task.question = null

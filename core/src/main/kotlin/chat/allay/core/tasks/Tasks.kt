@@ -106,6 +106,9 @@ class Reservations {
   /** How many of [item] at [place] other tasks than [except] hold. */
   fun held(place: String, item: String, except: String? = null): Int = holds.filter { it.place == place && it.item == item && it.task != except }.sumOf { it.count }
 
+  /** Whether any task but [except] holds something at [place]. */
+  fun heldAt(place: String, except: String? = null): Boolean = holds.any { it.place == place && it.task != except }
+
   /** What [task] holds, as place to item to count. */
   fun of(task: String): Map<String, Map<String, Int>> = holds.filter { it.task == task }
     .groupBy { it.place }.mapValues { (_, list) -> list.groupBy { it.item }.mapValues { (_, same) -> same.sumOf { it.count } } }

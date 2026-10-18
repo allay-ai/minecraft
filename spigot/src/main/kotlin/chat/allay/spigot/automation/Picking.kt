@@ -48,6 +48,8 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
 
   /** Starts picking for [task]; with [looking], the block under the crosshair is picked right away. */
   fun start(player: Player, task: Task, kind: Kind, looking: Boolean): Int {
+    // Another agent's open picking ends here; it hears so instead of waiting for nothing.
+    sessions[player.uniqueId]?.takeIf { it.open && it.task.id != task.id }?.let { automation.post(it.task, "[job] picking: another automation took over picking; pick again later") }
     stop(player, null)
     val session = Session(task, kind, System.currentTimeMillis())
     sessions[player.uniqueId] = session
@@ -110,6 +112,7 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
         toggle(player, session, block, quiet = true)
         added++
       }
+      if (block.location.distance(player.location) > settings.pauseDistance) continue
       Blocks.halves(block).forEach { half ->
         Blocks.near(half.location, settings.chestGap + 1) { Blocks.storage(it.type) }.map(Blocks::root).forEach { next -> if (seen.add(next)) queue += next }
       }

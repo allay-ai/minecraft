@@ -50,7 +50,7 @@ object Chests {
 
   /** The chests the call names, or the ones the player picked; each one's root, once. */
   private fun chosen(context: ToolContext, player: Player, args: JsonObject): List<Block> {
-    val named = Blocks.list(player, args["chests"]).map(Blocks::root)
+    val named = Blocks.list(player, args["chests"], context.features.automation.settings().pauseDistance).map(Blocks::root)
     val blocks = named.ifEmpty { context.features.automation.picking.picked(player, context.requireTask()) }.distinct()
     if (blocks.isEmpty()) throw ToolError("no chests: pick them with pick_blocks, or pass chests")
     val limit = context.features.automation.settings().maxChests
@@ -66,6 +66,8 @@ object Chests {
       val task = context.requireTask()
       val automation = context.features.automation
       val lang = context.lang
+      // Reading is what any agent may do, to find “the chest with the Gold sign”; moving things is a chests agent's.
+      if (args.string("action")?.lowercase() != "read") context.main { automation.require(context.requirePlayer(), task, chat.allay.core.tasks.Kind.CHESTS) }
       return when (val action = args.string("action")?.lowercase()) {
         "read" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
@@ -113,7 +115,7 @@ object Chests {
         }
         "undo" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
-          val count = automation.undo.restore(player.uniqueId, automation.settings().undoMinutes)
+          val count = automation.undo.restore(player, automation.settings().undoMinutes)
           ToolOutput(buildJsonObject { put("restored", count) }, lang.text("summary.chests_restored", "count" to count))
         }
         else -> throw ToolError("action must be read, plan, apply, or undo, not $action")
@@ -130,9 +132,13 @@ object Chests {
     val read = context.main {
       val player = context.requirePlayer()
       val blocks = chosen(context, player, args).toMutableList()
-      val targets = Blocks.list(player, args["to"]).map(Blocks::root)
+      val targets = Blocks.list(player, args["to"], automation.settings().pauseDistance).map(Blocks::root)
       targets.forEach { if (it !in blocks) blocks += it }
-      blocks.forEach { block -> Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") } }
+      blocks.forEach { block ->
+        Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+        // Another automation counts on what lies here; moving it would make that one stop.
+        if (automation.reservations.heldAt(Blocks.place(block), except = task.id)) throw ToolError("another automation of the player counts on what's in the chest at ${block.x} ${block.y} ${block.z}; leave it out or wait for that one to finish")
+      }
       val assign = (args["assign"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.associate { spot ->
         val block = Blocks.root(player.world.getBlockAt(spot.int("x") ?: 0, spot.int("y") ?: 0, spot.int("z") ?: 0))
         val items = (spot["items"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(Pins::normalize) }?.toSet().orEmpty()
@@ -209,7 +215,9 @@ class Undo {
   }
 
   /** Puts the chests back; returns how many, or throws when it's too late or they changed. Server thread. */
-  fun restore(player: UUID, minutes: Int): Int {
+  fun restore(player: org.bukkit.entity.Player, minutes: Int): Int = restore(player.uniqueId, minutes) { block -> Blocks.unsuitable(player, block) }
+
+  private fun restore(player: UUID, minutes: Int, unfit: (Block) -> Blocks.Unfit?): Int {
     val last = kept[player] ?: throw ToolError("nothing to put back")
     if (System.currentTimeMillis() - last.at > minutes * 60_000L) {
       kept.remove(player)
@@ -219,6 +227,7 @@ class Undo {
     for (block in planned.blocks) {
       val now = (block.state as? Container)?.inventory?.contents?.map { it?.takeUnless { item -> item.type.isAir } }
         ?: throw ToolError("the chest at ${block.x} ${block.y} ${block.z} is gone")
+      unfit(block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}") }
       val after = planned.after[Blocks.place(block)]!!
       if (now.size != after.size || now.indices.any { now[it] != after[it] }) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since; nothing was put back")
     }

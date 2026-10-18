@@ -73,6 +73,7 @@ object Crafting {
       val automation = context.features.automation
       val settings = automation.settings()
       val holds = automation.reservations
+      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
       val item = InteractTools.material(args.string("item") ?: throw ToolError("item is required"))
       val count = (args.int("count") ?: 1).coerceIn(1, 64)
       val table = table(player, settings.radius, settings.lineOfSight)
