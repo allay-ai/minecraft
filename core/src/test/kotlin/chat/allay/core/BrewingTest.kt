@@ -67,4 +67,11 @@ class BrewingTest {
     assertEquals("invisibility", Brewing.find(brews, "invis"))
     assertNull(Brewing.find(brews, "luck"))
   }
+
+  @Test fun `stands fill three to one, own bottles first`() {
+    assertEquals(listOf(Brewing.Fill(0, 3)), Brewing.fill(3, 4, emptyMap()))
+    assertEquals(listOf(Brewing.Fill(2, 3), Brewing.Fill(2, 1)), Brewing.fill(4, 4, mapOf(2 to 4)))
+    assertEquals(listOf(Brewing.Fill(2, 2), Brewing.Fill(1, 3), Brewing.Fill(0, 2)), Brewing.fill(7, 4, mapOf(1 to 3, 2 to 2)))
+    assertEquals(listOf(Brewing.Fill(0, 3), Brewing.Fill(0, 3)), Brewing.fill(9, 2, emptyMap()))
+  }
 }

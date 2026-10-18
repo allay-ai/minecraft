@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.10.1
+
+Pairs with Allay Server 5.8.1, which tells the brewing agent what `bottles` means now; older servers keep working.
+
+- 🧪 **Your own potions get upgraded.** “Make my night vision potions longer” puts the night vision potions you carry, or keep in chests near, into the stands and adds redstone. Before, it brewed new ones from water bottles. It works for any step of the way, like turning potions into splash potions.
+- 🍶 **Three potions take one stand.** `bottles` now counts potions in all, three to a stand in as few stands as it takes. Three night vision potions took three bottles in every stand in sight before, twelve potions and four sets of ingredients.
+
 ## 5.10.0
 
 The fuel action, the anvil, and the new crafting stations need Allay Server 5.8.

@@ -22,6 +22,37 @@ object Brewing {
   val WATER = Bottle("potion", "water")
   val FORMS = listOf("potion", "splash_potion", "lingering_potion")
 
+  /** A stand holds this many bottles. */
+  const val STAND_BOTTLES = 3
+
+  /** One empty stand's load: the chain step its bottles start at (0 is water) and how many. */
+  data class Fill(val step: Int, val bottles: Int)
+
+  /**
+   * How to load up to [stands] empty stands for [total] bottles in as few stands as it takes: the player's own bottles of
+   * a later step first ([own], step to how many: night vision potions when they want long ones), the furthest along
+   * first, three to a stand and one kind per stand, then water bottles for the rest.
+   */
+  fun fill(total: Int, stands: Int, own: Map<Int, Int>): List<Fill> {
+    val loads = mutableListOf<Fill>()
+    var left = total
+    for ((step, have) in own.filterKeys { it > 0 }.toSortedMap(reverseOrder())) {
+      var rest = have
+      while (left > 0 && rest > 0 && loads.size < stands) {
+        val n = minOf(STAND_BOTTLES, rest, left)
+        loads += Fill(step, n)
+        rest -= n
+        left -= n
+      }
+    }
+    while (left > 0 && loads.size < stands) {
+      val n = minOf(STAND_BOTTLES, left)
+      loads += Fill(0, n)
+      left -= n
+    }
+    return loads
+  }
+
   /** The brews in one recipe file: one per input potion. Tags and shapes the game doesn't ship give none. */
   fun parse(json: String): List<Brew> = runCatching {
     val root = Json.parseToJsonElement(json).jsonObject

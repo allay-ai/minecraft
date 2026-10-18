@@ -23,7 +23,9 @@ import org.bukkit.inventory.meta.PotionMeta
 
 /**
  * `brew`: brews a potion for the player in stands near them, step by step from the game's own recipes. A stand that
- * already holds a step of the way (an awkward potion) starts there. Everything it needs is reserved up front; each
+ * already holds a step of the way (an awkward potion) starts there, and the player's own potions of a step go in before
+ * water bottles: long night vision from the night vision they carry. Bottles fill stands three at a time, so three
+ * potions take one stand and one set of reagents. Everything it needs is reserved up front; each
  * step's end ([org.bukkit.event.inventory.BrewEvent]) puts in the next reagent.
  */
 object Stands {
@@ -44,11 +46,16 @@ object Stands {
 
   private fun plain(type: Material): (ItemStack) -> Boolean = { it.type == type && Sources.plain(it) }
 
-  /** A plain water bottle: no name, no lore, nothing of its own. */
-  private val water: (ItemStack) -> Boolean = { item ->
+  /** A plain bottle of [kind]: no name, no lore, nothing of its own. */
+  private fun potion(kind: Brewing.Bottle): (ItemStack) -> Boolean = { item ->
     val meta = item.itemMeta as? PotionMeta
-    bottle(item) == Brewing.WATER && meta != null && !meta.hasCustomEffects() && !meta.hasDisplayName() && !meta.hasLore()
+    bottle(item) == kind && meta != null && !meta.hasCustomEffects() && !meta.hasDisplayName() && !meta.hasLore()
   }
+
+  private val water = potion(Brewing.WATER)
+
+  /** How reservations name a bottle of [kind]. */
+  private fun key(kind: Brewing.Bottle) = if (kind == Brewing.WATER) "water_bottle" else "${kind.item}:${kind.potion}"
 
   /** Where in [chain] a stand stands: the step whose bottle all its bottles are, with how many; -1 when they don't fit. */
   private fun step(block: Block, chain: List<Brewing.Brew>): Pair<Int, Int> {
@@ -212,28 +219,42 @@ object Stands {
     val settings = automation.settings()
     val holds = automation.reservations
     automation.agent(task).job?.let { if (Jobs.active(it)) throw ToolError("this task already runs a job; one per task") }
-    val wanted = (args.int("bottles") ?: 3).coerceIn(1, 3)
     val named = Blocks.list(player, args["stands"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
     val candidates = named.ifEmpty { Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND } }
       .filter { it.type == Material.BREWING_STAND && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && !Jobs.busy(it) }
       .filter { stand(it)!!.let { state -> state.brewingTime <= 0 && state.inventory.ingredient == null } }
-    val plans = candidates.map { it to step(it, chain) }.filter { it.second.first >= 0 && it.second.first < chain.size }
-    if (plans.isEmpty()) throw ToolError("no stand near the player fits: each needs to be idle with no bottles, water bottles, or a step of this potion in it")
+      .sortedBy { it.location.distanceSquared(player.location) }
+    val fitting = candidates.map { it to step(it, chain) }.filter { it.second.first >= 0 && it.second.first < chain.size }
+    if (fitting.isEmpty()) throw ToolError("no stand near the player fits: each needs to be idle with no bottles, water bottles, or a step of this potion in it")
 
-    // What every stand needs: water bottles for empty ones, a reagent per step left, and fuel for those steps.
+    // Stands that already hold a step go on from there. Empty ones take the player's own bottles of a later step first
+    // (their night vision potions when they want long ones), then water; bottles is the total, three to a stand.
     val sources = Sources.around(player, settings.radius)
+    val loaded = fitting.filter { it.second.second > 0 }.map { (block, start) -> Triple(block, start.first, start.second) }
+    val empty = fitting.filter { it.second.second == 0 }.map { it.first }
+    val fresh = args.bool("fresh") == true
+    val own = if (fresh) emptyMap() else chain.indices.drop(1).associateWith { index -> sources.free(potion(chain[index].from), key(chain[index].from), holds, task.id) }.filterValues { it > 0 }
+    val inStands = loaded.sumOf { it.third }
+    val total = args.int("bottles")?.coerceIn(1, Brewing.STAND_BOTTLES * fitting.size)
+      ?: (inStands + own.values.sum()).takeIf { it > 0 }?.coerceAtMost(Brewing.STAND_BOTTLES * fitting.size)
+      ?: Brewing.STAND_BOTTLES
+    val fills = Brewing.fill(total - inStands, empty.size, own)
+    val plans = loaded + fills.mapIndexed { index, fill -> Triple(empty[index], fill.step, fill.bottles) }
+    if (plans.isEmpty()) throw ToolError("the stands that hold this potion's steps already make ${inStands} bottles; collect or brew those first")
+
+    // What it all needs: the bottles for empty stands, a reagent per stand and step left, and fuel for those steps.
+    val bottlesNeeded = mutableMapOf<Brewing.Bottle, Int>()
+    fills.forEach { bottlesNeeded.merge(chain[it.step].from, it.bottles, Int::plus) }
     val needs = mutableMapOf<String, Int>()
-    var waterNeeded = 0
     var powder = 0
-    plans.forEach { (block, start) ->
-      if (start.second == 0) waterNeeded += wanted
-      chain.drop(start.first).forEach { needs.merge(it.reagent, 1, Int::plus) }
-      val brews = chain.size - start.first
+    plans.forEach { (block, start, _) ->
+      chain.drop(start).forEach { needs.merge(it.reagent, 1, Int::plus) }
+      val brews = chain.size - start
       val fuel = stand(block)!!.fuelLevel
       if (brews > fuel) powder += (brews - fuel + BREWS_PER_POWDER - 1) / BREWS_PER_POWDER
     }
     val missing = mutableMapOf<String, Int>()
-    if (waterNeeded > 0) (waterNeeded - sources.free(water, "water_bottle", holds, task.id)).takeIf { it > 0 }?.let { missing["water_bottle"] = it }
+    bottlesNeeded.forEach { (kind, n) -> (n - sources.free(potion(kind), key(kind), holds, task.id)).takeIf { it > 0 }?.let { missing[key(kind)] = it } }
     needs.forEach { (id, n) ->
       val material = Material.matchMaterial(id) ?: return@forEach
       (n - sources.free(plain(material), id, holds, task.id)).takeIf { it > 0 }?.let { missing[id] = it }
@@ -260,7 +281,7 @@ object Stands {
     fun reserve(match: (ItemStack) -> Boolean, key: String, n: Int) {
       if (n > 0 && !sources.reserve(match, key, n, holds, task.id)) fail("someone took the $key meanwhile")
     }
-    reserve(water, "water_bottle", waterNeeded)
+    bottlesNeeded.forEach { (kind, n) -> reserve(potion(kind), key(kind), n) }
     needs.forEach { (id, n) -> reserve(plain(Material.matchMaterial(id)!!), id, n) }
     reserve(plain(Material.BLAZE_POWDER), "blaze_powder", minOf(powder, havePowder))
     reserve(plain(Material.BLAZE_ROD), "blaze_rod", rods)
@@ -270,28 +291,29 @@ object Stands {
     val (powderTaken, powderShort) = sources.takeReserved(plain(Material.BLAZE_POWDER), "blaze_powder", minOf(powder, havePowder), holds, task.id)
     inHand += powderTaken
     if (powderShort != null) fail("the blaze powder changed meanwhile")
-    // Water bottles come out before any stand changes, so a shortfall leaves the stands as they were.
-    val waterInHand = plans.map { (_, start) ->
-      if (start.second != 0) return@map emptyList<ItemStack>()
-      val (bottles, short) = sources.takeReserved(water, "water_bottle", wanted, holds, task.id)
+    // Bottles come out before any stand changes, so a shortfall leaves the stands as they were.
+    val bottlesInHand = plans.mapIndexed { index, (_, start, n) ->
+      if (index < loaded.size) return@mapIndexed emptyList<ItemStack>()
+      val kind = chain[start].from
+      val (bottles, short) = sources.takeReserved(potion(kind), key(kind), n, holds, task.id)
       inHand += bottles
-      if (short != null) fail("the water bottles changed meanwhile")
+      if (short != null) fail("the ${key(kind)} changed meanwhile")
       bottles.flatMap { stack -> List(stack.amount) { stack.clone().apply { amount = 1 } } }
     }
     // A blaze rod makes two powder, as the crafting table does.
     var powderPool = powderTaken.sumOf { it.amount } + rodsTaken.sumOf { it.amount } * 2
-    val loads = plans.mapIndexed { index, (block, start) ->
+    val loads = plans.mapIndexed { index, (block, start, n) ->
       val inventory = stand(block)!!.inventory
-      waterInHand[index].forEachIndexed { slot, bottle -> inventory.setItem(slot, bottle) }
+      bottlesInHand[index].forEachIndexed { slot, bottle -> inventory.setItem(slot, bottle) }
       val state = stand(block)!!
-      val brews = chain.size - start.first
+      val brews = chain.size - start
       if (brews > state.fuelLevel && powderPool > 0) {
         val n = minOf(powderPool, (brews - state.fuelLevel + BREWS_PER_POWDER - 1) / BREWS_PER_POWDER)
         val fuel = inventory.fuel
         inventory.fuel = ItemStack(Material.BLAZE_POWDER, (fuel?.takeIf { it.type == Material.BLAZE_POWDER }?.amount ?: 0) + n)
         powderPool -= n
       }
-      Load(block, start.first, if (start.second == 0) wanted else start.second)
+      Load(block, start, n)
     }
     if (powderPool > 0) give(player, listOf(ItemStack(Material.BLAZE_POWDER, powderPool)))
     val job = Job(task, player, chain, loads, sources)
@@ -303,6 +325,9 @@ object Stands {
       put("started", true)
       put("stands", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("from_step", load.step + 1); put("steps_left", chain.size - load.step); put("bottles", load.bottles) }) } })
       put("steps", chain.size)
+      put("bottles", loads.sumOf { it.bottles })
+      val theirs = fills.filter { it.step > 0 }.groupBy { chain[it.step].from }
+      if (theirs.isNotEmpty()) putJsonArray("from_player") { theirs.forEach { (kind, parts) -> add("${parts.sumOf { it.bottles }} × ${kind.item} ${kind.potion}") } }
       put("note", "each step brews 20 seconds; wait now, you wake when it's all done")
     }
     return ToolOutput(result, context.lang.text("summary.brewing_started", "count" to loads.size))
