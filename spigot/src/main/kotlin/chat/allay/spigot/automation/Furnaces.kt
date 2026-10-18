@@ -44,6 +44,17 @@ object Furnaces {
     return null
   }
 
+  /** Whether a plain furnace cooks [type]: every blast furnace and smoker recipe has one too. */
+  private fun cooks(server: Server, type: Material): Boolean {
+    val item = ItemStack(type)
+    val iterator = server.recipeIterator()
+    while (iterator.hasNext()) {
+      val recipe = iterator.next()
+      if (recipe is FurnaceRecipe && recipe.inputChoice.test(item)) return true
+    }
+    return false
+  }
+
   private fun furnace(block: Block) = block.state as? Furnace
 
   private fun free(block: Block) = furnace(block)?.inventory?.let { it.smelting == null && it.result == null } == true && !Jobs.busy(block)
@@ -158,6 +169,10 @@ object Furnaces {
             put("furnaces", rows)
             put("note", "green glow: free; red: busy or unusable; the player sees it")
             item?.let { put("player_has", sources.free(plain(it), it.key.key, automation.reservations, task.id)) }
+            // What the player could smelt right now, so the agent needn't search for it.
+            val smeltable = sources.list.flatMap { it.slots() }.filterNotNull().filter(Sources::plain).map { it.type }.distinct()
+              .filter { type -> cooks(player.server, type) }
+            putJsonObject("to_smelt_at_hand") { smeltable.forEach { type -> sources.free(plain(type), type.key.key, automation.reservations, task.id).takeIf { it > 0 }?.let { put(type.key.key, it) } } }
             putJsonObject("fuel_at_hand") { (FUEL_ORDER + "lava_bucket").forEach { id -> Material.matchMaterial(id)?.let { m -> sources.count(plain(m)).takeIf { it > 0 }?.let { put(id, it) } } } }
           }
           ToolOutput(result, lang.text("summary.furnaces", "count" to rows.size))
@@ -203,11 +218,14 @@ object Furnaces {
     val candidates = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
       .filter { Blocks.furnace(it.type) && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && free(it) }
     val sources = Sources.around(player, settings.radius)
-    val counts = asked.associate { (item, count) ->
+    // Items the player doesn't have are left out, so “all my iron” may name every iron ore there is.
+    val missing = mutableListOf<String>()
+    val counts = asked.mapNotNull { (item, count) ->
       val available = sources.free(plain(item), item.key.key, holds, task.id)
-      if (available <= 0) throw ToolError("the player has no ${item.key.key} at hand (inventory, bundles, ender chest, chests near)")
-      item to minOf(count ?: available, available)
-    }
+      if (available <= 0) missing += item.key.key
+      if (available <= 0) null else item to minOf(count ?: available, available)
+    }.toMap()
+    if (counts.isEmpty()) throw ToolError("the player has none of ${missing.joinToString()} at hand (inventory, bundles, ender chest, chests near)")
     // Blast furnaces and smokers cook what they can twice as fast; the split weighs that in.
     val recipes = candidates.associateWith { block -> counts.keys.associateWith { item -> recipe(player.server, block, ItemStack(item)) } }
     val ovens = candidates.map { block ->
@@ -293,6 +311,7 @@ object Furnaces {
     Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${it.item.key.key.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
     val out = buildJsonObject {
       put("smelting", total)
+      if (missing.isNotEmpty()) put("not_at_hand", buildJsonArray { missing.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
       putJsonObject("makes") { loads.groupBy { it.result.type.key.key }.forEach { (id, list) -> put(id, list.sumOf { it.share }) } }
       put("fuel", fuel)
       put("fuel_used", fuelNeeded)

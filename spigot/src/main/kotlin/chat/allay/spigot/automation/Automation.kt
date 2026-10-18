@@ -159,7 +159,7 @@ class Automation(
     agent?.job?.cancel()
     reservations.release(task.id)
     picking.stop(player, task)
-    book.of(task.owner).filter { it.parent == task.id }.forEach { end(it, null) }
+    // Its sub-agents carry on: finishing after handing a step over (“the crafting agent took it”) is how chains end.
   }
 
   /** A line from the agent to its player, with [buttons] under it. */
