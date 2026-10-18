@@ -75,11 +75,82 @@ object Pins {
     val result = LinkedHashMap<Int, Int>()
     for (pin in pins) {
       val best = items.filter { (slot, item) -> slot !in taken && matches(pin.item, item, block) }
-        .maxWithOrNull(compareBy<Map.Entry<Int, ItemData>> { score(it.value) }.thenBy { if (it.key == pin.slot) 1 else 0 })?.key ?: continue
+        // Equal scores, as blocks have, go to the bigger stack: “64 blocks” means a full one.
+        .maxWithOrNull(compareBy<Map.Entry<Int, ItemData>> { score(it.value) }.thenBy { it.value.count }.thenBy { if (it.key == pin.slot) 1 else 0 })?.key ?: continue
       taken += best
       result[pin.slot] = best
     }
     return result
+  }
+
+  /** What a player holds in hand, in the order a sorted hotbar keeps it: weapons, tools, then what's used on the go. */
+  private val HAND: List<(ItemData) -> Boolean> = listOf<String>("sword", "axe", "mace", "trident", "spear", "bow", "crossbow", "pickaxe", "shovel", "hoe")
+    .map { group -> { item: ItemData -> GROUPS.getValue(group)(item.id) } } + listOf(
+    { item -> item.id in setOf("shears", "flint_and_steel", "fishing_rod", "brush", "spyglass") },
+    { item -> GROUPS.getValue("bucket")(item.id) },
+    { item -> GROUPS.getValue("torch")(item.id) },
+    { item -> item.id in setOf("ender_pearl", "wind_charge", "firework_rocket") },
+    { item -> item.id in setOf("totem_of_undying", "shield") },
+    { item -> item.id in setOf("potion", "splash_potion", "lingering_potion") },
+    { item -> item.food != null },
+  )
+
+  /** Where [item] stands in [HAND], or null when it isn't held in hand. */
+  fun hand(item: ItemData): Int? = HAND.indexOfFirst { it(item) }.takeIf { it >= 0 }
+
+  class Arranged<T>(val slots: Map<Int, T?>, val merged: Int)
+
+  /**
+   * A whole inventory sort: what every slot it touches ends up holding. [items] are slots 0–35 and [OFFHAND] (armor
+   * never moves), [picked] comes from [pick]. Pinned slots take their items; the main inventory (9–35) takes all the
+   * rest, merged and sorted. With [hotbar] the slots no pin takes are emptied into it; without pins the hotbar keeps
+   * what it holds that's held in hand, sorted by [HAND] from the first slot. A hotbar slot left empty takes only what
+   * the main inventory can't fit, so a sort never fills the hotbar with arrows and bundles. With [offhand], the offhand
+   * keeps a hand item and gives up anything else. Null when the items wouldn't fit back.
+   */
+  fun <T> arrange(
+    items: Map<Int, T>,
+    picked: Map<Int, Int>,
+    hotbar: Boolean,
+    offhand: Boolean,
+    data: (T) -> ItemData,
+    amount: (T) -> Int,
+    maxStack: (T) -> Int,
+    similar: (T, T) -> Boolean,
+    withAmount: (T, Int) -> T,
+  ): Arranged<T>? {
+    val result = HashMap<Int, T?>()
+    // What isn't pinned away from its slot.
+    val left = items.filterKeys { it !in picked.values }
+    picked.forEach { (slot, from) -> result[slot] = items.getValue(from) }
+    picked.values.forEach { if (it !in picked) result[it] = null }
+    val pool = mutableListOf<T>()
+    val held = mutableListOf<T>()
+    // Hotbar slots no pin takes and nothing stays in, in order.
+    val open = mutableListOf<Int>()
+    for (slot in 0..8) {
+      if (slot in picked) { left[slot]?.let(pool::add); continue }
+      val item = left[slot]
+      when {
+        !hotbar -> if (item == null) open += slot
+        picked.isEmpty() && item != null && hand(data(item)) != null -> { held += item; open += slot }
+        else -> { item?.let(pool::add); open += slot }
+      }
+    }
+    left[OFFHAND]?.let { item ->
+      if (OFFHAND in picked) pool += item else if (offhand && hand(data(item)) == null) { pool += item; result[OFFHAND] = null }
+    }
+    (9..35).forEach { slot -> if (slot !in picked) left[slot]?.let(pool::add) }
+    val order = compareBy<T> { data(it).id }.thenByDescending(amount)
+    // Held items come first in the hotbar, weapons leading; the slots after them take only what the main inventory can't.
+    val hand = Sorter.sort(held, amount, maxStack, similar, compareBy<T> { hand(data(it)) }.then(order), withAmount) ?: return null
+    val kept = hand.slots.filterNotNull()
+    kept.forEachIndexed { index, stack -> result[open[index]] = stack }
+    val room = (9..35).filter { it !in picked } + open.drop(kept.size)
+    val sorted = Sorter.sort(pool + List((room.size - pool.size).coerceAtLeast(0)) { null }, amount, maxStack, similar, order, withAmount)
+      ?.takeIf { it.slots.drop(room.size).all { slot -> slot == null } } ?: return null
+    room.forEachIndexed { index, slot -> result[slot] = sorted.slots[index] }
+    return Arranged(result, sorted.merged + hand.merged)
   }
 
   /** A pin's item as the model wrote it: a group, or an id without the namespace. */

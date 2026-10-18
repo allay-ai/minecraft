@@ -71,6 +71,64 @@ class AutomationTest {
     assertEquals(mapOf(8 to 12, 7 to 13, 6 to 10, 5 to 14), picked)
   }
 
+  /** Sorts [items] as `sort_inventory` does, items without durability stacking to 64, and returns every slot after it. */
+  private fun arrange(items: Map<Int, ItemData>, pins: List<Pins.Pin>, hotbar: Boolean, block: (ItemData) -> Boolean = { false }): Map<Int, ItemData?> {
+    val sorted = Pins.arrange(
+      items, Pins.pick(pins, items, block), hotbar, offhand = false,
+      data = { it }, amount = ItemData::count, maxStack = { if (it.maxDamage > 0 || it.id == "bundle") 1 else 64 },
+      similar = { a, b -> a.copy(count = 0) == b.copy(count = 0) }, withAmount = { item, count -> item.copy(count = count) },
+    )!!
+    return items + sorted.slots
+  }
+
+  private fun tool(id: String) = ItemData(id, 1, maxDamage = 1561)
+
+  @Test fun `a sorted hotbar holds the pins and leaves the rest to the main inventory`() {
+    // The owner's inventory from 18 October: arrows and a bundle sat in slots 5 and 6 after every sort.
+    val items = mapOf(
+      0 to tool("diamond_sword"), 1 to tool("bow"), 2 to ItemData("water_bucket", 1), 3 to ItemData("cobbled_deepslate", 61),
+      4 to ItemData("arrow", 56), 5 to ItemData("bundle", 1), 6 to tool("diamond_pickaxe"), 7 to ItemData("golden_carrot", 64, food = ItemData.Food(6, 14.4)),
+      8 to ItemData("golden_apple", 16, food = ItemData.Food(4, 9.6)), 9 to ItemData("bundle", 1), 10 to ItemData("coal_block", 60),
+      20 to ItemData("nether_bricks", 64), 23 to ItemData("raw_iron", 64),
+    )
+    val pins = listOf(Pins.Pin(0, "sword"), Pins.Pin(1, "bow"), Pins.Pin(2, "water_bucket"), Pins.Pin(3, "block"), Pins.Pin(6, "pickaxe"), Pins.Pin(7, "golden_carrot"), Pins.Pin(8, "golden_apple"))
+    val after = arrange(items, pins, hotbar = true) { it.id in setOf("cobbled_deepslate", "nether_bricks", "coal_block") }
+    assertEquals(listOf("diamond_sword", "bow", "water_bucket", "nether_bricks", null, null, "diamond_pickaxe", "golden_carrot", "golden_apple"), (0..8).map { after[it]?.id })
+    assertEquals(listOf("arrow", "bundle", "bundle", "coal_block", "cobbled_deepslate", "raw_iron"), (9..35).mapNotNull { after[it]?.id })
+  }
+
+  @Test fun `the hotbar takes what the main inventory can't fit`() {
+    val items = (9..35).associateWith { ItemData("stone", 64) } + mapOf(0 to tool("iron_sword"), 1 to ItemData("dirt", 10), 2 to ItemData("andesite", 5))
+    val after = arrange(items, listOf(Pins.Pin(0, "sword")), hotbar = true)
+    // 29 stacks for 35 free slots: andesite, dirt, and 27 stone; the last two stone spill into the hotbar.
+    assertEquals(listOf("iron_sword", "stone", "stone", null, null, null, null, null, null), (0..8).map { after[it]?.id })
+    assertEquals("andesite", after[9]?.id)
+  }
+
+  @Test fun `a sorted hotbar without pins keeps what's held in hand, weapons first`() {
+    val items = mapOf(
+      0 to ItemData("dirt", 30), 1 to ItemData("bread", 5, food = ItemData.Food(5, 6.0)), 2 to ItemData("arrow", 20),
+      3 to tool("iron_pickaxe"), 4 to tool("stone_sword"), 5 to ItemData("torch", 40), 6 to ItemData("torch", 40),
+    )
+    val after = arrange(items, emptyList(), hotbar = true)
+    assertEquals(listOf("stone_sword", "iron_pickaxe", "torch", "torch", "bread", null, null, null, null), (0..8).map { after[it]?.id })
+    assertEquals(listOf(64, 16), listOf(after[2]?.count, after[3]?.count))
+    assertEquals(listOf("arrow", "dirt"), (9..35).mapNotNull { after[it]?.id })
+  }
+
+  @Test fun `pins without the hotbar leave its other slots alone`() {
+    val items = mapOf(0 to ItemData("dirt", 30), 4 to ItemData("arrow", 20), 12 to tool("iron_sword"))
+    val after = arrange(items, listOf(Pins.Pin(0, "sword")), hotbar = false)
+    assertEquals(listOf("iron_sword", null, null, null, "arrow"), (0..4).map { after[it]?.id })
+    assertEquals("dirt", after[9]?.id)
+    assertNull(after[12])
+  }
+
+  @Test fun `a block pin takes the fullest stack`() {
+    val items = mapOf(3 to ItemData("cobbled_deepslate", 61), 20 to ItemData("nether_bricks", 64))
+    assertEquals(mapOf(3 to 20), Pins.pick(listOf(Pins.Pin(3, "block")), items) { true })
+  }
+
   @Test fun `a pin nothing matches is left out`() {
     assertEquals(emptyMap(), Pins.pick(listOf(Pins.Pin(0, "trident")), mapOf(1 to ItemData("dirt", 1))))
   }

@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.7.1
+
+- 🧹 **A sorted hotbar holds what you asked for.** With pins, the hotbar keeps just them: everything else goes into the main inventory, and a hotbar slot fills only when that's full. Before, the free hotbar slots took the first items of the alphabet, so “sword first, bow second” left arrows and a bundle between the pins. Without pins, a sorted hotbar keeps its weapons, tools, food, torches, buckets, and pearls, weapons first.
+- 🧱 **A `block` pin takes the fullest stack**, so “64 blocks in slot 4” no longer picks 61 cobbled deepslate over 64 nether bricks.
+- 🔎 **`sort_inventory` reports the hotbar and offhand as they end up**, so the assistant tells what's really there.
+
 ## 5.7.0
 
 Works with any Allay Server 5.x; automation agents, pinned slots, and models by tier need Allay Server 5.5.
