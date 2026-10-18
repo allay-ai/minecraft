@@ -283,7 +283,7 @@ object Stands {
     Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, chain.last().to.potion.replace('_', ' '), Marks.Hue.PURPLE) }, context.features.config().tools.marksSeconds)
     val result = buildJsonObject {
       put("started", true)
-      put("stands", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("from_step", load.step + 1); put("bottles", load.bottles) }) } })
+      put("stands", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("from_step", load.step + 1); put("steps_left", chain.size - load.step); put("bottles", load.bottles) }) } })
       put("steps", chain.size)
       put("note", "each step brews 20 seconds; wait now, you wake when it's all done")
     }

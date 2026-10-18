@@ -32,7 +32,8 @@ object TaskTools {
   private val message = tool("message_task") { context, player, args ->
     val automation = context.features.automation
     val task = automation.book.find(player.uniqueId, args.string("id") ?: "") ?: throw ToolError("no running automation with that id")
-    automation.post(task, "[player] ${args.string("text")?.take(500) ?: throw ToolError("text is required")}")
+    val text = args.string("text")?.take(500) ?: throw ToolError("text is required")
+    automation.post(task, "[player] $text" + (task.question?.let { " (you had asked: “${it.take(200)}”)" } ?: ""))
     ToolOutput(buildJsonObject { put("sent", true) }, context.lang.text("summary.task_messaged", "name" to task.name))
   }
 

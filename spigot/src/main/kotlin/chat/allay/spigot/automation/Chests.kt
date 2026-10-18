@@ -105,7 +105,11 @@ object Chests {
           automation.picking.stop(player, task)
           labels(context, player, planned, lang)
           automation.say(player, task, lang.text("automation.chests_done", "count" to planned.blocks.size), listOf(Button.Undo(lang.text("automation.undo"))))
-          ToolOutput(buildJsonObject { put("applied", true); put("chests", rows(planned)) }, lang.text("summary.chests_applied", "count" to planned.blocks.size))
+          ToolOutput(buildJsonObject {
+            put("applied", true)
+            put("chests", rows(planned))
+            put("note", "done and checked: the labels over the chests show the player what went where, with an undo button for ${automation.settings().undoMinutes} minutes")
+          }, lang.text("summary.chests_applied", "count" to planned.blocks.size))
         }
         "undo" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
@@ -160,7 +164,7 @@ object Chests {
         if (plan.left.isNotEmpty()) putJsonObject("did_not_fit") { plan.left.forEach { (id, n) -> put(id, n) } }
         // Outside claims nobody's rights say whose chests these are, so grouping across them waits for a yes.
         if (mode != "sort" && read.outside) put("confirm_needed", "some chests are outside any claim: show the player the preview labels and ask before apply")
-        put("note", "nothing moved yet; apply does it")
+        put("note", "nothing moved yet; apply does it, and the plan stays ready for it until a chest changes, so once the player agrees call apply without planning again. Each chest already shows the player a label with its category and main contents; don't draw marks over them")
       }
       ToolOutput(result, context.lang.text("summary.chests_planned", "count" to planned.blocks.size))
     }

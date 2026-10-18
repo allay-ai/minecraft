@@ -79,18 +79,18 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
     when (action) {
       "cancel" -> {
         stop(player, session.task)
-        automation.post(session.task, "[picking] the player cancelled picking")
+        automation.post(session.task, "[job] picking: the player cancelled picking")
       }
       "all" -> {
         val added = all(player, session)
         if (session.picked.isEmpty()) return locales.of(player).send(player, "automation.pick.none")
         session.open = false
-        automation.post(session.task, "[picking] the player pressed All: ${session.picked.size} chests (${added} joined the picked ones by being near): ${list(session)}")
+        automation.post(session.task, "[job] picking: the player pressed All: ${session.picked.size} chests (${added} joined the picked ones by being near): ${list(session)}")
       }
       else -> {
         if (session.picked.isEmpty()) return locales.of(player).send(player, "automation.pick.none")
         session.open = false
-        automation.post(session.task, "[picking] done: ${session.picked.size} ${session.kind.wire} picked: ${list(session)}")
+        automation.post(session.task, "[job] picking: done: ${session.picked.size} ${session.kind.wire} picked: ${list(session)}")
       }
     }
   }
@@ -147,7 +147,7 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
       if (session.open && now - session.startedAt > TIMEOUT_MILLIS) {
         session.open = false
         plugin.server.getPlayer(id)?.let { locales.of(it).send(it, "automation.pick.timeout") }
-        automation.post(session.task, "[picking] time ran out with ${session.picked.size} picked: ${list(session)}")
+        automation.post(session.task, "[job] picking: time ran out with ${session.picked.size} picked: ${list(session)}")
       }
     }
   }
