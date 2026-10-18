@@ -90,7 +90,7 @@ object Storage {
     return (0 until (pool.total + max - 1) / max).map { stacks.withAmount(pool.item, minOf(max, pool.total - it * max)) }
   }
 
-  private fun <T> totals(chests: Iterable<List<T?>>, stacks: Stacks<T>): Map<String, Int> =
+  fun <T> totals(chests: Iterable<List<T?>>, stacks: Stacks<T>): Map<String, Int> =
     chests.flatten().filterNotNull().groupBy { stacks.id(it) }.mapValues { (_, list) -> list.sumOf(stacks::amount) }
 
   /**

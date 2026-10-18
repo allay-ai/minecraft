@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.10.2
+
+Pairs with Allay Server 5.8.2, which tells the chests agent about `from`; older servers keep working.
+
+- 📦 **Move from your inventory and from every chest around.** “Put all my wood into this chest” now works: a chests move takes `from: inventory` out of your main inventory, hotbar included, and `from: nearby` out of every chest around you may open, with no clicking each one. Before, it moved only between chests you picked, so the agent gave up and told you to carry it yourself. Undo puts your inventory back too.
+
 ## 5.10.1
 
 Pairs with Allay Server 5.8.1, which tells the brewing agent what `bottles` means now; older servers keep working.

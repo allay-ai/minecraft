@@ -29,8 +29,23 @@ import java.util.concurrent.ConcurrentHashMap
  * is made elsewhere, and apply checks in one tick that nothing changed since the read before it writes everything.
  */
 object Chests {
-  /** A plan waiting for apply: what each chest held when it was read and what it will hold. */
-  class Planned(val mode: String, val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val after: Map<String, List<ItemStack?>>)
+  /**
+   * A plan waiting for apply: what each chest held when it was read and what it will hold, and the same for the player's
+   * main inventory (slots 0–35) when a move takes from it.
+   */
+  class Planned(
+    val mode: String, val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val after: Map<String, List<ItemStack?>>,
+    val inventory: Pair<List<ItemStack?>, List<ItemStack?>>? = null,
+  )
+
+  /** How a plan names the player's inventory among chests. */
+  private const val INVENTORY = "inventory"
+
+  /** The player's main inventory, hotbar included, as a move sees it. */
+  fun pack(player: Player): List<ItemStack?> = player.inventory.storageContents.map { it?.takeUnless { item -> item.type.isAir }?.clone() }
+
+  /** Whether the inventory still holds what the plan read. */
+  fun unchanged(player: Player, planned: Planned) = planned.inventory == null || same(pack(player), planned.inventory.first)
 
   val stacks = object : Storage.Stacks<ItemStack> {
     override fun id(item: ItemStack) = item.type.key.key
@@ -51,11 +66,11 @@ object Chests {
 
   private fun spot(block: Block) = buildJsonObject { put("x", block.x); put("y", block.y); put("z", block.z) }
 
-  /** The chests the call names, or the ones the player picked; each one's root, once. */
-  private fun chosen(context: ToolContext, player: Player, args: JsonObject): List<Block> {
+  /** The chests the call names, or the ones the player picked; each one's root, once. [optional] allows none. */
+  private fun chosen(context: ToolContext, player: Player, args: JsonObject, optional: Boolean = false): List<Block> {
     val named = Blocks.list(player, args["chests"], context.features.automation.settings().pauseDistance).map(Blocks::root)
     val blocks = named.ifEmpty { context.features.automation.picking.picked(player, context.requireTask()) }.distinct()
-    if (blocks.isEmpty()) throw ToolError("no chests: pick them with pick_blocks, or pass chests")
+    if (blocks.isEmpty() && !optional) throw ToolError("no chests: pick them with pick_blocks, or pass chests")
     val limit = context.features.automation.settings().maxChests
     if (blocks.size > limit) throw ToolError("at most $limit chests at once on this server")
     return blocks.sortedBy { it.location.distanceSquared(player.location) }
@@ -104,7 +119,9 @@ object Chests {
             Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")
           }
+          if (!unchanged(player, planned)) throw ToolError("the player's inventory changed since the plan; plan again")
           planned.blocks.forEach { block -> (block.state as Container).inventory.contents = planned.after[Blocks.place(block)]!!.toTypedArray() }
+          planned.inventory?.let { (_, after) -> player.inventory.storageContents = after.toTypedArray() }
           automation.undo.keep(player.uniqueId, planned)
           agent.plan = null
           automation.picking.stop(player, task)
@@ -131,11 +148,26 @@ object Chests {
     val automation = context.features.automation
     val mode = args.string("mode")?.lowercase() ?: throw ToolError("plan needs mode: sort, group, or move")
     // One tick reads every chest; the planning runs here, off the server thread.
-    class Read(val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val assign: Map<String, Storage.Assign>, val targets: Set<String>, val outside: Boolean)
+    class Read(
+      val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val assign: Map<String, Storage.Assign>, val targets: Set<String>, val outside: Boolean,
+      val inventory: List<ItemStack?>?,
+    )
+    // A move may also take from the player's inventory and from every chest around, with no picking.
+    val from = (args["from"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.lowercase() }?.toSet().orEmpty()
+    from.firstOrNull { it != "inventory" && it != "nearby" }?.let { throw ToolError("from takes inventory and nearby, not $it") }
+    if (from.isNotEmpty() && mode != "move") throw ToolError("from works only with mode move")
     val read = context.main {
       val player = context.requirePlayer()
-      val blocks = chosen(context, player, args).toMutableList()
-      val targets = Blocks.list(player, args["to"], automation.settings().pauseDistance).map(Blocks::root)
+      val settings = automation.settings()
+      val targets = Blocks.list(player, args["to"], settings.pauseDistance).map(Blocks::root)
+      val blocks = chosen(context, player, args, optional = from.isNotEmpty()).filter { it !in targets }.toMutableList()
+      if ("nearby" in from) {
+        Blocks.near(player.location, settings.radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct()
+          .filter { it !in targets && it !in blocks && Blocks.unsuitable(player, it) == null && !automation.reservations.heldAt(Blocks.place(it), except = task.id) }
+          .sortedBy { it.location.distanceSquared(player.location) }
+          .take((settings.maxChests - blocks.size - targets.size).coerceAtLeast(0))
+          .forEach { blocks += it }
+      }
       targets.forEach { if (it !in blocks) blocks += it }
       blocks.forEach { block ->
         Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
@@ -147,12 +179,15 @@ object Chests {
         val items = (spot["items"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(Pins::normalize) }?.toSet().orEmpty()
         Blocks.place(block) to Storage.Assign(Storage.Category.parse(spot.string("category")), items)
       }.orEmpty()
-      Read(blocks, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) })
+      Read(blocks, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) },
+        if ("inventory" in from) pack(player) else null)
     }
-    val chests = read.blocks.map { Storage.Chest(Blocks.place(it), read.before[Blocks.place(it)]!!, read.assign[Blocks.place(it)]) }
+    if (read.blocks.isEmpty()) throw ToolError("no chests: pick them with pick_blocks, or pass chests")
+    val chests = read.blocks.map { Storage.Chest(Blocks.place(it), read.before[Blocks.place(it)]!!, read.assign[Blocks.place(it)]) } +
+      listOfNotNull(read.inventory?.let { Storage.Chest(INVENTORY, it) })
     // Chests sort by category unless the layout says otherwise; a zone a small chest lacks is skipped there.
     val layout = Layout.parse(args["layout"] as? JsonObject, Layout.By.CATEGORY)
-    Layout.problem(layout, chests.maxOf { it.slots.size })?.let { throw ToolError(it) }
+    Layout.problem(layout, read.blocks.maxOf { read.before[Blocks.place(it)]!!.size })?.let { throw ToolError(it) }
     val plan = when (mode) {
       "sort" -> Storage.sortEach(chests, stacks, layout, block) ?: throw ToolError("a chest holds overstacked items and can't be sorted safely")
       "group" -> Storage.group(chests, stacks, layout, block) ?: throw ToolError("everything together doesn't fit into these chests; pick more chests")
@@ -165,7 +200,7 @@ object Chests {
       }
       else -> throw ToolError("mode must be sort, group, or move")
     }
-    val planned = Planned(mode, read.blocks, read.before, plan.chests)
+    val planned = Planned(mode, read.blocks, read.before, plan.chests.filterKeys { it != INVENTORY }, read.inventory?.let { it to plan.chests[INVENTORY]!! })
     return context.main<ToolOutput> {
       val player = context.requirePlayer()
       automation.agent(task).plan = planned
@@ -173,6 +208,10 @@ object Chests {
       val result = buildJsonObject {
         put("mode", mode)
         put("chests", rows(planned, plan.labels))
+        planned.inventory?.let { (before, after) ->
+          val taken = Storage.totals(listOf(before), stacks).mapValues { (id, n) -> n - (Storage.totals(listOf(after), stacks)[id] ?: 0) }.filterValues { it > 0 }
+          putJsonObject("from_inventory") { taken.forEach { (id, n) -> put(id, n) } }
+        }
         if (plan.left.isNotEmpty()) putJsonObject("did_not_fit") { plan.left.forEach { (id, n) -> put(id, n) } }
         // Outside claims nobody's rights say whose chests these are, so grouping across them waits for a yes.
         if (mode != "sort" && read.outside) put("confirm_needed", "some chests are outside any claim: show the player the preview labels and ask before apply")
@@ -220,25 +259,25 @@ class Undo {
     kept[player] = Kept(planned, System.currentTimeMillis())
   }
 
-  /** Puts the chests back; returns how many, or throws when it's too late or they changed. Server thread. */
-  fun restore(player: org.bukkit.entity.Player, minutes: Int): Int = restore(player.uniqueId, minutes) { block -> Blocks.unsuitable(player, block) }
-
-  private fun restore(player: UUID, minutes: Int, unfit: (Block) -> Blocks.Unfit?): Int {
-    val last = kept[player] ?: throw ToolError("nothing to put back")
+  /** Puts the chests back, and the inventory a move took from; returns how many chests, or throws when it's too late or they changed. Server thread. */
+  fun restore(player: Player, minutes: Int): Int {
+    val last = kept[player.uniqueId] ?: throw ToolError("nothing to put back")
     if (System.currentTimeMillis() - last.at > minutes * 60_000L) {
-      kept.remove(player)
+      kept.remove(player.uniqueId)
       throw ToolError("it's been more than $minutes minutes; the chests stay as they are")
     }
     val planned = last.planned
     for (block in planned.blocks) {
       val now = (block.state as? Container)?.inventory?.contents?.map { it?.takeUnless { item -> item.type.isAir } }
         ?: throw ToolError("the chest at ${block.x} ${block.y} ${block.z} is gone")
-      unfit(block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}") }
+      Blocks.unsuitable(player, block)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}") }
       val after = planned.after[Blocks.place(block)]!!
       if (now.size != after.size || now.indices.any { now[it] != after[it] }) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since; nothing was put back")
     }
+    planned.inventory?.let { (_, after) -> if (Chests.pack(player) != after) throw ToolError("the player's inventory changed since; nothing was put back") }
     planned.blocks.forEach { block -> (block.state as Container).inventory.contents = planned.before[Blocks.place(block)]!!.toTypedArray() }
-    kept.remove(player)
+    planned.inventory?.let { (before, _) -> player.inventory.storageContents = before.toTypedArray() }
+    kept.remove(player.uniqueId)
     return planned.blocks.size
   }
 }
