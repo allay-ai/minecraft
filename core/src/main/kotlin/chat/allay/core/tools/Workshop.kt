@@ -32,6 +32,47 @@ object Workshop {
     return (0 until furnaces).map { minOf(cap, each / furnaces + if (it < each % furnaces) 1 else 0) }
   }
 
+  /** A furnace for [allot]: how fast it cooks each item it can (a blast furnace cooks ores at 2, a furnace at 1). */
+  data class Oven(val speeds: Map<String, Int>)
+
+  /** One furnace's part of a load: what it cooks and how many; null for a furnace left out. */
+  data class Part(val item: String, val count: Int)
+
+  /**
+   * Splits [counts] (item to how many) over [ovens] so the last furnace finishes as early as it can: each furnace cooks
+   * one item, the fastest furnaces are handed out first, each to the item that would take longest with what it has so
+   * far, and each item's count splits by its furnaces' speed. Null when some item has no furnace that cooks it.
+   */
+  fun allot(counts: Map<String, Int>, ovens: List<Oven>): List<Part?>? {
+    val wanted = counts.filterValues { it > 0 }
+    val owner = arrayOfNulls<String>(ovens.size)
+    val speed = wanted.keys.associateWith { 0 }.toMutableMap()
+    val order = ovens.indices.sortedByDescending { index -> ovens[index].speeds.values.maxOrNull() ?: 0 }
+    // An item nothing else can cook gets its furnaces first, so a furnace that cooks everything isn't spent elsewhere.
+    for (index in order) {
+      val choices = wanted.keys.filter { (ovens[index].speeds[it] ?: 0) > 0 }
+      val pick = choices.maxByOrNull { item ->
+        val mine = speed[item]!!
+        if (mine == 0) Double.MAX_VALUE / (1 + ovens.count { (it.speeds[item] ?: 0) > 0 }) else wanted[item]!!.toDouble() / mine
+      } ?: continue
+      owner[index] = pick
+      speed[pick] = speed[pick]!! + ovens[index].speeds[pick]!!
+    }
+    if (wanted.keys.any { speed[it] == 0 }) return null
+    val parts = arrayOfNulls<Part>(ovens.size)
+    for ((item, total) in wanted) {
+      val mine = ovens.indices.filter { owner[it] == item }
+      val weights = mine.map { ovens[it].speeds[item]!! }
+      val sum = weights.sum()
+      val shares = weights.map { total * it / sum }.toMutableList()
+      // What the integer split leaves goes to the fastest furnaces first.
+      var left = total - shares.sum()
+      for (i in weights.indices.sortedByDescending { weights[it] }) if (left > 0) { shares[i]++; left-- }
+      mine.forEachIndexed { i, index -> if (shares[i] > 0) parts[index] = Part(item, shares[i]) }
+    }
+    return parts.toList()
+  }
+
   /** A crafting recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. */
   data class Recipe(val result: String, val count: Int, val slots: List<Set<String>>)
 

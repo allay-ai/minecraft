@@ -31,13 +31,18 @@ object Pins {
   /** Tiers of tool and armor materials, worst to best, so “the best pickaxe” means something. */
   private val tiers = listOf("wooden", "golden", "stone", "copper", "iron", "diamond", "netherite")
 
-  /** One pin: [slot] is 0–8 for the hotbar or [OFFHAND]; [item] an id or a key of [GROUPS]. */
+  /** Bottles a pin may name with their potion, as `potion:healing` or `splash_potion:strong_healing`; tipped arrows too. */
+  private val BOTTLES = setOf("potion", "splash_potion", "lingering_potion", "tipped_arrow")
+
+  /** One pin: [slot] is 0–8 for the hotbar or [OFFHAND]; [item] an id, a key of [GROUPS], or `bottle:potion`. */
   data class Pin(val slot: Int, val item: String)
 
   const val OFFHAND = 40
 
   /** How good an item is for a pin: material tier, then enchantment levels, then the durability left; food by what it fills. */
   fun score(item: ItemData): Double {
+    // A potion's strong form beats its long one, which beats the plain one.
+    item.potion?.base?.let { base -> return when { base.startsWith("strong_") -> 2.0; base.startsWith("long_") -> 1.0; else -> 0.0 } }
     item.food?.let { return it.nutrition + it.saturation }
     val tier = tiers.indexOfFirst { item.id.startsWith("${it}_") } + 1
     val enchants = item.enchantments.values.sum()
@@ -45,7 +50,17 @@ object Pins {
     return tier * 100.0 + enchants + wear
   }
 
-  fun matches(pin: String, item: ItemData, block: (ItemData) -> Boolean): Boolean = when (pin) {
+  fun matches(pin: String, item: ItemData, block: (ItemData) -> Boolean): Boolean = when {
+    ':' in pin -> {
+      val (bottle, potion) = pin.split(':', limit = 2)
+      // healing finds healing, strong_healing, and long_healing alike; strong_healing only itself.
+      val base = item.potion?.base
+      item.id == bottle && bottle in BOTTLES && base != null && (base == potion || base == "strong_$potion" || base == "long_$potion")
+    }
+    else -> plain(pin, item, block)
+  }
+
+  private fun plain(pin: String, item: ItemData, block: (ItemData) -> Boolean): Boolean = when (pin) {
     "food" -> item.food != null
     "block" -> block(item)
     else -> GROUPS[pin]?.invoke(item.id) ?: (item.id == pin)
@@ -68,5 +83,5 @@ object Pins {
   }
 
   /** A pin's item as the model wrote it: a group, or an id without the namespace. */
-  fun normalize(item: String): String = item.trim().lowercase().removePrefix("minecraft:").replace(' ', '_')
+  fun normalize(item: String): String = item.trim().lowercase().replace("minecraft:", "").replace(' ', '_')
 }

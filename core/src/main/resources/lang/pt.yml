@@ -425,8 +425,9 @@ automation:
 quota:
   misconfigured_admin: "&cO Allay está mal configurado: {reason}. Corrija quota no config.yml e rode /allay reload. Até lá o Allay não responde ninguém."
   misconfigured: "&cO Allay está mal configurado neste servidor. Fale com um administrador."
-  player_spent: "&eVocê usou sua cota do Allay deste mês. Ela recomeça em {date}."
-  server_spent: "&eO Allay gastou o orçamento do servidor deste mês. Ele recomeça em {date}."
+  player_spent: "&eVocê usou sua parte do Allay por enquanto. Mais chega em {date}."
+  server_spent: "&eO Allay gastou o orçamento do servidor por enquanto. Mais chega em {date}."
+  no_tier: "&eO Allay não está liberado para você neste servidor. Fale com um administrador."
 
 # Metas com uma barra no topo da tela; {title} é o nome da meta.
 goals:

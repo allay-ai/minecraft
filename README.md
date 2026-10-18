@@ -99,20 +99,21 @@ An [Allay Server](https://github.com/allay-ai/server) started with `SELFHOSTED=1
 
 ### Limits per player
 
-Whoever pays, you can cap what Allay spends. `quota.monthly_usd` is the whole server's budget for a month, and each tier gets a share of it per player through the permission `allay.quota.<tier>`, with any tier names you like:
+Whoever pays, you can cap what Allay spends. `quota.monthly_usd` is the whole server's budget for a month. Tiers are weights, given by the permission `allay.quota.<tier>`, with any tier names you like:
 
 ```yaml
 quota:
   enabled: true
   monthly_usd: 20.0
+  daily: true          # the budget opens day by day: by the 10th, a third of it
   tiers:
-    default: "0.05"     # everyone: 5% of the budget a month
-    vip: "0.30"         # players with allay.quota.vip: 30%
+    default: 1          # everyone
+    vip: 3              # players with allay.quota.vip weigh three times as much
 models:
   vip: "anthropic/claude-sonnet-5.5"   # players with allay.model.vip get this model
 ```
 
-A player with several tiers gets the biggest share, and operators get the biggest there is. Players over their share hear that it starts over next month. The shares together must not pass 1.0: otherwise Allay answers nobody, tells admins what's wrong when they join, and asks players to talk to an admin. Spending lives in `quota.json`. A model by tier replaces `provider.byok.model`, and a self-hosted backend honors it too.
+Nobody books money they don't use. A player's limit is what's open of the budget so far, times their weight, over the weights of everyone who asked this month. A VIP alone may use all of it; with one regular player around, it's 75% and 25%; a third player makes it 60%, 20%, and 20%. There's no guarantee, only a fair split. A player with several tiers gets the biggest weight, and operators get the biggest there is. Whoever reached their limit hears when more comes: tomorrow with `daily`, else next month. A weight that isn't a number above 0 makes the config wrong: then Allay answers nobody, tells admins what's wrong when they join, and asks players to talk to an admin. Spending lives in `quota.json`. A model by tier replaces `provider.byok.model`, and a self-hosted backend honors it too.
 
 ## Coming from MCBuddy
 
@@ -219,7 +220,7 @@ Plan's labels are in English, since its panel is for admins. Allay never shows a
 | `tools.point_to.default_seconds`, `tools.point_to.follow_seconds`, `tools.point_to.max_seconds` | How long a way trail lasts when nobody says: to a spot (30) and to a player (180); and at most (600) |
 | `tools.server.hidden_plugins` | Plugins `get_server` leaves out of its list, such as an anti-cheat |
 | `automation.*` | Automation agents: on or off as a whole and per kind (`chests`, `furnaces`, `brewing`, `crafting`); agents per player at once (2); how long one runs (30 minutes) and how many requests it may make (40); how far its blocks may be (16) and how far the player may walk off before it pauses (48); whether blocks must be in plain sight (on). `automation.chests.gap` (6) and `max` (64) set how far “All nearby” reaches and how many chests at once: a bigger gap reaches more chests and takes longer |
-| `quota.*`, `models` | Spending limits by tier and a model by tier, see “Limits per player” |
+| `quota.*`, `models` | Spending limits as weights by tier, opened day by day (`quota.daily`), and a model by tier, see “Limits per player” |
 | `askall.cooldown_seconds` | How long a player waits between two questions everyone sees (30) |
 | `time.zone` | The players' default time zone; a player can tell the assistant theirs |
 | `ui.*` | The action bar, tool lines, particles, sounds, and the author of the assistant's books |

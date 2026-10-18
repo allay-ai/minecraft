@@ -249,17 +249,20 @@ automation:
   line_of_sight: true
 
 # Spending limits, whoever pays (your own key, a self-hosted backend, or the subscription).
-# monthly_usd is what the whole server may spend a month. Each tier is a share of it per
-# player, given by the permission allay.quota.<tier> (any name you like: vip, p10, p99).
-# default needs no permission. A player with several tiers gets the biggest; operators get
-# the biggest there is. The shares together must not pass 1.0, or Allay answers nobody and
-# tells admins why. A player over their share hears so until the next month.
+# monthly_usd is what the whole server may spend a month. Tiers are weights, given by the
+# permission allay.quota.<tier> (any name you like: vip, p10, p99); default needs none. A
+# player gets the biggest weight they hold, operators the biggest there is. Nobody books
+# money: a player's limit is the open budget times their weight over the weights of
+# everyone who asked this month. A VIP (3) alone may use it all; next to a regular player
+# (1) it's 75% and 25%. A weight that isn't a number above 0 makes Allay answer nobody and
+# tell admins why.
 quota:
   enabled: false
   monthly_usd: 20.0
+  daily: true                 # Open the budget day by day, so the first evening can't spend the month
   tiers:
-    default: "0.05"
-  #  vip: "0.30"
+    default: 1
+  #  vip: 3
 
 # A model per tier of players: allay.model.<tier> picks it, the first tier in this list
 # the player has; operators get the first. With your own key (provider.mode byok) it

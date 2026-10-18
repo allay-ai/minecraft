@@ -53,9 +53,13 @@ object Furnaces {
   /** The fuels to try when the agent names none, cheapest to waste first. */
   private val FUEL_ORDER = listOf("coal", "charcoal", "coal_block", "blaze_rod", "dried_kelp_block")
 
-  private class Load(val block: Block, var expected: Int, var share: Int)
+  /** One furnace of a job: what it cooks, what's in its input now, and how much of its share is still to come. */
+  private class Load(val block: Block, val item: Material, val result: ItemStack, var expected: Int, var share: Int) {
+    /** The share it started with, for the report. */
+    val first = share
+  }
 
-  private class Job(override val task: Task, val player: Player, val item: Material, val result: ItemStack, val loads: List<Load>, val sources: Sources, var total: Int) : Jobs.BlockJob {
+  private class Job(override val task: Task, val player: Player, val loads: List<Load>, val sources: Sources, var total: Int) : Jobs.BlockJob {
     override val blocks get() = loads.map { it.block }
     var smelted = 0
     var reportedFull = false
@@ -66,6 +70,7 @@ object Furnaces {
       load.expected--
       load.share--
       smelted++
+      val item = load.item
       val input = inventory.smelting
       if ((input?.amount ?: 0) != load.expected || (input != null && input.type != item)) {
         return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to block.type.key.key, "x" to block.x, "y" to block.y, "z" to block.z))
@@ -87,7 +92,8 @@ object Furnaces {
       }
       if (smelted >= total) {
         Jobs.remove(this)
-        Jobs.automation.post(task, "[job] smelting done: $smelted × ${result.type.key.key} in ${loads.size} furnaces (${loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }}); the output waits in them: collect it")
+        val made = loads.groupBy { it.result.type.key.key }.entries.joinToString(", ") { (id, list) -> "${list.sumOf { load -> load.first }} × $id" }
+        Jobs.automation.post(task, "[job] smelting done: $made in ${loads.size} furnaces (${loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }}); the output waits in them: collect it")
       }
     }
 
@@ -98,7 +104,7 @@ object Furnaces {
       for (load in loads) {
         val inventory = furnace(load.block)?.inventory
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "furnace", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
-        val input = inventory.smelting?.takeIf { it.type == item }?.amount ?: 0
+        val input = inventory.smelting?.takeIf { it.type == load.item }?.amount ?: 0
         if (input >= load.expected) {
           suspect -= load.block
         } else if (!suspect.add(load.block)) {
@@ -159,7 +165,11 @@ object Furnaces {
         "start" -> start(context, player, task, args)
         "status" -> {
           val job = automation.agent(task).job as? Job ?: throw ToolError("no smelting running for this task")
-          ToolOutput(buildJsonObject { put("smelted", job.smelted); put("total", job.total); put("item", job.item.key.key) }, lang.text("summary.smelting", "done" to job.smelted, "total" to job.total))
+          ToolOutput(buildJsonObject {
+            put("smelted", job.smelted)
+            put("total", job.total)
+            putJsonObject("left") { job.loads.groupBy { it.item.key.key }.forEach { (id, list) -> put(id, list.sumOf { it.share }) } }
+          }, lang.text("summary.smelting", "done" to job.smelted, "total" to job.total))
         }
         "collect" -> {
           val to = Jobs.output(player, args["to"]) ?: throw ToolError("to is required: \"inventory\" or chests; ask the player")
@@ -184,24 +194,34 @@ object Furnaces {
     val settings = automation.settings()
     val holds = automation.reservations
     automation.agent(task).job?.let { if (Jobs.active(it)) throw ToolError("this task already runs a job; one per task") }
-    val item = InteractTools.material(args.string("item") ?: throw ToolError("item is required, like raw_gold"))
-    val sample = ItemStack(item)
+    // One item, or several at once: “smelt the iron and the gold”.
+    val asked = (args["items"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }?.map { entry ->
+      InteractTools.material(entry.string("item") ?: throw ToolError("each of items needs an item")) to entry.int("count")
+    } ?: listOf(InteractTools.material(args.string("item") ?: throw ToolError("item or items is required, like raw_gold")) to args.int("count"))
+    if (asked.map { it.first }.toSet().size != asked.size) throw ToolError("an item is named twice")
     val named = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
-    val blocks = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
-      .filter { Blocks.furnace(it.type) && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && free(it) && recipe(player.server, it, sample) != null }
-    if (blocks.isEmpty()) throw ToolError("no free furnace near the player can cook ${item.key.key}")
-    val result = recipe(player.server, blocks.first(), sample)!!.result
+    val candidates = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
+      .filter { Blocks.furnace(it.type) && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && free(it) }
     val sources = Sources.around(player, settings.radius)
-    val available = sources.free(plain(item), item.key.key, holds, task.id)
-    val total = minOf(args.int("count") ?: available, available)
-    if (total <= 0) throw ToolError("the player has no ${item.key.key} at hand (inventory, bundles, ender chest, chests near)")
-    val shares = Workshop.spread(total, blocks.size, cap = Int.MAX_VALUE)
-    val used = blocks.zip(shares).filter { it.second > 0 }
+    val counts = asked.associate { (item, count) ->
+      val available = sources.free(plain(item), item.key.key, holds, task.id)
+      if (available <= 0) throw ToolError("the player has no ${item.key.key} at hand (inventory, bundles, ender chest, chests near)")
+      item to minOf(count ?: available, available)
+    }
+    // Blast furnaces and smokers cook what they can twice as fast; the split weighs that in.
+    val recipes = candidates.associateWith { block -> counts.keys.associateWith { item -> recipe(player.server, block, ItemStack(item)) } }
+    val ovens = candidates.map { block ->
+      Workshop.Oven(counts.keys.filter { recipes[block]!![it] != null }.associate { it.key.key to if (block.type == Material.FURNACE) 1 else 2 })
+    }
+    val parts = Workshop.allot(counts.mapKeys { it.key.key.key }, ovens)
+      ?: throw ToolError("no free furnace near the player can cook ${counts.keys.filter { item -> candidates.none { recipes[it]!![item] != null } }.joinToString { it.key.key }}")
+    val used = candidates.indices.mapNotNull { index -> parts[index]?.let { part -> Triple(candidates[index], Material.matchMaterial(part.item)!!, part.count) } }
+    val total = used.sumOf { it.third }
 
     // Fuel: the one asked for, or the first that covers every furnace's share.
     val wanted = args.string("fuel")?.let(Pins::normalize)
     val fuels = if (wanted != null) listOf(wanted) else FUEL_ORDER
-    val need = { fuel: String -> used.sumOf { (block, share) -> Workshop.fuelFor(share, fuel, banked(block)) } }
+    val need = { fuel: String -> used.sumOf { (block, _, share) -> Workshop.fuelFor(share, fuel, banked(block)) } }
     val coal = { sources.free(plain(Material.COAL), "coal", holds, task.id) }
     val blocksOfCoal = { sources.free(plain(Material.COAL_BLOCK), "coal_block", holds, task.id) }
     val fuel = fuels.firstOrNull { id ->
@@ -210,12 +230,12 @@ object Furnaces {
       n == 0 || sources.free(plain(material), id, holds, task.id) >= n || (id == "coal" && coal() + blocksOfCoal() * 9 >= n)
     } ?: throw ToolError("not enough fuel at hand for ${total} items; fuel_at_hand in scan shows what there is")
     val fuelType = Material.matchMaterial(fuel)!!
-    if (used.any { (block, _) -> furnace(block)!!.inventory.fuel?.let { it.type != fuelType } == true }) throw ToolError("a furnace already holds another fuel")
-    val perFurnace = used.map { (block, share) -> Workshop.fuelFor(share, fuel, banked(block)) }
+    if (used.any { (block, _, _) -> furnace(block)!!.inventory.fuel?.let { it.type != fuelType } == true }) throw ToolError("a furnace already holds another fuel")
+    val perFurnace = used.map { (block, _, share) -> Workshop.fuelFor(share, fuel, banked(block)) }
     if (perFurnace.any { it > 64 }) throw ToolError("one furnace would need more than 64 $fuel; use more furnaces or a stronger fuel")
 
     val fuelNeeded = perFurnace.sum()
-    used.forEachIndexed { index, (block, _) ->
+    used.forEachIndexed { index, (block, _, _) ->
       val there = furnace(block)!!.inventory.fuel?.amount ?: 0
       if (perFurnace[index] > 0 && there + perFurnace[index] > fuelType.maxStackSize) throw ToolError("the fuel slot of the furnace at ${block.x} ${block.y} ${block.z} can't hold that much $fuel; use more furnaces or another fuel")
     }
@@ -224,13 +244,15 @@ object Furnaces {
     // Whatever fails on the way goes back to the player and frees the holds, so nothing is lost.
     val inHand = mutableListOf<ItemStack>()
     val spare = mutableListOf<Pair<ItemStack, Sources.Source?>>()
-    val firsts = used.map { (_, share) -> minOf(64, share) }
+    val firsts = used.map { (_, item, share) -> item to minOf(64, share) }
     fun fail(reason: String): Nothing {
       give(player, inHand)
       holds.release(task.id)
       throw ToolError(reason)
     }
-    if (!sources.reserve(plain(item), item.key.key, total, holds, task.id)) fail("someone took the ${item.key.key} meanwhile")
+    used.groupBy { it.second }.forEach { (item, list) ->
+      if (!sources.reserve(plain(item), item.key.key, list.sumOf { it.third }, holds, task.id)) fail("someone took the ${item.key.key} meanwhile")
+    }
     val fromCoal = if (fuel == "coal") minOf(fuelNeeded, coal()) else fuelNeeded
     if (fromCoal > 0 && !sources.reserve(plain(fuelType), fuel, fromCoal, holds, task.id)) fail("someone took the $fuel meanwhile")
     val blocksNeeded = if (fuel == "coal" && fuelNeeded > fromCoal) (fuelNeeded - fromCoal + 8) / 9 else 0
@@ -250,7 +272,7 @@ object Furnaces {
       val left = pieces - (fuelNeeded - fromCoal)
       if (left > 0) spare += ItemStack(Material.COAL, left) to source
     }
-    val loadsInHand = firsts.map { first ->
+    val loadsInHand = firsts.map { (item, first) ->
       val (taken, short) = sources.takeReserved(plain(item), item.key.key, first, holds, task.id)
       inHand += taken
       if (short != null) fail("the ${item.key.key} changed meanwhile")
@@ -258,25 +280,24 @@ object Furnaces {
     }
 
     // Everything is here: each furnace gets its share up to a stack, and its fuel.
-    val loads = used.mapIndexed { index, (block, share) ->
+    val loads = used.mapIndexed { index, (block, item, share) ->
       val inventory = furnace(block)!!.inventory
       inventory.smelting = ItemStack(item, loadsInHand[index])
       if (perFurnace[index] > 0) inventory.fuel = ItemStack(fuelType, (inventory.fuel?.amount ?: 0) + perFurnace[index])
-      Load(block, loadsInHand[index], share)
+      Load(block, item, recipes[block]!![item]!!.result, loadsInHand[index], share)
     }
     spare.forEach { (stack, source) -> give(player, listOf(stack), source) }
-    val job = Job(task, player, item, result, loads, sources, total)
+    val job = Job(task, player, loads, sources, total)
     automation.agent(task).job = job
     Jobs.add(job)
-    Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${item.key.key.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
+    Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${it.item.key.key.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
     val out = buildJsonObject {
       put("smelting", total)
-      put("item", item.key.key)
-      put("makes", result.type.key.key)
+      putJsonObject("makes") { loads.groupBy { it.result.type.key.key }.forEach { (id, list) -> put(id, list.sumOf { it.share }) } }
       put("fuel", fuel)
       put("fuel_used", fuelNeeded)
-      put("furnaces", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("share", load.share) }) } })
-      put("note", "wait now; you wake when it's done or a furnace is full")
+      put("furnaces", buildJsonArray { loads.forEach { load -> add(buildJsonObject { put("x", load.block.x); put("y", load.block.y); put("z", load.block.z); put("type", load.block.type.key.key); put("item", load.item.key.key); put("share", load.share) }) } })
+      put("note", "the split weighs each furnace's speed, so they finish about together; wait now, you wake when it's done or a furnace is full")
     }
     return ToolOutput(out, context.lang.text("summary.smelting_started", "count" to total, "furnaces" to loads.size))
   }

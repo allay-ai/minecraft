@@ -12,8 +12,8 @@ import java.util.UUID
 
 /**
  * The admin's spending limits ([QuotaSettings]) and models by tier ([ModelTiers]) on Bukkit: a question or an agent's
- * wake starts only when the player and the server have money left this month. A config whose shares pass 100% stops
- * Allay for everyone: admins hear why, on join too, and players hear to ask an admin.
+ * wake starts only when the player and the server have money left of what's unlocked so far. A broken quota config
+ * stops Allay for everyone: admins hear why, on join too, and players hear to ask an admin.
  */
 class QuotaGate(private val plugin: JavaPlugin, private val locales: Locales, private val config: () -> Config, private val book: QuotaBook) : Listener {
   private fun admin(sender: CommandSender) = sender.isOp || sender.hasPermission(Permissions.ADMIN)
@@ -29,12 +29,16 @@ class QuotaGate(private val plugin: JavaPlugin, private val locales: Locales, pr
         if (admin(sender)) lang.send(sender, "quota.misconfigured_admin", "reason" to verdict.reason) else lang.send(sender, "quota.misconfigured")
         false
       }
+      Quotas.Verdict.NoTier -> {
+        lang.send(sender, "quota.no_tier")
+        false
+      }
       Quotas.Verdict.PlayerSpent -> {
-        lang.send(sender, "quota.player_spent", "date" to book.resets())
+        lang.send(sender, "quota.player_spent", "date" to book.resets(settings.daily))
         false
       }
       Quotas.Verdict.ServerSpent -> {
-        lang.send(sender, "quota.server_spent", "date" to book.resets())
+        lang.send(sender, "quota.server_spent", "date" to book.resets(settings.daily))
         false
       }
     }

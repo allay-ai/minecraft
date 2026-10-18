@@ -425,8 +425,9 @@ automation:
 quota:
   misconfigured_admin: "&cAllay настроен неверно: {reason}. Исправь quota в config.yml и выполни /allay reload. До тех пор Allay никому не отвечает."
   misconfigured: "&cAllay на этом сервере настроен неверно. Обратись к администратору."
-  player_spent: "&eТвоя квота Allay на этот месяц закончилась. Она обновится {date}."
-  server_spent: "&eAllay израсходовал бюджет сервера на этот месяц. Он обновится {date}."
+  player_spent: "&eТвоя доля Allay пока закончилась. Новая появится {date}."
+  server_spent: "&eAllay израсходовал бюджет сервера на сейчас. Новый появится {date}."
+  no_tier: "&eНа этом сервере Allay тебе пока недоступен. Обратись к администратору."
 
 # Цели с полосой сверху экрана; {title} — название цели.
 goals:

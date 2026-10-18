@@ -425,8 +425,9 @@ automation:
 quota:
   misconfigured_admin: "&cAllay is set up wrong: {reason}. Fix quota in config.yml and run /allay reload. Until then Allay answers nobody."
   misconfigured: "&cAllay is set up wrong on this server. Ask an administrator."
-  player_spent: "&eYou've used your Allay quota for this month. It starts over on {date}."
-  server_spent: "&eAllay has used this server's budget for the month. It starts over on {date}."
+  player_spent: "&eYou've used your share of Allay for now. More comes on {date}."
+  server_spent: "&eAllay has used this server's budget for now. More comes on {date}."
+  no_tier: "&eAllay isn't open to you on this server. Ask an administrator."
 
 # Goals with a bar at the top of the screen; {title} is the goal's name.
 goals:
