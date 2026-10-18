@@ -11,12 +11,12 @@ import chat.allay.core.Run
 import chat.allay.spigot.tools.id
 import java.util.UUID
 
-/** A Bukkit sender as the core sees whoever asked. */
-class SenderAsker(val sender: CommandSender) : Asker {
+/** A Bukkit sender as the core sees whoever asked; [chosen] is the language they picked in Allay, which beats the game's. */
+class SenderAsker(val sender: CommandSender, private val chosen: String? = null) : Asker {
   override val name: String get() = sender.name
   override val uuid: UUID? get() = (sender as? Player)?.uniqueId
   override val operator: Boolean get() = sender.isOp
-  override val locale: String? get() = (sender as? Player)?.locale
+  override val locale: String? get() = chosen ?: (sender as? Player)?.locale
   // Read once here, on the server thread: the request is built off it.
   override val dimension: String? = (sender as? Player)?.world?.let(Dimensions::id)
   override fun can(permission: String) = sender.hasPermission(permission)

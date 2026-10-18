@@ -112,7 +112,7 @@ class Handler(
 
     // A new question replaces the one still running.
     runs.remove(key(sender))?.cancel()
-    val run = Run(SenderAsker(sender), mode, lang, configuration.ui.verbSeconds, public)
+    val run = Run(SenderAsker(sender, (sender as? Player)?.let { locales.choice(it.uniqueId) }), mode, lang, configuration.ui.verbSeconds, public)
     run.tip = tip
     run.model = quota.model(sender)
     runs[key(sender)] = run

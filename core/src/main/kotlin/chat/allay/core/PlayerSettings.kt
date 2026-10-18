@@ -9,8 +9,8 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
-/** One player's Allay settings. */
-@Serializable data class Settings(val chat_mode: Boolean = false, val hints: Boolean = true)
+/** One player's Allay settings; [language] is a `lang/` code they chose, null to have it picked for them. */
+@Serializable data class Settings(val chat_mode: Boolean = false, val hints: Boolean = true, val language: String? = null)
 
 /** Each player's settings in `players.json`. Chat reads them off the server thread, so the map is concurrent. */
 class PlayerSettings(private val folder: File, private val log: Logger) {

@@ -206,7 +206,7 @@ class Automation(
     task.question = null
     agent.asked = false
     val lang = locales.of(player)
-    val run = Run(SenderAsker(player), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
+    val run = Run(SenderAsker(player, locales.choice(player.uniqueId)), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
     run.model = quota().model(player)
     val quiet = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) {}

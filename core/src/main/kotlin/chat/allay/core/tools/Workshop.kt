@@ -32,6 +32,18 @@ object Workshop {
     return (0 until furnaces).map { minOf(cap, each / furnaces + if (it < each % furnaces) 1 else 0) }
   }
 
+  /** [total] items over places with room for [rooms] each, as evenly as the room allows: `10 over room 2, 9, 9` is `2, 4, 4`. */
+  fun fill(total: Int, rooms: List<Int>): List<Int> {
+    val shares = MutableList(rooms.size) { 0 }
+    var left = total
+    while (left > 0) {
+      val open = rooms.indices.filter { shares[it] < rooms[it] }
+      if (open.isEmpty()) break
+      for (index in open) if (left > 0) { shares[index]++; left-- }
+    }
+    return shares
+  }
+
   /** A furnace for [allot]: how fast it cooks each item it can (a blast furnace cooks ores at 2, a furnace at 1). */
   data class Oven(val speeds: Map<String, Int>)
 
@@ -73,19 +85,27 @@ object Workshop {
     return parts.toList()
   }
 
+  /** Where a recipe is made. */
+  enum class Station { INVENTORY, TABLE, STONECUTTER, SMITHING }
+
   /**
-   * A crafting recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. [small] when it
-   * fits the player's own 2×2 grid, so it needs no crafting table: planks, sticks, the table itself.
+   * A recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. A crafting recipe
+   * that fits the player's own 2×2 grid needs no crafting table ([Station.INVENTORY]): planks, sticks, the table itself.
    */
-  data class Recipe(val result: String, val count: Int, val slots: List<Set<String>>, val small: Boolean = false)
+  data class Recipe(val result: String, val count: Int, val slots: List<Set<String>>, val station: Station = Station.TABLE) {
+    constructor(result: String, count: Int, slots: List<Set<String>>, small: Boolean) : this(result, count, slots, if (small) Station.INVENTORY else Station.TABLE)
+  }
 
   /** One craft of [recipe], [times] over, with the ids it used for each slot. */
   data class Step(val recipe: Recipe, val times: Int, val used: Map<String, Int>)
 
   /** What [plan] found: the steps, intermediate parts first, and what they take from the player. */
   data class Plan(val steps: List<Step>, val takes: Map<String, Int>, val makes: Map<String, Int>) {
+    /** The stations its steps need, besides the player's own grid. */
+    val stations get() = steps.map { it.recipe.station }.toSet() - Station.INVENTORY
+
     /** Whether some step needs a 3×3 grid, so a crafting table. */
-    val needsTable get() = steps.any { !it.recipe.small }
+    val needsTable get() = Station.TABLE in stations
   }
 
   /** Why nothing could be planned: the items missing for the cheapest way the planner saw. */
@@ -142,7 +162,8 @@ object Workshop {
 
     /** Crafts [short] of [id], trying its recipes from the one the player has most for; a failure leaves what's missing. */
     fun craft(id: String, short: Int, level: Int): Boolean {
-      val options = if (level < depth) recipes(id).sortedByDescending { recipe -> recipe.slots.sumOf { slot -> slot.maxOf(::available) } } else emptyList()
+      // A stonecutter first when there's one: stairs come one from a block there, four from six on a table.
+      val options = if (level < depth) recipes(id).sortedWith(compareBy<Recipe> { it.station != Station.STONECUTTER }.thenByDescending { recipe -> recipe.slots.sumOf { slot -> slot.maxOf(::available) } }) else emptyList()
       if (options.isEmpty()) {
         missing.merge(id, short, Int::plus)
         return false

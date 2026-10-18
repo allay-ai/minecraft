@@ -20,8 +20,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Every player reads the plugin in their own language: `lang/<code>.yml`, picked by the country of their IP
- * address, then by their game's language, then `locales.default`. The console gets the default.
+ * Every player reads the plugin in their own language: `lang/<code>.yml`, the one they chose with `/allay language`,
+ * or else picked by the country of their IP address, then by their game's language, then `locales.default`.
+ * The console gets the default.
  */
 class Locales(private val plugin: JavaPlugin) : Listener {
   private val countries = ConcurrentHashMap<UUID, String>()
@@ -33,6 +34,8 @@ class Locales(private val plugin: JavaPlugin) : Listener {
   @Volatile lateinit var texts: Texts; private set
   @Volatile private lateinit var resolver: LocaleResolver
   @Volatile private var sources: List<String> = emptyList()
+  /** The language a player chose themself, from their settings; set once the settings are loaded. */
+  @Volatile var choices: (UUID) -> String? = { null }
 
   /** What `/allay locale` shows: the language, what picked it (`ip`, `client`, or `default`), and what it was picked from. */
   class Choice(val code: String, val source: String, val country: String?, val client: String, val sources: List<String>)
@@ -84,14 +87,28 @@ class Locales(private val plugin: JavaPlugin) : Listener {
    */
   fun of(sender: CommandSender?): Lang = texts.lang((sender as? Player)?.let { code(it) }).about(Placeholders.about(sender))
 
-  fun code(player: Player): String = resolver.resolve(countries[player.uniqueId], player.locale) ?: texts.default
+  fun code(player: Player): String = choice(player.uniqueId) ?: picked(player.uniqueId, player.locale)
+
+  /** The languages there are, by code. */
+  val codes: Set<String> get() = texts.codes
+
+  /** The player's own choice, while there's still a file for it; null when Allay picks. */
+  fun choice(player: UUID): String? = choices(player)?.let(LocaleResolver::normalize)?.takeIf { it in texts.codes }
+
+  /** The language picked for the player when they chose none. */
+  private fun picked(player: UUID, client: String): String = resolver.resolve(countries[player], client) ?: texts.default
+
+  /** What the player reads once their choice changed: right away, also on other threads. */
+  fun chose(player: Player) {
+    current[player.uniqueId] = code(player)
+  }
 
   /** An online player's language without asking Bukkit, so any thread can read it; null when they're offline. */
   fun known(player: UUID): String? = current[player]
 
   fun explain(player: Player): Choice {
     val country = countries[player.uniqueId]
-    val (code, source) = resolver.explain(country, player.locale) ?: (texts.default to "default")
+    val (code, source) = choice(player.uniqueId)?.let { it to "chosen" } ?: resolver.explain(country, player.locale) ?: (texts.default to "default")
     return Choice(code, source, country, player.locale, sources)
   }
 
@@ -119,6 +136,6 @@ class Locales(private val plugin: JavaPlugin) : Listener {
 
   @EventHandler(priority = EventPriority.MONITOR)
   fun onLocaleChange(event: PlayerLocaleChangeEvent) {
-    current[event.player.uniqueId] = resolver.resolve(countries[event.player.uniqueId], event.locale) ?: texts.default
+    current[event.player.uniqueId] = choice(event.player.uniqueId) ?: picked(event.player.uniqueId, event.locale)
   }
 }

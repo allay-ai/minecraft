@@ -2,6 +2,19 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.10.0
+
+The fuel action, the anvil, and the new crafting stations need Allay Server 5.8.
+
+- 🪨 **A stonecutter when there's one.** With a stonecutter in sight, `craft` cuts what it can there: stone brick stairs one per block instead of four from six. 2×2 recipes still need nothing, 3×3 ones a crafting table.
+- 🛡️ **Netherite gear on a smithing table.** “Make my diamond chestplate netherite” works with a smithing table in sight: the richest diamond piece, worn ones too, becomes netherite in place and keeps its enchantments, name, and wear. The template and the ingot come from what the player has, and a missing ingot is crafted from scrap and gold.
+- ⚒️ **Anvil work.** The crafting agent's new `anvil` tool puts enchanted books and items of the same kind onto an item in the cheapest order, finds the books in the inventory, bundles, the ender chest, and chests near, and renames the item. It shows the result and the levels first and works only after the player's yes. The player pays the levels, nothing costs 40 or more in survival, and the anvil wears down like the game's.
+
+- 🌍 **Pick your language.** `/allay language <code>` or the new Language button in the `/allay` window sets the language Allay speaks to you, and `auto` hands the choice back: IP country, then game language. The choice lives in `players.json`, beats every other rule, and goes to the assistant too. `/allay locale` shows it as chosen.
+- 🪨 **Fuel alone, the way you say it.** `smelt` action `fuel` puts fuel in with nothing to cook: 18 coal spread evenly, 8 in each furnace, every slot filled up to a level, or just what each furnace needs to finish what it's cooking. It takes the furnaces named or picked, or every usable one around, of the kinds asked (only blast furnaces, say), and the fuel asked, else what they already burn, else the cheapest at hand. Coal blocks split into coal when coal runs short, and furnaces burning another fuel are skipped with the reason. Before, the agent could only load fuel together with something to smelt, so “put the coal in the furnaces” failed.
+- 👀 **A furnace you can click counts as in sight.** The line-of-sight check looked along one ray to the block's center, which grazed the glass or the furnace beside it, so a blast furnace in a wall next to glass read as hidden and got skipped. Now any part of a face you could click is enough: a furnace behind a slab shows its upper half, and water never blocks the view. The same goes for brewing stands and crafting tables.
+- ⏱️ **Marks glow 30 seconds by default**, not 120: `tools.show_marks.default_seconds`. The assistant can still ask for longer, up to `max_seconds`.
+
 ## 5.9.1
 
 - 🪵 **Crafting uses the wood you carry.** A recipe that takes any planks, like a chest, now makes them from your jungle, birch, or any other logs, several kinds together when one isn't enough. Before, the agent always asked for the first wood on the list: “8 chests” with 37 jungle logs said 15 dark oak logs were missing.

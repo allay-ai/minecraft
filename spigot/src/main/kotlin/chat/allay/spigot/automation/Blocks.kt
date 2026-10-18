@@ -47,19 +47,35 @@ object Blocks {
   fun root(block: Block): Block = halves(block).first()
 
   /**
-   * Whether nothing solid stands between [player]'s eyes and [block]: glass and leaves count as solid, open doors and
-   * grass don't. With [required] off (`automation.line_of_sight: false`) every block counts as seen.
+   * Whether the player could see part of [block] that they could click: glass and leaves block the view, open doors,
+   * grass, and water don't, and a slab in front leaves the upper half in sight. With [required] off
+   * (`automation.line_of_sight: false`) every block counts as seen.
    */
   fun sees(player: Player, block: Block, required: Boolean = true): Boolean {
     if (!required) return true
     val eyes = player.eyeLocation
-    val center = block.location.add(0.5, 0.5, 0.5)
-    if (eyes.world != center.world) return false
-    val direction = center.toVector().subtract(eyes.toVector())
-    val distance = direction.length()
-    if (distance < 0.01) return true
-    val hit = eyes.world!!.rayTraceBlocks(eyes, direction.normalize(), distance + 0.5, FluidCollisionMode.NEVER, true) ?: return true
-    return hit.hitBlock == block
+    if (eyes.world != block.world) return false
+    // Any part of a face the player could click counts, as in the game: a ray to the center alone grazes the glass
+    // or the furnace beside it, and a slab in front hides only the lower half. Water never blocks the view.
+    return SIGHT_POINTS.any { (x, y, z) ->
+      val target = block.location.add(x, y, z)
+      val direction = target.toVector().subtract(eyes.toVector())
+      val distance = direction.length()
+      if (distance < 0.01) return@any true
+      val hit = eyes.world!!.rayTraceBlocks(eyes, direction.normalize(), distance + 0.5, FluidCollisionMode.NEVER, true) ?: return@any true
+      hit.hitBlock == block
+    }
+  }
+
+  /** The center, then a 3×3 grid just inside each face, so a ray aimed at a face ends in this block, not its neighbor. */
+  private val SIGHT_POINTS: List<Triple<Double, Double, Double>> = buildList {
+    add(Triple(0.5, 0.5, 0.5))
+    val grid = listOf(0.15, 0.5, 0.85)
+    for (inside in listOf(0.05, 0.95)) for (a in grid) for (b in grid) {
+      add(Triple(inside, a, b))
+      add(Triple(a, inside, b))
+      add(Triple(a, b, inside))
+    }
   }
 
   /** A hopper feeds the block or pulls from it: a farm's output or a sorting machine, which automation leaves alone. */

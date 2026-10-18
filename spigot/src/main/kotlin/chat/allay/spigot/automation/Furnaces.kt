@@ -26,7 +26,7 @@ import org.bukkit.inventory.SmokingRecipe
 
 /**
  * `smelt`: loads furnaces, blast furnaces, and smokers near the player evenly, with exactly the fuel the load needs,
- * and keeps them going from what it reserved until everything is smelted.
+ * and keeps them going from what it reserved until everything is smelted. `fuel` puts in fuel alone, spread evenly.
  */
 object Furnaces {
   /** The cooking recipe [block] uses for [item], or null when it can't cook it: a blast furnace takes ores, a smoker food. */
@@ -178,6 +178,7 @@ object Furnaces {
           ToolOutput(result, lang.text("summary.furnaces", "count" to rows.size))
         }
         "start" -> start(context, player, task, args)
+        "fuel" -> fuel(context, player, task, args)
         "status" -> {
           val job = automation.agent(task).job as? Job ?: throw ToolError("no smelting running for this task")
           ToolOutput(buildJsonObject {
@@ -199,7 +200,7 @@ object Furnaces {
           job?.reportedFull = false
           ToolOutput(buildJsonObject { put("collected", taken.sumOf { it.amount }) }, lang.text("summary.collected", "count" to taken.sumOf { it.amount }))
         }
-        else -> throw ToolError("action must be scan, start, status, or collect, not $action")
+        else -> throw ToolError("action must be scan, start, fuel, status, or collect, not $action")
       }
     }
   }
@@ -320,6 +321,116 @@ object Furnaces {
     }
     return ToolOutput(out, context.lang.text("summary.smelting_started", "count" to total, "furnaces" to loads.size))
   }
+
+  /**
+   * `fuel`: fuel alone, nothing to cook. How much: count spread evenly, each added to every furnace, up_to a level in
+   * every fuel slot, or need, just what each furnace needs for what it's cooking now. Which: furnaces named or picked,
+   * else every usable one around, of the types asked. The fuel: the one asked, else what the furnaces already burn,
+   * else the cheapest at hand; coal blocks split into coal when the coal runs short, and leftovers go back.
+   */
+  private fun fuel(context: ToolContext, player: Player, task: Task, args: JsonObject): ToolOutput {
+    val automation = context.features.automation
+    val settings = automation.settings()
+    val holds = automation.reservations
+    val count = args.int("count")
+    val each = args.int("each")
+    val upTo = args.int("up_to")
+    val need = args.bool("need") == true
+    if (listOf(count != null, each != null, upTo != null, need).count { it } != 1) throw ToolError("say how much with exactly one of count (in all, spread evenly), each (added to every furnace), up_to (the level each fuel slot should reach), or need: true")
+    val types = (args["types"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.let(Pins::normalize) }?.toSet().orEmpty()
+    val named = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
+    val skipped = mutableListOf<String>()
+    val around = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
+      .filter { Blocks.furnace(it.type) && (types.isEmpty() || it.type.key.key in types) }
+      .filter { block -> Blocks.unusable(player, block, settings.radius, settings.lineOfSight)?.let { skipped += "${spot(block)}: ${it.model}"; false } ?: true }
+    if (around.isEmpty()) throw ToolError("no usable furnace near the player${if (types.isNotEmpty()) " of ${types.joinToString()}" else ""}${if (skipped.isNotEmpty()) "; ${skipped.joinToString("; ")}" else ""}")
+    val sources = Sources.around(player, settings.radius)
+    val free = { type: Material -> sources.free(plain(type), type.key.key, holds, task.id) }
+    val coalPieces = { free(Material.COAL) + free(Material.COAL_BLOCK) * 9 }
+    val asked = args.string("fuel")?.let(Pins::normalize)
+    val id = asked
+      ?: around.mapNotNull { furnace(it)?.inventory?.fuel?.type?.key?.key }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+      ?: FUEL_ORDER.firstOrNull { fuel -> Material.matchMaterial(fuel)?.let { if (fuel == "coal") coalPieces() > 0 else free(it) > 0 } == true }
+      ?: throw ToolError("the player has no fuel at hand (inventory, bundles, ender chest, chests near)")
+    val type = Material.matchMaterial(id)?.takeIf { it.isFuel && it != Material.LAVA_BUCKET } ?: throw ToolError("$id isn't a fuel that stacks")
+    // A fuel slot holds one kind: furnaces burning another are left as they are.
+    val furnaces = around.filter { block ->
+      val there = furnace(block)?.inventory?.fuel
+      when {
+        there == null || there.type == type -> true
+        else -> false.also { skipped += "${spot(block)}: burns ${there.type.key.key}" }
+      }
+    }
+    if (furnaces.isEmpty()) throw ToolError("every furnace near the player burns another fuel: ${skipped.joinToString("; ")}")
+    val room = furnaces.map { type.maxStackSize - (furnace(it)!!.inventory.fuel?.amount ?: 0) }
+    val have = if (type == Material.COAL) coalPieces() else free(type)
+    if (have <= 0) throw ToolError("the player has no $id at hand (inventory, bundles, ender chest, chests near)")
+    val wanted = when {
+      count != null -> Workshop.fill(count, room)
+      each != null -> room.map { minOf(it, each) }
+      upTo != null -> furnaces.mapIndexed { index, block -> minOf(room[index], (upTo.coerceAtMost(type.maxStackSize) - (furnace(block)!!.inventory.fuel?.amount ?: 0)).coerceAtLeast(0)) }
+      // What's in the input slot now, less what already burns or waits: blast furnaces cook twice as fast and burn twice as fast, so it's the same.
+      else -> furnaces.mapIndexed { index, block -> minOf(room[index], Workshop.fuelFor(furnace(block)!!.inventory.smelting?.amount ?: 0, id, banked(block))) }
+    }
+    // Short of fuel: as evenly as what there is allows.
+    val shares = if (wanted.sum() <= have) wanted else Workshop.fill(have, wanted)
+    val placed = shares.sum()
+    if (placed == 0) throw ToolError(if (need) "no furnace needs more fuel for what it's cooking" else "the fuel slots are full")
+
+    val fromItems = if (type == Material.COAL) minOf(placed, free(Material.COAL)) else placed
+    val blocks = if (type == Material.COAL) (placed - fromItems + 8) / 9 else 0
+    val inHand = mutableListOf<ItemStack>()
+    fun fail(reason: String): Nothing {
+      give(player, inHand)
+      holds.release(task.id)
+      throw ToolError(reason)
+    }
+    if (fromItems > 0 && !sources.reserve(plain(type), id, fromItems, holds, task.id)) fail("someone took the $id meanwhile")
+    if (blocks > 0 && !sources.reserve(plain(Material.COAL_BLOCK), "coal_block", blocks, holds, task.id)) fail("someone took the coal blocks meanwhile")
+    if (fromItems > 0) {
+      val (taken, short) = sources.takeReserved(plain(type), id, fromItems, holds, task.id)
+      inHand += taken
+      if (short != null) fail("the $id changed meanwhile")
+    }
+    if (blocks > 0) {
+      // Coal blocks split into coal, as the crafting table does; what's left over goes back where the block was.
+      val source = sources.list.firstOrNull { it.count(plain(Material.COAL_BLOCK)) > 0 }
+      val (split, shortBlocks) = sources.takeReserved(plain(Material.COAL_BLOCK), "coal_block", blocks, holds, task.id)
+      inHand += split
+      if (shortBlocks != null) fail("the coal blocks changed meanwhile")
+      val left = blocks * 9 - (placed - fromItems)
+      if (left > 0) give(player, listOf(ItemStack(Material.COAL, left)), source)
+    }
+    val filled = furnaces.indices.filter { shares[it] > 0 }
+    filled.forEach { index ->
+      val inventory = furnace(furnaces[index])!!.inventory
+      inventory.fuel = ItemStack(type, (inventory.fuel?.amount ?: 0) + shares[index])
+    }
+    Marks.show(context.plugin, player, filled.map { Marks.Mark(furnaces[it], null, "+${shares[it]} ${id.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
+    val ticks = Workshop.burnTicks(id) ?: 0
+    val out = buildJsonObject {
+      put("fuel", id)
+      put("placed", placed)
+      if (blocks > 0) put("coal_blocks_split", blocks)
+      if (placed < wanted.sum()) put("short", wanted.sum() - placed)
+      put("furnaces", buildJsonArray {
+        filled.forEach { index ->
+          val block = furnaces[index]
+          val now = furnace(block)!!.inventory.fuel?.amount ?: 0
+          add(buildJsonObject {
+            put("x", block.x); put("y", block.y); put("z", block.z); put("type", block.type.key.key)
+            put("added", shares[index]); put("holds", now)
+            // How many items its fuel slot cooks, whatever the kind: blast furnaces and smokers burn twice as fast and cook twice as fast.
+            put("cooks_items", now * ticks / Workshop.COOK_TICKS)
+          })
+        }
+      })
+      if (skipped.isNotEmpty()) put("skipped", buildJsonArray { skipped.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+    }
+    return ToolOutput(out, context.lang.text("summary.fuelled", "count" to placed, "furnaces" to filled.size))
+  }
+
+  private fun spot(block: Block) = "${block.type.key.key} ${block.x} ${block.y} ${block.z}"
 
   /** Ticks of fuel a furnace already has: what burns now and what waits in its fuel slot. */
   private fun banked(block: Block): Int {

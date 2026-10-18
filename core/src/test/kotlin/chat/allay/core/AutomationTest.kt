@@ -167,6 +167,13 @@ class AutomationTest {
     assertEquals(listOf(1, 0, 0), Workshop.spread(1, 3))
   }
 
+  @Test fun `fuel spreads evenly within each furnace's room`() {
+    assertEquals(listOf(2, 4, 4), Workshop.fill(10, listOf(2, 9, 9)))
+    assertEquals(listOf(6, 6, 6), Workshop.fill(18, listOf(64, 64, 64)))
+    // What doesn't fit stays out.
+    assertEquals(listOf(1, 2), Workshop.fill(10, listOf(1, 2)))
+  }
+
   @Test fun `two ores split over furnaces so they finish together`() {
     val furnace = Workshop.Oven(mapOf("raw_iron" to 1, "raw_gold" to 1, "beef" to 1))
     val blast = Workshop.Oven(mapOf("raw_iron" to 2, "raw_gold" to 2))
@@ -242,6 +249,22 @@ class AutomationTest {
   @Test fun `a crafting table needs no crafting table`() {
     val plan = assertIs<Workshop.Plan>(Workshop.plan("crafting_table", 1, mapOf("oak_log" to 1), woods))
     assertEquals(mapOf("oak_log" to 1), plan.takes)
+    assertFalse(plan.needsTable)
+  }
+
+  @Test fun `a stonecutter beats the table`() {
+    val stone: (String) -> List<Workshop.Recipe> = { id ->
+      when (id) {
+        "stone_brick_stairs" -> listOf(
+          Workshop.Recipe(id, 4, List(6) { setOf("stone_bricks") }),
+          Workshop.Recipe(id, 1, listOf(setOf("stone_bricks")), Workshop.Station.STONECUTTER),
+        )
+        else -> emptyList()
+      }
+    }
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("stone_brick_stairs", 4, mapOf("stone_bricks" to 10), stone))
+    assertEquals(mapOf("stone_bricks" to 4), plan.takes)
+    assertEquals(setOf(Workshop.Station.STONECUTTER), plan.stations)
     assertFalse(plan.needsTable)
   }
 

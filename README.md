@@ -25,7 +25,7 @@
 - 📒 **A notebook, goals, and reminders.** “Remember there's an arrow trader here”, “set a goal to collect 16 diamonds” (a boss bar at the top), “remind me in 5 minutes”. The assistant knows which dimension the player is in, so a bastion noted in the Nether stays in the Nether. `/allay memory <text>` keeps something without asking the assistant.
 - 🧠 **It remembers what it looked up.** Each answer keeps what the tools found, so “and how many were in that chest?” or “what dropped when I died?” needs no second look. A long talk folds into a short summary, and a talk left alone simply expires. With Allay Server 5.5.
 - 🪟 **Buttons and windows.** Answers end with buttons: a follow-up question, the way to a spot, coordinates to copy, a recipe, the brewing steps, the anvil plan, enchantments, the villagers around. The assistant reads potions from the game's own brewing recipes, and plans the anvil with the books and items you really have: which goes left, which right, and what each step costs. The recipe, brewing, anvil, enchanting, and villager windows show pictures only, so nothing can be taken from them.
-- 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German come bundled; the plugin picks one by the player's country, then by their game's language. The assistant answers in the language of the question.
+- 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German come bundled; the plugin picks one by the player's country, then by their game's language, and each player can choose their own with `/allay language` or in the `/allay` window. The assistant answers in the language of the question.
 - 📊 **Plan**, if you have it: chat mode, goals, notes, and language on each player's page, and who pays for the model in the server's overview.
 - 🧩 **PlaceholderAPI**, if you have it: `{papi:luckperms_prefix}` in a text, and `%allay_chat_mode%` and friends for TAB and scoreboards.
 - 🪽 **It sounds like an allay.** A curious hum while it works, a happy chortle with the answer, a soft sigh when something fails, each a little different from the last.
@@ -126,7 +126,7 @@ Allay is MCBuddy under a new name, from 4.0.0 on. Swap `mcbuddy-spigot-*.jar` fo
 
 ## How a player gets their language
 
-The plugin tries the sources in `locales.sources`, in order:
+A language the player chose with `/allay language` or in the `/allay` window comes first; it stays in `players.json` until they pick `auto`. Otherwise the plugin tries the sources in `locales.sources`, in order:
 
 1. **`ip`:** the country of the player's IP address. `locales.countries` maps languages to country codes: Russia, Belarus, and Kazakhstan get Russian; Spain and Latin America get Spanish; Brazil and Portugal get Portuguese; Germany, Austria, and Switzerland get German.
 2. **`client`:** the language set in the player's game, when a file in `lang/` matches it.
@@ -144,9 +144,10 @@ Everything a player reads lives in `lang/<language>.yml`: status verbs, tool lin
 | `/ask <question>` | Asks the assistant; only you see the answer |
 | `/askall <question>` | Asks in front of everyone: every player online sees the question and the answer |
 | `/askx <what to do>` | Turns a request into commands and runs them as you, minus `blocked_commands` |
-| `/allay` | Opens the settings window: chat mode and its tip, your time zone, memory, starting over, and the recipe, enchanting, and villager windows |
+| `/allay` | Opens the settings window: chat mode and its tip, your language, your time zone, memory, starting over, and the recipe, enchanting, and villager windows |
 | `/allay chat [on\|off]` | Chat mode: what you write in chat goes to the assistant |
 | `/allay hints [on\|off]` | The tip about chat mode under answers |
+| `/allay language [code\|auto]` | Picks the language Allay speaks to you, or `auto` to have it picked again; with no code, a window to choose in |
 | `/allay cancel` | Stops the question it's working on, or with none, hides the way trail |
 | `/allay new` | Starts the conversation over; what it remembers about you stays |
 | `/allay memory`, `/allay forget <number\|all>` | Shows and erases what it remembers about you |
@@ -215,7 +216,7 @@ Plan's labels are in English, since its panel is for admins. Allay never shows a
 | `provider.*` | Who pays for the model: `hosted` (a subscription) or `byok` (your own key), see “Paying for the model” |
 | `locales.*`, `geoip.*` | Where a player's language comes from, and the country database |
 | `tools.enabled.<tool>` | Switches a tool off. `scan_nearby_containers`, `find_item`, `look_at`, and `show_marks` see only containers the player could open: outside claims, or with container trust in GriefPrevention, and never an unopened structure chest |
-| `tools.show_marks.*` | Marks over blocks: how long they stay (120 s, at most 600), how many at once (64), and how far from the player (48 blocks) |
+| `tools.show_marks.*` | Marks over blocks: how long they stay (30 s, at most 600), how many at once (64), and how far from the player (48 blocks) |
 | `tools.operator.*` | Tools that give items, teleport, heal, or change time and weather; operators only |
 | `tools.reminders.max_pending`, `tools.notes.max_per_player`, `tools.goals.max_per_player` | How many reminders (10), notes (200), and goals (5) one player can have |
 | `tools.locate_structure_radius`, `tools.locate_biome_radius`, `tools.villager_radius` | Search radii |

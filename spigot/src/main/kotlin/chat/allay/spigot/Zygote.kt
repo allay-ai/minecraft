@@ -18,6 +18,7 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.Material
 import org.bukkit.entity.Player
+import chat.allay.spigot.menus.LanguageMenu
 import chat.allay.spigot.menus.MenuListener
 import chat.allay.spigot.menus.SettingsMenu
 import chat.allay.core.tools.Books
@@ -50,6 +51,7 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var reminders: Reminders
   private lateinit var notes: Notes
   private lateinit var goals: Goals
+  private lateinit var languages: Languages
   private lateinit var features: Features
   private lateinit var menus: MenuListener
   private lateinit var clicks: Clicks
@@ -79,6 +81,8 @@ class Zygote : JavaPlugin(), TabCompleter {
     goals = Goals(this, locales) { configuration.tools.maxGoals }
     val deaths = Deaths()
     val settings = PlayerSettings(dataFolder, logger)
+    locales.choices = { settings.of(it).language }
+    languages = Languages(locales, settings)
     chat = ChatMode(this, locales, settings) { handler }
     quota = QuotaGate(this, locales, { configuration }, QuotaBook(dataFolder, logger) { runCatching { java.time.ZoneId.of(configuration.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
     automation = Automation(this, locales, { configuration }, { service }, { clicks }, { quota }, scope)
@@ -213,10 +217,16 @@ class Zygote : JavaPlugin(), TabCompleter {
     val player = sender as? Player
     val asker = sender.hasPermission(Permissions.ASK)
     when {
-      word == null && player != null -> SettingsMenu(player, lang, features, clicks, memory, description.version).open()
+      word == null && player != null -> settingsMenu(player)
       // Buttons under answers run this; a typed id works only if it was shown to this player.
       word == "do" && args.size == 2 && player != null -> clicks.press(player, args[1])
       word == "reload" && sender.hasPermission(Permissions.RELOAD) -> handleReloadCommand(sender)
+      word == "language" || word == "lang" -> when {
+        player == null -> lang.send(sender, "messages.players_only")
+        args.size == 1 -> languageMenu(player)
+        args.size == 2 -> if (!languages.choose(player, args[1])) lang.send(sender, "messages.language_unknown", "code" to args[1], "codes" to (languages.codes() + "auto").joinToString(", "))
+        else -> usage(sender, lang)
+      }
       word == "chat" || word == "hints" -> when {
         player == null -> lang.send(sender, "messages.players_only")
         !sender.hasPermission(Permissions.CHAT) -> lang.send(sender, "messages.no_permission")
@@ -257,6 +267,11 @@ class Zygote : JavaPlugin(), TabCompleter {
     }
   }
 
+  private fun settingsMenu(player: Player): Unit =
+    SettingsMenu(player, locales.of(player), features, clicks, memory, description.version, languages) { languageMenu(player) }.open()
+
+  private fun languageMenu(player: Player): Unit = LanguageMenu(player, locales, languages) { settingsMenu(player) }.open()
+
   private fun usage(sender: CommandSender, lang: Lang) {
     lang.send(sender, "messages.allay_usage")
     if (sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "messages.allay_admin_usage")
@@ -266,6 +281,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     if (!command.name.equals("allay", ignoreCase = true)) return emptyList()
     val options = when {
       args.size == 1 -> buildList {
+        if (sender is Player) add("language")
         if (sender.hasPermission(Permissions.CHAT)) addAll(listOf("chat", "hints"))
         if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "forget", "recipe", "enchants", "villagers", "brewing", "anvil"))
         if (sender.hasPermission(Permissions.RELOAD)) add("reload")
@@ -274,6 +290,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 2 && args[0].equals("locale", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
       args.size == 2 && args[0].lowercase() in setOf("chat", "hints") -> listOf("on", "off")
+      args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
       args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
       args.size == 2 && args[0].equals("recipe", ignoreCase = true) ->
         return Material.entries.asSequence().filter { it.isItem && !it.isAir && !it.isLegacy }.map { it.key.key }

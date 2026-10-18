@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import chat.allay.spigot.Clicks
 import chat.allay.core.Lang
+import chat.allay.spigot.Languages
 import chat.allay.spigot.MemoryCommands
 import chat.allay.core.Permissions
 import chat.allay.spigot.tools.Features
@@ -28,6 +29,8 @@ class SettingsMenu(
   private val clicks: Clicks,
   private val memory: MemoryCommands,
   private val version: String,
+  private val languages: Languages,
+  private val chooseLanguage: () -> Unit,
 ) : Menu(player, 36, lang.text("menus.settings.title")) {
   private val chatAllowed get() = player.hasPermission(Permissions.CHAT)
   private val askAllowed get() = player.hasPermission(Permissions.ASK)
@@ -42,6 +45,9 @@ class SettingsMenu(
 
     val zone = features.zones.of(player.uniqueId)
     val time = runCatching { ZonedDateTime.now(ZoneId.of(zone)).format(DateTimeFormatter.ofPattern("HH:mm")) }.getOrDefault("?")
+    val language = features.locales.explain(player)
+    val how = lang.text(if (language.source == "chosen") "menus.settings.language_chosen" else "menus.settings.language_auto")
+    set(LANGUAGE, icon(Material.GLOBE_BANNER_PATTERN, lang.text("menus.settings.language"), listOf(lang.text("menus.settings.language_now", "language" to languages.name(language.code), "how" to how), lang.text("menus.settings.language_click"))))
     set(ZONE, icon(Material.CLOCK, lang.text("menus.settings.zone"), listOf(lang.text("menus.settings.zone_now", "zone" to zone, "time" to time), lang.text("menus.settings.zone_change"))))
 
     if (askAllowed) {
@@ -100,6 +106,7 @@ class SettingsMenu(
         player.closeInventory()
         clicks.villagers(player, null)
       }
+      LANGUAGE -> chooseLanguage()
       CLOSE -> player.closeInventory()
     }
   }
@@ -118,6 +125,7 @@ class SettingsMenu(
     const val STATE_CHAT = 19
     const val STATE_TIP = 20
     const val ZONE = 13
+    const val LANGUAGE = 22
     const val MEMORY = 15
     const val NEW = 16
     const val RECIPE = 23

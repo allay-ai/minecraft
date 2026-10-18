@@ -70,6 +70,7 @@ The country lookup needs no account and sends no address anywhere. On the first 
 | `/askx <what to do>` | Turns a request into commands, minus `blocked_commands` |
 | `/allay` | Opens the settings window |
 | `/allay chat [on\|off]`, `/allay hints [on\|off]` | Chat mode and the tip about it |
+| `/allay language [code\|auto]` | The language Allay speaks to you |
 | `/allay cancel`, `/allay new` | Stops the current question; starts the conversation over |
 | `/allay memory`, `/allay forget <number\|all>` | Shows and erases what the assistant remembers about you |
 | `/allay memory <text>` | Remembers the text by hand; with coordinates, a note in the notebook |
