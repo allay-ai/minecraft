@@ -4,9 +4,12 @@ import okhttp3.Call
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** One question in flight: what the display shows and what cancelling stops. Touched from several threads. */
-class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, val public: Boolean = false) {
-  enum class Mode(val wire: String) { ASK("ask"), ASKX("askx") }
+/**
+ * One question in flight, or one wake of an automation agent ([task]): what the display shows and what cancelling
+ * stops. Touched from several threads.
+ */
+class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, val public: Boolean = false, val task: chat.allay.core.tasks.Task? = null) {
+  enum class Mode(val wire: String) { ASK("ask"), ASKX("askx"), TASK("task") }
 
   val startedAt = System.currentTimeMillis()
   val verbs = Verbs(lang.list(if (mode == Mode.ASK) "status.verbs" else "status.askx_verbs"), verbSeconds * 1000, startedAt.toInt())
@@ -17,6 +20,10 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   @Volatile var cancelled = false
   /** Put the chat mode tip under the answer. */
   @Volatile var tip = false
+  /** The model the asker's tier picks (`models` in config.yml); null for the default. */
+  @Volatile var model: String? = null
+  /** What the run cost in US dollars so far, from the backend's `usage` events; quotas count it. */
+  @Volatile var cost = 0.0
 
   /** Tokens streamed so far, estimated from the deltas. */
   private val estimated = AtomicLong()

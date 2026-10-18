@@ -105,8 +105,15 @@ class Credentials(private val config: Config, val license: License) {
     license.read()?.let { mapOf("Authorization" to "Bearer $it") }.orEmpty()
   }
 
-  /** The body's `provider` block; null in hosted mode, where the backend picks the model itself. */
-  fun block(): Protocol.Provider? = if (byok) Protocol.Provider(provider.baseUrl, provider.model, provider.searchModel) else null
+  /**
+   * The body's `provider` block. [model] is the one the asker's tier picks: in byok mode it replaces the configured
+   * model; in hosted mode it goes alone, and only a backend with billing off (self-hosted) honors it.
+   */
+  fun block(model: String? = null): Protocol.Provider? = when {
+    byok -> Protocol.Provider(provider.baseUrl, model ?: provider.model, provider.searchModel)
+    model != null -> Protocol.Provider("", model, "")
+    else -> null
+  }
 
   /** [text] without the key or the license in it. */
   fun scrub(text: String): String {

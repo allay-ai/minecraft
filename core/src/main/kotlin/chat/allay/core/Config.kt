@@ -113,6 +113,37 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     }
   }
 
+  /**
+   * Automation agents: background agents that sort chests, smelt, brew, and craft for a player near their base.
+   * Off as a whole with `automation.enabled`, or one kind at a time; permissions narrow it further.
+   */
+  val automation = Automation() ; inner class Automation {
+    val enabled = config.boolean("automation.enabled", true)
+    fun on(kind: chat.allay.core.tasks.Kind) = enabled && config.boolean("automation.${kind.wire}.enabled", true)
+    /** Agents one player may run at once, sub-agents included. */
+    val maxTasks = config.int("automation.max_tasks", 2).coerceIn(1, 8)
+    val maxMinutes = config.int("automation.max_minutes", 30).coerceIn(1, 240)
+    /** Wakes one agent may use: each is a request to the model, so this bounds what a task costs. */
+    val maxWakes = config.int("automation.max_wakes", 40).coerceIn(2, 200)
+    val maxWaitSeconds = config.int("automation.max_wait_seconds", 600).coerceIn(10, 3600)
+    /** How far from the player furnaces, brewing stands, crafting tables, and chests to take from may be. */
+    val radius = config.int("automation.radius", 16).coerceIn(4, 48)
+    /** An agent pauses while its player is farther than this from where it started, or in another dimension. */
+    val pauseDistance = config.int("automation.pause_distance", 48).coerceIn(8, 256)
+    /** A furnace, stand, or crafting table counts only when nothing solid, glass included, stands between it and the player's eyes. */
+    val lineOfSight = config.boolean("automation.line_of_sight", true)
+    /** “Sort all”: chests reached from the picked ones across gaps of up to this many blocks, at most [maxChests]. */
+    val chestGap = config.int("automation.chests.gap", 6).coerceIn(1, 16)
+    val maxChests = config.int("automation.chests.max", 64).coerceIn(1, 256)
+    val undoMinutes = config.int("automation.chests.undo_minutes", 5).coerceIn(1, 60)
+  }
+
+  /** Spending limits for the server and its players, whoever pays; see [QuotaSettings]. */
+  val quota = QuotaSettings.parse(config)
+
+  /** A model per tier of players; see [ModelTiers]. */
+  val models = ModelTiers.parse(config)
+
   val askall = AskAll() ; inner class AskAll {
     val cooldownSeconds = config.int("askall.cooldown_seconds", 30).toLong().coerceAtLeast(0)
   }

@@ -26,9 +26,21 @@ object Protocol {
     val player: PlayerInfo? = null,
     val server: ServerInfo,
     val tools: List<String>,
-    /** Since 5.0, in byok mode only: the server's own model; the key itself goes in `X-Provider-Key`. */
+    /**
+     * Since 5.0, in byok mode: the server's own model; the key itself goes in `X-Provider-Key`. Since 5.7 also without a
+     * key, carrying only the model a player's tier picks; a backend with billing off honors it.
+     */
     val provider: Provider? = null,
+    /** Since 5.7, with mode "task": which automation agent wakes. */
+    val task: TaskInfo? = null,
+    /** Since 5.7, with mode "ask": the asker's running automation agents, so the model can pass answers on. */
+    val tasks: List<TaskBrief>? = null,
   )
+
+  @Serializable data class TaskInfo(val id: String, val name: String, val depth: Int, val kind: String)
+
+  /** [state] is working, waiting, or asking; [question] what an asking agent wants to know. */
+  @Serializable data class TaskBrief(val id: String, val name: String, val state: String, val question: String? = null)
 
   /** Empty [model] means the backend's default; empty [search_model] means no web search. */
   @Serializable data class Provider(val base_url: String, val model: String, val search_model: String)

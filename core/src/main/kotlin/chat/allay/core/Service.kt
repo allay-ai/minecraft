@@ -46,6 +46,8 @@ class Service<C>(
   private val scope: CoroutineScope,
   /** Who pays: the headers go on through the client's interceptor, the `provider` block goes in the body here. */
   private val credentials: Credentials,
+  /** The automation agents, so a question tells the backend which of the asker's are running. */
+  private val taskBook: chat.allay.core.tasks.TaskBook? = null,
 ) {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
@@ -110,7 +112,10 @@ class Service<C>(
             scope.launch { answerTool(run, event.data, listener) }
           }
           is Event.Command -> commands = event.data
-          is Event.Spent -> run.usage(event.data.input_tokens, event.data.output_tokens + event.data.reasoning_tokens)
+          is Event.Spent -> {
+            run.usage(event.data.input_tokens, event.data.output_tokens + event.data.reasoning_tokens)
+            run.cost = maxOf(run.cost, event.data.cost)
+          }
           is Event.Finished -> outcome = Outcome(event.data.answer.ifBlank { run.answer() }, commands)
           is Event.Failed -> failed = event.data
           null -> {}
@@ -155,8 +160,11 @@ class Service<C>(
       timezone = uuid?.let(zones::of) ?: config.time.zone,
       player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension) },
       server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion),
-      tools = tools.offered(isOperator(asker)),
-      provider = credentials.block(),
+      // An automation agent never gets operator tools, whoever started it.
+      tools = tools.offered(isOperator(asker) && run.task == null),
+      provider = credentials.block(run.model),
+      task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire) },
+      tasks = if (run.mode == Run.Mode.ASK) tasks(run).takeIf { it.isNotEmpty() } else null,
     )
   }
 
@@ -166,13 +174,18 @@ class Service<C>(
   /** Only a player can be an operator here: the console asks without the tools that change the game. */
   private fun isOperator(asker: Asker) = asker.uuid != null && asker.operator
 
+  /** The asker's running automation agents, for the main chat's prompt. */
+  private fun tasks(run: Run): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
+    taskBook?.of(owner)?.take(4)?.map { Protocol.TaskBrief(it.id, it.name, it.state.wire, it.question?.take(200)) }
+  }.orEmpty()
+
   /** Runs a client tool on the server thread and posts what came out; failures go back as errors, never as exceptions. */
   private fun answerTool(run: Run, call: Protocol.ToolCall, listener: Listener) {
     val tool = tools.find(call.name)
     val context = host.context(run)
     val result = if (tool == null) {
       Protocol.ToolResult(ok = false, error = "the tool ${call.name} is switched off on this server")
-    } else if (tool.operator && !isOperator(run.asker)) {
+    } else if (tool.operator && (!isOperator(run.asker) || run.task != null)) {
       listener.toolFinished(call.call_id, NOT_OPERATOR, failed = true)
       Protocol.ToolResult(ok = false, error = NOT_OPERATOR)
     } else {
@@ -253,6 +266,7 @@ class Service<C>(
         response.error?.let { throw ApiErrorException(ApiError("AI_ERROR", it)) }
         Outcome("", Protocol.Commands(response.isSequence, response.commands))
       }
+      Run.Mode.TASK -> throw ApiErrorException(ApiError("V2_REQUIRED", "Automation needs an Allay Server with protocol v2"))
     }
   }
 
