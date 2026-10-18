@@ -25,6 +25,7 @@ object Guide {
     Triple("/allay reload", Permissions.RELOAD, "reloads Allay's settings and languages"),
     Triple("/allay status", Permissions.ADMIN, "who pays for the model on this server: the own key, or the subscription with its plan, paid-until date, and how much of the limit is used"),
     Triple("/allay link", Permissions.ADMIN, "a one-time link to pay for Allay's subscription in Telegram Stars (week, month, or year)"),
+    Triple("/allay init", Permissions.ADMIN, "on a self-hosted backend, a one-time link that sets up the backend's web admin panel; once it has an admin, where to sign in"),
     Triple("/allay locale [player]", Permissions.ADMIN, "which language a player reads Allay in, and why: their IP's country, their game's language, or the default"),
   )
 

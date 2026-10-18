@@ -238,7 +238,7 @@ messages:
   askx_usage: "&7Uso: &f/askx <o que fazer>\n&7Exemplo: &f/askx me dá uma espada de diamante com afiação 5"
   askall_usage: "&7Uso: &f/askall <pergunta>&7 — todos os jogadores online veem a pergunta e a resposta"
   allay_usage: "&6Allay\n&f/allay chat &7[on|off] — modo chat\n&f/allay hints &7[on|off] — a dica sobre o modo chat\n&f/allay cancel &7— parar a resposta\n&f/allay new &7— recomeçar a conversa\n&f/allay memory &7— o que eu lembro sobre você\n&f/allay forget &7<número|all> — esquecer\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7— as janelas"
-  allay_admin_usage: "&6Para admins\n&f/allay status &7— quem paga o modelo\n&f/allay link &7— pagar a assinatura no Telegram\n&f/allay locale &7[jogador] — que idioma um jogador recebe e por quê\n&f/allay reload &7— recarregar configurações e idiomas"
+  allay_admin_usage: "&6Para admins\n&f/allay status &7— quem paga o modelo\n&f/allay link &7— pagar a assinatura no Telegram\n&f/allay locale &7[jogador] — que idioma um jogador recebe e por quê\n&f/allay init &7— configurar o painel de administração do backend\n&f/allay reload &7— recarregar configurações e idiomas"
   no_permission: "&cVocê não tem permissão para isso."
   players_only: "&cIsso é só para jogadores."
   thinking: "&ePerguntando ao assistente de IA, um momento…"
@@ -649,6 +649,20 @@ dimensions:
   overworld: "Superfície"
   the_nether: "Nether"
   the_end: "End"
+
+# /allay init: a primeira conta do painel de administração num backend próprio.
+admin:
+  init:
+    ready: "&6Abra o painel de administração e crie sua conta. Você será o dono dele."
+    open: "&a[Abrir o painel]"
+    open_hover: "&7Abre o painel de administração do backend no navegador"
+    copy: "&7[Copiar link]"
+    copy_hover: "&7Copia o link para abrir em outro dispositivo"
+    url: "&7Link: &f{url}"
+    once: "&8O link funciona uma vez e por 30 minutos. Quem abrir primeiro vira dono do painel, então não compartilhe."
+    exists: "&7O painel já tem um admin. Entre aqui:"
+    hosted: "&7Este backend configura o painel com um código do próprio log, não pelo jogo. Pergunte a quem o mantém."
+    unsupported: "&7Este backend do Allay não tem painel de administração: é anterior à 5.7."
 
 directions:
   north: "norte"

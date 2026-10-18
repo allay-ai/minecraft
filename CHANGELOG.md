@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.9.0
+
+`/allay init` needs Allay Server 5.7; older backends say they have no panel.
+
+- 🖥️ **`/allay init`** sets up the web admin panel of a self-hosted backend. It shows a **[Open the panel]** button with a link that works once and for 30 minutes, where you create the panel's first account and become its owner. The link goes only to whoever ran the command, never to the log; the console gets it as text. Once the panel has an admin, the command shows where to sign in. A backend with billing on sets up its panel from its own log instead, and the command says so. Needs `allay.admin`.
+
 ## 5.8.0
 
 Layouts and main inventory pins need Allay Server 5.6.

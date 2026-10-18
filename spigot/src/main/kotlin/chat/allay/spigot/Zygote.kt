@@ -131,7 +131,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book)
     quota.report()
     val licenses = Billing(client, configuration, license)
-    billing = BillingCommands(this, configuration, locales, licenses, credentials, features.zones, scope)
+    billing = BillingCommands(this, configuration, locales, licenses, AdminSetup(client, configuration), credentials, features.zones, scope)
     watch?.stop()
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
@@ -232,9 +232,10 @@ class Zygote : JavaPlugin(), TabCompleter {
           if (word == "chat") chat.set(player, wanted) else chat.hints(player, wanted)
         }
       }
-      word == "link" || word == "status" || word == "locale" -> when {
+      word == "link" || word == "status" || word == "locale" || word == "init" -> when {
         !sender.hasPermission(Permissions.ADMIN) -> lang.send(sender, "messages.no_permission")
         word == "link" && args.size == 1 -> billing.link(sender)
+        word == "init" && args.size == 1 -> billing.init(sender)
         word == "status" && args.size == 1 -> billing.status(sender)
         word == "locale" && args.size <= 2 -> billing.locale(sender, args.getOrNull(1))
         else -> usage(sender, lang)
@@ -268,7 +269,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         if (sender.hasPermission(Permissions.CHAT)) addAll(listOf("chat", "hints"))
         if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "forget", "recipe", "enchants", "villagers", "brewing", "anvil"))
         if (sender.hasPermission(Permissions.RELOAD)) add("reload")
-        if (sender.hasPermission(Permissions.ADMIN)) addAll(listOf("status", "link", "locale"))
+        if (sender.hasPermission(Permissions.ADMIN)) addAll(listOf("status", "link", "locale", "init"))
       }
       args.size == 2 && args[0].equals("locale", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }

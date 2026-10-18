@@ -18,7 +18,7 @@ import chat.allay.spigot.Minecraft.formatMessage
 import java.time.ZoneId
 
 /**
- * `/allay link`, `/allay status`, and `/allay locale` for operators, and the hint under an error a payment or the
+ * `/allay link`, `/allay status`, `/allay locale`, and `/allay init` for operators, and the hint under an error a payment or the
  * config fixes. The payment link goes only to the chat of whoever asked; the key and the license never reach the log.
  */
 class BillingCommands(
@@ -26,6 +26,7 @@ class BillingCommands(
   private val config: Config,
   private val locales: Locales,
   private val billing: Billing,
+  private val setup: AdminSetup,
   private val credentials: Credentials,
   private val zones: TimeZones,
   private val scope: CoroutineScope,
@@ -52,6 +53,30 @@ class BillingCommands(
         add(Line(lang.text("billing.link.ready")))
         add(Line("", listOf(open(lang, url), TextComponent(" "), copy(lang, url)), console = lang.text("billing.link.url", "url" to url)))
         add(Line(lang.text("billing.link.once")))
+      }
+    }
+  }
+
+  /**
+   * `/allay init`: the admin panel's one-time setup link on a self-hosted backend, or where to sign in once
+   * someone has. The link goes only to whoever asked, never to the log: whoever opens it first owns the panel.
+   */
+  fun init(sender: CommandSender) {
+    val lang = locales.of(sender)
+    plugin.logger.info("${sender.name} asked for the admin panel's setup link")
+    request(sender) {
+      when (val answer = setup.init()) {
+        is AdminInit.Link -> listOf(
+          Line(lang.text("admin.init.ready")),
+          Line("", listOf(panel(lang, answer.url), TextComponent(" "), copyLink(lang, answer.url)), console = lang.text("admin.init.url", "url" to answer.url)),
+          Line(lang.text("admin.init.once")),
+        )
+        is AdminInit.Exists -> listOfNotNull(
+          Line(lang.text("admin.init.exists")),
+          answer.url?.let { Line("", listOf(panel(lang, it)), console = lang.text("admin.init.url", "url" to it)) },
+        )
+        AdminInit.NotSelfHosted -> listOf(Line(lang.text("admin.init.hosted")))
+        AdminInit.Unsupported -> listOf(Line(lang.text("admin.init.unsupported")))
       }
     }
   }
@@ -154,6 +179,10 @@ class BillingCommands(
     button(lang.text(key), lang.text("billing.notice.renew_hover"), ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay link"))
 
   private fun open(lang: Lang, url: String) = button(lang.text("billing.link.pay"), lang.text("billing.link.pay_hover"), ClickEvent(ClickEvent.Action.OPEN_URL, url))
+
+  private fun panel(lang: Lang, url: String) = button(lang.text("admin.init.open"), lang.text("admin.init.open_hover"), ClickEvent(ClickEvent.Action.OPEN_URL, url))
+
+  private fun copyLink(lang: Lang, url: String) = button(lang.text("admin.init.copy"), lang.text("admin.init.copy_hover"), ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, url))
 
   private fun copy(lang: Lang, url: String) = button(lang.text("billing.link.copy"), lang.text("billing.link.copy_hover"), ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, url))
 

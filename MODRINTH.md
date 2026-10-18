@@ -78,6 +78,7 @@ The country lookup needs no account and sends no address anywhere. On the first 
 | `/allay reload` | Reloads the settings and the languages |
 | `/allay status`, `/allay link` | Who pays for the model and how the subscription stands; a link to pay in Telegram |
 | `/allay locale [player]` | Which language a player reads Allay in, and why |
+| `/allay init` | A one-time link to set up the web admin panel of a self-hosted backend |
 
 `allay.ask`, `allay.askall`, `allay.chat`, and `allay.automation` with `.chests`, `.furnaces`, `.brewing`, and `.crafting` are everyone's by default; `allay.askx`, `allay.askall.nocooldown`, `allay.reload`, and `allay.admin` (status, link, locale, and the subscription notes) belong to operators. Allay tells a player only about containers they could open themselves: outside claims, or with container trust in GriefPrevention, and never an unopened structure chest.
 

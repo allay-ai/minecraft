@@ -238,7 +238,7 @@ messages:
   askx_usage: "&7Usage: &f/askx <what to do>\n&7Example: &f/askx give me a diamond sword with sharpness 5"
   askall_usage: "&7Usage: &f/askall <question>&7 – everyone online sees the question and the answer"
   allay_usage: "&6Allay\n&f/allay chat &7[on|off] – chat mode\n&f/allay hints &7[on|off] – the tip about chat mode\n&f/allay cancel &7– stop the answer\n&f/allay new &7– start the conversation over\n&f/allay memory &7– what I remember about you\n&f/allay forget &7<number|all> – forget it\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7– the windows"
-  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay reload &7– reload settings and languages"
+  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay init &7– set up the backend's admin panel\n&f/allay reload &7– reload settings and languages"
   no_permission: "&cYou don't have permission for that."
   players_only: "&cThat's for players only."
   thinking: "&eAsking the AI assistant, one moment…"
@@ -649,6 +649,20 @@ dimensions:
   overworld: "Overworld"
   the_nether: "Nether"
   the_end: "End"
+
+# /allay init: the admin panel's first account, on a self-hosted backend.
+admin:
+  init:
+    ready: "&6Open the admin panel and create your account. You become its owner."
+    open: "&a[Open the panel]"
+    open_hover: "&7Opens the backend's admin panel in your browser"
+    copy: "&7[Copy link]"
+    copy_hover: "&7Copies the link, to open it on another device"
+    url: "&7Link: &f{url}"
+    once: "&8The link works once and for 30 minutes. Whoever opens it first owns the panel, so don't share it."
+    exists: "&7The panel has an admin already. Sign in there:"
+    hosted: "&7This backend sets up its panel from its own log, not from the game. Ask whoever runs it."
+    unsupported: "&7This Allay backend has no admin panel: it's older than 5.7."
 
 directions:
   north: "north"

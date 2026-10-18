@@ -158,6 +158,7 @@ Everything a player reads lives in `lang/<language>.yml`: status verbs, tool lin
 | `/allay status` | Who pays for the model: your key, masked, or the subscription with its plan, paid-until date, and limit |
 | `/allay link` | A one-time link to pay for the subscription in Telegram |
 | `/allay locale [player]` | Which language a player reads Allay in, and why: their IP's country, their game's language, or the default |
+| `/allay init` | On a self-hosted backend (Allay Server 5.7+), a one-time link to its web admin panel, where you create the first account; once the panel has one, where to sign in. The link works once and for 30 minutes and goes only to you |
 
 In chat mode, a line goes by its first character, with or without a space after it:
 
@@ -180,7 +181,7 @@ Chat mode stays on between visits; the plugin reminds you when you join. `player
 | `allay.reload` | operators | `/allay reload` |
 | `allay.automation` | everyone | Automation agents at all; each kind also needs `allay.automation.chests`, `.furnaces`, `.brewing`, or `.crafting` (everyone by default). Take them away from regular players with your permission plugin to keep automation for, say, VIPs |
 | `allay.quota.<tier>`, `allay.model.<tier>` | nobody | A tier of `quota.tiers` or `models` in `config.yml`, see “Limits per player” |
-| `allay.admin` | operators | `/allay status`, `/allay link`, `/allay locale`, notes about the subscription, and the hint under an error that a payment or `config.yml` fixes |
+| `allay.admin` | operators | `/allay status`, `/allay link`, `/allay locale`, `/allay init`, notes about the subscription, and the hint under an error that a payment or `config.yml` fixes |
 
 ## PlaceholderAPI
 
