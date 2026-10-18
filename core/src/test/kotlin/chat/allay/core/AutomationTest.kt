@@ -124,6 +124,16 @@ class AutomationTest {
     assertNull(after[12])
   }
 
+  @Test fun `pins reach the main inventory and its slot's item joins the sort`() {
+    val items = mapOf(0 to ItemData("bundle", 1), 9 to ItemData("arrow", 20), 15 to ItemData("bundle", 1), 30 to ItemData("bundle", 1), 31 to ItemData("dirt", 5))
+    val pins = (1..3).map { Pins.Pin(Pins.slot("inventory:$it")!!, "bundle") }
+    val after = arrange(items, pins, hotbar = false)
+    assertEquals(listOf("bundle", "bundle", "bundle", "arrow", "dirt"), (9..13).map { after[it]?.id })
+    assertNull(after[0])
+    assertEquals(listOf(8, 9, 35, Pins.OFFHAND, null, null), listOf("9", "inventory:1", "inventory:27", "offhand", "inventory:28", "10").map(Pins::slot))
+    assertEquals("inventory:1", Pins.name(9))
+  }
+
   @Test fun `a block pin takes the fullest stack`() {
     val items = mapOf(3 to ItemData("cobbled_deepslate", 61), 20 to ItemData("nether_bricks", 64))
     assertEquals(mapOf(3 to 20), Pins.pick(listOf(Pins.Pin(3, "block")), items) { true })

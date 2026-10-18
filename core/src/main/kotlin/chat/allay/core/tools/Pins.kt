@@ -34,8 +34,24 @@ object Pins {
   /** Bottles a pin may name with their potion, as `potion:healing` or `splash_potion:strong_healing`; tipped arrows too. */
   private val BOTTLES = setOf("potion", "splash_potion", "lingering_potion", "tipped_arrow")
 
-  /** One pin: [slot] is 0–8 for the hotbar or [OFFHAND]; [item] an id, a key of [GROUPS], or `bottle:potion`. */
+  /** One pin: [slot] is 0–8 for the hotbar, 9–35 for the main inventory, or [OFFHAND]; [item] an id, a key of [GROUPS], or `bottle:potion`. */
   data class Pin(val slot: Int, val item: String)
+
+  /** A slot as the model names it: 1–9 for the hotbar, `inventory:1`–`inventory:27` for the main inventory row by row from the top left, or `offhand`. */
+  fun slot(name: String): Int? = name.trim().lowercase().let { raw ->
+    when {
+      raw == "offhand" -> OFFHAND
+      raw.startsWith("inventory:") -> raw.removePrefix("inventory:").toIntOrNull()?.takeIf { it in 1..27 }?.plus(8)
+      else -> raw.toIntOrNull()?.takeIf { it in 1..9 }?.minus(1)
+    }
+  }
+
+  /** How [slot] reads back to the model, the other way round from [slot]. */
+  fun name(slot: Int): String = when (slot) {
+    OFFHAND -> "offhand"
+    in 9..35 -> "inventory:${slot - 8}"
+    else -> "${slot + 1}"
+  }
 
   const val OFFHAND = 40
 
@@ -102,8 +118,8 @@ object Pins {
 
   /**
    * A whole inventory sort: what every slot it touches ends up holding. [items] are slots 0–35 and [OFFHAND] (armor
-   * never moves), [picked] comes from [pick]. Pinned slots take their items; the main inventory (9–35) takes all the
-   * rest, merged and sorted. With [hotbar] the slots no pin takes are emptied into it; without pins the hotbar keeps
+   * never moves), [picked] comes from [pick]. Pinned slots take their items, in the hotbar or the main inventory; the
+   * main inventory's other slots (9–35) take all the rest, merged and sorted. With [hotbar] the slots no pin takes are emptied into it; without pins the hotbar keeps
    * what it holds that's held in hand, sorted by [HAND] from the first slot. A hotbar slot left empty takes only what
    * the main inventory can't fit, so a sort never fills the hotbar with arrows and bundles. With [offhand], the offhand
    * keeps a hand item and gives up anything else. Null when the items wouldn't fit back.
@@ -140,7 +156,8 @@ object Pins {
     left[OFFHAND]?.let { item ->
       if (OFFHAND in picked) pool += item else if (offhand && hand(data(item)) == null) { pool += item; result[OFFHAND] = null }
     }
-    (9..35).forEach { slot -> if (slot !in picked) left[slot]?.let(pool::add) }
+    // A pinned main slot gives up what it held, as a pinned hotbar slot does.
+    (9..35).forEach { slot -> left[slot]?.let(pool::add) }
     val order = compareBy<T> { data(it).id }.thenByDescending(amount)
     // Held items come first in the hotbar, weapons leading; the slots after them take only what the main inventory can't.
     val hand = Sorter.sort(held, amount, maxStack, similar, compareBy<T> { hand(data(it)) }.then(order), withAmount) ?: return null

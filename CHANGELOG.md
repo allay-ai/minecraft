@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.8.0
+
+- 📌 **Pins in the main inventory.** “Three bundles at the start of the inventory” pins `inventory:1`–`inventory:27`, row by row from the top left, as the hotbar's 1–9 do. What the slot held joins the sort. Needs Allay Server 5.6.
+
 ## 5.7.1
 
 - 🧹 **A sorted hotbar holds what you asked for.** With pins, the hotbar keeps just them: everything else goes into the main inventory, and a hotbar slot fills only when that's full. Before, the free hotbar slots took the first items of the alphabet, so “sword first, bow second” left arrows and a bundle between the pins. Without pins, a sorted hotbar keeps its weapons, tools, food, torches, buckets, and pearls, weapons first.

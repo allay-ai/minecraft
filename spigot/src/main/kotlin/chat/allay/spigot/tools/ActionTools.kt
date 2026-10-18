@@ -95,10 +95,8 @@ object ActionTools {
     // Slots 9–35 by default: the hotbar is muscle memory, armor and offhand live elsewhere. The player may ask for both,
     // and the hotbar then holds the pins and what's held in hand, not the first items of the alphabet.
     val pins = (args["pins"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }?.map { pin ->
-      val slot = when (val raw = pin["slot"]?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.lowercase() }) {
-        "offhand" -> Pins.OFFHAND
-        else -> raw?.toIntOrNull()?.takeIf { it in 1..9 }?.minus(1) ?: throw ToolError("a pin's slot is 1–9 for the hotbar, or offhand")
-      }
+      val slot = (pin["slot"] as? JsonPrimitive)?.content?.let(Pins::slot)
+        ?: throw ToolError("a pin's slot is 1–9 for the hotbar, inventory:1–inventory:27 for the main inventory, or offhand")
       Pins.Pin(slot, Pins.normalize(pin.string("item") ?: throw ToolError("each pin needs an item: an id or a group (${Pins.GROUPS.keys.joinToString()})")))
     }.orEmpty()
     if (pins.map { it.slot }.toSet().size != pins.size) throw ToolError("two pins name the same slot")
@@ -124,7 +122,7 @@ object ActionTools {
     val merged = sorted.merged.toLong()
     val result = buildJsonObject {
       put("merged_stacks", merged)
-      if (pins.isNotEmpty()) put("pinned", buildJsonObject { picked.forEach { (slot, from) -> put(if (slot == Pins.OFFHAND) "offhand" else "${slot + 1}", stacks.getValue(from).type.key.key) } })
+      if (pins.isNotEmpty()) put("pinned", buildJsonObject { picked.forEach { (slot, from) -> put(Pins.name(slot), stacks.getValue(from).type.key.key) } })
       // The hotbar as it ends up, so the answer says what's really there.
       put("hotbar", buildJsonArray { (0..8).forEach { slot -> add(item(slot)?.type?.key?.key?.let(::JsonPrimitive) ?: JsonNull) } })
       put("offhand", item(Pins.OFFHAND)?.type?.key?.key)
