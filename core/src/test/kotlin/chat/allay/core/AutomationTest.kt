@@ -2,6 +2,7 @@ package chat.allay.core
 
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Reservations
+import chat.allay.core.tasks.Task
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.ItemData
 import chat.allay.core.tools.Layout
@@ -35,6 +36,80 @@ class AutomationTest {
     val book = TaskBook({ 8 })
     assertNotNull(book.start(player, Kind.BREWING, "child", "", 2, "x"))
     assertFailsWith<ToolError> { book.start(player, Kind.BREWING, "grandchild", "", 3, "y") }
+  }
+
+  @Test fun `a parent at the task limit hears to wait for its own sub-agent`() {
+    val book = TaskBook({ 2 })
+    val parent = book.start(player, Kind.BREWING, "Зелья", "brew", 1, null)
+    val child = book.start(player, Kind.FURNACES, "Стекло", "smelt sand", 2, parent.id)
+    assertEquals(listOf(child), book.children(parent))
+    val error = assertFailsWith<ToolError> { book.start(player, Kind.CRAFTING, "Бутылки", "craft bottles", 2, parent.id) }
+    assertTrue("«Стекло» (${child.id}) still runs" in error.message!!)
+    book.end(child)
+    assertTrue(book.children(parent).isEmpty())
+  }
+
+  @Test fun `no two players' running tasks share an id`() {
+    val ids = ArrayDeque(listOf("aaaa", "aaaa", "bbbb"))
+    val book = TaskBook({ 2 }, newId = { ids.removeFirst() })
+    assertEquals("aaaa", book.start(player, Kind.CHESTS, "a", "", 1, null).id)
+    assertEquals("bbbb", book.start(UUID.randomUUID(), Kind.CHESTS, "b", "", 1, null).id)
+  }
+
+  @Test fun `a wake takes what fits and leaves the rest for the next one`() {
+    val task = TaskBook({ 2 }).start(player, Kind.CHESTS, "a", "", 1, null)
+    task.inbox += "[job] " + "x".repeat(1500)
+    task.inbox += "[sub-agent] " + "y".repeat(700)
+    task.inbox += "[timer] the wait is over"
+    assertEquals(1506, task.drain().length)
+    assertEquals("[sub-agent] " + "y".repeat(700) + "\n[timer] the wait is over", task.drain())
+    assertEquals("", task.drain())
+    task.inbox += "z".repeat(3000)
+    assertEquals(2000, task.drain().length)
+  }
+
+  @Test fun `a question stays open until the player answers, and news isn't a question`() {
+    val task = TaskBook({ 2 }).start(player, Kind.FURNACES, "a", "", 1, null)
+    task.begin("smelt the iron")
+    task.waited = true
+    task.settle("Плавлю 64 руды, это минуты три", prompted = false, busy = true)
+    assertEquals(Task.State.WAITING, task.state)
+    assertNull(task.question)
+
+    task.begin("[job] smelting done")
+    task.waited = true
+    task.settle("Куда положить слитки?", prompted = false, busy = false)
+    assertEquals(Task.State.ASKING, task.state)
+    assertEquals("Куда положить слитки?", task.question)
+
+    // A timer in between doesn't lose the question.
+    task.begin("[timer] the wait is over")
+    task.waited = true
+    task.settle(null, prompted = false, busy = false)
+    assertEquals(Task.State.ASKING, task.state)
+    assertEquals("Куда положить слитки?", task.question)
+
+    task.begin("[player] в инвентарь")
+    assertNull(task.question)
+    task.waited = true
+    task.settle(null, prompted = false, busy = false)
+    assertEquals(Task.State.WAITING, task.state)
+
+    // Ending a wake without wait waits for the player, unless a job or a sub-agent will wake it.
+    task.begin("[job] picking: done")
+    task.settle(null, prompted = false, busy = true)
+    assertEquals(Task.State.WAITING, task.state)
+    task.settle(null, prompted = false, busy = false)
+    assertEquals(Task.State.ASKING, task.state)
+  }
+
+  @Test fun `a sub-agent's report carries what its tools did`() {
+    val task = TaskBook({ 2 }).start(player, Kind.CRAFTING, "Бутылки", "", 2, "p1")
+    assertEquals("[sub-agent] «Бутылки» (crafting, ${task.id}) finished: готово", task.outcome("finished: готово"))
+    repeat(7) { task.report("crafted ${it + 1} × glass_bottle into the player's inventory") }
+    val report = task.outcome("finished: 3 бутылки")
+    assertTrue(report.startsWith("[sub-agent] «Бутылки» (crafting, ${task.id}) finished: 3 бутылки\nWhat its tools reported: crafted 2 × glass_bottle"))
+    assertTrue(report.endsWith("crafted 7 × glass_bottle into the player's inventory"))
   }
 
   @Test fun `reservations hide items from other tasks until taken or released`() {

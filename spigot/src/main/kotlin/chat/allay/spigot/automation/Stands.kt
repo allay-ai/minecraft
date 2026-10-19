@@ -108,13 +108,15 @@ object Stands {
         Jobs.remove(this)
         val made = summary()
         val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
-        if (to != null) {
+        val news = if (to != null) {
           delivered += take(blocks).also { Jobs.deliver(player, it, to) }.sumOf { it.amount }
-          Jobs.automation.post(task, "[job] brewing done: $made in ${loads.size} stands ($where); all $delivered went to the output")
+          "brewing done: $made in ${loads.size} stands ($where); all $delivered went to ${Jobs.describe(to)}"
         } else {
           val gone = if (delivered > 0) "; $delivered from earlier rounds went to the inventory" else ""
-          Jobs.automation.post(task, "[job] brewing done: $made in ${loads.size} stands ($where)$gone; collect the rest")
+          "brewing done: $made in ${loads.size} stands ($where)$gone; collect the rest"
         }
+        task.report(news)
+        Jobs.automation.post(task, "[job] $news")
       }
     }
 
@@ -327,6 +329,7 @@ object Stands {
           blocks.forEach { block -> Blocks.unusable(player, block, settings.radius, false)?.let { throw ToolError("the stand at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") } }
           val taken = take(blocks)
           Jobs.deliver(player, taken, to)
+          if (taken.isNotEmpty()) task.report("collected ${Jobs.counts(taken)} from the stands to ${Jobs.describe(to)}")
           ToolOutput(buildJsonObject { put("collected", taken.sumOf { it.amount }) }, lang.text("summary.collected", "count" to taken.sumOf { it.amount }))
         }
         else -> throw ToolError("action must be scan, start, status, or collect, not $action")

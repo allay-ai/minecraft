@@ -46,8 +46,12 @@ class Automation(
   /** What the plugin keeps about one agent beside its [Task]: where it started, what it picked, and its job. */
   class Agent(val task: Task, val anchor: Location) {
     @Volatile var paused = false
-    /** Asked something during this wake, so a `wait` means waiting for the player. */
+    /** Showed buttons or a picking mode during this wake: it waits for the player. */
     @Volatile var asked = false
+    /** The last line it said to the player during this wake, without color codes. */
+    @Volatile var said: String? = null
+    /** The wake out at the backend now; ending the agent cancels it, so nothing more runs or costs. */
+    @Volatile var run: Run? = null
     var job: Job? = null
     /** The last chest plan, applied by `chests` with action apply. */
     var plan: Chests.Planned? = null
@@ -130,11 +134,15 @@ class Automation(
     post(task, "[button] $reply" + (task.question?.let { " (the player's answer to your question “${it.take(200)}”)" } ?: ""))
   }
 
-  /** Stops [task]: its job, picks, and holds go; [reason] in the player's language, or null for a quiet end. */
-  fun end(task: Task, reason: String?) {
+  /**
+   * Stops [task]: its wake, job, picks, and holds go; [reason] in the player's language, or null for a quiet end. [byParent]
+   * when the agent that started it stopped it, which needs no news of it.
+   */
+  fun end(task: Task, reason: String?, byParent: Boolean = false) {
     if (task.done) return
     val agent = agents.remove(key(task))
     book.end(task)
+    agent?.run?.cancel()
     agent?.job?.cancel()
     reservations.release(task.id)
     val player = plugin.server.getPlayer(task.owner)
@@ -142,7 +150,7 @@ class Automation(
       picking.stop(player, task)
       if (reason != null) line(player, task, "automation.stopped", "reason" to reason)
     }
-    tellParent(task, "stopped" + (reason?.let { ": $it" } ?: ""))
+    if (!byParent) tellParent(task, "stopped" + (reason?.let { ": $it" } ?: " (the player left or the server stopped)"))
     // An agent's sub-agents go with it.
     book.of(task.owner).filter { it.parent == task.id }.forEach { end(it, reason) }
   }
@@ -163,7 +171,7 @@ class Automation(
     reservations.release(task.id)
     picking.stop(player, task)
     tellParent(task, "finished: $summary")
-    // Its sub-agents carry on: finishing after handing a step over (“the crafting agent took it”) is how chains end.
+    // Its sub-agents carry on: `finish` lets an agent go while they run only with handoff, when they own the rest.
   }
 
   /**
@@ -172,7 +180,7 @@ class Automation(
    */
   private fun tellParent(task: Task, outcome: String) {
     val parent = task.parent?.let { book.find(task.owner, it) } ?: return
-    post(parent, "[sub-agent] «${task.name}» (${task.kind.wire}, ${task.id}) $outcome".take(1000))
+    post(parent, task.outcome(outcome))
   }
 
   /** A line from the agent to its player, with [buttons] under it. */
@@ -209,18 +217,18 @@ class Automation(
     val settings = config().automation
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
     if (!quota().allows(player)) return end(task, locales.of(player).text("automation.quota"))
-    val message = generateSequence { task.inbox.poll() }.joinToString("\n").take(2000)
+    val message = task.drain()
     task.wakes++
     task.running = true
     // Whatever woke it, an old timer has nothing left to say.
     task.wakeAt = null
-    task.waited = false
-    task.state = Task.State.WORKING
-    task.question = null
+    task.begin(message)
     agent.asked = false
+    agent.said = null
     val lang = locales.of(player)
     val run = Run(SenderAsker(player, locales.choice(player.uniqueId)), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
     run.model = quota().model(player)
+    agent.run = run
     val quiet = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) {}
       override fun toolFinished(callId: String, summary: String?, failed: Boolean) {}
@@ -233,23 +241,50 @@ class Automation(
         if (error !is CancellationException) failure = error
       } finally {
         quota().spent(player.uniqueId, run.cost)
-        onMain { afterWake(task, player, failure) }
+        onMain { afterWake(task, player, message, failure) }
       }
     }
   }
 
-  private fun afterWake(task: Task, player: Player, failure: Exception?) {
+  private fun afterWake(task: Task, player: Player, message: String, failure: Exception?) {
     task.running = false
     if (task.done) return
     val agent = agents[key(task)] ?: return
+    agent.run = null
+    // A finish the plugin took stands, even when the stream broke after it.
+    task.finished?.let { return finish(player, task, it) }
+    retryIn(failure)?.takeIf { task.retries < RETRIES }?.let { seconds ->
+      // Nothing ran: the same message goes again later, so a backend restart or a busy minute doesn't kill the agent.
+      task.retries++
+      task.inbox.addFirst(message)
+      plugin.logger.info("⏳ Automation agent ${task.name}: the backend couldn't take the wake ($failure); trying again in $seconds s")
+      plugin.server.scheduler.runTaskLater(plugin, Runnable { wake(task) }, seconds * 20L)
+      return
+    }
+    task.retries = 0
     if (failure != null) {
       plugin.logger.warning("❌ Automation agent ${task.name} failed: $failure")
       return end(task, ErrorHandler.message(locales.of(player), failure))
     }
-    task.finished?.let { return finish(player, task, it) }
-    // A wake that ended without wait waits for the player, as if it had asked.
-    task.state = if (agent.asked || !task.waited) Task.State.ASKING else Task.State.WAITING
+    val busy = agent.job?.let(Jobs::active) == true || book.children(task).isNotEmpty()
+    task.settle(agent.said, agent.asked, busy)
     if (task.inbox.isNotEmpty()) wake(task)
+  }
+
+  /**
+   * Seconds until a wake the backend never started may go again: it was busy or rate-limited, or couldn't be reached.
+   * Null for anything else, including failures mid-run, where tools may have acted already.
+   */
+  private fun retryIn(failure: Exception?): Long? {
+    val error = (failure as? ApiErrorException)?.apiError
+    return when {
+      error?.code == "RATE_LIMITED" -> (error.retryAfter ?: 30L).coerceIn(5L, 300L)
+      error?.code == "QUEUE_ERROR" -> 30L
+      // A proxy in front of a backend that restarts answers 502–504 without a body of ours.
+      error?.code == "HTTP_ERROR" && error.statusCode in 502..504 -> 30L
+      generateSequence<Throwable>(failure) { it.cause }.any { it is java.net.ConnectException || it is java.net.UnknownHostException } -> 30L
+      else -> null
+    }
   }
 
   private fun tick() {
@@ -285,6 +320,11 @@ class Automation(
   /** A text in [task]'s player's language. */
   fun text(task: Task, key: String, vararg values: Pair<String, Any?>): String =
     plugin.server.getPlayer(task.owner)?.let { locales.of(it).text(key, *values) } ?: key
+
+  companion object {
+    /** Wakes in a row the backend may refuse before the agent stops. */
+    private const val RETRIES = 3
+  }
 
   private fun onMain(block: () -> Unit) {
     if (!plugin.isEnabled) return

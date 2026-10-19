@@ -2,6 +2,18 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.14.0
+
+Pairs with Allay Server 5.12.0, which teaches the agents to wait for their sub-agents and steer them; older servers keep working.
+
+- 🔗 **Sub-agents report what they really did.** When a helper agent ends, the agent that started it wakes with the summary and the plugin's own record of what the helper's tools did: “crafted 3 × glass_bottle into the player's inventory”, “smelting done: 12 × glass … collected to the inventory”. A brewing agent short of bottles now brews on with facts instead of guessing.
+- ⏳ **No leaving a helper behind.** An agent can't finish while a sub-agent it started still runs: it waits for the report, unless the helper does the rest by itself (`finish` with `handoff`). At the task limit, `start_task` tells it to wait for its own sub-agent instead of “the player has too many automations”.
+- 🗣️ **An agent steers its own helpers.** `message_task` and `cancel_task` work from an agent for its own sub-agents: they wake with `[parent «name»] …`, and a stopped one doesn't wake the parent with news it already has.
+- ❓ **Questions don't get lost.** An agent's question stays open until you answer, so a finished furnace or a timer in between no longer hides it from the chat. A line like “smelting takes three minutes” no longer counts as a question.
+- 🛑 **Cancel means stop.** `/allay cancel`, interference, and the limits now cancel the agent's request that is out, and its tools refuse to act from then on: before, a cancelled crafting agent could still craft once its answer came in.
+- 🔁 **A backend restart doesn't kill an agent.** When the backend is busy, rate-limited, or unreachable before a wake starts, the agent tries again up to three times, 30 seconds apart (or as long as the backend asks).
+- 🐛 Wake messages over 2000 characters are no longer cut: what doesn't fit waits for the next wake. A task ending at the moment a question went out no longer gets the request refused. Tool errors over 2000 characters are cut instead of refused, so the model hears them at once. No two players' running agents share an id, so one's reservations never cover the other's.
+
 ## 5.13.1
 
 Pairs with Allay Server 5.11.2; older servers work too.

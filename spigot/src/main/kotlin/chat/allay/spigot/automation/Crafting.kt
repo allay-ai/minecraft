@@ -175,6 +175,7 @@ object Crafting {
       @Suppress("DEPRECATION")
       bases?.forEach { (slot, base) -> player.inventory.setItem(slot, base.clone().apply { type = item }) }
       give(player, made + remains)
+      task.report("crafted $count × ${item.key.key} into the player's inventory (at their feet when it was full)")
       val label = "$count × ${item.key.key.replace('_', ' ')}"
       val used = listOfNotNull(table, cutter?.takeIf { Workshop.Station.STONECUTTER in plan.stations }, smithy)
       if (used.isNotEmpty()) Marks.show(context.plugin, player, used.map { Marks.Mark(it, null, label, Marks.Hue.GREEN) }, 10)

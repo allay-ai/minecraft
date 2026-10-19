@@ -181,7 +181,11 @@ class Service<C>(
 
   /** The asker's running automation agents for the main chat's prompt, or a waking agent's own sub-agents. */
   private fun tasks(run: Run): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
-    taskBook?.of(owner)?.filter { run.task == null || it.parent == run.task.id }?.take(4)?.map { Protocol.TaskBrief(it.id, it.name, it.state.wire, it.question?.take(200)) }
+    taskBook?.of(owner)?.filter { run.task == null || it.parent == run.task.id }?.mapNotNull { task ->
+      // The server thread may end a task meanwhile; the backend knows no state "done" and would refuse the request.
+      val state = task.state.takeIf { it != chat.allay.core.tasks.Task.State.DONE } ?: return@mapNotNull null
+      Protocol.TaskBrief(task.id, task.name, state.wire, task.question?.take(200))
+    }?.take(4)
   }.orEmpty()
 
   /** Runs a client tool on the server thread and posts what came out; failures go back as errors, never as exceptions. */
@@ -206,7 +210,8 @@ class Service<C>(
           else -> "failed: ${cause.javaClass.simpleName}".also { host.log.warning("❌ Tool ${call.name} failed: $cause") }
         }
         listener.toolFinished(call.call_id, reason, failed = true)
-        Protocol.ToolResult(ok = false, error = reason)
+        // The backend refuses an error over 2000 characters, and the model would wait out the timeout instead.
+        Protocol.ToolResult(ok = false, error = reason.take(2000))
       }
     }
     val runId = run.runId ?: return

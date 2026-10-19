@@ -25,22 +25,34 @@ object TaskTools {
   private val start = tool("start_task") { context, player, args ->
     val kind = Kind.parse(args.string("kind"))
     val brief = args.string("brief") ?: throw ToolError("brief is required: everything the agent needs to know")
-    val task = context.features.automation.launch(player, kind, args.string("name") ?: kind.wire, brief, context.task)
+    // From an agent, the new one is its sub-agent; a stopped agent starts nothing.
+    val parent = context.task?.let { context.requireTask() }
+    val task = context.features.automation.launch(player, kind, args.string("name") ?: kind.wire, brief, parent)
     ToolOutput(buildJsonObject { put("id", task.id); put("name", task.name) }, context.lang.text("summary.task_started", "name" to task.name))
+  }
+
+  /** The running task [id] names: any of the player's for the chat, only its own sub-agents for an agent. */
+  private fun target(context: ToolContext, player: Player, id: String?): chat.allay.core.tasks.Task {
+    val automation = context.features.automation
+    val parent = context.task?.let { context.requireTask() }
+    val task = automation.book.find(player.uniqueId, id ?: "")?.takeIf { parent == null || it.parent == parent.id }
+    return task ?: throw ToolError(if (parent == null) "no running automation with that id" else "no running sub-agent of yours with that id; it may have ended already")
   }
 
   private val message = tool("message_task") { context, player, args ->
     val automation = context.features.automation
-    val task = automation.book.find(player.uniqueId, args.string("id") ?: "") ?: throw ToolError("no running automation with that id")
+    val task = target(context, player, args.string("id"))
     val text = args.string("text")?.take(500) ?: throw ToolError("text is required")
-    automation.post(task, "[player] $text" + (task.question?.let { " (you had asked: “${it.take(200)}”)" } ?: ""))
+    val from = context.task?.let { "[parent «${it.name}»]" } ?: "[player]"
+    automation.post(task, "$from $text" + (task.question?.takeIf { context.task == null }?.let { " (you had asked: “${it.take(200)}”)" } ?: ""))
     ToolOutput(buildJsonObject { put("sent", true) }, context.lang.text("summary.task_messaged", "name" to task.name))
   }
 
   private val cancel = tool("cancel_task") { context, player, args ->
     val automation = context.features.automation
-    val task = automation.book.find(player.uniqueId, args.string("id") ?: "") ?: throw ToolError("no running automation with that id")
-    automation.end(task, context.lang.text("automation.cancelled"))
+    val task = target(context, player, args.string("id"))
+    // The agent that stops its own sub-agent knows already; it isn't woken with the news.
+    automation.end(task, context.lang.text("automation.cancelled"), byParent = context.task != null)
     ToolOutput(buildJsonObject { put("cancelled", true) }, context.lang.text("summary.task_cancelled", "name" to task.name))
   }
 
@@ -51,9 +63,11 @@ object TaskTools {
     val buttons = (args["buttons"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.take(4)?.map { button ->
       Button.Reply(button.string("label")?.take(24)?.let(ChatColor::stripColor) ?: throw ToolError("each button needs a label"), task.id, button.string("reply")?.take(200) ?: throw ToolError("each button needs a reply"))
     }.orEmpty()
+    val agent = automation.agent(task)
     automation.say(player, task, text, buttons)
-    automation.agent(task).asked = true
-    task.question = ChatColor.stripColor(Chat.strip(text))
+    // Buttons ask for sure; a plain line may be news, which the end of the wake tells apart.
+    if (buttons.isNotEmpty()) agent.asked = true
+    agent.said = ChatColor.stripColor(Chat.strip(text))
     ToolOutput(buildJsonObject { put("said", true) }, "")
   }
 
@@ -68,7 +82,16 @@ object TaskTools {
 
   private val finish = tool("finish") { context, _, args ->
     val task = context.requireTask()
-    task.finished = args.string("summary")?.take(500) ?: throw ToolError("summary is required")
+    val summary = args.string("summary")?.take(500) ?: throw ToolError("summary is required")
+    // A parent that still needs a sub-agent's result must not leave: its report would reach nobody.
+    val children = context.features.automation.book.children(task)
+    if (children.isNotEmpty() && args.bool("handoff") != true) {
+      throw ToolError(
+        "your sub-agent ${children.joinToString { "«${it.name}» (${it.id})" }} still runs. Wait: you wake with its [sub-agent] report " +
+          "and go on from it. Only when it does the rest of the brief by itself, finish with handoff true.",
+      )
+    }
+    task.finished = summary
     ToolOutput(buildJsonObject { put("finished", true); put("note", "end this wake now with a one-line note") }, "")
   }
 

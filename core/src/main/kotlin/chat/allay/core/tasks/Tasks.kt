@@ -4,6 +4,7 @@ import chat.allay.core.tools.ReminderBook
 import chat.allay.core.tools.ToolError
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /** What an automation agent works on; each has its own switch and permission. */
@@ -35,7 +36,7 @@ class Task(
   enum class State(val wire: String) { WORKING("working"), WAITING("waiting"), ASKING("asking"), DONE("done") }
 
   @Volatile var state = State.WORKING
-  /** What an asking agent wants to know, for the main chat's prompt. */
+  /** What an asking agent wants to know, for the main chat's prompt; open until the player answers. */
   @Volatile var question: String? = null
   /** When the timer of its last `wait` wakes it; null without one. */
   @Volatile var wakeAt: Long? = null
@@ -47,12 +48,73 @@ class Task(
   /** A wake is out at the backend now; what arrives meanwhile waits in [inbox]. */
   @Volatile var running = false
 
-  val inbox = ConcurrentLinkedQueue<String>()
+  val inbox = ConcurrentLinkedDeque<String>()
+
+  /** Wakes in a row the backend couldn't take (busy, rate-limited, unreachable); a wake that runs resets it. */
+  @Volatile var retries = 0
+
+  /** What its tools reported doing (crafted, smelted, moved), newest last, for the agent that started it. */
+  private val results = ConcurrentLinkedQueue<String>()
 
   val done get() = state == State.DONE
 
+  /** What woke it, oldest first, up to [limit] characters; what doesn't fit stays in [inbox] for the next wake. */
+  fun drain(limit: Int = MESSAGE_LIMIT): String {
+    val parts = mutableListOf<String>()
+    var size = 0
+    while (true) {
+      val next = inbox.peek() ?: break
+      val cost = next.length + if (parts.isEmpty()) 0 else 1
+      if (parts.isNotEmpty() && size + cost > limit) break
+      inbox.poll()
+      parts += next.take(limit)
+      size += cost
+    }
+    return parts.joinToString("\n").take(limit)
+  }
+
+  /** A wake starts with [message]: the player's answer, a click, or the end of picking closes the open question. */
+  fun begin(message: String) {
+    if (message.lineSequence().any { line -> ANSWERS.any(line::startsWith) }) question = null
+    waited = false
+    state = State.WORKING
+  }
+
+  /**
+   * How a wake that didn't finish leaves the agent. It asks when it showed buttons or a picking mode ([prompted]), said
+   * something with a question mark, or said something with nothing else to wake it ([busy]: no job and no sub-agent
+   * running). A line while a job runs (“smelting takes 3 minutes”) is news, not a question. A wake that ended without
+   * wait counts as asking unless something else will wake it. An earlier question stays open until the player answers.
+   */
+  fun settle(said: String?, prompted: Boolean, busy: Boolean) {
+    val asks = prompted || (said != null && ('?' in said || !busy))
+    if (asks && said != null) question = said.take(200)
+    state = if (asks || question != null || (!waited && !busy)) State.ASKING else State.WAITING
+  }
+
+  fun report(fact: String) {
+    results += fact.take(300)
+    while (results.size > MAX_RESULTS) results.poll()
+  }
+
+  fun results(): List<String> = results.toList()
+
+  /** The line the agent that started it wakes with: how it ended, and what its tools did, so it can act on it. */
+  fun outcome(how: String): String = buildString {
+    append("[sub-agent] «$name» (${kind.wire}, $id) $how")
+    val done = results.toList()
+    if (done.isNotEmpty()) append("\nWhat its tools reported: ").append(done.joinToString("; "))
+  }.take(1000)
+
   /** The chat label: “Automation agent: chests”. */
   fun title(prefix: String) = "$prefix: $name"
+
+  companion object {
+    /** The backend takes up to this many characters in a wake's message. */
+    const val MESSAGE_LIMIT = 2000
+    private const val MAX_RESULTS = 6
+    private val ANSWERS = listOf("[player]", "[button]", "[job] picking")
+  }
 }
 
 /** Every running automation agent, by owner. A player has at most [maxTasks] at once, of all depths together. */
@@ -61,11 +123,19 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
 
   fun start(owner: UUID, kind: Kind, name: String, brief: String, depth: Int, parent: String?, now: Long = System.currentTimeMillis()): Task {
     if (depth > MAX_DEPTH) throw ToolError("an agent this deep may not start another; do it yourself")
+    // Reservations go by id, so no two players' running tasks share one.
+    val taken = all().mapTo(HashSet()) { it.id }
     val list = tasks.computeIfAbsent(owner) { mutableListOf() }
     synchronized(list) {
       list.removeIf(Task::done)
-      if (list.size >= maxTasks()) throw ToolError("the player already has ${list.size} automations running, the most this server allows; wait for one to finish or cancel one")
-      val id = generateSequence(newId).first { candidate -> list.none { it.id == candidate } }
+      if (list.size >= maxTasks()) {
+        val mine = list.filter { parent != null && it.parent == parent }
+        if (mine.isNotEmpty()) {
+          throw ToolError("the player may run ${maxTasks()} automations at once, and your sub-agent ${mine.joinToString { "«${it.name}» (${it.id})" }} still runs: wait for its [sub-agent] report, then start this one, or do this part yourself")
+        }
+        throw ToolError("the player already has ${list.size} automations running, the most this server allows; wait for one to finish or cancel one")
+      }
+      val id = generateSequence(newId).first { candidate -> candidate !in taken && list.none { it.id == candidate } }
       val clean = name.trim().take(40).ifEmpty { kind.wire }
       return Task(id, owner, clean, kind, depth, parent, brief, now).also { list += it }
     }
@@ -77,6 +147,9 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
   fun find(owner: UUID, id: String): Task? = of(owner).firstOrNull { it.id.equals(id.trim(), ignoreCase = true) }
 
   fun all(): List<Task> = tasks.values.flatMap { list -> synchronized(list) { list.filterNot(Task::done) } }
+
+  /** The running sub-agents [task] started. */
+  fun children(task: Task): List<Task> = of(task.owner).filter { it.parent == task.id }
 
   fun end(task: Task) {
     task.state = Task.State.DONE

@@ -115,6 +115,9 @@ object Jobs : Listener {
     is Output.Chests -> to.blocks.joinToString("; ") { "the chest at ${it.x} ${it.y} ${it.z}" }
   }
 
+  /** Items as the model reads them in a report: “12 × glass, 1 × bucket”. */
+  fun counts(items: List<ItemStack>) = items.groupBy { it.type.key.key }.entries.joinToString(", ") { (id, stacks) -> "${stacks.sumOf { it.amount }} × $id" }
+
   /** The output the player chose for [kind], as a tool result shows it, or null. */
   fun saved(player: Player, kind: Kind, settings: PlayerSettings): String? = settings.of(player.uniqueId).outputs[kind.wire]
 

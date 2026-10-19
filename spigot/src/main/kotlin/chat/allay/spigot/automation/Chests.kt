@@ -141,6 +141,7 @@ object Chests {
           planned.inventory?.let { (_, after) -> unpack(player, after) }
           automation.undo.keep(player.uniqueId, Undo.Change(planned.blocks, planned.before, planned.after, planned.inventory))
           agent.plan = null
+          task.report("chests applied: ${planned.blocks.size} chests changed (${planned.blocks.take(4).joinToString("; ") { "${it.x} ${it.y} ${it.z}" }}${if (planned.blocks.size > 4) "; …" else ""})${if (planned.inventory != null) " and the player's inventory" else ""}")
           automation.picking.stop(player, task)
           labels(context, player, planned, lang)
           automation.say(player, task, lang.text("automation.chests_done", "count" to planned.blocks.size), listOf(Button.Undo(lang.text("automation.undo"))))

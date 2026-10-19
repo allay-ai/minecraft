@@ -63,8 +63,15 @@ class ToolContext(
 
   fun requirePlayer(): Player = player ?: throw chat.allay.core.tools.ToolError("there is no player: the question came from the console")
 
-  /** The automation agent of this wake, or a [chat.allay.core.tools.ToolError] for the main chat. */
-  fun requireTask(): chat.allay.core.tasks.Task = task ?: throw chat.allay.core.tools.ToolError("only an automation agent may use this; start one with start_task")
+  /**
+   * The automation agent of this wake, or a [chat.allay.core.tools.ToolError] for the main chat, and for an agent that was
+   * stopped while its wake still ran: nothing more may move for it.
+   */
+  fun requireTask(): chat.allay.core.tasks.Task {
+    val task = task ?: throw chat.allay.core.tools.ToolError("only an automation agent may use this; start one with start_task")
+    if (task.done) throw chat.allay.core.tools.ToolError("this automation is over: it was stopped or finished; end the wake now")
+    return task
+  }
 
   /** Runs [block] on the server thread from an off-thread tool ([chat.allay.core.tools.ClientTool.offMain]) and waits for it. */
   fun <T> main(block: () -> T): T =

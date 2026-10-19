@@ -157,6 +157,7 @@ object AnvilWork {
       player.inventory.setItem(slot, made)
       if (!creative) player.giveExpLevels(-total)
       val worn = wear(anvil, steps)
+      task.report("anvil: ${made.type.key.key} in inventory slot $slot now has ${made.enchantments.entries.joinToString { "${it.key.key.key} ${it.value}" }.ifEmpty { "no enchantments" }}${rename?.let { ", named “$it”" } ?: ""}, for $total levels")
       player.playSound(anvil.location, if (worn == Material.AIR) Sound.BLOCK_ANVIL_DESTROY else Sound.BLOCK_ANVIL_USE, 1f, 1f)
       Marks.show(context.plugin, player, listOf(Marks.Mark(anvil, null, made.type.key.key.replace('_', ' '), Marks.Hue.GREEN)).filter { worn != Material.AIR }, 10)
       return ToolOutput(JsonObject(out + ("done" to JsonPrimitive(true)) + ("anvil_now" to JsonPrimitive(worn.key.key))), context.lang.text("summary.anvil_done", "levels" to total))

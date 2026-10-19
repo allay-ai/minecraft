@@ -130,12 +130,14 @@ object Furnaces {
         Jobs.remove(this)
         val made = loads.groupBy { it.result.type.key.key }.entries.joinToString(", ") { (id, list) -> "${list.sumOf { load -> load.first }} × $id" }
         val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
-        if (to != null) {
+        val news = if (to != null) {
           collect(blocks)
-          Jobs.automation.post(task, "[job] smelting done: $made in ${loads.size} furnaces ($where); collected $collected to ${Jobs.describe(to)}, with $experience experience for the player")
+          "smelting done: $made in ${loads.size} furnaces ($where); collected $collected to ${Jobs.describe(to)}, with $experience experience for the player"
         } else {
-          Jobs.automation.post(task, "[job] smelting done: $made in ${loads.size} furnaces ($where); the output waits in them: collect it")
+          "smelting done: $made in ${loads.size} furnaces ($where); the output waits in them: collect it"
         }
+        task.report(news)
+        Jobs.automation.post(task, "[job] $news")
       }
     }
 
@@ -328,6 +330,7 @@ object Furnaces {
           Jobs.deliver(player, items, to)
           job?.reportedFull = false
           val count = items.filter { it.type != Material.BUCKET }.sumOf { it.amount }
+          if (count > 0) task.report("collected ${Jobs.counts(items)} from the furnaces to ${Jobs.describe(to)}")
           ToolOutput(buildJsonObject { put("collected", count); put("experience", xp); put("to", Jobs.describe(to)) }, lang.text("summary.collected", "count" to count))
         }
         else -> throw ToolError("action must be scan, start, add, fuel, status, or collect, not $action")
