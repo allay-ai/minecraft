@@ -124,9 +124,40 @@ object Brewing {
    * before `long_night_vision`). Null when nothing matches.
    */
   fun find(brews: List<Brew>, name: String): String? {
-    val wanted = name.trim().lowercase().removePrefix("minecraft:").replace(' ', '_').removePrefix("potion_of_")
+    var wanted = split(name).first
+    // “healing ii” and “healing 2” are strong_healing, “extended swiftness” long_swiftness.
+    Regex("_(ii|2)$").find(wanted)?.let { wanted = "strong_" + wanted.removeRange(it.range) }
+    if (wanted.startsWith("extended_")) wanted = "long_" + wanted.removePrefix("extended_")
+    val prefix = listOf("strong_", "long_").firstOrNull { wanted.startsWith(it) }.orEmpty()
+    wanted = prefix + wanted.removePrefix(prefix).let { WORDS[it] ?: it }
     val known = potions(brews)
     return known.firstOrNull { it == wanted } ?: known.filter { wanted in it }.minByOrNull { it.length }
+  }
+
+  /** What players call potions whose ids say it otherwise. */
+  private val WORDS = mapOf(
+    "speed" to "swiftness", "jump" to "leaping", "jump_boost" to "leaping", "instant_health" to "healing", "health" to "healing",
+    "heal" to "healing", "instant_damage" to "harming", "damage" to "harming", "regen" to "regeneration", "fire_res" to "fire_resistance",
+    "night" to "night_vision", "invisible" to "invisibility", "breathing" to "water_breathing", "slow_fall" to "slow_falling",
+  )
+
+  /** A form as the model may write it: `splash`, `splash_potion`, `lingering`, `drinkable`; null when it's none of them. */
+  fun form(name: String): String? = when (Names.normalize(name).removeSuffix("s")) {
+    "potion", "drinkable", "normal", "regular", "plain", "bottle", "drink" -> "potion"
+    "splash", "splash_potion", "throwable" -> "splash_potion"
+    "lingering", "lingering_potion" -> "lingering_potion"
+    else -> null
+  }
+
+  /** A potion's name without the words around it, and the form they name: “Splash Potion of Healing” is healing, splash_potion. */
+  fun split(name: String): Pair<String, String?> {
+    var rest = Names.normalize(name)
+    var form: String? = null
+    for ((word, found) in listOf("splash_" to "splash_potion", "lingering_" to "lingering_potion")) {
+      if (rest.startsWith(word)) { rest = rest.removePrefix(word); form = found }
+    }
+    rest = rest.removePrefix("potion_of_").removePrefix("potions_of_").removePrefix("bottle_of_").removeSuffix("_potions").removeSuffix("_potion")
+    return rest to form
   }
 
   private fun strip(id: String) = id.removePrefix("minecraft:")

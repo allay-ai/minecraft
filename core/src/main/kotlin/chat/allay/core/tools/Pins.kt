@@ -79,8 +79,11 @@ object Pins {
   private fun plain(pin: String, item: ItemData, block: (ItemData) -> Boolean): Boolean = when (pin) {
     "food" -> item.food != null
     "block" -> block(item)
-    // “log” and “logs” find oak_log and birch_log, “planks” every plank, “ingot” every ingot, as players say them.
-    else -> GROUPS[pin]?.invoke(item.id) ?: (item.id == pin || item.id.endsWith("_$pin") || (pin.endsWith('s') && item.id.endsWith("_${pin.dropLast(1)}")))
+    // “log” and “logs” find oak_log and birch_log, “planks” every plank, “ingot” every ingot, “torches” every torch, and
+    // “potatoes” the potato, as players say them.
+    else -> Names.forms(pin).let { forms ->
+      forms.firstNotNullOfOrNull { GROUPS[it] }?.invoke(item.id) ?: forms.any { item.id == it || item.id.endsWith("_$it") }
+    }
   }
 
   /**
@@ -177,5 +180,5 @@ object Pins {
   }
 
   /** A pin's item as the model wrote it: a group, or an id without the namespace. */
-  fun normalize(item: String): String = item.trim().lowercase().replace("minecraft:", "").replace(' ', '_')
+  fun normalize(item: String): String = Names.normalize(item)
 }

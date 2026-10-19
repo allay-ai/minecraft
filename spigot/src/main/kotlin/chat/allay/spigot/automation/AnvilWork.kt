@@ -75,7 +75,7 @@ object AnvilWork {
       if (target.type == Material.BOOK) throw ToolError("a plain book can't be worked on an anvil")
       val rules = Anvils.Rules(target.type)
       val rename = args.string("rename")?.let(ChatColor::stripColor)?.replace("§", "")?.trim()?.take(50)?.ifEmpty { null }
-      val wanted = (args["enchantments"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.lowercase()?.removePrefix("minecraft:")?.replace(' ', '_') }?.toSet().orEmpty()
+      val wanted = (args["enchantments"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(Names::enchantment)?.ifEmpty { null } }?.toSet().orEmpty()
       wanted.firstOrNull { Registry.ENCHANTMENT.get(NamespacedKey.minecraft(it)) == null }?.let { throw ToolError("no enchantment called $it") }
       wanted.firstOrNull { !rules.fits(it) }?.let { throw ToolError("$it doesn't go on ${target.type.key.key}") }
       if (wanted.isEmpty() && rename == null && args.bool("merge") != true) throw ToolError("say what to do: enchantments to add, merge: true for everything that fits, or rename")

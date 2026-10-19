@@ -31,11 +31,11 @@ object KnowledgeTools {
     override val name = "get_recipes"
 
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
-      val item = (args["item"] as? JsonPrimitive)?.contentOrNull?.trim()?.lowercase()?.removePrefix("minecraft:")
-        ?.replace(' ', '_') ?: throw ToolError("say which item")
+      val asked = (args["item"] as? JsonPrimitive)?.contentOrNull ?: throw ToolError("say which item")
+      val item = Names.normalize(asked)
       // Potions come from the brewing stand, which Spigot's recipes don't describe.
       if (item in POTIONS || "potion" in item) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
-      val material = Material.matchMaterial(item)?.takeIf { it.isItem } ?: throw ToolError("no item called $item")
+      val material = InteractTools.material(asked)
       val all = Bukkit.getRecipesFor(ItemStack(material)).mapNotNull(::describe)
       val found = all.take(5)
       val result = buildJsonObject {

@@ -131,9 +131,9 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val maxWakes = config.int("automation.max_wakes", 40).coerceIn(2, 200)
     val maxWaitSeconds = config.int("automation.max_wait_seconds", 600).coerceIn(10, 3600)
     /** How far from the player furnaces, brewing stands, crafting tables, and chests to take from may be. */
-    val radius = config.int("automation.radius", 16).coerceIn(4, 48)
+    val radius = config.int("automation.radius", 32).coerceIn(4, 52)
     /** An agent pauses while its player is farther than this from where it started, or in another dimension. */
-    val pauseDistance = config.int("automation.pause_distance", 48).coerceIn(8, 256)
+    val pauseDistance = config.int("automation.pause_distance", 64).coerceIn(8, 256)
     /** A furnace, stand, or crafting table counts only when no opaque full block stands between it and the player's eyes; glass and leaves don't hide it. */
     val lineOfSight = config.boolean("automation.line_of_sight", true)
     /** “Sort all”: chests reached from the picked ones across gaps of up to this many blocks, at most [maxChests]. */

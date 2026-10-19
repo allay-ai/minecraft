@@ -244,14 +244,45 @@ object Furnaces {
     return if (type == Material.COAL) have + sources.free(plain(Material.COAL_BLOCK), "coal_block", holds, task.id) * 9 else have
   }
 
-  /** One item or several: `item` and `count`, or `items`. */
-  private fun asked(args: JsonObject): List<Pair<Material, Int?>> {
+  /** A fuel as the model names it, its plural too: “coal blocks” is coal_block. */
+  private fun fuelName(name: String): String = Names.normalize(name).let { id -> Names.forms(id).firstOrNull { Workshop.burnTicks(it) != null } ?: id }
+
+  /**
+   * One item or several: `item` and `count`, or `items`. An item a furnace makes rather than cooks stands for what cooks
+   * into it: iron_ingot (or “iron”) for raw_iron and the iron ores, glass for sand, cooked_beef for beef.
+   */
+  private fun asked(server: Server, args: JsonObject): List<Pair<List<Material>, Int?>> {
     val list = (args["items"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.map { entry ->
       InteractTools.material(entry.string("item") ?: throw ToolError("each of items needs an item")) to entry.int("count")
     } ?: listOf(InteractTools.material(args.string("item") ?: throw ToolError("item or items is required, like raw_gold")) to args.int("count"))
-    if (list.map { it.first }.toSet().size != list.size) throw ToolError("an item is named twice")
-    return list
+    val groups = list.map { (item, count) -> (if (cooks(server, item)) listOf(item) else inputs(server, item).ifEmpty { listOf(item) }) to count }
+    if (groups.flatMap { it.first }.toSet().size != groups.sumOf { it.first.size }) throw ToolError("an item is named twice")
+    return groups
   }
+
+  /** What a plain furnace cooks into [result], the plain forms first: raw_iron before iron_ore. */
+  private fun inputs(server: Server, result: Material): List<Material> {
+    val found = linkedSetOf<Material>()
+    val iterator = server.recipeIterator()
+    while (iterator.hasNext()) {
+      val recipe = iterator.next()
+      if (recipe is FurnaceRecipe && recipe.result.type == result) (recipe.inputChoice as? org.bukkit.inventory.RecipeChoice.MaterialChoice)?.choices?.let(found::addAll)
+    }
+    return found.sortedBy { if (it.key.key.endsWith("_ore")) 1 else 0 }
+  }
+
+  /** How many of each item to cook: a group shares its count in order, and an item the player lacks goes to [missing]. */
+  private fun shares(groups: List<Pair<List<Material>, Int?>>, available: (Material) -> Int, missing: MutableList<String>): List<Pair<Material, Int>> =
+    groups.flatMap { (items, count) ->
+      var left = count ?: Int.MAX_VALUE
+      val have = items.associateWith(available)
+      if (have.values.all { it <= 0 }) missing += items.joinToString(" or ") { it.key.key }
+      items.mapNotNull { item ->
+        val n = minOf(left, have.getValue(item))
+        left -= maxOf(n, 0)
+        if (n > 0) item to n else null
+      }
+    }
 
   val tool = object : Tool {
     override val name = "smelt"
@@ -344,7 +375,7 @@ object Furnaces {
     val holds = automation.reservations
     automation.agent(task).job?.let { if (Jobs.active(it)) throw ToolError("this task already runs a job; add more to it with action add") }
     // One item, or several at once: “smelt the iron and the gold”.
-    val asked = asked(args)
+    val asked = asked(player.server, args)
     val to = Jobs.target(player, args["to"], Kind.FURNACES, context.features.settings, args.bool("remember") == true)
     val named = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
     val usable = named.ifEmpty { Blocks.near(player.location, settings.radius) { Blocks.furnace(it.type) } }
@@ -352,13 +383,9 @@ object Furnaces {
     val sources = Sources.around(player, settings.radius)
     // Items the player doesn't have are left out, so “all my iron” may name every iron ore there is.
     val missing = mutableListOf<String>()
-    val counts = asked.mapNotNull { (item, count) ->
-      val available = sources.free(plain(item), item.key.key, holds, task.id)
-      if (available <= 0) missing += item.key.key
-      if (available <= 0) null else item to minOf(count ?: available, available)
-    }.toMap()
+    val counts = shares(asked, { item -> sources.free(plain(item), item.key.key, holds, task.id) }, missing).toMap()
     if (counts.isEmpty()) throw ToolError("the player has none of ${missing.joinToString()} at hand (inventory, bundles, ender chest, chests near)")
-    val wanted = args.string("fuel")?.let(Pins::normalize)
+    val wanted = args.string("fuel")?.let(::fuelName)
     if (wanted != null && Workshop.burnTicks(wanted) == null) throw ToolError("$wanted isn't a furnace fuel")
     val fuels = if (wanted != null) listOf(wanted) else choices(sources)
 
@@ -472,12 +499,10 @@ object Furnaces {
     // Plan every item first, so a refusal leaves the job as it was.
     class Extra(val load: Load, val count: Int, val fuel: Int)
     val missing = mutableListOf<String>()
-    val extras = asked(args).flatMap { (item, count) ->
+    val asked = asked(player.server, args).map { (items, count) -> items.filter { item -> job.loads.any { it.item == item } }.ifEmpty { items } to count }
+    val extras = shares(asked, { item -> sources.free(plain(item), item.key.key, holds, task.id) }, missing).flatMap { (item, n) ->
       val loads = job.loads.filter { it.item == item }
       if (loads.isEmpty()) throw ToolError("this job cooks ${job.loads.map { it.item.key.key }.distinct().joinToString()}; ${item.key.key} needs its own start once this one ends")
-      val available = sources.free(plain(item), item.key.key, holds, task.id)
-      if (available <= 0) missing += item.key.key
-      val n = minOf(count ?: available, available)
       val shares = Workshop.fill(n, loads.map { Int.MAX_VALUE / 2 })
       loads.mapIndexed { index, load -> Extra(load, shares[index], Workshop.fuelFor(load.share + shares[index], job.fuel, banked(load.block))) }.filter { it.count > 0 }
     }
@@ -545,7 +570,7 @@ object Furnaces {
       .filter { block -> Blocks.unusable(player, block, settings.radius, settings.lineOfSight)?.let { skipped += "${spot(block)}: ${it.model}"; false } ?: true }
     if (around.isEmpty()) throw ToolError("no usable furnace near the player${if (types.isNotEmpty()) " of ${types.joinToString()}" else ""}${if (skipped.isNotEmpty()) "; ${skipped.joinToString("; ")}" else ""}")
     val sources = Sources.around(player, settings.radius)
-    val asked = args.string("fuel")?.let(Pins::normalize)
+    val asked = args.string("fuel")?.let(::fuelName)
     val id = asked
       ?: around.mapNotNull { furnace(it)?.inventory?.fuel?.type?.key?.key }.filter { Workshop.burnTicks(it) != null }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
       ?: choices(sources).firstOrNull { fuel -> fuelAtHand(sources, holds, task, fuel) > 0 }

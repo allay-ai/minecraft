@@ -76,7 +76,7 @@ object Crafting {
     val origin = player.location.block
     var best: Block? = null
     var bestDistance = Double.MAX_VALUE
-    val reach = minOf(radius, 12)
+    val reach = minOf(radius, 24)
     for (dx in -reach..reach) for (dy in -reach..reach) for (dz in -reach..reach) {
       val block = origin.getRelative(dx, dy, dz)
       if (!accepts(block.type)) continue

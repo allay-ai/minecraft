@@ -43,9 +43,10 @@ object BrewingRecipes {
   fun target(server: Server, potion: String, form: String?): Pair<List<Brewing.Brew>, Brewing.Bottle> {
     val brews = all(server).ifEmpty { throw ToolError("this server's game keeps brewing out of reach; answer from what you know") }
     val id = Brewing.find(brews, potion) ?: throw ToolError("no potion called $potion; the stand makes ${Brewing.potions(brews).joinToString()}")
-    val bottle = form?.trim()?.lowercase()?.removePrefix("minecraft:")?.ifEmpty { null }?.let { name ->
-      Brewing.FORMS.firstOrNull { it == name } ?: throw ToolError("form must be potion, splash_potion, or lingering_potion")
-    } ?: "potion"
+    // “splash healing” names its form itself; form wins when both are there.
+    val bottle = form?.trim()?.ifEmpty { null }?.let { name ->
+      Brewing.form(name) ?: throw ToolError("form must be potion, splash_potion, or lingering_potion")
+    } ?: Brewing.split(potion).second ?: "potion"
     return brews to Brewing.Bottle(bottle, id)
   }
 

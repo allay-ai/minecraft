@@ -53,7 +53,7 @@ object InspectTools {
       .distinctBy { ((it.inventory as? DoubleChestInventory)?.leftSide?.location ?: it.location).toVector() }
 
   private val scanContainers = tool("scan_nearby_containers") { context, player, args ->
-    val radius = (args.int("radius") ?: 16).coerceIn(1, 24)
+    val radius = (args.int("radius") ?: 32).coerceIn(1, 52)
     val found = containersNear(player, radius)
     val rows = found.take(20).map { container ->
       val items = container.inventory.contents.asIterable()
@@ -81,11 +81,15 @@ object InspectTools {
   private const val MAX_PLACES = 30
 
   private val findItem = tool("find_item") { context, player, args ->
-    val query = args.string("item")?.lowercase()?.removePrefix("minecraft:")?.replace(' ', '_') ?: throw ToolError("item is required, such as diamond or log")
-    val radius = (args.int("radius") ?: 16).coerceIn(1, 24)
-    // An exact id finds that item; anything else finds every item whose id contains it: “log” finds oak_log and birch_log.
-    val exact = Material.matchMaterial(query)?.takeIf { it.isItem && !it.isAir }?.key?.key
-    val match: (String) -> Boolean = if (exact != null) { id -> id == exact } else { id -> query in id }
+    val asked = args.string("item") ?: throw ToolError("item is required, such as diamond or log")
+    val query = Names.normalize(asked)
+    val radius = (args.int("radius") ?: 32).coerceIn(1, 52)
+    // An exact id finds that item, a plural its singular; anything else finds every item whose id contains it: “log”
+    // finds oak_log and birch_log, “torches” the torch.
+    val exact = runCatching { InteractTools.material(asked).key.key }.getOrNull()?.takeIf { it in Names.forms(query) }
+    val parts = Names.forms(query).filter { part -> InteractTools.itemIds.any { part in it } }.take(1)
+    if (exact == null && parts.isEmpty()) throw ToolError(Names.missing(asked, InteractTools.itemIds))
+    val match: (String) -> Boolean = if (exact != null) { id -> id == exact } else { id -> parts.any { it in id } }
     val ids = sortedSetOf<String>()
     val places = mutableListOf<JsonObject>()
     var total = 0

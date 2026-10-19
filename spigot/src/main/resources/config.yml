@@ -243,8 +243,8 @@ automation:
   max_minutes: 30             # An agent stops after this long
   max_wakes: 40               # Each wake is one request to the model; this bounds what an agent costs
   max_wait_seconds: 600       # The longest an agent may sleep before it looks again
-  radius: 16                  # How far furnaces, stands, crafting tables, and chests to take from may be
-  pause_distance: 48          # An agent pauses while its player is farther than this from where it started
+  radius: 32                  # How far furnaces, stands, crafting tables, and chests to take from may be (4–52)
+  pause_distance: 64          # An agent pauses while its player is farther than this from where it started
   # A furnace, brewing stand, or crafting table counts only when no wall of opaque blocks
   # stands between it and the player's eyes; glass, leaves, and slabs don't hide it.
   line_of_sight: true

@@ -73,8 +73,13 @@ object InteractTools {
     }
   }
 
-  fun material(name: String): Material = Material.matchMaterial(name.trim().lowercase().removePrefix("minecraft:").replace(' ', '_'))?.takeIf { it.isItem }
-    ?: throw ToolError("no item called $name")
+  /** The item [name] means, forgiving plurals, spaces, `minecraft:`, and `#`; the error names close ids. Never a legacy material. */
+  fun material(name: String): Material = Material.matchMaterial(Names.resolve(name, { item(it) != null }, ::itemIds))!!
+
+  private fun item(id: String): Material? = Material.matchMaterial(id)?.takeIf { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }
+
+  /** Every item id of the game, for hints. */
+  val itemIds: List<String> by lazy { Material.entries.filter { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }.map { it.key.key } }
 
   private val book = tool("write_book") { context, player, args ->
     val title = args.string("title")?.take(32) ?: throw ToolError("title is required")

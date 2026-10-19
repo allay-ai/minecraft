@@ -2,6 +2,16 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.14.2
+
+Pairs with Allay Server 5.12.2; older servers work too.
+
+- 📏 **Agents and the chat reach 32 blocks.** `automation.radius` defaults to 32 (at most 52), find_item and scan_nearby_containers look 32 blocks around by default, up to 52, and crafting tables and anvils count up to 24 blocks away. `automation.pause_distance` defaults to 64, so a player at the edge doesn't pause their agent. A server that set `radius: 16` keeps it.
+- 🏷️ **Item names forgive.** Crafting, smelting, find_item, get_recipes, goals, buttons, and chest selectors take plurals (“torches”, “potatoes”, “shulker boxes”), spaces, `minecraft:` and `#`, and common words (“iron” for iron_ingot, “seeds”, “bottle”). A name that fits nothing comes back with the ids that come close, like oak_planks and birch_planks for “planks”, instead of “none here”.
+- 🔥 **Smelt what you want out.** `smelt` with iron_ingot (or “iron”), glass, or cooked_beef smelts everything that cooks into it the player has: raw iron first, then the ores, sharing the count. Before, it said the player had no iron_ingot to smelt. Fuel names forgive plurals too: “coal blocks” is coal_block.
+- 🧪 **Potions by any name.** “speed”, “jump boost”, “instant health”, “healing II”, and “extended night vision” find swiftness, leaping, healing, strong_healing, and long_night_vision; “splash healing” or “Splash Potion of Healing” brews the splash form, and `form` takes `splash`, `lingering`, and `drinkable`.
+- ✨ **Enchantments with their level.** The anvil agent and get_anvil_plan take “Sharpness V”, `unbreaking_3`, and “Silk Touch”; before, a name with a space or a level failed.
+
 ## 5.14.1
 
 Pairs with Allay Server 5.12.1; older servers work too.

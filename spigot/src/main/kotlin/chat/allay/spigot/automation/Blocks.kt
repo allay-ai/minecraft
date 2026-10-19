@@ -146,7 +146,7 @@ object Blocks {
   }
 
   /** For a scan that found nothing in [radius]: the nearest such block within [far], so the agent can say where to go. */
-  fun beyond(origin: Location, radius: Int, far: Int = 64, filter: (Block) -> Boolean): Block? =
+  fun beyond(origin: Location, radius: Int, far: Int = 96, filter: (Block) -> Boolean): Block? =
     near(origin, maxOf(far, radius), filter).firstOrNull { it.location.distanceSquared(origin) > radius * radius }
 
   /** Why a block can't take part, with a line for the model; players read `automation.unfit.<name>`. */

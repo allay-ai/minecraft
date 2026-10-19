@@ -54,7 +54,7 @@ object Layout {
       val potion = wanted.removePrefix("potion:")
       return listOf("potion", "splash_potion", "lingering_potion").any { Pins.matches("$it:$potion", item, block) }
     }
-    MATERIALS[wanted]?.let { words ->
+    Names.forms(wanted).firstNotNullOfOrNull { MATERIALS[it] }?.let { words ->
       val parts = item.id.split('_')
       val resource = Storage.category(item.id, item.food != null) == Storage.Category.ORES || item.id == "redstone" || item.id == "redstone_block"
       return resource && parts.any { it in words }
@@ -64,7 +64,7 @@ object Layout {
       "named" -> item.name != null
       "damaged" -> item.maxDamage > 0 && item.damage > 0
       in Pins.GROUPS.keys -> Pins.matches(wanted, item, block)
-      else -> Storage.Category.parse(wanted)?.let { Storage.category(item.id, item.food != null) == it } ?: Pins.matches(wanted, item, block)
+      else -> (Storage.Category.parse(wanted) ?: Storage.Category.parse("${wanted}s"))?.let { Storage.category(item.id, item.food != null) == it } ?: Pins.matches(wanted, item, block)
     }
   }
 

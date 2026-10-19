@@ -114,8 +114,8 @@ object CareTools {
     val wanted = args["enchantments"] as? JsonObject ?: return@tool fromInventory(context, player, (args["slots"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() })
     if (wanted.isEmpty() || wanted.size > 10) throw ToolError("give 1–10 enchantments")
     val books = wanted.keys.map { key ->
-      val id = key.lowercase().removePrefix("minecraft:")
-      val enchantment = org.bukkit.Registry.ENCHANTMENT.get(org.bukkit.NamespacedKey.minecraft(id)) ?: throw ToolError("no enchantment called $id")
+      val id = Names.enchantment(key)
+      val enchantment = id.ifEmpty { null }?.let { org.bukkit.Registry.ENCHANTMENT.get(org.bukkit.NamespacedKey.minecraft(it)) } ?: throw ToolError("no enchantment called $key")
       if (!enchantment.canEnchantItem(item)) throw ToolError("$id doesn't go on ${item.type.key.key}")
       val level = (wanted.int(key) ?: enchantment.maxLevel).coerceIn(1, enchantment.maxLevel)
       enchantment to level

@@ -68,6 +68,20 @@ class BrewingTest {
     assertNull(Brewing.find(brews, "luck"))
   }
 
+  @Test fun `names carry their form and the words players use`() {
+    assertEquals("night_vision" to "splash_potion", Brewing.split("Splash Potion of Night Vision"))
+    assertEquals("night_vision" to null, Brewing.split("night_vision_potions"))
+    assertEquals("night_vision", Brewing.find(brews, "lingering night vision"))
+    assertEquals("long_night_vision", Brewing.find(brews, "extended night vision"))
+    val speedy = brews + Brewing.parse(recipe("potion", "awkward", "sugar", "potion", "swiftness")) + Brewing.parse(recipe("potion", "swiftness", "glowstone_dust", "potion", "strong_swiftness"))
+    assertEquals("swiftness", Brewing.find(speedy, "speed"))
+    assertEquals("strong_swiftness", Brewing.find(speedy, "speed II"))
+    assertEquals("splash_potion", Brewing.form("splash"))
+    assertEquals("lingering_potion", Brewing.form("Lingering Potion"))
+    assertEquals("potion", Brewing.form("drinkable"))
+    assertNull(Brewing.form("cloud"))
+  }
+
   @Test fun `stands fill three to one, own bottles first`() {
     assertEquals(listOf(Brewing.Fill(0, 3)), Brewing.fill(3, 4, emptyMap()))
     assertEquals(listOf(Brewing.Fill(2, 3), Brewing.Fill(2, 1)), Brewing.fill(4, 4, mapOf(2 to 4)))
