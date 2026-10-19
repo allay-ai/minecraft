@@ -6,7 +6,7 @@ every plugin loaded and enabled without errors. Standard library only.
   python3 -I .claude/scripts/paper_smoke.py --game 26.3 --plugin build/libs/x.jar \
       --modrinth placeholderapi --command "papi list" --expect "allay"
 
-Paper comes from fill.papermc.io (the newest stable build, or --build), Modrinth plugins from api.modrinth.com
+Paper comes from fill.papermc.io (the newest beta or stable build, or --build), Modrinth plugins from api.modrinth.com
 for that game version. Downloads are cached in ~/.cache/paper-smoke. The server runs offline on a free port in
 a fresh folder (--dir, or a temporary one), so it never touches a real world. Exit code 0 means clean.
 """
@@ -64,7 +64,13 @@ def download(url, name, sha256=None, sha512=None):
 
 def paper(game, build):
     base = f"https://fill.papermc.io/v3/projects/paper/versions/{game}/builds"
-    info = fetch_json(f"{base}/{build or 'latest'}")
+    if build:
+        info = fetch_json(f"{base}/{build}")
+    else:
+        # Newest first; an alpha build isn't ready to test against.
+        info = next((b for b in fetch_json(base) if b.get("channel") in ("BETA", "STABLE")), None)
+        if not info:
+            sys.exit(f"Paper {game} has no beta or stable build yet")
     file = info["downloads"]["server:default"]
     print(f"Paper {game} build {info['id']} ({info.get('channel', '?')})")
     return download(file["url"], file["name"], sha256=file["checksums"]["sha256"])
@@ -105,7 +111,7 @@ def free_port():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--game", required=True, help="game version, like 26.3")
-    parser.add_argument("--build", help="Paper build number; the newest stable one by default")
+    parser.add_argument("--build", help="Paper build number; the newest beta or stable one by default")
     parser.add_argument("--plugin", action="append", default=[], help="a plugin jar to test, a path or an https URL; repeat for more")
     parser.add_argument("--modrinth", action="append", default=[], help="a dependency from Modrinth, slug or slug:version")
     parser.add_argument("--jar", action="append", default=[], help="another jar to install without checking it: a path or an https URL")
