@@ -71,7 +71,7 @@ Allay was MCBuddy until 4.0.0. `McBuddyMigration` (core) runs first in `onEnable
 - `./gradlew build` runs both modules' tests and builds `spigot/build/libs/allay-spigot-<version>.jar`, shaded; Java 25. Nothing in the repo holds the version: local builds are `dev`, CI builds on `master` and pull requests are `dev-<sha>`.
 - Allay sounds like an allay: `ENTITY_ALLAY_AMBIENT_WITH_ITEM` while thinking, `ENTITY_ALLAY_ITEM_GIVEN` with the answer, `ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM` on errors, each pitch moved by up to `ui.sounds.pitch_variation`. Readers of a public answer hear the answer sound at half volume (`ui.sounds.public_answer`). The game plays these quietly, so 1.0 is the mob's own volume.
 - After a change that reaches what the project ships, add it to CHANGELOG.md in the same push: under the topmost “## X.Y.Z” section while that version isn't released (`gh release view vX.Y.Z` fails), or under a new section with the next version: patch for fixes, minor for features, major for breaking changes. A release then needs only the workflow, and the workflow runs only when the owner asks.
-- Releases are made by hand, only when the owner asks. Add a “## X.Y.Z” section to CHANGELOG.md, push, then run `gh workflow run release.yml -R allay-ai/minecraft -f version=X.Y.Z` (its `changelog` field overrides the section; one of the two must be there; `-f modrinth=true -f hangar=true` also publish there once those projects exist). It builds with `-PreleaseVersion`, tags `vX.Y.Z`, and attaches `allay-spigot-X.Y.Z.jar` to a GitHub release. Watch it with `gh run watch`. Never delete or re-tag a published release.
+- Releases are made by hand when the owner asks, or by the autopilot (below). Add a “## X.Y.Z” section to CHANGELOG.md, push, then run `gh workflow run release.yml -R allay-ai/minecraft -f version=X.Y.Z` (its `changelog` field overrides the section; one of the two must be there; `-f modrinth=true -f hangar=true` also publish there once those projects exist). It builds with `-PreleaseVersion`, tags `vX.Y.Z`, and attaches `allay-spigot-X.Y.Z.jar` to a GitHub release. Watch it with `gh run watch`. Never delete or re-tag a published release.
 
 ## Checking a change
 
@@ -82,6 +82,10 @@ Allay was MCBuddy until 4.0.0. `McBuddyMigration` (core) runs first in `onEnable
    ```
    Pass `--game` the version the project targets, and `--build` to pin a Paper build. The script downloads Paper and Modrinth plugins into `~/.cache/paper-smoke` and keeps the server folder when something fails.
 3. A question needs a backend and a player. After a release reaches Moonlands, the log shows `Allay X.Y.Z is on`, `papi list` lists `allay`, and the owner asks `/ask` once. Plan's server values show up right away; a player's block fills on their next join or leave. Allay builds against the Spigot API, so it runs on Spigot too; the check uses Paper, which Moonlands runs.
+
+## Autopilot
+
+`.github/workflows/autopilot.yml` runs Claude every Monday at 03:00 UTC: `/update-deps`, then `/update-minecraft`, a fix for whatever they break, a push to `master`, and the “Release” workflow when what the project ships changed. The release's `deploy` job then starts Moonlands' `ship-plugin.yml` with the `FAMILY_ACTIONS_TOKEN` secret, and Claude puts the new version on the server there. The run itself needs the `CLAUDE_CODE_OAUTH_TOKEN` secret. “Autopilot” in `~/c/personal/minecraft/CLAUDE.md` explains the family's runs.
 
 ## Versions
 

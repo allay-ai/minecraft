@@ -14,13 +14,13 @@ Move this project to Minecraft `$ARGUMENTS`, or to the newest release if no vers
 - **Moonlands:** a `compose.yaml` with `PAPER_BUILD`. Follow “Moonlands”.
 - **Anything else** (minecraft-mcp, Allay's backend) has no game version. Say so and stop.
 
-The target is `latest.release` in Mojang's manifest: a release, never a snapshot, pre-release, or release candidate. A patch (26.3.1) counts as a new version too. If the project already targets it, say so and stop, with no commit.
+The target is `latest.release` in Mojang's manifest. A project that builds only for Fabric targets the newest version in Fabric Meta's game list instead, snapshots, pre-releases, and release candidates included, and moves from one snapshot to the next. Everything else, Moonlands too, moves only to releases. A patch (26.3.1) counts as a new version too. If the project already targets it, say so and stop, with no commit.
 
 A platform is ready for the version when:
 
 - **Paper** has a build for it on the `BETA` or `STABLE` channel. Only `ALPHA` builds: not ready.
 - **Spigot** has `https://hub.spigotmc.org/versions/<version>.json`.
-- **Fabric** has a Fabric API build that lists the release on Modrinth. The loader is the newest stable one.
+- **Fabric** has a Fabric API build that lists the version on Modrinth. The loader is the newest stable one.
 - **NeoForge** has any `<version>` release (`26.4.0.x` for 26.4), a beta too.
 
 When something isn't ready, say what's missing and stop. Nothing changes; the next run asks again.

@@ -18,6 +18,10 @@ on:
         description: "Also publish to Hangar (needs the HANGAR_TOKEN secret)"
         type: boolean
         default: false
+      moonlands:
+        description: "Ship the release to Moonlands (needs the FAMILY_ACTIONS_TOKEN secret)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -78,3 +82,15 @@ jobs:
         run: ./gradlew publishPluginPublicationToHangar -PreleaseVersion="$VERSION" -PchangelogFile="$NOTES" --no-configuration-cache
         env:
           HANGAR_TOKEN: ${{ secrets.HANGAR_TOKEN }}
+
+  deploy:
+    needs: release
+    if: inputs.moonlands
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ship to Moonlands
+        # Moonlands' “Ship a release” workflow puts the new jar on the server, unless it's built for another game version.
+        run: gh workflow run ship-plugin.yml -R MairwunNx/minecraft -f repo="$GITHUB_REPOSITORY" -f version="$VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.FAMILY_ACTIONS_TOKEN }}
+          VERSION: ${{ inputs.version }}
