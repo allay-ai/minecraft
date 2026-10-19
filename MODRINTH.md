@@ -30,13 +30,23 @@
 
 ## Install
 
-1. Put the jar in your server's `plugins/` folder and restart the server.
-2. Edit `plugins/Allay/config.yml` and the texts in `plugins/Allay/lang/` if you like.
-3. Run `/allay reload`, then try `/ask how do I craft a beacon?`.
+Allay needs Spigot or Paper 26.3, or a fork of them, like Purpur, on Java 25. It answers through an Allay backend, `https://allay.chat` by default (`server.url`). PlaceholderAPI, GriefPrevention, and Plan are optional.
+
+**With Docker (recommended).** In [itzg/minecraft-server](https://docker-minecraft-server.readthedocs.io), give the jar's URL and the server fetches it:
+
+```yaml
+environment:
+  TYPE: PAPER
+  VERSION: "26.3"
+  PLUGINS: |
+    https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar
+```
+
+**By hand.** Put the jar in `plugins/` and restart the server.
+
+On its first start Allay writes `plugins/Allay/config.yml` and the texts in `plugins/Allay/lang/`. Pick how to pay for the model (below), run `/allay reload`, then try `/ask how do I craft a beacon?`.
 
 Coming from MCBuddy? Allay is its new name from 4.0.0 on. Swap the jar: Allay moves `plugins/mcbuddy-spigot/` into `plugins/Allay/` by itself, `/buddy` becomes `/allay`, and the permissions become `allay.*`.
-
-Allay runs on Spigot, Paper 26.3, and their forks, on Java 25. It talks to the Allay backend, `https://allay.chat` by default (`server.url`).
 
 ## Paying for the model
 

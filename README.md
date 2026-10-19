@@ -1,5 +1,13 @@
 # Allay
 
+<p align="center">
+  <a href="https://github.com/allay-ai/minecraft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/allay-ai/minecraft?label=release"></a>
+  <img alt="Spigot | Paper 26.3" src="https://img.shields.io/badge/Spigot%20%7C%20Paper-26.3-F7CF0D">
+  <img alt="Java 25" src="https://img.shields.io/badge/Java-25-E76F00">
+  <a href="https://github.com/allay-ai/minecraft/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/allay-ai/minecraft/build.yml?branch=master&label=build"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/allay-ai/minecraft"></a>
+</p>
+
 💬 **Allay** puts an AI helper into your server's chat, named after the friendly mob that brings players what they need. A player types `/ask`, or just writes in chat mode, and gets an answer grounded in their real game: their inventory, what they're looking at, the chests around them, this server's recipes and rules. The assistant talks like a friend who knows Minecraft inside out, and each player reads the plugin in their own language.
 
 [Русская версия](https://github.com/allay-ai/minecraft/blob/master/README.RU.md)
@@ -41,19 +49,44 @@ Allay runs on Moonlands, my hard survival server with friends. Come in and ask i
 
 Join at `minecraft.mairwunnx.com`. The site has the live map, player stats, and the hall of fame.
 
-## Requirements
-
-- Spigot or Paper 26.3, or a fork of them, like Purpur
-- Java 25
-- An Allay backend: `https://allay.chat` by default, or your own [Allay Server](https://github.com/allay-ai/server)
-
 ## Install
 
-1. Download `allay-spigot-X.Y.Z.jar` from [Releases](https://github.com/allay-ai/minecraft/releases).
-2. Put it in your server's `plugins/` folder and restart the server.
-3. Edit `plugins/Allay/config.yml` and the texts in `plugins/Allay/lang/` if you like.
-4. Pick how to pay for the model (see below): run `/allay link` for a subscription, or put your own key in `provider.byok`.
-5. Run `/allay reload`, then try `/ask how do I craft a beacon?`.
+Allay needs Spigot or Paper 26.3, or a fork of them, like Purpur, on Java 25. It answers through an Allay backend: `https://allay.chat` by default, or your own [Allay Server](https://github.com/allay-ai/server). PlaceholderAPI, GriefPrevention, and Plan are optional. For now Allay is on GitHub only, not on Modrinth or Hangar.
+
+### With Docker (recommended)
+
+If your server runs in [itzg/minecraft-server](https://docker-minecraft-server.readthedocs.io), it fetches Allay itself. Since Allay isn't on Modrinth, give `PLUGINS` its URL:
+
+```yaml
+services:
+  minecraft:
+    image: itzg/minecraft-server:java25
+    environment:
+      EULA: "TRUE"
+      TYPE: PAPER
+      VERSION: "26.3"
+      PLUGINS: |
+        https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar
+    ports: ["25565:25565"]
+    volumes: ["./data:/data"]
+```
+
+`https://github.com/allay-ai/minecraft/releases/download/v5.11.1/allay-spigot-5.11.1.jar` pins a version. The optional plugins come from Modrinth: add `MODRINTH_PROJECTS` with `placeholderapi`, `griefprevention`, or `plan`, one per line. If your own Allay Server runs in the same compose file, point `server.url` in `data/plugins/Allay/config.yml` at it, like `http://allay:3000`.
+
+### By hand
+
+1. Download the jar from [GitHub](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar).
+2. Put it in `plugins/` and restart the server.
+
+### First steps
+
+On its first start Allay writes `plugins/Allay/config.yml` and the texts in `plugins/Allay/lang/`, and downloads the country database. Then pick how to pay for the model, as “Paying for the model” below explains: run `/allay link` for a subscription, or put your own key in `provider.byok`. Run `/allay reload`, and ask your first question:
+
+```
+/ask how do I craft a beacon?
+```
+
+The action bar shows a spinner while Allay looks things up, and the answer comes in the chat with buttons under it. `/allay status` shows an operator who pays for the model: the key, masked, or the subscription with its limit.
 
 ## Paying for the model
 

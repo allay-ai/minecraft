@@ -68,7 +68,10 @@ jobs:
       - name: Build and test
         run: ./gradlew build -PreleaseVersion="$VERSION"
       - name: Publish the GitHub release
-        run: gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Allay $VERSION" --notes-file "$NOTES" "spigot/build/libs/allay-spigot-$VERSION.jar"
+        # allay-spigot.jar too, so releases/latest/download/allay-spigot.jar always fetches the newest one.
+        run: |
+          cp "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Allay $VERSION" --notes-file "$NOTES" "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Publish to Modrinth

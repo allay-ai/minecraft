@@ -1,5 +1,13 @@
 # Allay
 
+<p align="center">
+  <a href="https://github.com/allay-ai/minecraft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/allay-ai/minecraft?label=release"></a>
+  <img alt="Spigot | Paper 26.3" src="https://img.shields.io/badge/Spigot%20%7C%20Paper-26.3-F7CF0D">
+  <img alt="Java 25" src="https://img.shields.io/badge/Java-25-E76F00">
+  <a href="https://github.com/allay-ai/minecraft/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/allay-ai/minecraft/build.yml?branch=master&label=build"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/allay-ai/minecraft"></a>
+</p>
+
 💬 **Allay** приводит в чат сервера ИИ-помощника, названного в честь дружелюбного моба, который приносит игрокам нужное. Игрок пишет `/ask` или просто пишет в чат в режиме чата и получает ответ, привязанный к его настоящей игре: к инвентарю, к тому, на что он смотрит, к сундукам вокруг, к рецептам и правилам этого сервера. Ассистент говорит как друг, который знает Minecraft вдоль и поперёк, а сам плагин каждый игрок читает на своём языке.
 
 [English version](https://github.com/allay-ai/minecraft/blob/master/README.md)
@@ -41,19 +49,44 @@ Allay работает на Moonlands — моём хардкорном выжи
 
 Адрес — `ru.minecraft.mairwunnx.com`. На сайте живая карта, статистика игроков и зал славы.
 
-## Требования
-
-- Spigot или Paper 26.3 либо их форк, например Purpur
-- Java 25
-- Бэкенд Allay: по умолчанию `https://allay.chat` или ваш собственный [Allay Server](https://github.com/allay-ai/server)
-
 ## Установка
 
-1. Скачайте `allay-spigot-X.Y.Z.jar` из [Releases](https://github.com/allay-ai/minecraft/releases).
-2. Положите его в папку `plugins/` сервера и перезапустите сервер.
-3. При желании поправьте `plugins/Allay/config.yml` и тексты в `plugins/Allay/lang/`.
-4. Выберите, как платить за модель (см. ниже): `/allay link` для подписки или свой ключ в `provider.byok`.
-5. Выполните `/allay reload`, затем попробуйте `/ask как скрафтить маяк?`.
+Allay нужен Spigot или Paper 26.3 либо их форк, например Purpur, на Java 25. Отвечает он через бэкенд Allay: по умолчанию `https://allay.chat` или ваш собственный [Allay Server](https://github.com/allay-ai/server). PlaceholderAPI, GriefPrevention и Plan — по желанию. Пока Allay есть только на GitHub, на Modrinth и Hangar его нет.
+
+### Через Docker (рекомендуем)
+
+Если сервер работает в [itzg/minecraft-server](https://docker-minecraft-server.readthedocs.io), он сам скачает Allay. Allay нет на Modrinth, поэтому укажите его адрес в `PLUGINS`:
+
+```yaml
+services:
+  minecraft:
+    image: itzg/minecraft-server:java25
+    environment:
+      EULA: "TRUE"
+      TYPE: PAPER
+      VERSION: "26.3"
+      PLUGINS: |
+        https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar
+    ports: ["25565:25565"]
+    volumes: ["./data:/data"]
+```
+
+`https://github.com/allay-ai/minecraft/releases/download/v5.11.1/allay-spigot-5.11.1.jar` закрепляет версию. Необязательные плагины берутся с Modrinth: добавьте `MODRINTH_PROJECTS` с `placeholderapi`, `griefprevention` или `plan`, по одному на строку. Если ваш Allay Server работает в том же compose-файле, укажите его в `server.url` файла `data/plugins/Allay/config.yml`, например `http://allay:3000`.
+
+### Вручную
+
+1. Скачайте jar с [GitHub](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar).
+2. Положите его в `plugins/` и перезапустите сервер.
+
+### Первые шаги
+
+При первом запуске Allay создаёт `plugins/Allay/config.yml` и тексты в `plugins/Allay/lang/`, а ещё скачивает базу стран. Затем выберите, как платить за модель: `/allay link` для подписки или свой ключ в `provider.byok`. Подробности — в разделе «Оплата модели» ниже. Выполните `/allay reload` и задайте первый вопрос:
+
+```
+/ask как скрафтить маяк?
+```
+
+Пока Allay ищет ответ в игре, над хотбаром крутится индикатор, а ответ приходит в чат с кнопками под ним. `/allay status` показывает оператору, кто платит за модель: замаскированный ключ или подписку с её лимитом.
 
 ## Оплата модели
 
