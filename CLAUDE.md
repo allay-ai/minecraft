@@ -1,11 +1,11 @@
 # Allay for Minecraft: notes for AI agents
 
-The Minecraft plugin of Allay. `/ask` asks the AI helper a question, `/askall` asks in front of everyone, `/askx` turns a request into commands, and chat mode (`/allay chat`) sends whatever a player writes in chat to Allay. The plugin streams the answer from Allay Server (allay-ai/server) over protocol v2, runs the game tools the agent asks for, and shows a live Claude Code style status while it works. README.md explains it for players and server owners, README.RU.md is its Russian copy, MODRINTH.md the Modrinth page; read README.md first.
+The Minecraft plugin of Allay. `/ask` asks the AI helper a question, `/askall` asks in front of everyone, `/askx` turns a request into commands, and chat mode (`/allay chat`) sends whatever a player writes in chat to Allay. The plugin streams the answer from Allay Server (allay-ai/server) over protocol v2, runs the game tools the agent asks for, and shows a live Claude Code style status while it works. README.md is the shop window (what Allay gives, how to start, links), README.RU.md its Russian copy, MODRINTH.md the Modrinth page. The manual for players, server owners, and developers is the GitHub wiki (https://github.com/allay-ai/minecraft/wiki, English only, cloned from `allay-ai/minecraft.wiki.git`); read it first.
 
 ## Talking to the owner
 
 - Reply in Russian, address the owner as «вы». Quotes «ёлочки», an em dash with spaces « — ».
-- Code, comments, commit messages, and `config.yml` are in English. Player-facing texts live in `core/src/main/resources/lang/<code>.yml` (en, ru, es, pt, de); a new text goes into every one of them, and `LangTest` checks that each has every English key. README.md is English; README.RU.md follows Russian typography. Change both READMEs and MODRINTH.md together.
+- Code, comments, commit messages, and `config.yml` are in English. Player-facing texts live in `core/src/main/resources/lang/<code>.yml` (en, ru, es, pt, de); a new text goes into every one of them, and `LangTest` checks that each has every English key. README.md is English; README.RU.md follows Russian typography. Change both READMEs and MODRINTH.md together. A new command, permission, config key, or feature also goes into its wiki page (“Commands and permissions”, “Configuration”, and so on).
 
 ## How it fits together
 
@@ -96,6 +96,7 @@ Where the versions live, for `/update-deps` and `/update-minecraft` (both in `.c
 - PlaceholderAPI: `compileOnly("me.clip:placeholderapi:…")` in `spigot/build.gradle.kts`, from `repo.extendedclip.com` (root `build.gradle.kts`).
 - Plan: `compileOnly("com.djrapitops:plan-api:…")` in `spigot/build.gradle.kts`, from `repo.playeranalytics.net`. The API can run ahead of the Plan servers use: `Plan.REQUIRED` lists the capabilities Allay relies on; graphs and statistics need Plan 5.9.
 - Java: `jvmToolchain` in both modules; CI's `setup-java`.
+- The wiki names the game and Java versions too (“Installation”, “Building from source”, “Development”): clone `https://github.com/allay-ai/minecraft.wiki.git` and change them with the rest.
 - Gradle in `gradle/wrapper/gradle-wrapper.properties`; Kotlin and the Gradle plugins in the root `build.gradle.kts`; libraries (kotlinx, OkHttp, the MaxMind reader, SnakeYAML) in each module's `dependencies`, relocated by `shadowJar`.
 
 ## Installing on Moonlands
@@ -108,5 +109,5 @@ Short one-line imperative English messages, one logical change per commit: “Sh
 
 ## Modrinth and Hangar
 
-`build.gradle.kts` is ready for both, as in Mo’Joins: `./gradlew modrinth` uploads to the Modrinth project `allay-ai` and syncs MODRINTH.md as its description; `./gradlew publishPluginPublicationToHangar` uploads to `MairwunNx/AllayAI`. On both stores the project is called “Allay AI”, so people know which allay it is; in the game it's plain Allay. Both read the version from `-PreleaseVersion` and the notes from `-PchangelogFile`, and need `--no-configuration-cache`. The projects don't exist yet: create them only when the owner asks (see “Publishing the owner's projects” in `~/c/personal/minecraft/CLAUDE.md`). Tokens are the `MODRINTH_TOKEN` and `HANGAR_TOKEN` secrets; never put them in the repo. MODRINTH.md is for server owners: no build, stack, or related projects, and no Moonlands banner.
+`build.gradle.kts` is ready for both, as in Mo’Joins: `./gradlew modrinth` uploads to the Modrinth project `allay-ai` and syncs MODRINTH.md as its description; `./gradlew publishPluginPublicationToHangar` uploads to `MairwunNx/AllayAI`. On both stores the project is called “Allay AI”, so people know which allay it is; in the game it's plain Allay. Both read the version from `-PreleaseVersion` and the notes from `-PchangelogFile`, and need `--no-configuration-cache`. The projects don't exist yet: create them only when the owner asks (see “Publishing the owner's projects” in `~/c/personal/minecraft/CLAUDE.md`). Tokens are the `MODRINTH_TOKEN` and `HANGAR_TOKEN` secrets; never put them in the repo. MODRINTH.md is for server owners: the pitch, “What you get”, “Get started”, a link to the wiki, and “Related projects”; no build, stack, or license, and no Moonlands banner.
 
