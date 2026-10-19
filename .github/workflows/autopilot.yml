@@ -35,7 +35,7 @@ jobs:
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-opus-5-5
-            --allowedTools Bash,Read,Edit,Write,Glob,Grep,WebFetch,WebSearch,Skill,TodoWrite
+            --permission-mode bypassPermissions
           prompt: |
             You are this project's autopilot. You run unattended in GitHub Actions with the owner's standing go-ahead; nobody will answer questions, so decide as CLAUDE.md and the skills say.
 
