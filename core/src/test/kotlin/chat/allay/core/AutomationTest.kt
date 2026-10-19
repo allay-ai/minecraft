@@ -4,6 +4,7 @@ import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Reservations
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.ItemData
+import chat.allay.core.tools.Layout
 import chat.allay.core.tools.Pins
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.Workshop
@@ -343,5 +344,14 @@ class AutomationTest {
     assertEquals("a/big", models.of(false) { true })
     assertEquals("a/big", models.of(true) { false })
     assertNull(models.of(false) { false })
+  }
+
+  @Test fun `a potion selector finds every form of that potion`() {
+    val splash = ItemData("splash_potion", 1, potion = ItemData.Potion("infestation", emptyList(), emptyList()))
+    val drink = ItemData("potion", 1, potion = ItemData.Potion("long_infestation", emptyList(), emptyList()))
+    assertTrue(Layout.matches("potion:infestation", splash))
+    assertTrue(Layout.matches("potion:infestation", drink))
+    assertFalse(Layout.matches("splash_potion:infestation", drink))
+    assertFalse(Layout.matches("potion:poison", splash))
   }
 }

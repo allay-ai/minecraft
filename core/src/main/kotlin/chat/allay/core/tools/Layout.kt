@@ -46,9 +46,14 @@ object Layout {
   /**
    * Whether [item] answers [selector]: an id, a group of [Pins.GROUPS], a material of [MATERIALS], a chest category,
    * `enchanted`, `named`, `damaged`, or a potion as `potion:healing`. [block] tells blocks, which the platform knows.
+   * `potion:healing` finds splash and lingering healing too, as “my healing potions” means them all; pins stay strict.
    */
   fun matches(selector: String, item: ItemData, block: (ItemData) -> Boolean = { false }): Boolean {
     val wanted = Pins.normalize(selector)
+    if (wanted.startsWith("potion:")) {
+      val potion = wanted.removePrefix("potion:")
+      return listOf("potion", "splash_potion", "lingering_potion").any { Pins.matches("$it:$potion", item, block) }
+    }
     MATERIALS[wanted]?.let { words ->
       val parts = item.id.split('_')
       val resource = Storage.category(item.id, item.food != null) == Storage.Category.ORES || item.id == "redstone" || item.id == "redstone_block"

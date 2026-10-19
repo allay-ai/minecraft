@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.13.1
+
+Pairs with Allay Server 5.11.2; older servers work too.
+
+- 🧪 **“My infestation potions” finds the splash ones.** In chest selectors, `potion:infestation` matches drinkable, splash, and lingering potions alike; `splash_potion:infestation` still means only splash. Before, a chests agent asked for `potion:infestation` found nothing among splash potions and gave up. Pins in the hotbar keep telling the forms apart.
+
 ## 5.13.0
 
 Pairs with Allay Server 5.11.0, which gives each agent only its own tools; older servers keep working.
