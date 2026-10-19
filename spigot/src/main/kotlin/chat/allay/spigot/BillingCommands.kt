@@ -58,18 +58,24 @@ class BillingCommands(
   }
 
   /**
-   * `/allay init`: the admin panel's one-time setup link on a self-hosted backend, or where to sign in once
-   * someone has. The link goes only to whoever asked, never to the log: whoever opens it first owns the panel.
+   * `/allay init`: the admin panel's one-time setup link on a self-hosted backend, a recovery link for a
+   * forgotten password once an account exists, or where to sign in. A link goes only to whoever asked, never
+   * to the log: whoever opens it first owns the panel, or may change any account's password.
    */
   fun init(sender: CommandSender) {
     val lang = locales.of(sender)
-    plugin.logger.info("${sender.name} asked for the admin panel's setup link")
+    plugin.logger.info("${sender.name} asked for an admin panel link")
     request(sender) {
       when (val answer = setup.init()) {
         is AdminInit.Link -> listOf(
           Line(lang.text("admin.init.ready")),
           Line("", listOf(panel(lang, answer.url), TextComponent(" "), copyLink(lang, answer.url)), console = lang.text("admin.init.url", "url" to answer.url)),
           Line(lang.text("admin.init.once")),
+        )
+        is AdminInit.Recovery -> listOf(
+          Line(lang.text("admin.init.recover")),
+          Line("", listOf(panel(lang, answer.url), TextComponent(" "), copyLink(lang, answer.url)), console = lang.text("admin.init.url", "url" to answer.url)),
+          Line(lang.text("admin.init.recover_once")),
         )
         is AdminInit.Exists -> listOfNotNull(
           Line(lang.text("admin.init.exists")),

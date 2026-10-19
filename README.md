@@ -192,7 +192,7 @@ Everything a player reads lives in `lang/<language>.yml`: status verbs, tool lin
 | `/allay status` | Who pays for the model: your key, masked, or the subscription with its plan, paid-until date, and limit |
 | `/allay link` | A one-time link to pay for the subscription in Telegram |
 | `/allay locale [player]` | Which language a player reads Allay in, and why: their IP's country, their game's language, or the default |
-| `/allay init` | On a self-hosted backend (Allay Server 5.7+), a one-time link to its web admin panel, where you create the first account; once the panel has one, where to sign in. The link works once and for 30 minutes and goes only to you |
+| `/allay init` | On a self-hosted backend (Allay Server 5.7+), a one-time link to its web admin panel, where you create the first account; once the panel has one (Allay Server 5.10+), a link that sets a new password for a forgotten one. Either link works once and for 30 minutes and goes only to you |
 
 In chat mode, a line goes by its first character, with or without a space after it:
 

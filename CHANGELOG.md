@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.12.0
+
+Pairs with Allay Server 5.10.0, which hands out recovery links; older servers keep answering as before.
+
+- 🔑 **A forgotten panel password.** Once the admin panel has an account, `/allay init` gives a link that sets a new password for it, good for 30 minutes, instead of only where to sign in. Like the setup link, it goes only to whoever ran the command, never to the log.
+
 ## 5.11.1
 
 Pairs with Allay Server 5.9.1, which tells the chests agent about `amounts`.

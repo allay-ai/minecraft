@@ -681,6 +681,8 @@ admin:
     copy_hover: "&7Copia el enlace para abrirlo en otro dispositivo"
     url: "&7Enlace: &f{url}"
     once: "&8El enlace funciona una vez y durante 30 minutos. Quien lo abra primero será el propietario del panel, así que no lo compartas."
+    recover: "&6Un enlace para poner una contraseña nueva a una cuenta del panel, válido durante 30 minutos."
+    recover_once: "&8Funciona una vez. Quien lo abra puede cambiar la contraseña de cualquier cuenta del panel, así que no lo compartas."
     exists: "&7El panel ya tiene un admin. Inicia sesión aquí:"
     hosted: "&7Este backend configura su panel con un código de su propio registro, no desde el juego. Pregunta a quien lo administra."
     unsupported: "&7Este backend de Allay no tiene panel de administración: es anterior a la 5.7."

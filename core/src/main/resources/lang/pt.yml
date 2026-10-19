@@ -681,6 +681,8 @@ admin:
     copy_hover: "&7Copia o link para abrir em outro dispositivo"
     url: "&7Link: &f{url}"
     once: "&8O link funciona uma vez e por 30 minutos. Quem abrir primeiro vira dono do painel, então não compartilhe."
+    recover: "&6Um link para definir uma nova senha para uma conta do painel, válido por 30 minutos."
+    recover_once: "&8Funciona uma vez. Quem abrir pode trocar a senha de qualquer conta do painel, então não compartilhe."
     exists: "&7O painel já tem um admin. Entre aqui:"
     hosted: "&7Este backend configura o painel com um código do próprio log, não pelo jogo. Pergunte a quem o mantém."
     unsupported: "&7Este backend do Allay não tem painel de administração: é anterior à 5.7."
