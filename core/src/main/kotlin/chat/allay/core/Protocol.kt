@@ -33,7 +33,10 @@ object Protocol {
     val provider: Provider? = null,
     /** Since 5.7, with mode "task": which automation agent wakes. */
     val task: TaskInfo? = null,
-    /** Since 5.7, with mode "ask": the asker's running automation agents, so the model can pass answers on. */
+    /**
+     * Since 5.7, with mode "ask": the asker's running automation agents, so the model can pass answers on. Since 5.12.1,
+     * with mode "task": the waking agent's own running sub-agents.
+     */
     val tasks: List<TaskBrief>? = null,
   )
 

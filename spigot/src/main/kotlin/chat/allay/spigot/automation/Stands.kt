@@ -286,6 +286,7 @@ object Stands {
           val result = buildJsonObject {
             put("stands", rows)
             put("note", "green glow: usable; red: busy or not fit; the player sees it")
+            if (rows.isEmpty()) unreached(player, settings.radius, "brewing stands") { it.type == Material.BREWING_STAND }
             putJsonObject("at_hand") {
               put("water_bottles", sources.count(water))
               put("glass_bottles", sources.count(plain(Material.GLASS_BOTTLE)))

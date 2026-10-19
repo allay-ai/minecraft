@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.12.1
+
+Pairs with Allay Server 5.10.1, which teaches the agents what the plugin now tells them; older servers ignore it.
+
+- 🔗 **An agent hears when its sub-agent ends.** A brewing agent that handed the glass to a furnaces agent used to wait forever and tell you the helper still worked. Now the sub-agent's finish or stop wakes it with `[sub-agent] …` and the summary, so it goes on with the next step or tells you what failed. Each wake also lists the agent's running sub-agents.
+- 🔥 **Out of reach isn't busy.** When `smelt` or `brew` finds nothing within `automation.radius` of you, the scan names the nearest furnace or stand beyond it, and the agent asks you to come closer instead of saying none are free.
+
 ## 5.12.0
 
 Pairs with Allay Server 5.10.0, which hands out recovery links; older servers keep answering as before.

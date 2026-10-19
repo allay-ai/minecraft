@@ -140,6 +140,7 @@ class Automation(
       picking.stop(player, task)
       if (reason != null) line(player, task, "automation.stopped", "reason" to reason)
     }
+    tellParent(task, "stopped" + (reason?.let { ": $it" } ?: ""))
     // An agent's sub-agents go with it.
     book.of(task.owner).filter { it.parent == task.id }.forEach { end(it, reason) }
   }
@@ -159,7 +160,17 @@ class Automation(
     agent?.job?.cancel()
     reservations.release(task.id)
     picking.stop(player, task)
+    tellParent(task, "finished: $summary")
     // Its sub-agents carry on: finishing after handing a step over (“the crafting agent took it”) is how chains end.
+  }
+
+  /**
+   * Wakes the agent that started [task] with how it ended, so the parent goes on with its next step instead of waiting
+   * for a sub-agent that is gone. An ended parent hears nothing.
+   */
+  private fun tellParent(task: Task, outcome: String) {
+    val parent = task.parent?.let { book.find(task.owner, it) } ?: return
+    post(parent, "[sub-agent] «${task.name}» (${task.kind.wire}, ${task.id}) $outcome".take(1000))
   }
 
   /** A line from the agent to its player, with [buttons] under it. */

@@ -6,6 +6,9 @@ import chat.allay.spigot.Claims
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.bukkit.FluidCollisionMode
 import org.bukkit.Location
 import org.bukkit.Material
@@ -131,6 +134,10 @@ object Blocks {
     return found.sortedBy { it.location.distanceSquared(origin) }
   }
 
+  /** For a scan that found nothing in [radius]: the nearest such block within [far], so the agent can say where to go. */
+  fun beyond(origin: Location, radius: Int, far: Int = 64, filter: (Block) -> Boolean): Block? =
+    near(origin, maxOf(far, radius), filter).firstOrNull { it.location.distanceSquared(origin) > radius * radius }
+
   /** Why a block can't take part, with a line for the model; players read `automation.unfit.<name>`. */
   enum class Unfit(val model: String) {
     TYPE("not the kind of block asked for"),
@@ -182,4 +189,21 @@ object Blocks {
     if (Location(player.world, x + 0.5, y + 0.5, z + 0.5).distance(here) > limit) throw ToolError("the block at $x $y $z is farther than $limit blocks from the player")
     player.world.getBlockAt(x, y, z)
   }.orEmpty()
+}
+
+/**
+ * In a scan's result: no [what] within [radius] of the player, and the nearest one beyond, so the agent asks them to come
+ * closer instead of calling them busy.
+ */
+internal fun JsonObjectBuilder.unreached(player: Player, radius: Int, what: String, filter: (Block) -> Boolean) {
+  val nearest = Blocks.beyond(player.location, radius, filter = filter)
+  put("none_within", radius)
+  if (nearest == null) {
+    put("reach_note", "no $what within $radius blocks of the player: ask them to go to theirs, then wait")
+    return
+  }
+  put("nearest_beyond_reach", buildJsonObject {
+    put("x", nearest.x); put("y", nearest.y); put("z", nearest.z); put("distance", nearest.location.distance(player.location).toInt())
+  })
+  put("reach_note", "no $what within $radius blocks of the player, so none is busy or free: ask them in a line to come within $radius blocks of the one at ${nearest.x} ${nearest.y} ${nearest.z}, then wait")
 }

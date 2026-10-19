@@ -164,7 +164,12 @@ class Service<C>(
       tools = tools.offered(isOperator(asker) && run.task == null),
       provider = credentials.block(run.model),
       task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire) },
-      tasks = if (run.mode == Run.Mode.ASK) tasks(run).takeIf { it.isNotEmpty() } else null,
+      tasks = when (run.mode) {
+        Run.Mode.ASK -> tasks(run).takeIf { it.isNotEmpty() }
+        // An agent sees its own running sub-agents, so it never claims one works after it ended.
+        Run.Mode.TASK -> tasks(run)
+        else -> null
+      },
     )
   }
 
@@ -174,9 +179,9 @@ class Service<C>(
   /** Only a player can be an operator here: the console asks without the tools that change the game. */
   private fun isOperator(asker: Asker) = asker.uuid != null && asker.operator
 
-  /** The asker's running automation agents, for the main chat's prompt. */
+  /** The asker's running automation agents for the main chat's prompt, or a waking agent's own sub-agents. */
   private fun tasks(run: Run): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
-    taskBook?.of(owner)?.take(4)?.map { Protocol.TaskBrief(it.id, it.name, it.state.wire, it.question?.take(200)) }
+    taskBook?.of(owner)?.filter { run.task == null || it.parent == run.task.id }?.take(4)?.map { Protocol.TaskBrief(it.id, it.name, it.state.wire, it.question?.take(200)) }
   }.orEmpty()
 
   /** Runs a client tool on the server thread and posts what came out; failures go back as errors, never as exceptions. */

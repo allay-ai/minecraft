@@ -292,6 +292,7 @@ object Furnaces {
           val result = buildJsonObject {
             put("furnaces", rows)
             put("note", "green glow: free; red: busy or unusable; the player sees it")
+            if (rows.isEmpty()) unreached(player, settings.radius, "furnaces") { Blocks.furnace(it.type) }
             item?.let { put("player_has", sources.free(plain(it), it.key.key, automation.reservations, task.id)) }
             // What the player could smelt right now, so the agent needn't search for it.
             val smeltable = sources.list.flatMap { it.slots() }.filterNotNull().filter(Sources::plain).map { it.type }.distinct()
