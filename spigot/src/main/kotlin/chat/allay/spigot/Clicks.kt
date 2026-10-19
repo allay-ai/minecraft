@@ -147,7 +147,7 @@ class Clicks(
       } ?: lang.send(player, "buttons.book_gone")
       is Button.ChatMode -> features.chat.set(player, true)
       is Button.HideTips -> features.chat.hints(player, false)
-      is Button.Reply -> features.automation.reply(player, button.task, button.reply)
+      is Button.Reply -> features.automation.reply(player, button.task, button.label, button.reply)
       is Button.Pick -> features.automation.picking.button(player, button.action)
       is Button.Undo -> try {
         val restored = features.automation.undo.restore(player, features.config().automation.undoMinutes)

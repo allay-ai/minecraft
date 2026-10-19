@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tools.EXPERIMENTAL_TOOLS
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.TimeZones
 
@@ -105,11 +106,14 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     /** Plugins `get_server` leaves out of its list, by name, in any case. */
     val hiddenPlugins = config.strings("tools.server.hidden_plugins").map(String::lowercase).toSet()
 
-    /** Missing keys mean on: an old config gets every tool. Operator tools also need `tools.operator.enabled`. */
+    /**
+     * Missing keys mean on: an old config gets every tool, except the experimental ones in [EXPERIMENTAL_TOOLS], which
+     * stay off until a server turns them on. Operator tools also need `tools.operator.enabled`.
+     */
     fun enabled(name: String) = if (name in OPERATOR_TOOLS) {
       (operator?.boolean("enabled", true) ?: true) && (operator?.boolean(name, true) ?: true)
     } else {
-      switches?.boolean(name, true) ?: true
+      switches?.boolean(name, name !in EXPERIMENTAL_TOOLS) ?: (name !in EXPERIMENTAL_TOOLS)
     }
   }
 
@@ -130,7 +134,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val radius = config.int("automation.radius", 16).coerceIn(4, 48)
     /** An agent pauses while its player is farther than this from where it started, or in another dimension. */
     val pauseDistance = config.int("automation.pause_distance", 48).coerceIn(8, 256)
-    /** A furnace, stand, or crafting table counts only when nothing solid, glass included, stands between it and the player's eyes. */
+    /** A furnace, stand, or crafting table counts only when no opaque full block stands between it and the player's eyes; glass and leaves don't hide it. */
     val lineOfSight = config.boolean("automation.line_of_sight", true)
     /** “Sort all”: chests reached from the picked ones across gaps of up to this many blocks, at most [maxChests]. */
     val chestGap = config.int("automation.chests.gap", 6).coerceIn(1, 16)

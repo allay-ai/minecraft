@@ -35,6 +35,9 @@ interface ClientTool<in C> {
   fun run(context: C, args: JsonObject): ToolOutput
 }
 
+/** Tools still being worked on: off unless `tools.enabled` turns them on. Drafts cost many tokens and often come out wrong. */
+val EXPERIMENTAL_TOOLS = setOf("show_draft")
+
 /** Tools that change the game: items, teleports, and the like. Only operators get them. */
 val OPERATOR_TOOLS = setOf("give_item", "teleport", "set_gamemode", "heal", "apply_effect", "set_time", "set_weather")
 

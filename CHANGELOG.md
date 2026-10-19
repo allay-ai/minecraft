@@ -2,6 +2,15 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.13.0
+
+Pairs with Allay Server 5.11.0, which gives each agent only its own tools; older servers keep working.
+
+- ✅ **A click answers back.** When an agent asks “go ahead?” and you press a button, the chat shows at once “Got it: “Yes”. Passing it on.”, so you know it went through while the agent thinks.
+- 👀 **Glass doesn't hide a furnace.** An agent counts a furnace, stand, or crafting table as in sight unless a wall of opaque blocks stands in between: glass, leaves, slabs, fences, and the thin brewing stand itself no longer make it “unsuitable”. The way button of `find_item` follows the same rule.
+- 🏗️ **Drafts are experimental and off.** `show_draft` costs many tokens and often draws a build wrong, so `tools.enabled.show_draft` is `false` by default, and a config without the key keeps it off. Turn it on to try it.
+- 💬 **Plainer tool lines.** “Running the numbers” instead of “Calculating exactly”, “Checking your health and hunger”, “Looking for players nearby”, and more, in every language.
+
 ## 5.12.1
 
 Pairs with Allay Server 5.10.1, which teaches the agents what the plugin now tells them; older servers ignore it.

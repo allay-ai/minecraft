@@ -122,8 +122,10 @@ class Automation(
   }
 
   /** A button under one of the agent's questions. */
-  fun reply(player: Player, id: String, reply: String) {
+  fun reply(player: Player, id: String, label: String, reply: String) {
     val task = book.find(player.uniqueId, id) ?: return locales.of(player).send(player, "automation.gone")
+    // The click shows at once, so the player knows it went through while the agent thinks.
+    line(player, task, "automation.replied", "label" to label)
     // The agent's notes may not say what it asked, so the click carries the question along.
     post(task, "[button] $reply" + (task.question?.let { " (the player's answer to your question “${it.take(200)}”)" } ?: ""))
   }
