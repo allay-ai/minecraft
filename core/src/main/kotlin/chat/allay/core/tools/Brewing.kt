@@ -53,6 +53,28 @@ object Brewing {
     return loads
   }
 
+  /** A stand that holds bottles already: the chain step they start at (0 is water) and how many. */
+  data class Held(val step: Int, val bottles: Int)
+
+  /**
+   * Which of [stands] brew [total] potions, as indexes into it with the bottles each gets beside its own: the furthest
+   * along first (the nearest first within a step, as [stands] comes), only until [total] is reached, so stands kept
+   * ready stay ready. Each is filled up to three with what [topUp] gives for its step out of what it asks for.
+   */
+  fun standing(stands: List<Held>, total: Int, topUp: (step: Int, wanted: Int) -> Int): List<Pair<Int, Int>> {
+    val picked = mutableListOf<Pair<Int, Int>>()
+    var have = 0
+    for (index in stands.indices.sortedByDescending { stands[it].step }) {
+      if (have >= total) break
+      val (step, bottles) = stands[index]
+      val wanted = minOf(STAND_BOTTLES - bottles, total - have - bottles)
+      val extra = if (wanted > 0) topUp(step, wanted).coerceIn(0, wanted) else 0
+      picked += index to extra
+      have += bottles + extra
+    }
+    return picked
+  }
+
   /**
    * Hands [loads] out to [stands] stands, one round after another: the first [stands] loads start at once, and each
    * later one waits in a stand's queue for the load before it to finish, the queues as even as can be.

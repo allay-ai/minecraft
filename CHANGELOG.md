@@ -2,6 +2,17 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.14.3
+
+Pairs with Allay Server 5.12.3; older servers work too.
+
+- 🧪 **Stands kept ready stay ready.** Stands of water bottles brew only as many potions as asked: “brew 3 fire resistance” with four stands of water bottles uses one, where it brewed all twelve and asked for four nether warts. Stands of water suit any potion of a `potions` start, and a stand with one or two bottles of a step is filled up to three from the player's bottles of that kind before another stand takes a reagent.
+- 🛑 **Taking bottles out mid-brew stops the agent.** The game stops a stand when its bottles go and leaves the reagent in; the agent took that for brewing and waited forever. Now a job's stand that stands still for two seconds stops the agent with the reason.
+- 🔍 **Scan and start say why a stand doesn't fit.** A stand brewing says how long it has left, a reagent left in its top slot or mixed bottles says what to take out, and a stand of finished potions says to collect them. When no stand fits, start lists each one and why instead of one line for all; when some are skipped, the result names them.
+- 🔥 **Blaze powder in the fuel slot counts.** A stand with fuel 0 and powder waiting in its slot no longer asks for more powder. The missing blaze powder adds up the reagents and the fuel instead of one replacing the other, and counts the blaze rods at hand.
+- 💧 **Water bottles fill only when the brew can start.** Glass bottles turn into water bottles once nothing else is missing, so a start short of nether wart leaves them as they were and says how many it will fill. Flowing water no longer counts as water near, as in the game; kelp, seagrass, and bubble columns do. Filled bottles go back where their glass bottles were, glass bottles another agent holds stay put, and when the inventory is full and filled bottles fall at the player's feet, start says so instead of “not enough glass bottles”. A start without water near says how many glass bottles the player has.
+- 📋 **status** names the potion's form and how many bottles each stand brews.
+
 ## 5.14.2
 
 Pairs with Allay Server 5.12.2; older servers work too.

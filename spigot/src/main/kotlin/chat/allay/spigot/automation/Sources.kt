@@ -161,13 +161,15 @@ class Sources private constructor(val list: List<Source>) {
   }
 }
 
-/** Hands [items] to [player]: into [preferred] if it has room, then the inventory, then at their feet. */
-fun give(player: Player, items: List<ItemStack>, preferred: Sources.Source? = null) {
+/** Hands [items] to [player]: into [preferred] if it has room, then the inventory, then at their feet. Returns how many fell there. */
+fun give(player: Player, items: List<ItemStack>, preferred: Sources.Source? = null): Int {
+  var dropped = 0
   items.forEach { item ->
     var left: ItemStack? = item
     // A bundle source refuses nothing, so only containers and the inventory take items back.
     if (preferred != null && !preferred.place.contains('#')) left = left?.let(preferred::add)
     left = left?.let { player.inventory.addItem(it).values.firstOrNull() }
-    left?.let { player.world.dropItemNaturally(player.location, it) }
+    left?.let { player.world.dropItemNaturally(player.location, it); dropped += it.amount }
   }
+  return dropped
 }

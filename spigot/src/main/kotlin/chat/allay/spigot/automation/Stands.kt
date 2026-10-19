@@ -70,8 +70,11 @@ object Stands {
   /** How reservations name a bottle of [kind]. */
   private fun key(kind: Brewing.Bottle) = if (kind == Brewing.WATER) "water_bottle" else "${kind.item}:${kind.potion}"
 
-  /** One load of a stand: [potion]'s chain from [step] on, with [bottles] bottles; [standing] when they're in the stand already. */
-  private class Work(val potion: Int, val step: Int, val bottles: Int, val standing: Boolean = false)
+  /**
+   * One load of a stand: [potion]'s chain from [step] on, with [bottles] bottles; [standing] when they're in the stand
+   * already, and then [extra] of them go in beside those to fill it up.
+   */
+  private class Work(val potion: Int, val step: Int, val bottles: Int, val standing: Boolean = false, val extra: Int = 0)
 
   /** A stand of a job: the load it brews now, the step it's at, and the loads waiting for their round. */
   private class Load(val block: Block, var work: Work, val rest: ArrayDeque<Work>) {
@@ -170,8 +173,9 @@ object Stands {
         if (done(load)) continue
         val state = stand(load.block)
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "brewing_stand", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
-        // Between steps the stand brews; an empty ingredient slot with nothing brewing means someone took the reagent.
-        if (state.brewingTime > 0 || state.inventory.ingredient != null) {
+        // A stand of the job brews all the time but for a tick or two between steps. Standing still means someone took
+        // the reagent or bottles (the game stops then, and the reagent stays), or put in what doesn't brew.
+        if (state.brewingTime > 0) {
           suspect -= load.block
         } else if (suspect.add(load.block).not()) {
           return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.type.key.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
@@ -190,6 +194,13 @@ object Stands {
     (0..2).mapNotNull { slot -> inventory.getItem(slot)?.also { inventory.setItem(slot, null) } }
   }
 
+  /** Plants that always stand in a water source. */
+  private val UNDERWATER = setOf(Material.KELP, Material.KELP_PLANT, Material.SEAGRASS, Material.TALL_SEAGRASS, Material.BUBBLE_COLUMN)
+
+  /** A water source a glass bottle fills at, as the game's bottle sees it: flowing water doesn't count. */
+  private fun source(block: Block) = (block.type == Material.WATER && (block.blockData as? Levelled)?.level == 0) || block.type in UNDERWATER ||
+    (block.blockData as? Waterlogged)?.isWaterlogged == true
+
   /** Water the player could fill bottles at near them: null for none, [Int.MAX_VALUE] for water itself, else the cauldrons' levels. */
   private fun water(player: Player): Pair<Int, List<Block>>? {
     val origin = player.location.block
@@ -197,7 +208,7 @@ object Stands {
     var levels = 0
     for (dx in -WATER_REACH..WATER_REACH) for (dy in -WATER_REACH..WATER_REACH) for (dz in -WATER_REACH..WATER_REACH) {
       val block = origin.getRelative(dx, dy, dz)
-      if (block.type == Material.WATER || (block.blockData as? Waterlogged)?.isWaterlogged == true) return Int.MAX_VALUE to emptyList()
+      if (source(block)) return Int.MAX_VALUE to emptyList()
       if (block.type == Material.WATER_CAULDRON) {
         cauldrons += block
         levels += (block.blockData as? Levelled)?.level ?: 0
@@ -208,16 +219,23 @@ object Stands {
 
   /**
    * Fills up to [count] of the player's glass bottles with water, as clicking water does: from water near (endless) or
-   * cauldrons, a level a bottle. The water bottles go to the inventory. Returns how many.
+   * cauldrons, a level a bottle. Each water bottle goes back where its glass bottle was, else to the inventory. Returns
+   * how many it filled and how many of those fell at the player's feet for want of room.
    */
-  private fun fill(player: Player, sources: Sources, count: Int, holds: chat.allay.core.tasks.Reservations, task: Task): Int {
-    val (levels, cauldrons) = water(player) ?: return 0
+  private fun fill(player: Player, sources: Sources, count: Int, holds: chat.allay.core.tasks.Reservations, task: Task): Pair<Int, Int> {
+    val (levels, cauldrons) = water(player) ?: return 0 to 0
     val n = minOf(count, levels, sources.free(plain(Material.GLASS_BOTTLE), "glass_bottle", holds, task.id))
-    if (n <= 0) return 0
+    if (n <= 0) return 0 to 0
+    val bottle = ItemStack(Material.POTION).apply { itemMeta = (itemMeta as PotionMeta).apply { basePotionType = PotionType.WATER } }
     var left = n
+    var dropped = 0
     for (source in sources.list) {
       if (left <= 0) break
-      left -= source.take(plain(Material.GLASS_BOTTLE), left).sumOf { it.amount }
+      // Glass bottles other tasks hold stay where they are.
+      val free = (source.count(plain(Material.GLASS_BOTTLE)) - holds.held(source.place, "glass_bottle")).coerceAtLeast(0)
+      val got = source.take(plain(Material.GLASS_BOTTLE), minOf(left, free)).sumOf { it.amount }
+      left -= got
+      dropped += give(player, List(got) { bottle.clone() }, source)
     }
     val filled = n - left
     var lower = if (levels == Int.MAX_VALUE) 0 else filled
@@ -228,9 +246,7 @@ object Stands {
       lower -= take
       if (data.level - take <= 0) cauldron.type = Material.CAULDRON else cauldron.blockData = data.apply { level -= take }
     }
-    val bottle = ItemStack(Material.POTION).apply { itemMeta = (itemMeta as PotionMeta).apply { basePotionType = PotionType.WATER } }
-    give(player, List(filled) { bottle.clone() })
-    return filled
+    return filled to dropped
   }
 
   /** The potions a call asks for: `potions`, or `potion` with `form` and `bottles`. */
@@ -266,21 +282,20 @@ object Stands {
           val rows = buildJsonArray {
             Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND }.forEach { block ->
               val state = stand(block) ?: return@forEach
-              val unfit = Blocks.unusable(player, block, settings.radius, settings.lineOfSight)
-              val busy = state.brewingTime > 0 || state.inventory.ingredient != null || Jobs.busy(block)
-              val start = chain?.let { step(block, listOf(it)) }
+              val reason = blocked(player, block, settings.radius, settings.lineOfSight)
+              val (kind, count) = held(block) ?: (null to 0)
+              val at = chain?.let { fit(kind, it) }
               add(buildJsonObject {
                 put("x", block.x); put("y", block.y); put("z", block.z)
                 putJsonArray("bottles") { bottles(block).forEach { item -> add(bottle(item)?.let { "${it.item} ${it.potion}" } ?: item?.type?.key?.key ?: "empty") } }
-                put("fuel", state.fuelLevel)
+                put("fuel", fuel(state))
                 when {
-                  unfit != null -> put("unsuitable", unfit.model)
-                  busy -> put("busy", true)
-                  start != null && start.first < 0 -> put("unsuitable", "its bottles aren't a step toward this potion")
-                  start != null -> put("starts_at_step", start.second + 1)
+                  reason != null -> put(if (reason.startsWith("busy")) "busy" else "unsuitable", reason)
+                  chain != null && at == null -> put("unsuitable", mismatch(kind!!, count, listOf(chain)))
+                  at != null -> put("starts_at_step", at + 1)
                 }
               })
-              marks += Marks.Mark(block, null, null, if (unfit == null && !busy && (start == null || start.first >= 0)) Marks.Hue.GREEN else Marks.Hue.RED)
+              marks += Marks.Mark(block, null, null, if (reason == null && (chain == null || at != null)) Marks.Hue.GREEN else Marks.Hue.RED)
             }
           }
           if (marks.isNotEmpty()) Marks.show(context.plugin, player, marks, context.features.config().tools.marksSeconds)
@@ -310,7 +325,8 @@ object Stands {
               job.loads.forEach {
                 add(buildJsonObject {
                   put("x", it.block.x); put("y", it.block.y); put("z", it.block.z)
-                  put("potion", job.chain(it).last().to.potion)
+                  job.chain(it).last().to.let { made -> put("potion", made.potion); if (made.item != "potion") put("form", made.item) }
+                  put("bottles", it.work.bottles)
                   put("step", minOf(it.step + 1, job.chain(it).size)); put("steps", job.chain(it).size)
                   put("rounds_left", it.rest.size); put("done", job.done(it))
                 })
@@ -337,24 +353,37 @@ object Stands {
     }
   }
 
-  /**
-   * Which of [chains] a stand's bottles are a step of: the chain, the step, and how many bottles; (-1, -1, 0) when
-   * they fit none, and (0, 0, 0) for an empty stand. Water fits the first chain.
-   */
-  private fun step(block: Block, chains: List<List<Brewing.Brew>>): Triple<Int, Int, Int> {
+  /** The one kind of bottle a stand holds and how many: (null, 0) when it's empty, null when its bottles differ or aren't plain potions. */
+  private fun held(block: Block): Pair<Brewing.Bottle?, Int>? {
     val present = bottles(block).filterNotNull()
-    if (present.isEmpty()) return Triple(0, 0, 0)
-    val kinds = present.map(::bottle).distinct()
-    if (kinds.size != 1 || kinds.first() == null) return Triple(-1, -1, 0)
-    val kind = kinds.first()!!
-    chains.forEachIndexed { index, chain ->
-      val at = chain.indexOfFirst { it.from == kind }
-      if (at >= 0) return Triple(index, at, present.size)
-    }
-    return Triple(-1, -1, 0)
+    if (present.isEmpty()) return null to 0
+    val kind = present.map(::bottle).distinct().singleOrNull() ?: return null
+    return kind to present.size
   }
 
-  private fun start(context: ToolContext, player: Player, task: Task, args: JsonObject, filled: Int = 0): ToolOutput {
+  /** The step of [chain] bottles of [kind] start at: 0 for an empty stand, null when they aren't a step of it. */
+  private fun fit(kind: Brewing.Bottle?, chain: List<Brewing.Brew>): Int? = if (kind == null) 0 else chain.indexOfFirst { it.from == kind }.takeIf { it >= 0 }
+
+  /** Why [count] bottles of [kind] suit none of [chains], for the model. */
+  private fun mismatch(kind: Brewing.Bottle, count: Int, chains: List<List<Brewing.Brew>>) =
+    if (chains.any { it.lastOrNull()?.to == kind }) "it holds $count finished ${kind.item} ${kind.potion}; collect them first"
+    else "its $count × ${kind.item} ${kind.potion} aren't a step toward this potion; the player takes them out first"
+
+  /** Brews a stand has left: its fuel and the blaze powder waiting in its fuel slot. */
+  private fun fuel(state: BrewingStand) = state.fuelLevel + (state.inventory.fuel?.takeIf { it.type == Material.BLAZE_POWDER }?.amount ?: 0) * BREWS_PER_POWDER
+
+  /** Why a stand can't take a job now, for the model; null when it can. Busy ones say so first. */
+  private fun blocked(player: Player, block: Block, radius: Int, sight: Boolean): String? {
+    val state = stand(block) ?: return "not a brewing stand"
+    Blocks.unusable(player, block, radius, sight)?.let { return it.model }
+    if (Jobs.busy(block)) return "busy: an agent's job uses it"
+    if (state.brewingTime > 0) return "busy: brewing, ${(state.brewingTime + 19) / 20} s left"
+    state.inventory.ingredient?.let { return "${it.amount} × ${it.type.key.key} sits in its ingredient slot; the player takes it out first" }
+    if (held(block) == null) return "its bottles differ or aren't plain potions; the player takes them out first"
+    return null
+  }
+
+  private fun start(context: ToolContext, player: Player, task: Task, args: JsonObject, filled: Int = 0, dropped: Int = 0): ToolOutput {
     val automation = context.features.automation
     val settings = automation.settings()
     val holds = automation.reservations
@@ -363,32 +392,48 @@ object Stands {
     val chains = requests.map { it.first }
     val to = Jobs.target(player, args["to"], Kind.BREWING, context.features.settings, args.bool("remember") == true)
     val named = Blocks.list(player, args["stands"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
-    val candidates = named.ifEmpty { Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND } }
-      .filter { it.type == Material.BREWING_STAND && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && !Jobs.busy(it) }
-      .filter { stand(it)!!.let { state -> state.brewingTime <= 0 && state.inventory.ingredient == null } }
+    val skipped = mutableListOf<String>()
+    val fitting = named.ifEmpty { Blocks.near(player.location, settings.radius) { it.type == Material.BREWING_STAND } }
+      .filter { it.type == Material.BREWING_STAND }
       .sortedBy { it.location.distanceSquared(player.location) }
-    val fitting = candidates.map { it to step(it, chains) }.filter { it.second.first >= 0 }
-    if (fitting.isEmpty()) throw ToolError("no stand near the player fits: each needs to be idle with no bottles, water bottles, or a step of these potions in it")
+      .mapNotNull { block ->
+        val (kind, count) = held(block) ?: (null to 0)
+        val reason = blocked(player, block, settings.radius, settings.lineOfSight)
+          ?: kind?.takeIf { bottle -> chains.none { fit(bottle, it) != null } }?.let { mismatch(it, count, chains) }
+        if (reason == null) Triple(block, kind, count) else null.also { skipped += "${block.x} ${block.y} ${block.z}: $reason" }
+      }
+    if (fitting.isEmpty()) throw ToolError(
+      if (skipped.isEmpty()) "no brewing stand within ${settings.radius} blocks of the player"
+      else "no stand near the player fits: ${skipped.take(6).joinToString("; ")}",
+    )
 
-    // Stands that already hold a step go on from there. The rest take the player's own bottles of a later step first
-    // (their night vision potions when they want long ones), then water; bottles is each potion's total, three to a stand.
+    // Stands that already hold a step go on from there, filled up to three from the player's bottles of that kind;
+    // stands of water bottles suit any potion. Only as many as the potion needs, so stands kept ready stay ready.
+    // The rest take the player's own bottles of a later step first (their night vision potions when they want long
+    // ones), then water; bottles is each potion's total, three to a stand.
     val sources = Sources.around(player, settings.radius)
-    val standing = fitting.filter { it.second.third > 0 }
-    val empty = fitting.filter { it.second.third == 0 }.map { it.first }
+    val standing = fitting.filter { it.third > 0 }
+    val empty = fitting.filter { it.third == 0 }.map { it.first }
     val fresh = args.bool("fresh") == true
     val claimed = mutableMapOf<String, Int>()
     val firsts = mutableListOf<Pair<Block, Work>>()
     val waiting = mutableListOf<Work>()
+    val used = mutableSetOf<Block>()
     requests.forEachIndexed { index, (chain, _, bottles) ->
-      val here = standing.filter { it.second.first == index }
-      here.forEach { (block, at) -> firsts += block to Work(index, at.second, at.third, standing = true) }
-      val inStands = here.sumOf { it.second.third }
-      val own = if (fresh) emptyMap() else chain.indices.drop(1).associateWith { step ->
-        val kind = chain[step].from
-        (sources.free(potion(kind), key(kind), holds, task.id) - (claimed[key(kind)] ?: 0)).coerceAtLeast(0)
-      }.filterValues { it > 0 }
-      val total = (bottles ?: (inStands + own.values.sum()).takeIf { it > 0 } ?: Brewing.STAND_BOTTLES).coerceIn(1, MAX_BOTTLES)
-      Brewing.fill((total - inStands).coerceAtLeast(0), Int.MAX_VALUE, own).forEach { fill ->
+      fun free(kind: Brewing.Bottle) = (sources.free(potion(kind), key(kind), holds, task.id) - (claimed[key(kind)] ?: 0)).coerceAtLeast(0)
+      fun own() = if (fresh) emptyMap() else chain.indices.drop(1).associateWith { free(chain[it].from) }.filterValues { it > 0 }
+      val here = standing.filter { it.first !in used }.mapNotNull { (block, kind, count) -> fit(kind, chain)?.let { block to Brewing.Held(it, count) } }
+      val total = (bottles ?: (here.filter { it.second.step > 0 }.sumOf { it.second.bottles } + own().values.sum()).takeIf { it > 0 } ?: Brewing.STAND_BOTTLES).coerceIn(1, MAX_BOTTLES)
+      var inStands = 0
+      Brewing.standing(here.map { it.second }, total) { step, wanted ->
+        minOf(wanted, free(chain[step].from)).also { if (it > 0) claimed.merge(key(chain[step].from), it, Int::plus) }
+      }.forEach { (at, extra) ->
+        val (block, held) = here[at]
+        used += block
+        firsts += block to Work(index, held.step, held.bottles + extra, standing = true, extra = extra)
+        inStands += held.bottles + extra
+      }
+      Brewing.fill((total - inStands).coerceAtLeast(0), Int.MAX_VALUE, own()).forEach { fill ->
         if (fill.step > 0) claimed.merge(key(chain[fill.step].from), fill.bottles, Int::plus)
         waiting += Work(index, fill.step, fill.bottles)
       }
@@ -405,11 +450,12 @@ object Stands {
     var powder = 0
     val powderPer = plans.map { (block, work, rest) ->
       (listOf(work) + rest).forEach { load ->
-        if (!load.standing) bottlesNeeded.merge(chains[load.potion][load.step].from, load.bottles, Int::plus)
+        val n = if (load.standing) load.extra else load.bottles
+        if (n > 0) bottlesNeeded.merge(chains[load.potion][load.step].from, n, Int::plus)
         chains[load.potion].drop(load.step).forEach { needs.merge(it.reagent, 1, Int::plus) }
       }
       val brews = (listOf(work) + rest).sumOf { chains[it.potion].size - it.step }
-      val fuel = stand(block)!!.fuelLevel
+      val fuel = fuel(stand(block)!!)
       (if (brews > fuel) (brews - fuel + BREWS_PER_POWDER - 1) / BREWS_PER_POWDER else 0).also { powder += it }
     }
     val missing = mutableMapOf<String, Int>()
@@ -421,12 +467,30 @@ object Stands {
     // Blaze powder may be a reagent too (strength); the fuel gets only what the reagents leave.
     val havePowder = (sources.free(plain(Material.BLAZE_POWDER), "blaze_powder", holds, task.id) - (needs["blaze_powder"] ?: 0)).coerceAtLeast(0)
     val rods = if (powder > havePowder) (powder - havePowder + 1) / 2 else 0
-    if (rods > 0) (rods - sources.free(plain(Material.BLAZE_ROD), "blaze_rod", holds, task.id)).takeIf { it > 0 }?.let { missing["blaze_powder"] = powder - havePowder }
-    // Water bottles the player lacks are filled from their glass bottles, once, when water is near.
+    if (rods > 0) {
+      val haveRods = sources.free(plain(Material.BLAZE_ROD), "blaze_rod", holds, task.id)
+      // In powder, on top of what the reagents miss: each rod at hand makes two.
+      if (rods > haveRods) missing.merge("blaze_powder", powder - havePowder - haveRods * 2, Int::plus)
+    }
+    // Water bottles the player lacks are filled from their glass bottles when water is near, but only once nothing
+    // else is missing, so a start that can't go ahead leaves the glass bottles as they were.
+    var fillable = 0
+    var water: String? = null
     missing["water_bottle"]?.let { short ->
-      if (filled == 0) {
-        val made = fill(player, sources, short, holds, task)
-        if (made > 0) return start(context, player, task, args, made)
+      val near = water(player)
+      val glass = sources.free(plain(Material.GLASS_BOTTLE), "glass_bottle", holds, task.id)
+      fillable = if (near == null || filled > 0) 0 else minOf(short, near.first, glass)
+      if (fillable == short && missing.size == 1) {
+        val (made, fell) = fill(player, sources, short, holds, task)
+        if (made > 0) return start(context, player, task, args, made, fell)
+      }
+      if (fillable == short) missing -= "water_bottle" else missing["water_bottle"] = short - fillable
+      water = when {
+        fillable == short -> null
+        dropped > 0 -> "$dropped filled water bottles fell at the player's feet: the inventory is full; they pick them up or make room"
+        near == null -> "no water source or filled cauldron within $WATER_REACH blocks to fill glass bottles at; the player has $glass glass bottles"
+        glass < short -> "${short - glass} glass bottles short to fill at the water near"
+        else -> "the cauldrons near hold only ${near.first} levels of water"
       }
     }
     if (missing.isNotEmpty()) {
@@ -434,7 +498,8 @@ object Stands {
         put("started", false)
         putJsonObject("missing") { missing.forEach { (id, n) -> put(id, n) } }
         if (filled > 0) put("filled_water_bottles", filled)
-        if ("water_bottle" in missing) put("water", if (water(player) == null) "no water or filled cauldron near to fill glass bottles at" else "not enough glass bottles to fill")
+        water?.let { put("water", it) }
+        if (fillable > 0) put("fills_water_bottles", "$fillable water bottles fill from the player's glass bottles at the water near once the rest is here")
         put("note", "tell the player what's missing and where it comes from; nothing else was taken")
       }, context.lang.text("summary.brewing_missing", "count" to missing.size))
     }
@@ -461,9 +526,10 @@ object Stands {
     if (powderShort != null) fail("the blaze powder changed meanwhile")
     // The first round's bottles come out before any stand changes, so a shortfall leaves the stands as they were.
     val bottlesInHand = plans.map { (_, work, _) ->
-      if (work.standing) return@map emptyList<ItemStack>()
+      val n = if (work.standing) work.extra else work.bottles
+      if (n == 0) return@map emptyList<ItemStack>()
       val kind = chains[work.potion][work.step].from
-      val (bottles, short) = sources.takeReserved(potion(kind), key(kind), work.bottles, holds, task.id)
+      val (bottles, short) = sources.takeReserved(potion(kind), key(kind), n, holds, task.id)
       inHand += bottles
       if (short != null) fail("the ${key(kind)} changed meanwhile")
       bottles.flatMap { stack -> List(stack.amount) { stack.clone().apply { amount = 1 } } }
@@ -472,7 +538,8 @@ object Stands {
     var powderPool = powderTaken.sumOf { it.amount } + rodsTaken.sumOf { it.amount } * 2
     val loads = plans.mapIndexed { index, (block, work, rest) ->
       val inventory = stand(block)!!.inventory
-      bottlesInHand[index].forEachIndexed { slot, bottle -> inventory.setItem(slot, bottle) }
+      // Into the free slots: a stand filled up keeps the bottles it held where they were.
+      bottlesInHand[index].zip((0..2).filter { inventory.getItem(it) == null }).forEach { (bottle, slot) -> inventory.setItem(slot, bottle) }
       val n = minOf(powderPool, powderPer[index])
       if (n > 0) {
         val fuel = inventory.fuel
@@ -503,8 +570,9 @@ object Stands {
         }
       })
       putJsonObject("potions") { job.made.forEach { (what, n) -> put(what, n) } }
-      val theirs = plans.flatMap { (_, work, rest) -> listOf(work) + rest }.filter { it.step > 0 && !it.standing }.groupBy { chains[it.potion][it.step].from }
-      if (theirs.isNotEmpty()) putJsonArray("from_player") { theirs.forEach { (kind, parts) -> add("${parts.sumOf { it.bottles }} × ${kind.item} ${kind.potion}") } }
+      val theirs = plans.flatMap { (_, work, rest) -> listOf(work) + rest }.filter { it.step > 0 && (if (it.standing) it.extra else it.bottles) > 0 }.groupBy { chains[it.potion][it.step].from }
+      if (theirs.isNotEmpty()) putJsonArray("from_player") { theirs.forEach { (kind, parts) -> add("${parts.sumOf { if (it.standing) it.extra else it.bottles }} × ${kind.item} ${kind.potion}") } }
+      if (skipped.isNotEmpty()) putJsonArray("skipped_stands") { skipped.take(6).forEach { add(it) } }
       if (filled > 0) put("filled_water_bottles", filled)
       to?.let { put("output", Jobs.describe(it)) }
       val rounded = loads.any { it.rest.isNotEmpty() }

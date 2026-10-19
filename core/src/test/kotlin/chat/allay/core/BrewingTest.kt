@@ -89,6 +89,26 @@ class BrewingTest {
     assertEquals(listOf(Brewing.Fill(0, 3), Brewing.Fill(0, 3)), Brewing.fill(9, 2, emptyMap()))
   }
 
+  @Test fun `stands kept ready brew only what the potion needs`() {
+    val none = { _: Int, _: Int -> 0 }
+    // Four stands of water bottles, three potions wanted: one stand, the others stay ready.
+    assertEquals(listOf(0 to 0), Brewing.standing(List(4) { Brewing.Held(0, 3) }, 3, none))
+    // Six potions: two stands.
+    assertEquals(listOf(0 to 0, 1 to 0), Brewing.standing(List(4) { Brewing.Held(0, 3) }, 6, none))
+  }
+
+  @Test fun `stands further along go first and fill up to three`() {
+    val asked = mutableListOf<Pair<Int, Int>>()
+    val plenty = { step: Int, wanted: Int -> asked += step to wanted; wanted }
+    // A stand of water and one of two night vision bottles (step 2): night vision first, filled up by one.
+    assertEquals(listOf(1 to 1), Brewing.standing(listOf(Brewing.Held(0, 3), Brewing.Held(2, 2)), 3, plenty))
+    assertEquals(listOf(2 to 1), asked)
+    // One water bottle in a stand, nothing to fill it with: it brews alone, and the next stand makes up the rest.
+    assertEquals(listOf(0 to 0, 1 to 0), Brewing.standing(listOf(Brewing.Held(0, 1), Brewing.Held(0, 3)), 3) { _, _ -> 0 })
+    // Never more than the potion needs, nor a stand's three.
+    assertEquals(listOf(0 to 1), Brewing.standing(listOf(Brewing.Held(0, 1)), 2) { _, wanted -> wanted + 5 })
+  }
+
   @Test fun `more loads than stands brew in rounds, evenly`() {
     assertEquals(listOf(listOf(1, 3, 5), listOf(2, 4)), Brewing.rounds(listOf(1, 2, 3, 4, 5), 2))
     assertEquals(listOf(listOf(1), listOf(2)), Brewing.rounds(listOf(1, 2), 4))
