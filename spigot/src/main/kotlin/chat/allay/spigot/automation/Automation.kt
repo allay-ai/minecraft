@@ -253,7 +253,7 @@ class Automation(
     agent.run = null
     // A finish the plugin took stands, even when the stream broke after it.
     task.finished?.let { return finish(player, task, it) }
-    retryIn(failure)?.takeIf { task.retries < RETRIES }?.let { seconds ->
+    Retry.after(failure)?.takeIf { task.retries < Retry.TIMES }?.let { seconds ->
       // Nothing ran: the same message goes again later, so a backend restart or a busy minute doesn't kill the agent.
       task.retries++
       task.inbox.addFirst(message)
@@ -269,22 +269,6 @@ class Automation(
     val busy = agent.job?.let(Jobs::active) == true || book.children(task).isNotEmpty()
     task.settle(agent.said, agent.asked, busy)
     if (task.inbox.isNotEmpty()) wake(task)
-  }
-
-  /**
-   * Seconds until a wake the backend never started may go again: it was busy or rate-limited, or couldn't be reached.
-   * Null for anything else, including failures mid-run, where tools may have acted already.
-   */
-  private fun retryIn(failure: Exception?): Long? {
-    val error = (failure as? ApiErrorException)?.apiError
-    return when {
-      error?.code == "RATE_LIMITED" -> (error.retryAfter ?: 30L).coerceIn(5L, 300L)
-      error?.code == "QUEUE_ERROR" -> 30L
-      // A proxy in front of a backend that restarts answers 502–504 without a body of ours.
-      error?.code == "HTTP_ERROR" && error.statusCode in 502..504 -> 30L
-      generateSequence<Throwable>(failure) { it.cause }.any { it is java.net.ConnectException || it is java.net.UnknownHostException } -> 30L
-      else -> null
-    }
   }
 
   private fun tick() {
@@ -320,11 +304,6 @@ class Automation(
   /** A text in [task]'s player's language. */
   fun text(task: Task, key: String, vararg values: Pair<String, Any?>): String =
     plugin.server.getPlayer(task.owner)?.let { locales.of(it).text(key, *values) } ?: key
-
-  companion object {
-    /** Wakes in a row the backend may refuse before the agent stops. */
-    private const val RETRIES = 3
-  }
 
   private fun onMain(block: () -> Unit) {
     if (!plugin.isEnabled) return

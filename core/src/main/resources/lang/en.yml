@@ -251,6 +251,7 @@ messages:
   players_only: "&cThat's for players only."
   thinking: "&eAsking the AI assistant, one moment…"
   askx_thinking: "&eWorking out the commands…"
+  retrying: "&7Allay is restarting or busy; trying again in {seconds} s…"
   cancelled: "&7Stopped."
   nothing_to_cancel: "&7I'm not doing anything right now."
   arrived: "&aYou're there."

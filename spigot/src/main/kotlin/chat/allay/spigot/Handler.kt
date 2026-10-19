@@ -9,6 +9,7 @@ import chat.allay.spigot.tools.Trails
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import org.bukkit.command.CommandSender
@@ -125,7 +126,7 @@ class Handler(
 
     scope.launch {
       try {
-        val outcome = service.chat(run, message, listener)
+        val outcome = withRetries(run, sender, lang) { service.chat(run, message, listener) }
         if (!run.cancelled) onMain { finish(run, outcome) }
       } catch (e: Exception) {
         if (run.cancelled || e is CancellationException) return@launch
@@ -216,4 +217,20 @@ class Handler(
   }
 
   private fun key(sender: CommandSender) = (sender as? Player)?.uniqueId?.toString() ?: "console:${sender.name}"
+
+  /** Runs [block] again while the backend is restarting or busy, telling the asker once; then the error goes through. */
+  private suspend fun <T> withRetries(run: Run, sender: CommandSender, lang: Lang, block: suspend () -> T): T {
+    var tries = 0
+    while (true) {
+      try {
+        return block()
+      } catch (e: Exception) {
+        if (run.cancelled || e is CancellationException) throw e
+        val seconds = Retry.after(e)?.takeIf { tries < Retry.TIMES } ?: throw e
+        if (tries++ == 0) onMain { lang.send(sender, "messages.retrying", "seconds" to seconds) }
+        plugin.logger.info("⏳ The backend couldn't take the question ($e); trying again in $seconds s")
+        delay(seconds * 1000)
+      }
+    }
+  }
 }

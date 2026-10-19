@@ -2,6 +2,15 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 5.14.1
+
+Pairs with Allay Server 5.12.1; older servers work too.
+
+- 🔁 **A backend restart no longer fails questions.** When the backend restarts or is busy, a question goes again up to 3 times, 15 seconds apart, and the asker sees “Allay is restarting or busy; trying again…”. Automation agents wait the same 15 seconds between tries.
+- 🪵 **Chest selectors know “log” and “planks”.** `log` and `logs` take every kind of log, `planks` every plank, `ingot` every ingot. Before, “take 2 logs” found nothing in a chest of 439 oak logs.
+- 📭 **An empty plan doesn't pass for done.** `chests` apply refuses a plan that moves nothing, so an agent no longer tells the player it took what wasn't there.
+- 🔎 **find_item and scan_nearby_containers look 16 blocks around** by default, up to 24, as far as automation agents reach.
+
 ## 5.14.0
 
 Pairs with Allay Server 5.12.0, which teaches the agents to wait for their sub-agents and steer them; older servers keep working.

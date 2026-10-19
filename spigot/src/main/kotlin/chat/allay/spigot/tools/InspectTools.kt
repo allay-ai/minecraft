@@ -53,7 +53,7 @@ object InspectTools {
       .distinctBy { ((it.inventory as? DoubleChestInventory)?.leftSide?.location ?: it.location).toVector() }
 
   private val scanContainers = tool("scan_nearby_containers") { context, player, args ->
-    val radius = (args.int("radius") ?: 8).coerceIn(1, 12)
+    val radius = (args.int("radius") ?: 16).coerceIn(1, 24)
     val found = containersNear(player, radius)
     val rows = found.take(20).map { container ->
       val items = container.inventory.contents.asIterable()
@@ -82,7 +82,7 @@ object InspectTools {
 
   private val findItem = tool("find_item") { context, player, args ->
     val query = args.string("item")?.lowercase()?.removePrefix("minecraft:")?.replace(' ', '_') ?: throw ToolError("item is required, such as diamond or log")
-    val radius = (args.int("radius") ?: 8).coerceIn(1, 12)
+    val radius = (args.int("radius") ?: 16).coerceIn(1, 24)
     // An exact id finds that item; anything else finds every item whose id contains it: “log” finds oak_log and birch_log.
     val exact = Material.matchMaterial(query)?.takeIf { it.isItem && !it.isAir }?.key?.key
     val match: (String) -> Boolean = if (exact != null) { id -> id == exact } else { id -> query in id }

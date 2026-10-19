@@ -137,6 +137,10 @@ object Chests {
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")
           }
           if (planned.inventory != null && !same(pack(player), planned.inventory.first)) throw ToolError("the player's inventory changed since the plan; plan again")
+          // A plan that found nothing to move mustn't read as done: the agent would tell the player it took what isn't there.
+          val moves = planned.blocks.any { !same(planned.before[Blocks.place(it)]!!, planned.after[Blocks.place(it)]!!) } ||
+            planned.inventory?.let { (before, after) -> !same(before, after) } == true
+          if (!moves) throw ToolError("the plan moves nothing: no chest or inventory slot changes. Nothing matched or there's no room; say so, or plan again with other items")
           planned.blocks.forEach { block -> (block.state as Container).inventory.contents = planned.after[Blocks.place(block)]!!.toTypedArray() }
           planned.inventory?.let { (_, after) -> unpack(player, after) }
           automation.undo.keep(player.uniqueId, Undo.Change(planned.blocks, planned.before, planned.after, planned.inventory))

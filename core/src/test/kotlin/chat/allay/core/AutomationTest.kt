@@ -429,4 +429,20 @@ class AutomationTest {
     assertFalse(Layout.matches("splash_potion:infestation", drink))
     assertFalse(Layout.matches("potion:poison", splash))
   }
+
+  @Test fun `selectors take the words players use for kinds of items`() {
+    assertTrue(Layout.matches("log", ItemData("oak_log", 1)))
+    assertTrue(Layout.matches("logs", ItemData("dark_oak_log", 1)))
+    assertTrue(Layout.matches("planks", ItemData("birch_planks", 1)))
+    assertTrue(Layout.matches("ingot", ItemData("iron_ingot", 1)))
+    assertFalse(Layout.matches("log", ItemData("stick", 1)))
+    assertFalse(Layout.matches("iron_ingot", ItemData("iron_block", 1)))
+  }
+
+  @Test fun `only a backend that never started a request is tried again`() {
+    assertEquals(15L, Retry.after(java.io.IOException(java.net.ConnectException("refused"))))
+    assertEquals(15L, Retry.after(ApiErrorException(ApiError("HTTP_ERROR", "bad gateway", statusCode = 502))))
+    assertNull(Retry.after(ApiErrorException(ApiError("AI_ERROR", "the model failed"))))
+    assertNull(Retry.after(IllegalStateException("mid-stream")))
+  }
 }

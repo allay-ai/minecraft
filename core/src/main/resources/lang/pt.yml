@@ -251,6 +251,7 @@ messages:
   players_only: "&cIsso é só para jogadores."
   thinking: "&ePerguntando ao assistente de IA, um momento…"
   askx_thinking: "&eMontando os comandos…"
+  retrying: "&7O Allay está reiniciando ou ocupado; tento de novo em {seconds} s…"
   cancelled: "&7Parei."
   nothing_to_cancel: "&7Não estou fazendo nada agora."
   arrived: "&aVocê chegou."
