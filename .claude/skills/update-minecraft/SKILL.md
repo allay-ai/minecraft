@@ -12,7 +12,7 @@ Move this project to Minecraft `$ARGUMENTS`, or to the newest release if no vers
 
 - **A plugin or mod:** a `build.gradle.kts` that builds against Paper, Spigot, Fabric, or NeoForge. Follow “Plugins and mods”.
 - **Moonlands:** a `compose.yaml` with `PAPER_BUILD`. Follow “Moonlands”.
-- **Anything else** (minecraft-mcp, Allay's backend) has no game version. Say so and stop.
+- **Anything else** (minecraft-mcp, minecraft-exporter, minecraft-grafana, Allay's backend) has no game version. Say so and stop.
 
 The target is `latest.release` in Mojang's manifest. A project that builds only for Fabric targets the newest version in Fabric Meta's game list instead, snapshots, pre-releases, and release candidates included, and moves from one snapshot to the next. Everything else, Moonlands too, moves only to releases. A patch (26.3.1) counts as a new version too. If the project already targets it, say so and stop, with no commit.
 

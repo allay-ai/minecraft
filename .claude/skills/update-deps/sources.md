@@ -34,6 +34,9 @@ Compare versions as numbers, part by part: 26.10 is newer than 26.9, and build 2
 | Other Maven repos | the same `maven-metadata.xml` path under the repo's URL in `build.gradle.kts`, like `https://repo.extendedclip.com/releases/me/clip/placeholderapi/` | |
 | Java | `https://api.adoptium.net/v3/info/available_releases` | Stay on the newest LTS the game needs unless the project says otherwise |
 | npm packages | `npm view <package> version`, `npm outdated` | `npm install <package>@latest` for a major; keep `package-lock.json` in step |
+| Go | `https://go.dev/dl/?mode=json` | The first entry is the newest stable release. `toolchain go<version>` in `go.mod` takes it, and so does `golang:<version>-alpine` in a `Dockerfile`; the `go` line stays at the oldest release the code needs |
+| Go modules | `go list -m -u all` lists what's behind | `go get -u ./... && go mod tidy` updates them; a new major is a new module path (`/v2`) and changes the imports |
+| Grafana plugins | `https://grafana.com/api/plugins/<id>` | `version` is the newest; Grafana's own version comes from its Docker image |
 | Bun packages and Bun | `bun outdated`, `bun update --latest`; Bun itself: `gh api repos/oven-sh/bun/releases/latest -q .tag_name` | Bun's Docker image is `oven/bun:<version>-alpine` |
 | Docker Hub images | `https://hub.docker.com/v2/repositories/<namespace>/<name>/tags?page_size=100&ordering=last_updated` | `library/` for official images like `nginx` and `mongo`. Keep the tag's shape (`-alpine`, `-java25`) |
 | GHCR images | `gh api /orgs/<org>/packages/container/<name>/versions`, or the project's GitHub releases | |
