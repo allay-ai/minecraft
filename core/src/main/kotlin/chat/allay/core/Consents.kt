@@ -6,7 +6,8 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Whether a player agreed to Allay's notice, which the plugin shows with buttons before their first question. The
  * backend keeps the agreement (since 6.1); the plugin trusts a positive answer for [RECHECK_MS], so an erasure from
- * the admin panel asks the player again within the hour. A backend before 6.1 can't keep one, and nobody gets asked.
+ * the admin panel asks the player again within the hour. A backend before 6.1 can't keep one, and nobody gets asked
+ * until the next check an hour later, so an update of the backend counts without a reload.
  */
 class Consents(private val backend: Backend, private val now: () -> Long = System::currentTimeMillis) {
   interface Backend {
@@ -22,8 +23,10 @@ class Consents(private val backend: Backend, private val now: () -> Long = Syste
   /** When each player's agreement was last seen. */
   private val seen = ConcurrentHashMap<UUID, Long>()
 
-  @Volatile var unsupported = false
-    private set
+  /** When the backend last said it can't keep consents. */
+  @Volatile private var oldSince: Long? = null
+
+  val unsupported get() = oldSince?.let { now() - it < RECHECK_MS } == true
 
   /** Whether [player] may ask without a request to the backend first. */
   fun known(player: UUID) = unsupported || seen[player]?.let { now() - it < RECHECK_MS } == true
@@ -33,9 +36,10 @@ class Consents(private val backend: Backend, private val now: () -> Long = Syste
       backend.consent(player.toString())
     } catch (error: ApiErrorException) {
       if (error.apiError.statusCode !in OLD_BACKEND) throw error
-      unsupported = true
+      oldSince = now()
       return State.UNSUPPORTED
     }
+    oldSince = null
     if (version == null || version < VERSION) return State.MISSING
     seen[player] = now()
     return State.GIVEN

@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.1.1
+
+- 🔁 **An updated backend starts asking within the hour.** A question to a backend before 6.1 made Allay ask nobody until `/allay reload` or a restart, even after the backend moved to 6.1. Now it checks the backend again after an hour.
+
 ## 6.1.0
 
 Pairs with Allay Server 6.1, which keeps each player's consent; with an older backend Allay asks nobody, as before.

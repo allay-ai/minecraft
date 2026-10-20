@@ -70,10 +70,17 @@ class ConsentsTest {
     assertFalse(consents.known(player))
   }
 
-  @Test fun `a backend before 6_1 asks nobody, and other errors go through`() = runBlocking {
-    val old = Consents(FakeBackend(status = 404))
+  @Test fun `a backend before 6_1 asks nobody, until it's updated, and other errors go through`() = runBlocking {
+    var now = 0L
+    val backend = FakeBackend(status = 404)
+    val old = Consents(backend) { now }
     assertEquals(Consents.State.UNSUPPORTED, old.check(player))
     assertTrue(old.known(player))
+    // The backend moved to 6.1 meanwhile: within the hour the player is asked.
+    backend.status = null
+    now += Consents.RECHECK_MS
+    assertFalse(old.known(player))
+    assertEquals(Consents.State.MISSING, old.check(player))
     val down = Consents(FakeBackend(status = 503))
     assertFailsWith<ApiErrorException> { down.check(player) }
     assertFalse(down.known(player))
