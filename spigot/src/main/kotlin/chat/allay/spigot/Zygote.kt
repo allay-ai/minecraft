@@ -48,6 +48,7 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var executor: Executor
   private lateinit var handler: Handler
   private lateinit var memory: MemoryCommands
+  private lateinit var privacy: PrivacyCommands
   private lateinit var reminders: Reminders
   private lateinit var notes: Notes
   private lateinit var goals: Goals
@@ -132,9 +133,10 @@ class Zygote : JavaPlugin(), TabCompleter {
     if (::animator.isInitialized) animator.stopAllAnimations()
     animator = Animator(this, configuration)
     val tools = ToolRegistry(Tools.all(), configuration.tools::enabled)
-    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book)
-    quota.report()
     val licenses = Billing(client, configuration, license)
+    val identity = Identity(licenses, configuration, { server.motd }, logger)
+    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book, identity)
+    quota.report()
     billing = BillingCommands(this, configuration, locales, licenses, AdminSetup(client, configuration), credentials, features.zones, scope)
     watch?.stop()
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
@@ -143,11 +145,13 @@ class Zygote : JavaPlugin(), TabCompleter {
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation)
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
+    privacy = PrivacyCommands(this, locales, service, scope)
   }
 
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */
   private fun reportProvider() {
     val provider = configuration.provider
+    if (configuration.server.token.isNotEmpty()) logger.info("Signing in to the backend with server.token ${Secrets.mask(configuration.server.token)}")
     when {
       provider.byok && provider.apiKey.isEmpty() ->
         logger.warning("provider.mode is byok, but provider.byok.api_key is empty: questions fail until you put your key there and run /allay reload")
@@ -242,6 +246,15 @@ class Zygote : JavaPlugin(), TabCompleter {
           if (word == "chat") chat.set(player, wanted) else chat.hints(player, wanted)
         }
       }
+      word == "privacy" -> when {
+        args.size == 1 -> privacy.info(sender)
+        args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
+        args.size == 3 && args[1].equals("erase", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> privacy.eraseSelf(sender)
+        args.size == 3 && args[1].lowercase() in setOf("export", "erase") ->
+          if (!sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "messages.no_permission")
+          else if (args[1].equals("export", ignoreCase = true)) privacy.export(sender, args[2]) else privacy.erase(sender, args[2])
+        else -> lang.send(sender, "privacy.usage")
+      }
       word == "link" || word == "status" || word == "locale" || word == "init" -> when {
         !sender.hasPermission(Permissions.ADMIN) -> lang.send(sender, "messages.no_permission")
         word == "link" && args.size == 1 -> billing.link(sender)
@@ -283,7 +296,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 1 -> buildList {
         if (sender is Player) add("language")
         if (sender.hasPermission(Permissions.CHAT)) addAll(listOf("chat", "hints"))
-        if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "forget", "recipe", "enchants", "villagers", "brewing", "anvil"))
+        if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "forget", "privacy", "recipe", "enchants", "villagers", "brewing", "anvil"))
         if (sender.hasPermission(Permissions.RELOAD)) add("reload")
         if (sender.hasPermission(Permissions.ADMIN)) addAll(listOf("status", "link", "locale", "init"))
       }
@@ -292,6 +305,10 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 2 && args[0].lowercase() in setOf("chat", "hints") -> listOf("on", "off")
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
       args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
+      args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
+        if (sender.hasPermission(Permissions.ADMIN)) listOf("erase", "export") else listOf("erase")
+      args.size == 3 && args[0].equals("privacy", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
+        Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
       args.size == 2 && args[0].equals("recipe", ignoreCase = true) ->
         return Material.entries.asSequence().filter { it.isItem && !it.isAir && !it.isLegacy }.map { it.key.key }
           .filter { it.startsWith(args[1].lowercase()) }.take(50).toList()

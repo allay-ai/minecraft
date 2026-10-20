@@ -78,15 +78,35 @@ class BillingTest {
     val folder = createTempDirectory("allay").toFile()
     val license = License(folder).apply { write("id1.secret1secret1") }
     val byok = Credentials(config("provider:\n  mode: byok\n  byok:\n    api_key: \"$key\"\n    model: m"), license)
-    assertEquals(mapOf("X-Provider-Key" to key), byok.headers())
+    // Since 6.0 a byok server sends its license too, as its identity.
+    assertEquals(mapOf("Authorization" to "Bearer id1.secret1secret1", "X-Provider-Key" to key), byok.headers())
     assertEquals(Protocol.Provider("https://openrouter.ai/api/v1", "m", ""), byok.block())
     assertEquals("key sk-or…a1b2", byok.scrub("key $key"))
-    assertEquals(emptyMap(), Credentials(config("provider:\n  mode: byok"), license).headers())
+    assertEquals(mapOf("Authorization" to "Bearer id1.secret1secret1"), Credentials(config("provider:\n  mode: byok"), license).headers())
+    assertEquals(emptyMap(), Credentials(config("provider:\n  mode: byok"), License(createTempDirectory("allay").toFile())).headers())
     val hosted = Credentials(config(""), license)
     assertEquals(mapOf("Authorization" to "Bearer id1.secret1secret1"), hosted.headers())
     assertNull(hosted.block())
     assertEquals("x id1.s…ret1 y", hosted.scrub("x id1.secret1secret1 y"))
     folder.deleteRecursively()
+  }
+
+  @Test fun `a self-hosted backend's token wins over the license, and never shows`() {
+    val folder = createTempDirectory("allay").toFile()
+    val license = License(folder).apply { write("id1.secret1secret1") }
+    val token = "self-plugin-token-0123456789abcdef"
+    val credentials = Credentials(config("server:\n  url: \"http://allay:3000\"\n  token: \" $token \"\nprovider:\n  mode: byok\n  byok:\n    api_key: \"$key\""), license)
+    assertEquals(token, credentials.token)
+    assertEquals(mapOf("Authorization" to "Bearer $token", "X-Provider-Key" to key), credentials.headers())
+    assertEquals("401 for self-…cdef", credentials.scrub("401 for $token"))
+    assertNull(Credentials(config(""), license).token)
+    folder.deleteRecursively()
+  }
+
+  @Test fun `the log never shows a player's id in a URL`() {
+    assertEquals("https://allay.chat/api/v2/users/…/memories", HttpClient.loggable("https://allay.chat/api/v2/users/5627dd98-e6be-3c21-b8a8-e92344183641/memories"))
+    assertEquals("https://allay.chat/api/v2/users/…", HttpClient.loggable("https://allay.chat/api/v2/users/console"))
+    assertEquals("https://allay.chat/api/v2/chat", HttpClient.loggable("https://allay.chat/api/v2/chat"))
   }
 
   @Test fun `requests carry the provider block only in byok`() {
@@ -141,7 +161,9 @@ class BillingTest {
     assertEquals("&eAllay is swamped with questions from this server. Try again in 1 second.", ErrorHandler.message(en, ApiError("RATE_LIMITED", "", 429, retryAfter = 1)))
     assertEquals(en.text("errors.http.429"), ErrorHandler.message(en, ApiError("RATE_LIMITED", "", 429)))
     for (code in ErrorCodes.SUBSCRIPTION + ErrorCodes.PROVIDER) assertTrue(en.has("errors.api.$code"), code)
-    for (code in ErrorCodes.PROVIDER + ErrorCodes.LICENSE_INVALID) assertTrue(en.has("billing.hint.$code"), code)
+    for (code in ErrorCodes.PROVIDER + ErrorCodes.LICENSE_INVALID + ErrorCodes.TOKEN) assertTrue(en.has("billing.hint.$code"), code)
+    for (code in ErrorCodes.TOKEN) assertTrue(en.has("errors.api.$code"), code)
+    assertTrue(en.has("billing.hint.identity"))
   }
 
   @Test fun `dates read as each language says them`() {

@@ -11,6 +11,8 @@ import chat.allay.core.tools.TimeZones
 class Config(private val config: YamlConfig, private val pluginVersion: String) {
   val server = Server() ; inner class Server {
     val url = config.string("server.url", "https://allay.chat")
+    /** A self-hosted backend's `PLUGIN_TOKEN` (since 6.0); empty for a hosted one, which knows the server by its license. */
+    val token = config.string("server.token", "").trim()
   }
 
   /** Who pays for the model: the backend's key with a subscription (hosted), or the server's own key (byok). */

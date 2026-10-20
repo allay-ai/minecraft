@@ -48,6 +48,8 @@ class Service<C>(
   private val credentials: Credentials,
   /** The automation agents, so a question tells the backend which of the asker's are running. */
   private val taskBook: chat.allay.core.tasks.TaskBook? = null,
+  /** A byok server's license as its identity on a hosted backend, fetched before the first request that needs it. */
+  private val identity: Identity? = null,
 ) {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
@@ -84,6 +86,7 @@ class Service<C>(
   }
 
   private fun stream(run: Run, message: String, listener: Listener): Outcome {
+    identity?.ensure()
     val body = Protocol.json.encodeToString(Protocol.ChatRequest.serializer(), request(run, message))
     val call = client.newCall(
       Request.Builder()
@@ -245,6 +248,14 @@ class Service<C>(
     json.decodeFromString<Remembered>(send("/api/v2/users/${path(userId)}/memories", "POST", body)).memory
   }
 
+  @Serializable data class Erased(val erased: Boolean = false, val memories: Int = 0, val runs: Int = 0, val traces: Int = 0)
+
+  /** `/allay privacy export`: everything the backend keeps about the player, as the JSON it sent (since backend 6.0). */
+  suspend fun export(userId: String): String = withContext(IO) { send("/api/v2/users/${path(userId)}", "GET") }
+
+  /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */
+  suspend fun erase(userId: String): Erased = withContext(IO) { json.decodeFromString<Erased>(send("/api/v2/users/${path(userId)}", "DELETE")) }
+
   /** Forgets one memory, or all of them when [id] is null; returns how many went. */
   suspend fun forget(userId: String, id: String?): Int = withContext(IO) {
     val suffix = id?.let { "/${path(it)}" } ?: ""
@@ -254,6 +265,7 @@ class Service<C>(
   private fun path(segment: String) = java.net.URLEncoder.encode(segment, Charsets.UTF_8).replace("+", "%20")
 
   private fun send(path: String, method: String, body: String? = null): String {
+    identity?.ensure()
     val request = Request.Builder().url("${config.server.url}$path").method(method, body?.toRequestBody(jsonType)).build()
     client.newCall(request).execute().use { response ->
       if (!response.isSuccessful) throw failure(errorParser.parseErrorFromResponse(response))
@@ -263,6 +275,7 @@ class Service<C>(
 
   /** The v1 API: one request, one answer, no tools. Kept for backends that predate v2. */
   private fun legacy(run: Run, message: String): Outcome {
+    identity?.ensure()
     val userId = run.asker.uuid?.toString() ?: "console"
     return when (run.mode) {
       Run.Mode.ASK -> {

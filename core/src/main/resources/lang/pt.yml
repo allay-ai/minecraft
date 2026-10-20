@@ -242,11 +242,11 @@ messages:
   usage: "&7Uso: &f/ask <pergunta>\n&7Exemplo: &f/ask como fabrico uma picareta de diamante?\n&7Na frente de todos: &f/askall <pergunta>&7, modo chat e mais: &f/allay"
   askx_usage: "&7Uso: &f/askx <o que fazer>\n&7Exemplo: &f/askx me dá uma espada de diamante com afiação 5"
   askall_usage: "&7Uso: &f/askall <pergunta>&7 — todos os jogadores online veem a pergunta e a resposta"
-  allay_usage: "&6Allay\n&f/allay chat &7[on|off] — modo chat\n&f/allay hints &7[on|off] — a dica sobre o modo chat\n&f/allay cancel &7— parar a resposta\n&f/allay new &7— recomeçar a conversa\n&f/allay memory &7— o que eu lembro sobre você\n&f/allay forget &7<número|all> — esquecer\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7— as janelas\n&f/allay language &7[código|auto] — o idioma em que falo com você"
+  allay_usage: "&6Allay\n&f/allay chat &7[on|off] — modo chat\n&f/allay hints &7[on|off] — a dica sobre o modo chat\n&f/allay cancel &7— parar a resposta\n&f/allay new &7— recomeçar a conversa\n&f/allay memory &7— o que eu lembro sobre você\n&f/allay forget &7<número|all> — esquecer\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7— as janelas\n&f/allay language &7[código|auto] — o idioma em que falo com você\n&f/allay privacy &7— o que guardo sobre você, e apagar"
   language_set: "&7Agora falo com você em &f{language}&7."
   language_auto: "&7Volto a escolher seu idioma sozinho: &f{language}&7."
   language_unknown: "&cNão existe o idioma {code}. Escolha um destes: {codes}"
-  allay_admin_usage: "&6Para admins\n&f/allay status &7— quem paga o modelo\n&f/allay link &7— pagar a assinatura no Telegram\n&f/allay locale &7[jogador] — que idioma um jogador recebe e por quê\n&f/allay init &7— configurar o painel de administração do backend\n&f/allay reload &7— recarregar configurações e idiomas"
+  allay_admin_usage: "&6Para admins\n&f/allay status &7— quem paga o modelo\n&f/allay link &7— pagar a assinatura no Telegram\n&f/allay locale &7[jogador] — que idioma um jogador recebe e por quê\n&f/allay init &7— configurar o painel de administração do backend\n&f/allay reload &7— recarregar configurações e idiomas\n&f/allay privacy export|erase &7<jogador> — os dados de um jogador, a pedido dele"
   no_permission: "&cVocê não tem permissão para isso."
   players_only: "&cIsso é só para jogadores."
   thinking: "&ePerguntando ao assistente de IA, um momento…"
@@ -569,6 +569,9 @@ errors:
     MODEL_NOT_FOUND: "&cO modelo de IA configurado neste servidor não existe. Avise um admin."
     MODEL_NO_TOOLS: "&cO modelo de IA deste servidor não consegue usar as ferramentas do Allay. Avise um admin."
     PROVIDER_URL_REJECTED: "&cO Allay não consegue chegar ao provedor de IA deste servidor. Avise um admin."
+    TOKEN_REQUIRED: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
+    TOKEN_INVALID: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
+    TOKEN_NOT_SET: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
   http:
     "400": "&cPedido inválido. Tente reformular."
     "401": "&cFalha na autorização. Avise um admin."
@@ -634,6 +637,8 @@ billing:
     quota: "&7Limite: {bar}"
     quota_used: "&7{percent}% do limite deste período usado; renova em {date}."
     quota_used_no_reset: "&7{percent}% do limite deste período usado."
+    token: "&7Entra com: &fserver.token &8({token})"
+    identity: "&7Identidade no backend: &flicença {id} &8(grátis; quem paga é a sua chave)"
   # O que os admins online ouvem quando a assinatura muda. O Allay confere a cada 5 minutos.
   notice:
     paid: "&a✔ O Allay está ativo até {date}."
@@ -653,6 +658,10 @@ billing:
     MODEL_NOT_FOUND: "&8Para admins: o provedor não conhece o modelo “{model}”. Corrija provider.byok.model no config.yml."
     MODEL_NO_TOOLS: "&8Para admins: o modelo “{model}” não chama ferramentas, e o Allay precisa delas. Escolha um que chame em provider.byok.model (a lista de modelos do OpenRouter filtra por “Tools”)."
     PROVIDER_URL_REJECTED: "&8Para admins: o backend não vai chamar {url}. provider.byok.base_url precisa ser https e apontar para um endereço público."
+    TOKEN_REQUIRED: "&8Para admins: este backend próprio quer um token. Coloque em server.token no config.yml o PLUGIN_TOKEN dele e rode /allay reload."
+    TOKEN_INVALID: "&8Para admins: o backend não aceita o server.token. Coloque nele o PLUGIN_TOKEN do backend e rode /allay reload."
+    TOKEN_NOT_SET: "&8Para admins: o backend não tem PLUGIN_TOKEN, então não responde a nenhum plugin. Defina lá um de 24 caracteres ou mais, e o mesmo em server.token."
+    identity: "&8Para admins: este backend quer uma licença como identidade do servidor, grátis com a sua própria chave, e o Allay ainda não conseguiu uma. Ele tenta de novo na próxima pergunta; o log diz por quê."
 
 # /allay locale [jogador], para admins: em que idioma um jogador lê o Allay, e por quê.
 locale:
@@ -688,6 +697,20 @@ admin:
     exists: "&7O painel já tem um admin. Entre aqui:"
     hosted: "&7Este backend configura o painel com um código do próprio log, não pelo jogo. Pergunte a quem o mantém."
     unsupported: "&7Este backend do Allay não tem painel de administração: é anterior à 5.7."
+
+privacy:
+  info: "&6O que o Allay guarda sobre você neste servidor\n&7• A conversa de vocês, por um dia depois da sua última pergunta.\n&7• Os fatos que ele lembra (&f/allay memory&7), até você esquecê-los ou um ano depois da sua última pergunta.\n&7• Quantas perguntas você fez e quanto custaram, por 400 dias, com um pseudônimo no lugar do seu nome.\n&7Outros servidores não veem nada disso."
+  commands: "&f/allay privacy erase &7— apagar tudo o que o Allay guarda sobre você aqui"
+  admin: "&8Para admins: &f/allay privacy export <jogador> &8salva os dados de um jogador num arquivo para ele, &f/allay privacy erase <jogador> &8apaga."
+  erase_confirm: "&eApagar tudo o que o Allay guarda sobre você neste servidor? A memória, a conversa e as linhas dos seus agentes somem para sempre; suas perguntas ficam só como números anônimos."
+  erase_button: "&c[Apagar tudo]"
+  erase_hover: "&7Não dá para desfazer"
+  erased_self: "&aPronto: o Allay esqueceu você neste servidor, com {memories} {memories|fato|fatos}."
+  exported: "&aO que o Allay guarda sobre {player} está em &f{file}&a. São dados pessoais: entregue ao jogador e depois apague."
+  erased: "&aApagado o que o Allay guardava sobre {player}: {memories} {memories|fato|fatos}; {runs} {runs|pergunta|perguntas} agora não são de ninguém."
+  unknown_player: "&cEste servidor nunca viu um jogador {player}. Use o UUID dele."
+  unsupported: "&7Este backend do Allay é anterior ao 6.0 e não consegue exportar nem apagar os dados de um jogador."
+  usage: "&7Uso: &f/allay privacy &7[erase]; admins: &f/allay privacy export|erase <jogador|uuid>"
 
 directions:
   north: "norte"

@@ -242,11 +242,11 @@ messages:
   usage: "&7Usage: &f/ask <question>\n&7Example: &f/ask how do I craft a diamond pickaxe?\n&7In front of everyone: &f/askall <question>&7, chat mode and more: &f/allay"
   askx_usage: "&7Usage: &f/askx <what to do>\n&7Example: &f/askx give me a diamond sword with sharpness 5"
   askall_usage: "&7Usage: &f/askall <question>&7 – everyone online sees the question and the answer"
-  allay_usage: "&6Allay\n&f/allay chat &7[on|off] – chat mode\n&f/allay hints &7[on|off] – the tip about chat mode\n&f/allay cancel &7– stop the answer\n&f/allay new &7– start the conversation over\n&f/allay memory &7– what I remember about you\n&f/allay forget &7<number|all> – forget it\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7– the windows\n&f/allay language &7[code|auto] – the language I speak to you"
+  allay_usage: "&6Allay\n&f/allay chat &7[on|off] – chat mode\n&f/allay hints &7[on|off] – the tip about chat mode\n&f/allay cancel &7– stop the answer\n&f/allay new &7– start the conversation over\n&f/allay memory &7– what I remember about you\n&f/allay forget &7<number|all> – forget it\n&f/allay recipe &7<item>, &f/allay enchants&7, &f/allay villagers &7– the windows\n&f/allay language &7[code|auto] – the language I speak to you\n&f/allay privacy &7– what I keep about you, and erasing it"
   language_set: "&7I speak &f{language}&7 to you now."
   language_auto: "&7I pick your language by myself again: &f{language}&7."
   language_unknown: "&cThere's no language {code}. Choose one of: {codes}"
-  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay init &7– set up the backend's admin panel\n&f/allay reload &7– reload settings and languages"
+  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay init &7– set up the backend's admin panel\n&f/allay reload &7– reload settings and languages\n&f/allay privacy export|erase &7<player> – a player's data, on their request"
   no_permission: "&cYou don't have permission for that."
   players_only: "&cThat's for players only."
   thinking: "&eAsking the AI assistant, one moment…"
@@ -569,6 +569,9 @@ errors:
     MODEL_NOT_FOUND: "&cThe AI model set on this server doesn't exist. Tell an admin."
     MODEL_NO_TOOLS: "&cThe AI model set on this server can't use Allay's tools. Tell an admin."
     PROVIDER_URL_REJECTED: "&cAllay can't reach the AI provider set on this server. Tell an admin."
+    TOKEN_REQUIRED: "&eAllay can't sign in on this server right now. Your admins know what to do."
+    TOKEN_INVALID: "&eAllay can't sign in on this server right now. Your admins know what to do."
+    TOKEN_NOT_SET: "&eAllay can't sign in on this server right now. Your admins know what to do."
   http:
     "400": "&cBad request. Try rephrasing."
     "401": "&cAuthorization failed. Tell an admin."
@@ -634,6 +637,8 @@ billing:
     quota: "&7Limit: {bar}"
     quota_used: "&7{percent}% of this period's limit used, refills {date}."
     quota_used_no_reset: "&7{percent}% of this period's limit used."
+    token: "&7Signs in with: &fserver.token &8({token})"
+    identity: "&7Identity on the backend: &flicense {id} &8(free; your key pays)"
   # What admins online hear when the subscription changes. Allay checks every 5 minutes.
   notice:
     paid: "&a✔ Allay is active until {date}."
@@ -653,6 +658,10 @@ billing:
     MODEL_NOT_FOUND: "&8Admins: the provider doesn't know the model “{model}”. Fix provider.byok.model in config.yml."
     MODEL_NO_TOOLS: "&8Admins: the model “{model}” can't call tools, and Allay needs them. Pick one that can in provider.byok.model (OpenRouter's model list filters by “Tools”)."
     PROVIDER_URL_REJECTED: "&8Admins: the backend won't call {url}. provider.byok.base_url must be https and point to a public address."
+    TOKEN_REQUIRED: "&8Admins: this self-hosted backend wants a token. Set server.token in config.yml to the backend's PLUGIN_TOKEN and run /allay reload."
+    TOKEN_INVALID: "&8Admins: the backend doesn't take server.token. Set it to the backend's PLUGIN_TOKEN and run /allay reload."
+    TOKEN_NOT_SET: "&8Admins: the backend has no PLUGIN_TOKEN, so it answers no plugin. Set one of 24 characters or more there, and the same in server.token."
+    identity: "&8Admins: this backend wants a license as the server's identity, free with your own key, and Allay couldn't get one yet. It tries again with the next question; the log says why."
 
 # /allay locale [player], for admins: which language a player reads Allay in, and why.
 locale:
@@ -688,6 +697,20 @@ admin:
     exists: "&7The panel has an admin already. Sign in there:"
     hosted: "&7This backend sets up its panel from its own log, not from the game. Ask whoever runs it."
     unsupported: "&7This Allay backend has no admin panel: it's older than 5.7."
+
+privacy:
+  info: "&6What Allay keeps about you on this server\n&7• Your conversation with it, for a day after your last question.\n&7• The facts it remembers (&f/allay memory&7), until you forget them or a year after your last question.\n&7• How many questions you asked and what they cost, for 400 days, under a pseudonym instead of your name.\n&7Other servers never see any of it."
+  commands: "&f/allay privacy erase &7– erase everything Allay keeps about you here"
+  admin: "&8Admins: &f/allay privacy export <player> &8saves a player's data to a file for them, &f/allay privacy erase <player> &8erases it."
+  erase_confirm: "&eErase everything Allay keeps about you on this server? Memories, the conversation, and your agents' threads go for good; your questions stay only as anonymous numbers."
+  erase_button: "&c[Erase everything]"
+  erase_hover: "&7Can't be undone"
+  erased_self: "&aDone: Allay forgot you on this server, {memories} {memories|memory|memories} included."
+  exported: "&aSaved what Allay keeps about {player} to &f{file}&a. It's personal data: give it to the player, then delete it."
+  erased: "&aErased what Allay kept about {player}: {memories} {memories|memory|memories}; {runs} {runs|question|questions} now count as nobody's."
+  unknown_player: "&cThis server has never seen a player {player}. Use their UUID."
+  unsupported: "&7This Allay backend is older than 6.0 and can't export or erase a player's data."
+  usage: "&7Usage: &f/allay privacy &7[erase]; admins: &f/allay privacy export|erase <player|uuid>"
 
 directions:
   north: "north"

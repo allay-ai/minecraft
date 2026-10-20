@@ -36,14 +36,16 @@ class HttpClient(private val log: Logger, private val config: Config, private va
       chain.proceed(requestBuilder.build())
     }
 
-    credentials?.let { builder.addInterceptor(it.interceptor()) }
+    credentials?.let { builder.addNetworkInterceptor(it.interceptor()) }
 
     if (http.logging) {
       builder.addInterceptor { chain ->
         val request = chain.request()
-        log.info("🔄 Requesting HTTP/${request.method} ${request.url}")
+        // A player's id in the path is personal data, so the log leaves it out.
+        val url = loggable(request.url.toString())
+        log.info("🔄 Requesting HTTP/${request.method} $url")
         val response = chain.proceed(request)
-        log.info("✅ Response from HTTP/${response.code} ${request.url}")
+        log.info("✅ Response from HTTP/${response.code} $url")
         response
       }
     }
@@ -56,5 +58,12 @@ class HttpClient(private val log: Logger, private val config: Config, private va
 
   init {
     log.info("✅ HttpClient initialized")
+  }
+
+  companion object {
+    private val USER = Regex("/users/[^/?#]+")
+
+    /** A URL as the log may show it: the player in `/users/<id>` becomes `…`. */
+    fun loggable(url: String) = url.replace(USER, "/users/…")
   }
 }

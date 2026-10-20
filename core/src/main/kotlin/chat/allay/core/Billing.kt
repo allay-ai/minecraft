@@ -91,18 +91,21 @@ class License(folder: File) {
 }
 
 /**
- * Who pays for each request, by `provider.mode`: in byok the server's key goes in `X-Provider-Key` and the rest in the
- * body's `provider` block; in hosted the license goes in `Authorization` once there is one. Neither is ever logged.
+ * Who asks and who pays, on every request to the backend. `Authorization` names the server (since backend 6.0): a
+ * self-hosted backend's token from `server.token`, else the license, which a byok server also gets as its identity.
+ * In byok the server's key goes in `X-Provider-Key` and the rest in the body's `provider` block. None is ever logged.
  */
 class Credentials(private val config: Config, val license: License) {
   private val provider get() = config.provider
 
   val byok get() = provider.byok
 
-  fun headers(): Map<String, String> = if (byok) {
-    provider.apiKey.takeIf { it.isNotEmpty() }?.let { mapOf("X-Provider-Key" to it) }.orEmpty()
-  } else {
-    license.read()?.let { mapOf("Authorization" to "Bearer $it") }.orEmpty()
+  /** The token of a self-hosted backend, when `server.token` is set. */
+  val token get() = config.server.token.takeIf { it.isNotEmpty() }
+
+  fun headers(): Map<String, String> = buildMap {
+    (token ?: license.read())?.let { put("Authorization", "Bearer $it") }
+    if (byok) provider.apiKey.takeIf { it.isNotEmpty() }?.let { put("X-Provider-Key", it) }
   }
 
   /**
@@ -115,13 +118,16 @@ class Credentials(private val config: Config, val license: License) {
     else -> null
   }
 
-  /** [text] without the key or the license in it. */
+  /** [text] without the key, the license, or the token in it. */
   fun scrub(text: String): String {
     val license = license.read()
-    return Secrets.scrub(text, listOf(provider.apiKey, provider.legacyKey, license, license?.substringAfter('.')))
+    return Secrets.scrub(text, listOf(provider.apiKey, provider.legacyKey, license, license?.substringAfter('.'), token))
   }
 
-  /** Adds [headers] to requests for the backend, and to no other host. */
+  /**
+   * Adds [headers] to requests for the backend, and to no other host. A network interceptor, so it runs again for every
+   * redirect: a backend that redirects elsewhere never takes the key or the token along.
+   */
   fun interceptor() = Interceptor { chain ->
     val request = chain.request()
     val backend = config.server.url.toHttpUrlOrNull()
@@ -159,6 +165,36 @@ class Credentials(private val config: Config, val license: License) {
   val pay_url: String? = null,
   val claim_expires_at: String? = null,
 )
+
+/**
+ * A byok server's identity on a hosted backend (since 6.0): the backend wants a license from every server, and gives one
+ * free. Before a request, a byok server without `server.token` and without a license gets one and keeps it in
+ * `license.key`. A self-hosted backend answers `billing: false`, and the server asks no more. Blocking; off the server thread.
+ */
+class Identity(private val billing: Billing, private val config: Config, private val serverName: () -> String?, private val log: java.util.logging.Logger, private val now: () -> Long = System::currentTimeMillis) {
+  @Volatile private var settled = false
+  @Volatile private var lastTry: Long? = null
+
+  fun ensure() {
+    if (settled || !config.provider.byok || config.server.token.isNotEmpty() || billing.license.read() != null || billing.license.broken) return
+    synchronized(this) {
+      if (settled || billing.license.read() != null || lastTry?.let { now() - it < RETRY_MS } == true) return
+      lastTry = now()
+      try {
+        val claim = billing.link(serverName())
+        settled = true
+        if (claim.billing && claim.license != null) log.info("The backend gave this server a license as its identity; it's in ${License.FILE} (it pays for nothing)")
+      } catch (error: Exception) {
+        log.warning("Couldn't get a license as this server's identity: ${(error as? ApiErrorException)?.apiError?.code ?: error.javaClass.simpleName}")
+      }
+    }
+  }
+
+  companion object {
+    /** After a failure, the next question tries again no sooner than this. */
+    const val RETRY_MS = 60_000L
+  }
+}
 
 /** The license endpoints. Blocking; call them off the server thread. */
 class Billing(private val client: OkHttpClient, private val config: Config, val license: License) {

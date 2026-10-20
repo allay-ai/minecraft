@@ -98,8 +98,14 @@ class BillingCommands(
       lang.send(sender, "billing.status.model", "model" to provider.model.ifEmpty { lang.text("billing.status.default_model") })
       lang.send(sender, "billing.status.search_model", "model" to provider.searchModel.ifEmpty { lang.text("billing.status.no_search") })
       if (provider.apiKey.isEmpty()) lang.send(sender, "billing.status.no_key") else lang.send(sender, "billing.status.key", "key" to Secrets.mask(provider.apiKey))
+      when {
+        credentials.token != null -> lang.send(sender, "billing.status.token", "token" to Secrets.mask(credentials.token))
+        billing.license.id != null -> lang.send(sender, "billing.status.identity", "id" to billing.license.id)
+      }
       return
     }
+    // A self-hosted backend knows the server by its token, and needs no license at all.
+    credentials.token?.let { lang.send(sender, "billing.status.token", "token" to Secrets.mask(it)) }
     val zone = zone(sender)
     val license = billing.license
     request(sender) {
@@ -163,6 +169,9 @@ class BillingCommands(
     val lang = locales.of(sender)
     val provider = config.provider
     val line = when (code) {
+      in ErrorCodes.TOKEN -> Line(lang.text("billing.hint.$code"))
+      // A byok server needs a license only as its identity, and Allay gets one by itself; this one couldn't.
+      ErrorCodes.LICENSE_REQUIRED if provider.byok -> Line(lang.text("billing.hint.identity"))
       ErrorCodes.LICENSE_INVALID -> Line(lang.text("billing.hint.LICENSE_INVALID"))
       in ErrorCodes.SUBSCRIPTION -> Line(lang.text("billing.hint.subscription"), listOf(TextComponent(" "), linkButton(lang)), console = "/allay link")
       in ErrorCodes.PROVIDER -> Line(lang.text(

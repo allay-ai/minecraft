@@ -36,6 +36,14 @@ object ErrorCodes {
   const val MODEL_NO_TOOLS = "MODEL_NO_TOOLS"
   const val PROVIDER_URL_REJECTED = "PROVIDER_URL_REJECTED"
 
+  // Since 6.0: a self-hosted backend wants its PLUGIN_TOKEN in server.token.
+  const val TOKEN_REQUIRED = "TOKEN_REQUIRED"
+  const val TOKEN_INVALID = "TOKEN_INVALID"
+  const val TOKEN_NOT_SET = "TOKEN_NOT_SET"
+
+  /** Errors `server.token` fixes: operators learn what to set. */
+  val TOKEN = setOf(TOKEN_REQUIRED, TOKEN_INVALID, TOKEN_NOT_SET)
+
   /** Errors a payment fixes: operators get a link to pay. */
   val SUBSCRIPTION = setOf(LICENSE_REQUIRED, LICENSE_INVALID, SUBSCRIPTION_INACTIVE, QUOTA_EXCEEDED)
 

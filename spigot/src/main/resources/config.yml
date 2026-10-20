@@ -11,14 +11,20 @@
 # The Allay backend that answers questions.
 server:
   url: "https://allay.chat"
+  # A backend you run yourself (SELFHOSTED=1) answers only plugins that send its
+  # PLUGIN_TOKEN: put the same value here. Leave it empty for allay.chat, which knows
+  # your server by its license. Allay never logs it.
+  token: ""
 
 # Who pays for the AI model. Two ways:
 #   hosted: the backend's key and models, paid with a subscription in Telegram Stars.
 #     /allay link gives you the payment link and keeps the license in
 #     license.key next to this file; /allay status shows how it stands.
 #   byok: your own key for any OpenAI-compatible API (OpenRouter by default).
+#     allay.chat still wants a license as your server's identity; Allay gets one
+#     by itself, free, and keeps it in license.key. It pays for nothing.
 # A backend you run yourself with SELFHOSTED=1 needs neither: it serves you on its
-# own key. Neither the key nor the license ever goes to the log.
+# own key, with server.token above. Neither the key nor the license ever goes to the log.
 provider:
   mode: hosted
   byok:
