@@ -226,7 +226,7 @@ class Automation(
     agent.asked = false
     agent.said = null
     val lang = locales.of(player)
-    val run = Run(SenderAsker(player, locales.choice(player.uniqueId)), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
+    val run = Run(SenderAsker(player, locales.code(player)), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
     run.model = quota().model(player)
     agent.run = run
     val quiet = object : Service.Listener {
