@@ -20,18 +20,99 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * `/allay privacy`: what Allay keeps about a player and for how long, and their data on request (since backend 6.0).
  * A player erases their own; admins export or erase anyone's, for a player who asked them. An export is personal data,
- * so it goes into an owner-only file, never into chat or the log.
+ * so it goes into an owner-only file, never into chat or the log. Before a player's first question, the notice asks
+ * them to agree, with buttons; the backend keeps the answer (since 6.1).
  */
 class PrivacyCommands(
   private val plugin: JavaPlugin,
+  private val configuration: Config,
   private val locales: Locales,
   private val service: Service<*>,
+  private val consents: Consents,
   private val scope: CoroutineScope,
+  /** Stops the player's automation agents, which ask the backend on their own. */
+  private val stopAgents: (Player) -> Unit,
 ) {
+  /** The question a player asked before agreeing; it goes on once they agree. */
+  private class Pending(val at: Long, val question: () -> Unit)
+
+  private val pending = ConcurrentHashMap<UUID, Pending>()
+
+  /**
+   * Before a question from a player Allay hasn't seen agree: the backend says whether they did, and if not, the notice
+   * asks them. [question] runs on the server thread once they agree, or at once when they already have.
+   */
+  fun ask(player: Player, question: () -> Unit) {
+    val lang = locales.of(player)
+    pending[player.uniqueId] = Pending(System.currentTimeMillis(), question)
+    scope.launch {
+      val state = try {
+        consents.check(player.uniqueId)
+      } catch (error: Exception) {
+        pending.remove(player.uniqueId)
+        plugin.logger.warning("Couldn't read a player's consent: ${(error as? ApiErrorException)?.apiError?.code ?: error.javaClass.simpleName}")
+        onMain { player.sendMessage(formatMessage(ErrorHandler.message(lang, error))) }
+        return@launch
+      }
+      if (state == Consents.State.UNSUPPORTED) plugin.logger.warning("The backend can't keep players' consent (it's older than 6.1), so Allay asks nobody; update the backend")
+      onMain {
+        if (state == Consents.State.MISSING) notice(player) else pending.remove(player.uniqueId)?.question?.invoke()
+      }
+    }
+  }
+
+  /** What Allay does with a player's data, under which law, and the buttons to agree or not. */
+  private fun notice(player: Player) {
+    val lang = locales.of(player)
+    lang.send(player, "consent.notice")
+    lang.send(player, if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self")
+    lang.send(player, "consent.keeps")
+    val agree = button(lang, "consent.agree", "consent.agree_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy agree"))
+    val decline = button(lang, "consent.decline", "consent.decline_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy decline"))
+    val policy = configuration.privacy.policyUrl.takeIf { it.isNotEmpty() }
+      ?.let { listOf(TextComponent(" "), button(lang, "consent.policy", "consent.policy_hover", ClickEvent(ClickEvent.Action.OPEN_URL, it), "url" to it)) }
+      .orEmpty()
+    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.question"))), TextComponent(" "), agree, TextComponent(" "), decline, *policy.toTypedArray())
+  }
+
+  private fun button(lang: Lang, text: String, hover: String, click: ClickEvent, vararg values: Pair<String, Any>) =
+    TextComponent(*plain(formatMessage(lang.text(text)))).apply {
+      clickEvent = click
+      hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text(hover, *values)))))
+    }
+
+  /** `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. */
+  fun agree(sender: CommandSender) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    var question: (() -> Unit)? = null
+    request(sender, after = { question?.invoke() }) { lang ->
+      consents.give(player.uniqueId)
+      question = pending.remove(player.uniqueId)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
+      lang.text(if (question != null) "consent.given" else "consent.given_idle")
+    }
+  }
+
+  /** `/allay privacy decline`: nothing goes to the backend, and the question is dropped. */
+  fun decline(sender: CommandSender) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    pending.remove(player.uniqueId)
+    locales.of(sender).send(sender, "consent.declined")
+  }
+
+  /** `/allay privacy withdraw`: Allay stops answering and the player's agents stop; what's kept stays until erased. */
+  fun withdraw(sender: CommandSender) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    pending.remove(player.uniqueId)
+    request(sender, after = { stopAgents(player) }) { lang ->
+      lang.text(if (consents.withdraw(player.uniqueId)) "consent.withdrawn" else "consent.not_given")
+    }
+  }
+
   fun info(sender: CommandSender) {
     val lang = locales.of(sender)
     lang.send(sender, "privacy.info")
@@ -54,6 +135,7 @@ class PrivacyCommands(
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     request(sender) { lang ->
       val erased = service.erase(player.uniqueId.toString())
+      consents.forget(player.uniqueId)
       // Without the name: the log shouldn't keep who asked to be forgotten.
       plugin.logger.info("A player erased what Allay kept about them")
       lang.text("privacy.erased_self", "memories" to erased.memories)
@@ -76,6 +158,7 @@ class PrivacyCommands(
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
     request(sender) { lang ->
       val erased = service.erase(target.uniqueId.toString())
+      consents.forget(target.uniqueId)
       plugin.logger.info("${sender.name} erased what Allay kept about a player")
       lang.text("privacy.erased", "player" to (target.name ?: who), "memories" to erased.memories, "runs" to erased.runs)
     }
@@ -103,8 +186,8 @@ class PrivacyCommands(
     return file
   }
 
-  /** Runs [block] off the server thread; it returns the line to show, colored on the way. */
-  private fun request(sender: CommandSender, block: suspend (Lang) -> String) {
+  /** Runs [block] off the server thread; it returns the line to show, colored on the way. [after] runs next, on the server thread. */
+  private fun request(sender: CommandSender, after: () -> Unit = {}, block: suspend (Lang) -> String) {
     val lang = locales.of(sender)
     scope.launch {
       val line = try {
@@ -116,13 +199,22 @@ class PrivacyCommands(
         plugin.logger.warning("Privacy request failed: ${error.javaClass.simpleName}")
         ErrorHandler.message(lang, error)
       }
-      if (plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable { sender.sendMessage(formatMessage(line)) })
+      onMain {
+        sender.sendMessage(formatMessage(line))
+        after()
+      }
     }
+  }
+
+  private fun onMain(block: () -> Unit) {
+    if (plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable(block))
   }
 
   companion object {
     /** The word the confirmation button adds, so a typed `/allay privacy erase` never erases at once. */
     const val CONFIRM = "confirm"
     private val STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    /** A question older than this doesn't go on when its asker agrees: they've moved on. */
+    private const val PENDING_MS = 10 * 60_000L
   }
 }

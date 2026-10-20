@@ -150,6 +150,13 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   /** A model per tier of players; see [ModelTiers]. */
   val models = ModelTiers.parse(config)
 
+  val privacy = Privacy() ; inner class Privacy {
+    /** Ask each player to agree before their first question; the backend keeps the answer (since 6.1). */
+    val consent = config.boolean("privacy.consent", true)
+    /** The page the question links to; empty means allay.chat's policy, or none with a backend of your own. */
+    val policyUrl = config.string("privacy.policy_url", "").trim().ifEmpty { if (server.token.isEmpty()) POLICY_URL else "" }
+  }
+
   val askall = AskAll() ; inner class AskAll {
     val cooldownSeconds = config.int("askall.cooldown_seconds", 30).toLong().coerceAtLeast(0)
   }
@@ -180,6 +187,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   companion object {
     const val HOSTED = "hosted"
     const val BYOK = "byok"
+    const val POLICY_URL = "https://allay.chat/privacy/"
 
     private val DEFAULT_COUNTRIES = mapOf(
       "ru" to listOf("RU", "BY", "KZ", "KG", "TJ", "UZ", "AM", "AZ", "MD", "GE", "TM"),

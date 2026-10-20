@@ -700,7 +700,7 @@ admin:
 
 privacy:
   info: "&6What Allay keeps about you on this server\n&7• Your conversation with it, for a day after your last question.\n&7• The facts it remembers (&f/allay memory&7), until you forget them or a year after your last question.\n&7• How many questions you asked and what they cost, for 400 days, under a pseudonym instead of your name.\n&7Other servers never see any of it."
-  commands: "&f/allay privacy erase &7– erase everything Allay keeps about you here"
+  commands: "&f/allay privacy withdraw &7– take your agreement back; Allay stops answering you\n&f/allay privacy erase &7– erase everything Allay keeps about you here"
   admin: "&8Admins: &f/allay privacy export <player> &8saves a player's data to a file for them, &f/allay privacy erase <player> &8erases it."
   erase_confirm: "&eErase everything Allay keeps about you on this server? Memories, the conversation, and your agents' threads go for good; your questions stay only as anonymous numbers."
   erase_button: "&c[Erase everything]"
@@ -710,7 +710,25 @@ privacy:
   erased: "&aErased what Allay kept about {player}: {memories} {memories|memory|memories}; {runs} {runs|question|questions} now count as nobody's."
   unknown_player: "&cThis server has never seen a player {player}. Use their UUID."
   unsupported: "&7This Allay backend is older than 6.0 and can't export or erase a player's data."
-  usage: "&7Usage: &f/allay privacy &7[erase]; admins: &f/allay privacy export|erase <player|uuid>"
+  usage: "&7Usage: &f/allay privacy &7[agree|withdraw|erase]; admins: &f/allay privacy export|erase <player|uuid>"
+
+consent:
+  notice: "&6Before Allay answers you\n&7Allay is an AI helper. To answer, it sends your question, your name and UUID, your language, and what it reads in the game for you (inventory, surroundings, coordinates) to its backend."
+  hosted: "&7The backend, allay.chat, keeps your data on servers in the EU (Helsinki, Finland) under the GDPR (Regulation (EU) 2016/679) and Spain's data protection law (Organic Law 3/2018, LOPDGDD). AI providers write the answers; some of them are in the USA and get your question with the safeguards the GDPR requires."
+  self: "&7This server runs its own Allay backend: its owner keeps your data and answers for it. The AI provider the server picked writes the answers."
+  keeps: "&7Allay keeps your conversation for a day and the facts it remembers up to a year after your last question. Answers come from an AI and can be wrong. &f/allay privacy&7 shows what's kept and erases it; &f/allay privacy withdraw&7 takes your agreement back."
+  question: "&eDo you agree?"
+  agree: "&a[I agree]"
+  agree_hover: "&7Allay answers your question right away"
+  decline: "&c[No, thanks]"
+  decline_hover: "&7Allay won't answer you or keep anything"
+  policy: "&9[Privacy policy]"
+  policy_hover: "&7{url}"
+  given: "&aThanks! Allay is on it."
+  given_idle: "&aThanks! Ask away with &f/ask&a."
+  declined: "&7Fine: Allay won't answer you or keep anything about you. Changed your mind? &f/allay privacy agree"
+  withdrawn: "&7You took your agreement back: Allay won't answer you until you agree again. What it already keeps stays until &f/allay privacy erase&7."
+  not_given: "&7You haven't agreed to anything, so there's nothing to take back."
 
 directions:
   north: "north"

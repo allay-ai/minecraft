@@ -37,6 +37,9 @@ class Handler(
   private val clicks: () -> Clicks,
   private val quota: QuotaGate,
   private val automation: chat.allay.spigot.automation.Automation,
+  private val consents: Consents,
+  /** Asks a player to agree before their first question. */
+  private val privacy: () -> PrivacyCommands,
 ) {
   private val runs = ConcurrentHashMap<String, Run>()
   /** When each player last asked everyone, for `askall.cooldown_seconds`. */
@@ -92,6 +95,11 @@ class Handler(
         public -> "messages.askall_usage"
         else -> "messages.usage"
       })
+      return true
+    }
+    // Nothing about a player reaches the backend before they agree; the question goes on once they do.
+    if (sender is Player && configuration.privacy.consent && !consents.known(sender.uniqueId)) {
+      privacy().ask(sender) { ask(sender, message, mode, public, tip) }
       return true
     }
     if (public && !sender.hasPermission(Permissions.ASKALL_NO_COOLDOWN)) {

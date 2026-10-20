@@ -700,7 +700,7 @@ admin:
 
 privacy:
   info: "&6Was Allay auf diesem Server über dich speichert\n&7• Euer Gespräch, einen Tag nach deiner letzten Frage.\n&7• Die Fakten, die es sich merkt (&f/allay memory&7), bis du sie vergisst oder ein Jahr nach deiner letzten Frage.\n&7• Wie viele Fragen du gestellt hast und was sie gekostet haben, 400 Tage lang, unter einem Pseudonym statt deinem Namen.\n&7Andere Server sehen nichts davon."
-  commands: "&f/allay privacy erase &7– alles löschen, was Allay hier über dich speichert"
+  commands: "&f/allay privacy withdraw &7– deine Zustimmung zurücknehmen; Allay antwortet dir dann nicht mehr\n&f/allay privacy erase &7– alles löschen, was Allay hier über dich speichert"
   admin: "&8Für Admins: &f/allay privacy export <Spieler> &8speichert die Daten eines Spielers für ihn in eine Datei, &f/allay privacy erase <Spieler> &8löscht sie."
   erase_confirm: "&eAlles löschen, was Allay auf diesem Server über dich speichert? Gedächtnis, Gespräch und die Verläufe deiner Agenten sind für immer weg; deine Fragen bleiben nur als anonyme Zahlen."
   erase_button: "&c[Alles löschen]"
@@ -710,7 +710,25 @@ privacy:
   erased: "&aGelöscht, was Allay über {player} gespeichert hatte: {memories} {memories|Fakt|Fakten}; {runs} {runs|Frage zählt|Fragen zählen} jetzt als niemandes."
   unknown_player: "&cDieser Server hat nie einen Spieler {player} gesehen. Nimm seine UUID."
   unsupported: "&7Dieses Allay-Backend ist älter als 6.0 und kann die Daten eines Spielers weder exportieren noch löschen."
-  usage: "&7Benutzung: &f/allay privacy &7[erase]; Admins: &f/allay privacy export|erase <Spieler|UUID>"
+  usage: "&7Benutzung: &f/allay privacy &7[agree|withdraw|erase]; Admins: &f/allay privacy export|erase <Spieler|UUID>"
+
+consent:
+  notice: "&6Bevor Allay dir antwortet\n&7Allay ist ein KI-Helfer. Für eine Antwort schickt es deine Frage, deinen Namen und deine UUID, deine Sprache und das, was es im Spiel für dich liest (Inventar, Umgebung, Koordinaten), an sein Backend."
+  hosted: "&7Das Backend allay.chat speichert deine Daten auf Servern in der EU (Helsinki, Finnland) nach der DSGVO (Verordnung (EU) 2016/679) und dem spanischen Datenschutzgesetz (Ley Orgánica 3/2018, LOPDGDD). Die Antworten schreiben KI-Anbieter; manche sitzen in den USA und bekommen deine Frage mit den Garantien, die die DSGVO verlangt."
+  self: "&7Dieser Server betreibt sein eigenes Allay-Backend: Sein Betreiber speichert deine Daten und steht dafür ein. Die Antworten schreibt der KI-Anbieter, den der Server gewählt hat."
+  keeps: "&7Allay behält euer Gespräch einen Tag und gemerkte Fakten bis zu ein Jahr nach deiner letzten Frage. Die Antworten kommen von einer KI und können falsch sein. &f/allay privacy&7 zeigt, was gespeichert ist, und löscht es; &f/allay privacy withdraw&7 nimmt deine Zustimmung zurück."
+  question: "&eEinverstanden?"
+  agree: "&a[Ich stimme zu]"
+  agree_hover: "&7Allay beantwortet deine Frage sofort"
+  decline: "&c[Nein, danke]"
+  decline_hover: "&7Allay antwortet dir nicht und speichert nichts"
+  policy: "&9[Datenschutzerklärung]"
+  policy_hover: "&7{url}"
+  given: "&aDanke! Allay ist dran."
+  given_idle: "&aDanke! Frag einfach mit &f/ask&a."
+  declined: "&7Alles klar: Allay antwortet dir nicht und speichert nichts über dich. Doch anders entschieden? &f/allay privacy agree"
+  withdrawn: "&7Zustimmung zurückgenommen: Allay antwortet dir erst wieder, wenn du zustimmst. Was schon gespeichert ist, bleibt bis &f/allay privacy erase&7."
+  not_given: "&7Du hast nicht zugestimmt, also gibt es nichts zurückzunehmen."
 
 directions:
   north: "Norden"

@@ -700,7 +700,7 @@ admin:
 
 privacy:
   info: "&6O que o Allay guarda sobre você neste servidor\n&7• A conversa de vocês, por um dia depois da sua última pergunta.\n&7• Os fatos que ele lembra (&f/allay memory&7), até você esquecê-los ou um ano depois da sua última pergunta.\n&7• Quantas perguntas você fez e quanto custaram, por 400 dias, com um pseudônimo no lugar do seu nome.\n&7Outros servidores não veem nada disso."
-  commands: "&f/allay privacy erase &7— apagar tudo o que o Allay guarda sobre você aqui"
+  commands: "&f/allay privacy withdraw &7— retirar seu consentimento; o Allay para de te responder\n&f/allay privacy erase &7— apagar tudo o que o Allay guarda sobre você aqui"
   admin: "&8Para admins: &f/allay privacy export <jogador> &8salva os dados de um jogador num arquivo para ele, &f/allay privacy erase <jogador> &8apaga."
   erase_confirm: "&eApagar tudo o que o Allay guarda sobre você neste servidor? A memória, a conversa e as linhas dos seus agentes somem para sempre; suas perguntas ficam só como números anônimos."
   erase_button: "&c[Apagar tudo]"
@@ -710,7 +710,25 @@ privacy:
   erased: "&aApagado o que o Allay guardava sobre {player}: {memories} {memories|fato|fatos}; {runs} {runs|pergunta|perguntas} agora não são de ninguém."
   unknown_player: "&cEste servidor nunca viu um jogador {player}. Use o UUID dele."
   unsupported: "&7Este backend do Allay é anterior ao 6.0 e não consegue exportar nem apagar os dados de um jogador."
-  usage: "&7Uso: &f/allay privacy &7[erase]; admins: &f/allay privacy export|erase <jogador|uuid>"
+  usage: "&7Uso: &f/allay privacy &7[agree|withdraw|erase]; admins: &f/allay privacy export|erase <jogador|uuid>"
+
+consent:
+  notice: "&6Antes de o Allay responder\n&7O Allay é um assistente de IA. Para responder, ele envia ao backend sua pergunta, seu nome e UUID, seu idioma e o que lê no jogo para você (inventário, arredores, coordenadas)."
+  hosted: "&7O backend, allay.chat, guarda seus dados em servidores na UE (Helsinque, Finlândia) conforme o RGPD (Regulamento (UE) 2016/679) e a lei espanhola de proteção de dados (Lei Orgânica 3/2018, LOPDGDD). As respostas são escritas por provedores de IA; alguns ficam nos EUA e recebem sua pergunta com as garantias que o RGPD exige."
+  self: "&7Este servidor usa um backend próprio do Allay: o dono dele guarda seus dados e responde por eles. As respostas vêm do provedor de IA que o servidor escolheu."
+  keeps: "&7O Allay guarda a conversa por um dia e os fatos que lembra até um ano depois da sua última pergunta. As respostas vêm de uma IA e podem estar erradas. &f/allay privacy&7 mostra o que está guardado e apaga; &f/allay privacy withdraw&7 retira seu consentimento."
+  question: "&eVocê concorda?"
+  agree: "&a[Concordo]"
+  agree_hover: "&7O Allay responde sua pergunta na hora"
+  decline: "&c[Não]"
+  decline_hover: "&7O Allay não vai te responder nem guardar nada"
+  policy: "&9[Política de privacidade]"
+  policy_hover: "&7{url}"
+  given: "&aValeu! O Allay já está respondendo."
+  given_idle: "&aValeu! Pergunte com &f/ask&a."
+  declined: "&7Tudo bem: o Allay não vai te responder nem guardar nada sobre você. Mudou de ideia? &f/allay privacy agree"
+  withdrawn: "&7Consentimento retirado: o Allay não responde até você concordar de novo. O que já está guardado fica até &f/allay privacy erase&7."
+  not_given: "&7Você não deu consentimento, então não há nada para retirar."
 
 directions:
   north: "norte"

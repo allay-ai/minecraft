@@ -2,6 +2,14 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.1.0
+
+Pairs with Allay Server 6.1, which keeps each player's consent; with an older backend Allay asks nobody, as before.
+
+- ✅ **Players agree before Allay answers.** Before a player's first question, Allay says what it sends and keeps, where (allay.chat: the EU, under the GDPR and Spain's LOPDGDD; or the server's own backend), that AI providers write the answers, and that answers can be wrong, with **[I agree]**, **[No, thanks]**, and a link to the privacy policy. Nothing about the player reaches the backend before they agree; their question goes on once they do. The backend keeps the agreement, so a player is asked once per server. `privacy.consent` turns it off, `privacy.policy_url` links your own policy.
+- ↩️ **`/allay privacy withdraw`** takes the agreement back: Allay stops answering and the player's agents stop. `/allay privacy agree` gives it without a question waiting. Erasing a player's data erases their agreement too, so they're asked again.
+- 🔑 **A `license.key` Allay couldn't read counts as soon as it can.** A failed read was kept until the file changed, so a license put in place by another user stayed unread after `chown`. The log now says when the file can't be read.
+
 ## 6.0.0
 
 Pairs with Allay Server 6.0, which wants every request signed in. **Breaking:** update the plugin before the backend. A self-hosted backend needs its `PLUGIN_TOKEN` in the new `server.token`; with `allay.chat` nothing changes for a subscription.

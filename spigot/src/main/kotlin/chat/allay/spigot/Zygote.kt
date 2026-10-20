@@ -142,10 +142,11 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation)
+    val consents = Consents(service)
+    handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
-    privacy = PrivacyCommands(this, locales, service, scope)
+    privacy = PrivacyCommands(this, configuration, locales, service, consents, scope) { automation.cancel(it) }
   }
 
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */
@@ -156,8 +157,8 @@ class Zygote : JavaPlugin(), TabCompleter {
       provider.byok && provider.apiKey.isEmpty() ->
         logger.warning("provider.mode is byok, but provider.byok.api_key is empty: questions fail until you put your key there and run /allay reload")
       provider.byok -> logger.info("Paying for the model with this server's key ${Secrets.mask(provider.apiKey)} at ${provider.baseUrl}")
-      license.broken -> logger.warning("${License.FILE} holds no license: fix it, or delete it and run /allay link")
       license.unreadable -> logger.warning("Can't read ${License.FILE}: make the user the server runs as its owner; Allay reads it again on the next question")
+      license.broken -> logger.warning("${License.FILE} holds no license: fix it, or delete it and run /allay link")
       license.read() != null -> logger.info("Paying for the model with Allay's subscription, license ${license.id}; /allay status shows how it stands")
       provider.legacyKey != null -> logger.info("Paying for the model with the X-OpenRouter-Token key in http.custom_headers (${Secrets.mask(provider.legacyKey)})")
       else -> logger.info("No ${License.FILE} yet: if the backend asks for a subscription, run /allay link")
@@ -249,6 +250,9 @@ class Zygote : JavaPlugin(), TabCompleter {
       }
       word == "privacy" -> when {
         args.size == 1 -> privacy.info(sender)
+        args.size == 2 && args[1].equals("agree", ignoreCase = true) -> privacy.agree(sender)
+        args.size == 2 && args[1].equals("decline", ignoreCase = true) -> privacy.decline(sender)
+        args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
         args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
         args.size == 3 && args[1].equals("erase", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> privacy.eraseSelf(sender)
         args.size == 3 && args[1].lowercase() in setOf("export", "erase") ->
@@ -307,7 +311,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
       args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
       args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
-        if (sender.hasPermission(Permissions.ADMIN)) listOf("erase", "export") else listOf("erase")
+        listOf("agree", "withdraw", "erase") + if (sender.hasPermission(Permissions.ADMIN)) listOf("export") else emptyList()
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
       args.size == 2 && args[0].equals("recipe", ignoreCase = true) ->

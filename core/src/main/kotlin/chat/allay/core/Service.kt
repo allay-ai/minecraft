@@ -50,7 +50,7 @@ class Service<C>(
   private val taskBook: chat.allay.core.tasks.TaskBook? = null,
   /** A byok server's license as its identity on a hosted backend, fetched before the first request that needs it. */
   private val identity: Identity? = null,
-) {
+) : Consents.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
   @Serializable data class AskXRequest(val action: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
@@ -255,6 +255,25 @@ class Service<C>(
 
   /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */
   suspend fun erase(userId: String): Erased = withContext(IO) { json.decodeFromString<Erased>(send("/api/v2/users/${path(userId)}", "DELETE")) }
+
+  @Serializable data class Consent(val version: Int, val accepted_at: String? = null)
+  @Serializable private data class ConsentAnswer(val consent: Consent? = null)
+  @Serializable private data class GiveConsent(val version: Int)
+  @Serializable private data class Withdrawn(val withdrawn: Boolean = false)
+
+  /** The notice's version the player agreed to (since backend 6.1). */
+  override suspend fun consent(userId: String): Int? = withContext(IO) {
+    json.decodeFromString<ConsentAnswer>(send("/api/v2/users/${path(userId)}/consent", "GET")).consent?.version
+  }
+
+  override suspend fun giveConsent(userId: String, version: Int) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/consent", "PUT", json.encodeToString(GiveConsent.serializer(), GiveConsent(version)))
+    Unit
+  }
+
+  override suspend fun withdrawConsent(userId: String): Boolean = withContext(IO) {
+    json.decodeFromString<Withdrawn>(send("/api/v2/users/${path(userId)}/consent", "DELETE")).withdrawn
+  }
 
   /** Forgets one memory, or all of them when [id] is null; returns how many went. */
   suspend fun forget(userId: String, id: String?): Int = withContext(IO) {
