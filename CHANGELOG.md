@@ -2,6 +2,16 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.0.0
+
+Pairs with Allay Server 6.0, which wants every request signed in. **Breaking:** update the plugin before the backend. A self-hosted backend needs its `PLUGIN_TOKEN` in the new `server.token`; with `allay.chat` nothing changes for a subscription.
+
+- 🔐 **The plugin signs in to the backend.** Every request carries `Authorization`: `server.token` for a self-hosted backend, else the license. Allay 5.x gets `401` from Server 6.0.
+- 🔑 **Your own key needs a license as identity on `allay.chat`.** Allay gets one by itself on the first question, free, and keeps it in `license.key`; it pays for nothing. `/allay status` shows it.
+- 🛡️ **`/allay privacy`.** A player reads what Allay keeps about them on this server and for how long, and erases all of it after a confirmation. Admins export a player's data to an owner-only file in `exports/` (`/allay privacy export <player>`) or erase it (`/allay privacy erase <player>`) when the player asks them.
+- 🧭 **Clear messages on a refused sign-in.** Players read that Allay can't sign in; admins read what to set: `server.token`, the backend's `PLUGIN_TOKEN`, or why the identity license is missing.
+- 🙈 **Nothing secret travels or shows.** The key and the token go only to the backend's own host, on every redirect too; the token is masked in the log, and `http.logging` leaves players' ids out of URLs.
+
 ## 5.14.3
 
 Pairs with Allay Server 5.12.3; older servers work too.

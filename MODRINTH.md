@@ -12,6 +12,7 @@
 - 🪟 **Buttons and windows.** Recipes, brewing steps, the cheapest anvil order, enchantments, and villager trades, one click under the answer.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
 - 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects GriefPrevention claims and vanish. PlaceholderAPI and Plan work too.
+- 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request.
 
 ## Get started
 
