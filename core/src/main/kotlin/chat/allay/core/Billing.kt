@@ -41,17 +41,28 @@ class License(folder: File) {
 
   @Volatile private var cached: Pair<Long, String?>? = null
 
-  /** The license, or null when there's no file or it doesn't hold one. Reread only when the file changes. */
+  /**
+   * The license, or null when there's no file, it doesn't hold one, or Allay can't read it. Reread only when the file
+   * changes; a failed read isn't kept, so a file that becomes readable (its owner or mode fixed) counts at once.
+   */
   fun read(): String? {
     if (!file.isFile) return null
     val modified = file.lastModified()
     cached?.takeIf { it.first == modified }?.let { return it.second }
-    val value = runCatching { file.readLines().firstOrNull()?.trim() }.getOrNull()?.takeIf(::valid)
+    val line = try {
+      file.readLines().firstOrNull()?.trim()
+    } catch (_: java.io.IOException) {
+      return null
+    }
+    val value = line?.takeIf(::valid)
     cached = modified to value
     return value
   }
 
-  /** A file is there but holds no license: someone edited it, and a new license must not overwrite it. */
+  /** A file is there, but Allay may not read it: the server runs as another user than the file's owner. */
+  val unreadable get() = file.isFile && !file.canRead()
+
+  /** A file is there but gives no license, unreadable or edited: a new license must not overwrite it. */
   val broken get() = file.isFile && read() == null
 
   /** The public half, which the backend's status also names. */

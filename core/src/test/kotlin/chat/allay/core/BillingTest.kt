@@ -74,6 +74,28 @@ class BillingTest {
     folder.deleteRecursively()
   }
 
+  @Test fun `a license that becomes readable counts at once, though the file didn't change`() {
+    val folder = createTempDirectory("allay").toFile()
+    val license = License(folder).apply { write("k3f9a2.secretsecretsecret") }
+    val path = license.file.toPath()
+    // Root reads anything, and Windows has no POSIX modes: nothing to check there.
+    if (!Files.getFileStore(path).supportsFileAttributeView("posix") || System.getProperty("user.name") == "root") return folder.deleteRecursively().let {}
+    val modified = license.file.lastModified()
+    Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("---------"))
+    assertNull(License(folder).read())
+    val stuck = License(folder)
+    assertNull(stuck.read())
+    assertTrue(stuck.unreadable)
+    // Not overwritten by a new license either.
+    assertTrue(stuck.broken)
+    // chown and chmod leave the modification time as it was.
+    Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"))
+    assertEquals(modified, license.file.lastModified())
+    assertEquals("k3f9a2.secretsecretsecret", stuck.read())
+    assertFalse(stuck.unreadable)
+    folder.deleteRecursively()
+  }
+
   @Test fun `credentials send the key in byok and the license in hosted`() {
     val folder = createTempDirectory("allay").toFile()
     val license = License(folder).apply { write("id1.secret1secret1") }

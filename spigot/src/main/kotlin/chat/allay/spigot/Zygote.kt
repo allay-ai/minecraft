@@ -157,6 +157,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         logger.warning("provider.mode is byok, but provider.byok.api_key is empty: questions fail until you put your key there and run /allay reload")
       provider.byok -> logger.info("Paying for the model with this server's key ${Secrets.mask(provider.apiKey)} at ${provider.baseUrl}")
       license.broken -> logger.warning("${License.FILE} holds no license: fix it, or delete it and run /allay link")
+      license.unreadable -> logger.warning("Can't read ${License.FILE}: make the user the server runs as its owner; Allay reads it again on the next question")
       license.read() != null -> logger.info("Paying for the model with Allay's subscription, license ${license.id}; /allay status shows how it stands")
       provider.legacyKey != null -> logger.info("Paying for the model with the X-OpenRouter-Token key in http.custom_headers (${Secrets.mask(provider.legacyKey)})")
       else -> logger.info("No ${License.FILE} yet: if the backend asks for a subscription, run /allay link")
