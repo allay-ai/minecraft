@@ -572,6 +572,7 @@ errors:
     TOKEN_REQUIRED: "&eAllay can't sign in on this server right now. Your admins know what to do."
     TOKEN_INVALID: "&eAllay can't sign in on this server right now. Your admins know what to do."
     TOKEN_NOT_SET: "&eAllay can't sign in on this server right now. Your admins know what to do."
+    PLAYER_BLOCKED: "&cAllay is switched off for you on this server."
   http:
     "400": "&cBad request. Try rephrasing."
     "401": "&cAuthorization failed. Tell an admin."

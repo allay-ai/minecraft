@@ -572,6 +572,7 @@ errors:
     TOKEN_REQUIRED: "&eAllay kann sich auf diesem Server gerade nicht anmelden. Deine Admins wissen, was zu tun ist."
     TOKEN_INVALID: "&eAllay kann sich auf diesem Server gerade nicht anmelden. Deine Admins wissen, was zu tun ist."
     TOKEN_NOT_SET: "&eAllay kann sich auf diesem Server gerade nicht anmelden. Deine Admins wissen, was zu tun ist."
+    PLAYER_BLOCKED: "&cAllay ist auf diesem Server für dich abgeschaltet."
   http:
     "400": "&cUngültige Anfrage. Formulier es anders."
     "401": "&cAnmeldung fehlgeschlagen. Sag einem Admin Bescheid."

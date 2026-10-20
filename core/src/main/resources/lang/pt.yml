@@ -572,6 +572,7 @@ errors:
     TOKEN_REQUIRED: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
     TOKEN_INVALID: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
     TOKEN_NOT_SET: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
+    PLAYER_BLOCKED: "&cO Allay está desativado para você neste servidor."
   http:
     "400": "&cPedido inválido. Tente reformular."
     "401": "&cFalha na autorização. Avise um admin."

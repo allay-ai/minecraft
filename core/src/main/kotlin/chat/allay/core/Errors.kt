@@ -41,6 +41,9 @@ object ErrorCodes {
   const val TOKEN_INVALID = "TOKEN_INVALID"
   const val TOKEN_NOT_SET = "TOKEN_NOT_SET"
 
+  // Since 6.2: an operator of the backend stopped this player from asking on this server.
+  const val PLAYER_BLOCKED = "PLAYER_BLOCKED"
+
   /** Errors `server.token` fixes: operators learn what to set. */
   val TOKEN = setOf(TOKEN_REQUIRED, TOKEN_INVALID, TOKEN_NOT_SET)
 

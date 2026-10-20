@@ -572,6 +572,7 @@ errors:
     TOKEN_REQUIRED: "&eAllay no puede iniciar sesión en este servidor ahora. Tus admins saben qué hacer."
     TOKEN_INVALID: "&eAllay no puede iniciar sesión en este servidor ahora. Tus admins saben qué hacer."
     TOKEN_NOT_SET: "&eAllay no puede iniciar sesión en este servidor ahora. Tus admins saben qué hacer."
+    PLAYER_BLOCKED: "&cAllay está desactivado para ti en este servidor."
   http:
     "400": "&cPetición incorrecta. Prueba a decirlo de otra forma."
     "401": "&cFalló la autorización. Avisa a un administrador."
