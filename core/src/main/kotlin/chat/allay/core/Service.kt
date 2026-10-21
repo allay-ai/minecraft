@@ -262,6 +262,27 @@ class Service<C>(
   /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */
   suspend fun erase(userId: String): Erased = withContext(IO) { json.decodeFromString<Erased>(send("/api/v2/users/${path(userId)}", "DELETE")) }
 
+  @Serializable private data class Register(
+    val id: String,
+    val name: String? = null,
+    val motd: String? = null,
+    val software: String,
+    val version: String,
+    val plugin_version: String,
+    val address: String? = null,
+    val port: Int? = null,
+  )
+
+  /**
+   * At start and on reload: the server's name, MOTD, and address for the backend's admin panel (since backend 6.7).
+   * A name another server on the backend holds fails with `NAME_TAKEN`.
+   */
+  suspend fun register(motd: String?) = withContext(IO) {
+    val body = Register(serverId, config.server.name.ifEmpty { null }, motd, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port)
+    send("/api/v2/server", "PUT", json.encodeToString(Register.serializer(), body))
+    Unit
+  }
+
   @Serializable private data class Privacy(val full: Boolean)
   @Serializable data class PrivacyAnswer(val full: Boolean = false, val forgotten: Boolean = false)
 

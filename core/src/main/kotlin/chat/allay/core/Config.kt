@@ -15,6 +15,8 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val token = config.string("server.token", "").trim()
     /** Where players join, like `mc.example.com`, for the backend's admin panel (since 6.4); empty: the game's `server-ip`, if set. */
     val address = config.string("server.address", "").trim()
+    /** The server's name in the backend's admin panel, like `Moonlands` (since 6.5); unique on the backend. Empty: its random id. */
+    val name = config.string("server.name", "").trim()
   }
 
   /** Who pays for the model: the backend's key with a subscription (hosted), or the server's own key (byok). */

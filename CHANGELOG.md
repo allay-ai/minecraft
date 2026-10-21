@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.5.0
+
+For Allay Server 6.7; an older backend ignores it.
+
+- 🏷️ **Name your server.** `server.name` in `config.yml` (like `Moonlands`) is how the backend's admin panel heads your server, with the address and the MOTD under it. Allay registers it at start and on `/allay reload`. No two servers on a backend share a name: a taken one shows as an error in the log, and the panel shows the server's random id until you pick another.
+
 ## 6.4.0
 
 For Allay Server 6.6, which shows it; older backends ignore it.

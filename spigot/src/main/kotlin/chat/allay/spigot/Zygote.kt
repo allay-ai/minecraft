@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
@@ -37,6 +38,9 @@ import chat.allay.spigot.tools.WorldTools
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.logging.Logger
+
+/** What the backend takes as a server's name (backend 6.7): letters of any script, digits, spaces, and . _ ' - . */
+private val SERVER_NAME = Regex("[\\p{L}\\p{N} ._'-]{2,32}")
 
 class Zygote : JavaPlugin(), TabCompleter {
   private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
@@ -147,6 +151,36 @@ class Zygote : JavaPlugin(), TabCompleter {
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
     privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, scope) { automation.cancel(it) }
+    registerServer()
+  }
+
+  /**
+   * Tells the backend this server's name, MOTD, and address for its admin panel (backend 6.7). A name another server
+   * holds, or one the backend doesn't take, goes to the log as an error; the panel then shows the server by its id.
+   */
+  private fun registerServer() {
+    val name = configuration.server.name
+    if (name.isNotEmpty() && !SERVER_NAME.matches(name)) {
+      logger.severe("server.name “$name” isn't a name the backend takes: 2–32 letters, digits, spaces, or . _ ' -. The admin panel shows this server by its id")
+      return
+    }
+    @Suppress("DEPRECATION") val motd = Billing.serverName(server.motd).ifEmpty { null }
+    scope.launch {
+      try {
+        service.register(motd)
+        if (name.isNotEmpty()) logger.info("This server is “$name” in the backend's admin panel")
+      } catch (error: ApiErrorException) {
+        when {
+          error.apiError.code == "NAME_TAKEN" ->
+            logger.severe("server.name “$name” is taken: another server on this Allay backend has it. Pick another name in config.yml and run /allay reload; until then the admin panel shows this server by its id")
+          // No license yet, or a backend before 6.7: the panel learns about the server from its questions.
+          error.apiError.statusCode in setOf(401, 402, 403, 404, 405) -> Unit
+          else -> logger.warning("Couldn't register this server with the backend: ${error.apiError.code}")
+        }
+      } catch (error: Exception) {
+        logger.warning("Couldn't register this server with the backend: ${error.javaClass.simpleName}")
+      }
+    }
   }
 
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */

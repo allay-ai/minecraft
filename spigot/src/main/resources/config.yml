@@ -15,6 +15,10 @@ server:
   # PLUGIN_TOKEN: put the same value here. Leave it empty for allay.chat, which knows
   # your server by its license. Allay never logs it.
   token: ""
+  # Your server's name in the backend's admin panel, like "Moonlands": 2–32 letters, digits,
+  # spaces, or . _ ' -. No two servers on a backend share one; a taken name shows as an
+  # error in the log. Empty: the panel shows the server's random id.
+  name: ""
   # Where players join, like "mc.example.com". The backend's admin panel shows it next to
   # your server, with the game port. Empty: the game's server-ip, if set.
   address: ""
