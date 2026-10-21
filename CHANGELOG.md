@@ -2,6 +2,14 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.3.0
+
+For Allay Server 6.5, which honors full privacy; an older backend keeps showing names in its admin panel.
+
+- 🕶️ **Full privacy.** A player turns it on in the `/allay` window or with `/allay privacy full on`, and the backend's admin panel knows them by a pseudonym instead of their name, UUID, and skin. Allay still remembers what they told it, and the conversation works as before. The switch goes with every question and reaches the backend at once.
+- 🪟 **A tidier `/allay` window.** It holds settings only: chat mode and its tip, time zone, language, memory, starting over, full privacy, and “My data”. The recipe, enchanting, and villager windows, which needed an item in hand, open from buttons under Allay's answers and from `/allay recipe|enchants|villagers`.
+- 🛡️ `/allay privacy` says whether full privacy is on, and that the admin panel sees your name unless it is.
+
 ## 6.2.0
 
 - 🚫 **A blocked player hears why.** Allay Server 6.2 lets its operators block a player on one server; that player now reads “Allay is switched off for you on this server” in their language instead of a general error.

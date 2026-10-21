@@ -1,37 +1,34 @@
 package chat.allay.spigot.menus
 
-import chat.allay.core.*
-import chat.allay.core.tools.*
-import chat.allay.spigot.send
-
+import chat.allay.core.Lang
+import chat.allay.core.Permissions
+import chat.allay.spigot.Languages
+import chat.allay.spigot.MemoryCommands
+import chat.allay.spigot.PrivacyCommands
+import chat.allay.spigot.tools.Features
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import chat.allay.spigot.Clicks
-import chat.allay.core.Lang
-import chat.allay.spigot.Languages
-import chat.allay.spigot.MemoryCommands
-import chat.allay.core.Permissions
-import chat.allay.spigot.tools.Features
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 /**
- * `/allay`: the player's Allay settings in one window. Toggles switch chat mode and its tip; the rest opens what
- * `/allay`'s subcommands open. Like every [Menu], it only shows pictures.
+ * `/allay`: the player's Allay settings in one window, and nothing else. Toggles switch chat mode, its tip, and full
+ * privacy; the rest opens what `/allay`'s subcommands open. The recipe, enchanting, and villager windows open from
+ * buttons under answers, where Allay knows what they're for. Like every [Menu], it only shows pictures.
  */
 class SettingsMenu(
   player: Player,
   private val lang: Lang,
   private val features: Features,
-  private val clicks: Clicks,
   private val memory: MemoryCommands,
+  private val privacy: PrivacyCommands,
   private val version: String,
   private val languages: Languages,
   private val chooseLanguage: () -> Unit,
-) : Menu(player, 36, lang.text("menus.settings.title")) {
+) : Menu(player, 45, lang.text("menus.settings.title")) {
   private val chatAllowed get() = player.hasPermission(Permissions.CHAT)
   private val askAllowed get() = player.hasPermission(Permissions.ASK)
 
@@ -40,8 +37,8 @@ class SettingsMenu(
     val settings = features.settings.of(player.uniqueId)
     set(HEADER, icon(Material.BOOK, lang.text("menus.settings.header", "version" to version), lines("header_ask", "header_askall", "header_more")))
 
-    toggle(CHAT, STATE_CHAT, Material.WRITABLE_BOOK, "chat", settings.chat_mode, lines("chat_what", "chat_prefixes"))
-    toggle(TIP, STATE_TIP, Material.LANTERN, "tip", settings.hints, lines("tip_what"))
+    toggle(CHAT, STATE_CHAT, Material.WRITABLE_BOOK, "chat", settings.chat_mode, chatAllowed, lines("chat_what", "chat_prefixes"))
+    toggle(TIP, STATE_TIP, Material.LANTERN, "tip", settings.hints, chatAllowed, lines("tip_what"))
 
     val zone = features.zones.of(player.uniqueId)
     val time = runCatching { ZonedDateTime.now(ZoneId.of(zone)).format(DateTimeFormatter.ofPattern("HH:mm")) }.getOrDefault("?")
@@ -53,17 +50,16 @@ class SettingsMenu(
     if (askAllowed) {
       set(MEMORY, icon(Material.KNOWLEDGE_BOOK, lang.text("menus.settings.memory"), lines("memory_click")))
       set(NEW, icon(Material.FEATHER, lang.text("menus.settings.new"), lines("new_what", "new_confirm")))
-      set(RECIPE, icon(Material.CRAFTING_TABLE, lang.text("menus.settings.recipe"), lines("in_hand")))
-      set(ENCHANTS, icon(Material.ENCHANTING_TABLE, lang.text("menus.settings.enchants"), lines("in_hand")))
-      set(VILLAGERS, icon(Material.EMERALD, lang.text("menus.settings.villagers"), lines("villagers_what")))
+      toggle(PRIVATE, STATE_PRIVATE, Material.ENDER_EYE, "private", settings.full_privacy, true, lines("private_what", "private_keeps"))
+      set(DATA, icon(Material.SHIELD, lang.text("menus.settings.data"), lines("data_what", "data_click")))
     }
     set(CLOSE, icon(Material.BARRIER, lang.text("menus.close")))
   }
 
   /** A setting and, under it, a pane that's green when it's on: the way the game's own toggles read at a glance. */
-  private fun toggle(slot: Int, state: Int, material: Material, key: String, on: Boolean, about: List<String>) {
+  private fun toggle(slot: Int, state: Int, material: Material, key: String, on: Boolean, allowed: Boolean, about: List<String>) {
     val status = lang.text(if (on) "menus.settings.state_on" else "menus.settings.state_off")
-    val action = lang.text(if (chatAllowed) "menus.settings.toggle" else "menus.settings.unavailable")
+    val action = lang.text(if (allowed) "menus.settings.toggle" else "menus.settings.unavailable")
     set(slot, icon(material, lang.text("menus.settings.$key"), about + "" + status + action).shine(on))
     set(state, icon(if (on) Material.LIME_STAINED_GLASS_PANE else Material.RED_STAINED_GLASS_PANE, status))
   }
@@ -83,6 +79,10 @@ class SettingsMenu(
         features.chat.hints(player, !settings.hints)
         changed()
       }
+      PRIVATE, STATE_PRIVATE -> if (askAllowed) {
+        privacy.setFull(player, !settings.full_privacy)
+        changed()
+      }
       MEMORY -> if (askAllowed) {
         player.closeInventory()
         memory.list(player)
@@ -92,19 +92,10 @@ class SettingsMenu(
         player.closeInventory()
         memory.newSession(player)
       }
-      // Closed first: when there's nothing to show, the reason goes to chat, which an open window hides.
-      RECIPE -> if (askAllowed) {
+      // Closed first: the answer goes to chat, which an open window hides.
+      DATA -> if (askAllowed) {
         player.closeInventory()
-        val item = player.inventory.itemInMainHand.takeUnless { it.type.isAir }
-        if (item == null) lang.send(player, "menus.settings.hold_item") else clicks.recipe(player, item.type.key.key)
-      }
-      ENCHANTS -> if (askAllowed) {
-        player.closeInventory()
-        clicks.enchants(player)
-      }
-      VILLAGERS -> if (askAllowed) {
-        player.closeInventory()
-        clicks.villagers(player, null)
+        privacy.info(player)
       }
       LANGUAGE -> chooseLanguage()
       CLOSE -> player.closeInventory()
@@ -118,6 +109,7 @@ class SettingsMenu(
     draw()
   }
 
+  /** Five rows: switches on the left, where and in which language in the middle, privacy on the right. */
   private companion object {
     const val HEADER = 4
     const val CHAT = 10
@@ -126,11 +118,11 @@ class SettingsMenu(
     const val STATE_TIP = 20
     const val ZONE = 13
     const val LANGUAGE = 22
-    const val MEMORY = 15
-    const val NEW = 16
-    const val RECIPE = 23
-    const val ENCHANTS = 24
-    const val VILLAGERS = 25
-    const val CLOSE = 31
+    const val PRIVATE = 16
+    const val STATE_PRIVATE = 25
+    const val MEMORY = 28
+    const val NEW = 29
+    const val DATA = 34
+    const val CLOSE = 40
   }
 }

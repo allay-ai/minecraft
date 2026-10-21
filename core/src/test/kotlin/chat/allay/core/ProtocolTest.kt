@@ -23,6 +23,13 @@ class ProtocolTest {
     )
   }
 
+  @Test fun `full privacy goes with the player only when it's on`() {
+    val off = Protocol.PlayerInfo("Steve", "u", op = false)
+    val on = off.copy(private = true)
+    assertEquals("""{"name":"Steve","uuid":"u","op":false}""", Protocol.json.encodeToString(Protocol.PlayerInfo.serializer(), off))
+    assertEquals("""{"name":"Steve","uuid":"u","op":false,"private":true}""", Protocol.json.encodeToString(Protocol.PlayerInfo.serializer(), on))
+  }
+
   @Test fun `every event decodes`() {
     assertEquals("r1", assertIs<Event.Started>(Protocol.decode("start", """{"run_id":"r1","model":"m"}""")).data.run_id)
     assertEquals("hm", assertIs<Event.Reasoning>(Protocol.decode("reasoning", """{"delta":"hm"}""")).delta)

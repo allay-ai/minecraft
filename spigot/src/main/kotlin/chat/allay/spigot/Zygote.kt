@@ -135,7 +135,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     val tools = ToolRegistry(Tools.all(), configuration.tools::enabled)
     val licenses = Billing(client, configuration, license)
     val identity = Identity(licenses, configuration, { server.motd }, logger)
-    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book, identity)
+    service = Service(configuration, client, tools, features.zones, features.serverId, host, scope, credentials, automation.book, identity) { features.settings.of(it).full_privacy }
     quota.report()
     billing = BillingCommands(this, configuration, locales, licenses, AdminSetup(client, configuration), credentials, features.zones, scope)
     watch?.stop()
@@ -146,7 +146,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
-    privacy = PrivacyCommands(this, configuration, locales, service, consents, scope) { automation.cancel(it) }
+    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, scope) { automation.cancel(it) }
   }
 
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */
@@ -253,6 +253,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         args.size == 2 && args[1].equals("agree", ignoreCase = true) -> privacy.agree(sender)
         args.size == 2 && args[1].equals("decline", ignoreCase = true) -> privacy.decline(sender)
         args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
+        args.size in 2..3 && args[1].equals("full", ignoreCase = true) -> privacy.full(sender, args.getOrNull(2))
         args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
         args.size == 3 && args[1].equals("erase", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> privacy.eraseSelf(sender)
         args.size == 3 && args[1].lowercase() in setOf("export", "erase") ->
@@ -286,7 +287,7 @@ class Zygote : JavaPlugin(), TabCompleter {
   }
 
   private fun settingsMenu(player: Player): Unit =
-    SettingsMenu(player, locales.of(player), features, clicks, memory, description.version, languages) { languageMenu(player) }.open()
+    SettingsMenu(player, locales.of(player), features, memory, privacy, description.version, languages) { languageMenu(player) }.open()
 
   private fun languageMenu(player: Player): Unit = LanguageMenu(player, locales, languages) { settingsMenu(player) }.open()
 
@@ -311,7 +312,8 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
       args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
       args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
-        listOf("agree", "withdraw", "erase") + if (sender.hasPermission(Permissions.ADMIN)) listOf("export") else emptyList()
+        listOf("agree", "withdraw", "full", "erase") + if (sender.hasPermission(Permissions.ADMIN)) listOf("export") else emptyList()
+      args.size == 3 && args[0].equals("privacy", ignoreCase = true) && args[1].equals("full", ignoreCase = true) -> listOf("on", "off")
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
       args.size == 2 && args[0].equals("recipe", ignoreCase = true) ->

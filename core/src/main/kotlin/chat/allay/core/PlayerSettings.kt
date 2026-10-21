@@ -12,12 +12,14 @@ import java.util.logging.Logger
 /**
  * One player's Allay settings; [language] is a `lang/` code they chose, null to have it picked for them. [outputs] is
  * where each kind of automation puts what it made, when the player said so once: `inventory`, `auto`, or chests.
+ * [full_privacy] keeps the player's name, UUID, and face out of the backend's admin panel (backend 6.5).
  */
 @Serializable data class Settings(
   val chat_mode: Boolean = false,
   val hints: Boolean = true,
   val language: String? = null,
   val outputs: Map<String, String> = emptyMap(),
+  val full_privacy: Boolean = false,
 )
 
 /** Each player's settings in `players.json`. Chat reads them off the server thread, so the map is concurrent. */

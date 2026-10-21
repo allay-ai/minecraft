@@ -49,7 +49,8 @@ object Protocol {
   @Serializable data class Provider(val base_url: String, val model: String, val search_model: String)
 
   /** [dimension] (since 5.3) is where the player stands, so the model knows which dimension “here” is. */
-  @Serializable data class PlayerInfo(val name: String, val uuid: String, val op: Boolean, val dimension: String? = null)
+  /** [private] is true while the player has full privacy on (backend 6.5): the admin panel then knows them by pseudonym only. */
+  @Serializable data class PlayerInfo(val name: String, val uuid: String, val op: Boolean, val dimension: String? = null, val private: Boolean? = null)
 
   /** [id] is random and kept by the plugin; it names the server's shared thread of public questions. */
   @Serializable data class ServerInfo(val id: String? = null, val software: String, val version: String, val plugin_version: String)

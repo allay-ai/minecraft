@@ -50,6 +50,8 @@ class Service<C>(
   private val taskBook: chat.allay.core.tasks.TaskBook? = null,
   /** A byok server's license as its identity on a hosted backend, fetched before the first request that needs it. */
   private val identity: Identity? = null,
+  /** Whether a player has full privacy on, so each question tells the backend to keep them out of its admin panel. */
+  private val fullPrivacy: (java.util.UUID) -> Boolean = { false },
 ) : Consents.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
@@ -161,7 +163,7 @@ class Service<C>(
       user_id = uuid?.toString() ?: "console",
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
-      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension) },
+      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null) },
       server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion),
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
@@ -255,6 +257,14 @@ class Service<C>(
 
   /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */
   suspend fun erase(userId: String): Erased = withContext(IO) { json.decodeFromString<Erased>(send("/api/v2/users/${path(userId)}", "DELETE")) }
+
+  @Serializable private data class Privacy(val full: Boolean)
+  @Serializable data class PrivacyAnswer(val full: Boolean = false, val forgotten: Boolean = false)
+
+  /** `/allay privacy full`: the admin panel forgets the player's name at once, or names them again from the next question (since backend 6.5). */
+  suspend fun privacy(userId: String, full: Boolean): PrivacyAnswer = withContext(IO) {
+    json.decodeFromString<PrivacyAnswer>(send("/api/v2/users/${path(userId)}/privacy", "PUT", json.encodeToString(Privacy.serializer(), Privacy(full))))
+  }
 
   @Serializable data class Consent(val version: Int, val accepted_at: String? = null)
   @Serializable private data class ConsentAnswer(val consent: Consent? = null)

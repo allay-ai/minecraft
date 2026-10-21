@@ -34,6 +34,7 @@ class PrivacyCommands(
   private val locales: Locales,
   private val service: Service<*>,
   private val consents: Consents,
+  private val settings: PlayerSettings,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
@@ -113,9 +114,45 @@ class PrivacyCommands(
     }
   }
 
+  /**
+   * `/allay privacy full [on|off]`: the backend's admin panel knows the player by pseudonym only, without their name,
+   * UUID, or face. The switch lives here and goes with every question; the backend hears it at once only from a player
+   * who agreed to the notice, since nothing about anyone else reaches it.
+   */
+  fun full(sender: CommandSender, word: String?) {
+    val lang = locales.of(sender)
+    val player = sender as? Player ?: return lang.send(sender, "messages.players_only")
+    val now = settings.of(player.uniqueId).full_privacy
+    val on = when (word?.lowercase()) {
+      null -> return lang.send(player, if (now) "privacy.full_is_on" else "privacy.full_is_off")
+      "on" -> true
+      "off" -> false
+      "toggle" -> !now
+      else -> return lang.send(player, "privacy.usage")
+    }
+    setFull(player, on)
+  }
+
+  /** Flips the switch and tells the backend; the settings window calls it too. */
+  fun setFull(player: Player, on: Boolean) {
+    settings.update(player.uniqueId) { it.copy(full_privacy = on) }
+    request(player) { lang ->
+      if (consents.known(player.uniqueId) || consents.check(player.uniqueId) == Consents.State.GIVEN) {
+        try {
+          service.privacy(player.uniqueId.toString(), on)
+        } catch (error: ApiErrorException) {
+          // A backend before 6.5 has no switch: it shows the name either way, and the player should know.
+          if (error.apiError.statusCode in setOf(404, 405)) return@request lang.text("privacy.full_unsupported") else throw error
+        }
+      }
+      lang.text(if (on) "privacy.full_on" else "privacy.full_off")
+    }
+  }
+
   fun info(sender: CommandSender) {
     val lang = locales.of(sender)
     lang.send(sender, "privacy.info")
+    (sender as? Player)?.let { lang.send(it, if (settings.of(it.uniqueId).full_privacy) "privacy.full_is_on" else "privacy.full_is_off") }
     lang.send(sender, "privacy.commands")
     if (sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "privacy.admin")
   }

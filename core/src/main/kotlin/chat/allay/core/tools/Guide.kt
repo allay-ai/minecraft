@@ -18,6 +18,7 @@ object Guide {
     Triple("/allay memory <text>", Permissions.ASK, "remembers the text without asking Allay; with coordinates in it (x y z, or x z), a note in the notebook, in the dimension the text names or where the player stands"),
     Triple("/allay forget <number|all>", Permissions.ASK, "forgets one remembered fact, or all of them"),
     Triple("/allay privacy", Permissions.ASK, "what Allay keeps about the player on this server and for how long; /allay privacy erase erases all of it, after a confirmation"),
+    Triple("/allay privacy full on|off", Permissions.ASK, "full privacy: the backend's admin panel knows the player by a pseudonym instead of their name, UUID, and skin; memories and the conversation work as before. Also a switch in the /allay window"),
     Triple("/allay privacy agree|withdraw", Permissions.ASK, "agrees to Allay's data notice, which it shows before the first question, or takes the agreement back; without it Allay doesn't answer the player"),
     Triple("/allay recipe <item>", Permissions.ASK, "opens the recipe window for an item"),
     Triple("/allay enchants", Permissions.ASK, "opens the enchanting window for the item in hand"),
