@@ -27,6 +27,10 @@ interface Host<C> {
   val software: String
   val gameVersion: String
 
+  /** The address the game listens on when the server's config names one, and its port; for the backend's admin panel. */
+  val address: String? get() = null
+  val port: Int? get() = null
+
   /** What the tools of this run see: the asker and the plugin's stores. */
   fun context(run: Run): C
 
@@ -164,7 +168,7 @@ class Service<C>(
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
       player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null) },
-      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion),
+      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port),
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
       provider = credentials.block(run.model),

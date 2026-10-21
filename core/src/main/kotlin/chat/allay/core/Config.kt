@@ -13,6 +13,8 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val url = config.string("server.url", "https://allay.chat")
     /** A self-hosted backend's `PLUGIN_TOKEN` (since 6.0); empty for a hosted one, which knows the server by its license. */
     val token = config.string("server.token", "").trim()
+    /** Where players join, like `mc.example.com`, for the backend's admin panel (since 6.4); empty: the game's `server-ip`, if set. */
+    val address = config.string("server.address", "").trim()
   }
 
   /** Who pays for the model: the backend's key with a subscription (hosted), or the server's own key (byok). */

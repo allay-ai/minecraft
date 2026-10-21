@@ -171,6 +171,9 @@ class Zygote : JavaPlugin(), TabCompleter {
     override val pluginVersion: String get() = description.version
     override val software: String get() = server.name
     override val gameVersion: String get() = WorldTools.version(server.bukkitVersion)
+    // server-ip is usually empty: the game listens everywhere, and only the owner knows the name players type.
+    override val address: String? get() = server.ip.trim().takeIf { it.isNotEmpty() && it != "0.0.0.0" }
+    override val port: Int get() = server.port
     override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task)
     override fun <T> onMain(seconds: Long, block: () -> T): T = server.scheduler.callSyncMethod(this@Zygote) { block() }.get(seconds, TimeUnit.SECONDS)
   }

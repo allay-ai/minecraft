@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.4.0
+
+For Allay Server 6.6, which shows it; older backends ignore it.
+
+- 🌐 **Your server's address in the admin panel.** `server.address` in `config.yml` (like `mc.example.com`) goes to the backend with the game port, so its admin panel shows where players join. Empty: the game's `server-ip`, if set.
+
 ## 6.3.0
 
 For Allay Server 6.5, which honors full privacy; an older backend keeps showing names in its admin panel.

@@ -52,8 +52,11 @@ object Protocol {
   /** [private] is true while the player has full privacy on (backend 6.5): the admin panel then knows them by pseudonym only. */
   @Serializable data class PlayerInfo(val name: String, val uuid: String, val op: Boolean, val dimension: String? = null, val private: Boolean? = null)
 
-  /** [id] is random and kept by the plugin; it names the server's shared thread of public questions. */
-  @Serializable data class ServerInfo(val id: String? = null, val software: String, val version: String, val plugin_version: String)
+  /**
+   * [id] is random and kept by the plugin; it names the server's shared thread of public questions. [address] and [port]
+   * say where players join, for the backend's admin panel (backend 6.6).
+   */
+  @Serializable data class ServerInfo(val id: String? = null, val software: String, val version: String, val plugin_version: String, val address: String? = null, val port: Int? = null)
 
   @Serializable data class Start(val run_id: String, val model: String? = null)
 

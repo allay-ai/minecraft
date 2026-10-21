@@ -15,6 +15,9 @@ server:
   # PLUGIN_TOKEN: put the same value here. Leave it empty for allay.chat, which knows
   # your server by its license. Allay never logs it.
   token: ""
+  # Where players join, like "mc.example.com". The backend's admin panel shows it next to
+  # your server, with the game port. Empty: the game's server-ip, if set.
+  address: ""
 
 # Who pays for the AI model. Two ways:
 #   hosted: the backend's key and models, paid with a subscription in Telegram Stars.
