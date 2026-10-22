@@ -69,6 +69,7 @@ class Notes(dataFolder: File, private val log: Logger, private val max: () -> In
   fun forget(uuid: UUID) {
     books.remove(uuid)
     File(folder, "$uuid.json").delete()
+    File(folder, "$uuid.json.broken").delete()
   }
 
   fun save(uuid: UUID) {

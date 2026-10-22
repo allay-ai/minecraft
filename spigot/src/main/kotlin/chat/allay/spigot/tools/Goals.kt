@@ -187,6 +187,13 @@ class Goals(private val plugin: Plugin, private val locales: chat.allay.spigot.L
 
   @EventHandler fun onAdvancement(event: PlayerAdvancementDoneEvent) = poll(event.player)
 
+  /** Erasure, on the server thread: the player's goals, their bars, and their file go. */
+  fun forget(uuid: UUID) {
+    books.remove(uuid)
+    bars.keys.filter { it.startsWith("$uuid:") }.forEach { bars.remove(it)?.removeAll() }
+    files.delete(uuid)
+  }
+
   fun save(uuid: UUID) {
     val book = books[uuid] ?: return
     files.save(uuid, book.all())

@@ -28,6 +28,14 @@ class TimeZones(private val folder: File, private val log: Logger, private val d
     return id
   }
 
+  /** The zone the player named, or null when they never did; for an export. */
+  fun chosen(player: UUID): String? = zones[player.toString()]
+
+  /** Erasure: the player's zone goes, so the server's default applies again. */
+  fun forget(player: UUID) {
+    if (zones.remove(player.toString()) != null) save()
+  }
+
   @Synchronized private fun save() {
     folder.mkdirs()
     val temp = File(folder, "timezones.json.tmp")

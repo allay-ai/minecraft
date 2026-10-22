@@ -39,6 +39,11 @@ class PlayerSettings(private val folder: File, private val log: Logger) {
     return settings
   }
 
+  /** Erasure: the player's settings go, so they start from the defaults. */
+  fun forget(player: UUID) {
+    if (players.remove(player.toString()) != null) save()
+  }
+
   @Synchronized private fun save() {
     folder.mkdirs()
     val temp = File(folder, "players.json.tmp")

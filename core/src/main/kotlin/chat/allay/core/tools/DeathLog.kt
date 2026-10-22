@@ -79,6 +79,7 @@ class DeathLog(dataFolder: File, private val log: Logger, private val max: () ->
     val count = of(uuid).all().size
     histories.remove(uuid)
     File(folder, "$uuid.json").delete()
+    File(folder, "$uuid.json.broken").delete()
     return count
   }
 

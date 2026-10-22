@@ -109,6 +109,12 @@ class GoalFiles(dataFolder: File, private val log: Logger) {
     Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
   }
 
+  /** Erasure: the file goes, and a broken copy kept for a human with it. */
+  fun delete(uuid: UUID) {
+    File(folder, "$uuid.json").delete()
+    File(folder, "$uuid.json.broken").delete()
+  }
+
   /** The goals on disk without touching the file, for readers on other threads; a broken file reads as none. */
   fun peek(uuid: UUID): List<Goal> = runCatching { json.decodeFromString<List<Goal>>(File(folder, "$uuid.json").readText()) }.getOrDefault(emptyList())
 

@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.HoverEvent
 import net.md_5.bungee.api.chat.TextComponent
@@ -39,9 +40,11 @@ class PrivacyCommands(
   private val service: Service<*>,
   private val consents: Consents,
   private val settings: PlayerSettings,
-  /** What the plugin itself keeps about a player, next to the backend's: their notes and deaths. */
+  /** What the plugin itself keeps about a player, next to the backend's. */
   private val notes: Notes,
   private val deaths: DeathLog,
+  private val goals: chat.allay.spigot.tools.Goals,
+  private val zones: TimeZones,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
@@ -177,8 +180,8 @@ class PrivacyCommands(
 
   fun eraseSelf(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    forgetHere(player.uniqueId)
     request(sender) { lang ->
-      forgetHere(player.uniqueId)
       val erased = service.erase(player.uniqueId.toString())
       consents.forget(player.uniqueId)
       // Without the name: the log shouldn't keep who asked to be forgotten.
@@ -201,8 +204,8 @@ class PrivacyCommands(
   /** `/allay privacy erase <player|uuid>`: for a player who asked an admin to be forgotten. */
   fun erase(sender: CommandSender, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
+    forgetHere(target.uniqueId)
     request(sender) { lang ->
-      forgetHere(target.uniqueId)
       val erased = service.erase(target.uniqueId.toString())
       consents.forget(target.uniqueId)
       plugin.logger.info("${sender.name} erased what Allay kept about a player")
@@ -210,16 +213,25 @@ class PrivacyCommands(
     }
   }
 
-  /** The plugin's own data goes before the backend's, so an old backend that can't erase still leaves nothing here. */
+  /**
+   * The plugin's own data goes on the server thread, where boss bars live, before the backend's, so an old backend that
+   * can't erase still leaves nothing here. Settings go too: chat mode, language, outputs, and full privacy start over.
+   */
   private fun forgetHere(uuid: UUID) {
     notes.forget(uuid)
     deaths.forget(uuid)
+    goals.forget(uuid)
+    zones.forget(uuid)
+    settings.forget(uuid)
   }
 
-  /** The backend's export with what this server keeps under `plugin`: the notebook and the deaths. */
+  /** The backend's export with what this server keeps under `plugin`: settings, time zone, notebook, goals, and deaths. */
   private fun withLocal(uuid: UUID, backend: String): String {
     val local = buildJsonObject {
+      put("settings", Json.encodeToJsonElement(settings.of(uuid)))
+      zones.chosen(uuid)?.let { put("time_zone", it) }
       put("notes", Json.encodeToJsonElement(notes.of(uuid).all()))
+      put("goals", Json.encodeToJsonElement(goals.snapshot(uuid)))
       put("deaths", Json.encodeToJsonElement(deaths.of(uuid).all()))
     }
     val parsed = runCatching { Json.parseToJsonElement(backend) as? JsonObject }.getOrNull() ?: return backend
