@@ -16,7 +16,7 @@
 
 ## Privacy and the law
 
-What Allay does with players' data on the hosted backend, [allay.chat](https://allay.chat/privacy/), with the GDPR, Spain's LOPDGDD, and COPPA in mind:
+Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with players' data on the hosted backend, [allay.chat](https://allay.chat/privacy/), under the GDPR, Spain's LOPDGDD, COPPA, and the CCPA/CPRA:
 
 - 🇪🇺 **Stored in the EU**, on servers in Helsinki, Finland. Encrypted nightly backups sit with Cloudflare R2 for up to 12 months.
 - 🔐 **Sealed with AES-256-GCM:** conversations, memories and places, deaths, settings and goals, and records of questions. Not sealed: the players directory (name, UUID, operator status), the numbers of each question, and the record of each agreement.
