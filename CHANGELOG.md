@@ -2,6 +2,11 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.7.1
+
+- 🏷️ **Your server's name, not its MOTD.** `/allay link` sends `server.name` to the bot when it's set, and the MOTD only otherwise, so @AllayChatBot and the admin panel call your server what you named it.
+- 📝 **The MOTD keeps its lines.** The plugin sends the backend's admin panel the MOTD line by line, up to 128 characters, instead of one line cut at 64.
+
 ## 6.7.0
 
 Needs Allay Server 6.9, which keeps players' data. Against an older backend Allay keeps working, but settings, goals, and time zones last only until the server stops, deaths aren't kept, exports have no link, and the log says so once.
