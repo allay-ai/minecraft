@@ -12,6 +12,10 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Location
+import org.bukkit.NamespacedKey
+import org.bukkit.Registry
+import org.bukkit.Server
+import org.bukkit.World
 import org.bukkit.entity.Player
 import java.time.Instant
 import java.time.ZoneId
@@ -20,6 +24,23 @@ import java.time.temporal.ChronoUnit
 
 /** Places that matter to the asker: where they respawn, where the world starts, where they last died, and earlier deaths. */
 object LocationTools {
+  /**
+   * The world players spawn in. Since 1.21.9 the game keeps one spawn for the server, in any dimension, and Paper tells
+   * which world through `Server.getRespawnWorld`; Spigot has no such call, so the first world, as before.
+   */
+  fun respawnWorld(server: Server): World =
+    runCatching { server.javaClass.getMethod("getRespawnWorld").invoke(server) as? World }.getOrNull() ?: server.worlds.first()
+
+  /** The world spawn with the radius new players land within, from the `respawn_radius` game rule. */
+  private fun worldSpawn(player: Player): JsonElement {
+    val world = respawnWorld(player.server)
+    val spawn = describe(world.spawnLocation, player)
+    if (spawn !is JsonObject) return spawn
+    // Through the registry, as WorldTools reads rules: GameRule's static members differ between Spigot and Paper.
+    val radius = Registry.GAME_RULE.get(NamespacedKey.minecraft("respawn_radius"))?.let { world.getGameRuleValue(it) as? Number }
+    return JsonObject(spawn + listOfNotNull(radius?.let { "respawn_radius" to kotlinx.serialization.json.JsonPrimitive(it.toInt()) }))
+  }
+
   /** A place as the model needs it, with distance and direction when the player can walk there. */
   private fun describe(place: Location?, player: Player): JsonElement {
     val world = place?.world ?: return JsonNull
@@ -45,7 +66,7 @@ object LocationTools {
       val death = player.lastDeathLocation
       val result = buildJsonObject {
         put("respawn_point", describe(player.respawnLocation, player))
-        put("world_spawn", describe(player.server.worlds.first().spawnLocation, player))
+        put("world_spawn", worldSpawn(player))
         put("last_death", describe(death, player))
       }
       val summary = if (death?.world == player.world) {
