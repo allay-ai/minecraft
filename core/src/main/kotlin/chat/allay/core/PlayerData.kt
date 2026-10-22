@@ -12,17 +12,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.security.SecureRandom
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.logging.Logger
-import javax.crypto.Cipher
-import javax.crypto.Mac
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 /** What the backend keeps for the plugin about one player (server 6.9): the time zone they named, their settings, and their goals. */
 @Serializable data class PlayerState(
@@ -274,59 +267,24 @@ class PlayerData(
   }
 }
 
-/**
- * What a shutdown couldn't send, in `pending.bin`: AES-256-GCM under a key derived with HMAC-SHA256 from the server's
- * license or `server.token`, owner-only, and gone once read. Without the key it's noise, so a copied folder or a file
- * API that serves the plugin folder learns nothing.
- */
-class Spool(private val file: File, private val secret: () -> String?, private val log: Logger) {
+/** What a shutdown couldn't send, in `pending.bin`, sealed ([SealedFile]) and gone once read. */
+class Spool(file: File, secret: () -> String?, log: Logger) {
   @Serializable data class Entry(val user_id: String, val death: Death)
   @Serializable data class Pending(val states: Map<String, PlayerState> = emptyMap(), val deaths: List<Entry> = emptyList())
 
+  private val sealed = SealedFile(file, secret, "allay pending v1", log)
   private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
   fun write(pending: Pending) {
-    val key = key() ?: return
-    val iv = ByteArray(IV).also(SecureRandom()::nextBytes)
-    val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG, iv)) }
-    val sealed = iv + cipher.doFinal(json.encodeToString(Pending.serializer(), pending).toByteArray())
-    val folder = file.absoluteFile.parentFile.apply { mkdirs() }
-    val temp = File(folder, "${file.name}.tmp")
-    temp.delete()
-    temp.createNewFile()
-    ownerOnly(temp)
-    temp.writeBytes(sealed)
-    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+    sealed.write(json.encodeToString(Pending.serializer(), pending))
   }
 
-  /** What waits, or null when nothing does; a file the key no longer opens is dropped with a line in the log. */
-  fun read(): Pending? {
-    if (!file.isFile) return null
-    val key = key() ?: return null
-    return try {
-      val bytes = file.readBytes()
-      val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG, bytes, 0, IV)) }
-      json.decodeFromString(Pending.serializer(), cipher.doFinal(bytes, IV, bytes.size - IV).decodeToString())
-    } catch (error: Exception) {
-      log.warning("Couldn't open ${file.name} (the license or server.token changed since it was written); dropping it")
-      file.delete()
-      null
-    }
-  }
+  /** What waits, or null when nothing does. */
+  fun read(): Pending? = sealed.read()?.let { runCatching { json.decodeFromString(Pending.serializer(), it) }.getOrNull() }
 
-  fun delete() {
-    file.delete()
-  }
-
-  private fun key(): SecretKeySpec? {
-    val secret = secret()?.takeIf { it.isNotBlank() } ?: return null
-    val mac = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(secret.trim().toByteArray(), "HmacSHA256")) }
-    return SecretKeySpec(mac.doFinal("allay pending v1".toByteArray()), "AES")
-  }
+  fun delete() = sealed.delete()
 
   companion object {
     const val FILE = "pending.bin"
-    private const val IV = 12
-    private const val TAG = 128
   }
 }
