@@ -190,7 +190,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       logger.severe("server.name “$name” isn't a name the backend takes: 2–32 letters, digits, spaces, or . _ ' -. The admin panel shows this server by its id")
       return
     }
-    @Suppress("DEPRECATION") val motd = Billing.serverName(server.motd).ifEmpty { null }
+    @Suppress("DEPRECATION") val motd = Billing.motd(server.motd).ifEmpty { null }
     scope.launch {
       try {
         service.register(motd)

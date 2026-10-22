@@ -223,12 +223,13 @@ class Billing(private val client: OkHttpClient, private val config: Config, val 
   /**
    * A payment link. With a license, a fresh claim code for it; without one, a new license, saved before this returns
    * so a crash can't lose what someone may pay for. A `license.key` that holds no license is never overwritten.
-   * The bot shows [serverName] (the MOTD) to whoever pays, so they know which server it is.
+   * The bot shows the server's name to whoever pays, so they know which server it is: `server.name`, else [serverName] (the MOTD).
    */
   fun link(serverName: String?): LicenseClaim {
     if (license.broken) throw ApiErrorException(ApiError(LICENSE_FILE_BROKEN, "license.key holds no license"))
     val hadLicense = license.read() != null
-    val body = json.encodeToString(LinkRequest(serverName?.let { Billing.serverName(it) }?.ifEmpty { null }))
+    val name = config.server.name.ifEmpty { null } ?: serverName?.let { Billing.serverName(it) }?.ifEmpty { null }
+    val body = json.encodeToString(LinkRequest(name))
     val claim = json.decodeFromString<LicenseClaim>(send(Request.Builder().url(url()).post(body.toRequestBody(JSON)).build()))
     if (!hadLicense && claim.billing) claim.license?.takeIf(License::valid)?.let(license::write)
     return claim
@@ -250,5 +251,9 @@ class Billing(private val client: OkHttpClient, private val config: Config, val 
 
     /** A MOTD as plain text for the bot: no color or format codes, one line, at most 64 characters. */
     fun serverName(motd: String): String = motd.replace(FORMAT, "").replace(Regex("\\s+"), " ").trim().take(64).trim()
+
+    /** A MOTD as plain text for the admin panel: no color or format codes, its lines kept, at most 128 characters. */
+    fun motd(motd: String): String =
+      motd.replace(FORMAT, "").lines().map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n").take(128).trim()
   }
 }

@@ -248,5 +248,7 @@ class BillingTest {
     assertEquals("Moonlands survival", Billing.serverName("§6§lMoonlands\n  §7survival  "))
     assertEquals("x".repeat(64), Billing.serverName("&a" + "x".repeat(80)))
     assertEquals("", Billing.serverName("§r "))
+    assertEquals("Moonlands\nHard survival", Billing.motd("§6§lMoonlands  \n\n  §7Hard   survival  "))
+    assertEquals("x".repeat(128), Billing.motd("&a" + "x".repeat(200)))
   }
 }
