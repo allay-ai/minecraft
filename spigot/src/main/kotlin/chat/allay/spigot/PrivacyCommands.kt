@@ -94,7 +94,9 @@ class PrivacyCommands(
       lang.send(player, "consent.changed_summary")
     }
     lang.send(player, "consent.notice")
-    lang.send(player, if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self")
+    // Whoever runs the server answers for Allay on it, named by the server's name in config.yml when it has one.
+    val server = configuration.server.name.takeIf { it.isNotEmpty() }?.let { lang.text("consent.server_named", "name" to it) } ?: lang.text("consent.server_this")
+    lang.send(player, if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self", "server" to server)
     lang.send(player, "consent.keeps")
     val agree = button(lang, "consent.agree", "consent.agree_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy agree"))
     val decline = button(lang, "consent.decline", "consent.decline_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy decline"))
@@ -180,10 +182,14 @@ class PrivacyCommands(
     locales.of(sender).send(sender, "consent.declined")
   }
 
-  /** `/allay privacy withdraw`: Allay stops answering and the player's agents stop; what's kept stays until erased. */
+  /**
+   * `/allay privacy withdraw`: Allay stops answering, the player's agents stop, and what the agreement covered goes: the
+   * backend erases memories, places, deaths, settings, and the conversation (6.9), and nothing of theirs stays here.
+   */
   fun withdraw(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     pending.remove(player.uniqueId)
+    forgetHere(player.uniqueId)
     request(sender, after = { stopAgents(player) }) { lang ->
       lang.text(if (consents.withdraw(player.uniqueId)) "consent.withdrawn" else "consent.not_given")
     }
