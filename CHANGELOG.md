@@ -2,6 +2,14 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.6.0
+
+For Allay Server 6.8, which pages the history; an older backend sees the last death only.
+
+- 💀 **Every death, remembered.** Allay keeps each player's last 100 deaths in `plugins/Allay/deaths/`: when, where, the cause and the killer, the game's death message, the level, and what dropped. Ask “when did I die?” or “what killed me last time?”, and Allay reads the history page by page. Drops of the last death now survive a restart too. `tools.deaths.max_per_player` in `config.yml` sets how many stay.
+- 🧭 **The right world spawn.** `get_locations` reads the spawn from the server's respawn world, which can be any dimension since 1.21.9, instead of the first world, and adds the `respawn_radius` game rule, so Allay knows where new players land.
+- 🔒 **Your data, all of it.** `/allay privacy export` adds the player's notes and deaths under `plugin`, and erasure deletes them; before, both stayed on the server. `/allay privacy` lists them.
+
 ## 6.5.0
 
 For Allay Server 6.7; an older backend ignores it.
