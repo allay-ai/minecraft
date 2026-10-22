@@ -43,7 +43,7 @@ class ConsentsTest {
     val consents = consents(backend) { now }
     assertFalse(consents.known(player))
     assertEquals(Consents.State.MISSING, consents.check(player))
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertEquals(Consents.VERSION, backend.given.getValue(player.toString()).version)
     assertEquals(consents.hash("2026-10-23"), backend.given.getValue(player.toString()).hash)
     assertTrue(consents.known(player))
@@ -65,14 +65,14 @@ class ConsentsTest {
     val backend = FakeBackend()
     val consents = consents(backend)
     consents.check(player)
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertEquals(Consents.State.GIVEN, consents.check(player))
     // The backend's policy moved on.
     backend.revision = "2026-12-01"
     assertEquals(Consents.State.CHANGED, consents.check(player))
     assertFalse(consents.known(player))
     assertEquals("2026-10-20T10:00:00Z", consents.previous(player))
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertNull(consents.previous(player))
     assertEquals(Consents.State.GIVEN, consents.check(player))
     // The English notice changed with a new release.
@@ -91,29 +91,38 @@ class ConsentsTest {
     val backend = FakeBackend(revision = null)
     val consents = consents(backend)
     assertEquals(Consents.State.MISSING, consents.check(player))
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertNull(backend.given.getValue(player.toString()).hash)
     assertEquals(Consents.State.GIVEN, consents.check(player))
   }
 
-  @Test fun `a US player confirms their age with the agreement, and without it is asked again`() = runBlocking {
+  @Test fun `the agreement carries the age, and one without it asks again`() = runBlocking {
     val backend = FakeBackend()
-    val american = Consents(backend, { notice }, { true })
-    assertTrue(american.asksAge(player))
-    assertEquals(Consents.State.MISSING, american.check(player))
-    american.give(player)
+    val consents = consents(backend)
+    assertEquals(Consents.State.MISSING, consents.check(player))
+    assertFalse(consents.ageKnown(player))
+    consents.give(player)
     // Agreed, but no age: the question comes back.
-    assertEquals(Consents.State.AGE, american.check(player))
-    assertFalse(american.known(player))
-    american.give(player, ageConfirmed = true)
+    assertEquals(Consents.State.AGE, consents.check(player))
+    assertFalse(consents.known(player))
+    consents.give(player, ageConfirmed = true)
     assertEquals(true, backend.given.getValue(player.toString()).ageConfirmed)
-    assertEquals(Consents.State.GIVEN, american.check(player))
-    // Elsewhere nobody is asked, and nothing about age is sent.
-    val other = consents(FakeBackend())
-    assertFalse(other.asksAge(player))
-    assertEquals(Consents.State.MISSING, other.check(player))
-    other.give(player, ageConfirmed = false)
-    assertEquals(Consents.State.GIVEN, other.check(player))
+    assertEquals(Consents.State.GIVEN, consents.check(player))
+    assertTrue(consents.ageKnown(player))
+    // A changed notice asks again, but not the age.
+    backend.revision = "2027-01-01"
+    assertEquals(Consents.State.CHANGED, consents.check(player))
+    assertTrue(consents.ageKnown(player))
+    consents.declined(player)
+    assertFalse(consents.ageKnown(player))
+  }
+
+  @Test fun `a backend before 6_9 never asks the age again`() = runBlocking {
+    val backend = FakeBackend(revision = null)
+    val consents = consents(backend)
+    consents.check(player)
+    consents.give(player, ageConfirmed = true)
+    assertEquals(Consents.State.GIVEN, consents.check(player))
   }
 
   @Test fun `the sealed list holds who agreed here, and loses them the ways they leave`() = runBlocking {
@@ -124,7 +133,7 @@ class ConsentsTest {
     val consents = Consents(backend, { notice }, local = list())
     assertFalse(consents.listed(player))
     consents.check(player)
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     // Sealed on disk, and read back by a fresh start.
     assertFalse(file.readText(Charsets.ISO_8859_1).contains(player.toString()))
     assertTrue(list().has(player))
@@ -138,10 +147,10 @@ class ConsentsTest {
     assertEquals(Consents.State.MISSING, consents.check(player))
     assertFalse(list().has(player))
     consents.check(player)
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertTrue(consents.withdraw(player))
     assertFalse(consents.listed(player))
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     consents.forget(player)
     assertFalse(list().has(player))
   }
@@ -150,11 +159,11 @@ class ConsentsTest {
     val backend = FakeBackend()
     val consents = consents(backend)
     consents.check(player)
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     assertTrue(consents.withdraw(player))
     assertFalse(consents.known(player))
     assertFalse(consents.withdraw(player))
-    consents.give(player)
+    consents.give(player, ageConfirmed = true)
     consents.forget(player)
     assertFalse(consents.known(player))
   }

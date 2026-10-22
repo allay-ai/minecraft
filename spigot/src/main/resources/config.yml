@@ -59,9 +59,10 @@ locales:
 geoip:
   # The country database: DB-IP's free “IP to Country Lite”, CC BY 4.0, about 4 MB.
   # The plugin downloads it into geoip/ and refreshes it once it's older than
-  # refresh_days. Lookups happen on your server; no address leaves it. It also tells
-  # which players are in the US: they confirm they're 13 or older before agreeing
-  # to Allay's notice (COPPA). With it off, nobody gets that question.
+  # refresh_days. Lookups happen on your server; no address leaves it. The country
+  # also sets how old a player must be to agree to Allay's notice (13 to 16 in the
+  # EU, 14 in Spain, 13 in the US; 16 when unknown). With allay.chat the lookup runs
+  # even with enabled: false.
   enabled: true
   url: "https://download.db-ip.com/free/dbip-country-lite-{year}-{month}.mmdb.gz"
   refresh_days: 30

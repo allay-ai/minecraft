@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap
  * change) and the backend's policy revision. When either changes, a player who agreed before is asked again, with a
  * notice that says what changed.
  *
- * A player in the US ([us], by the country of their IP address) also confirms they're 13 or older before agreeing, for
- * COPPA; the backend keeps that with the agreement (6.9), and an agreement without it asks the age question again.
+ * Every player also says their age before agreeing ([AgeGate]); the backend keeps `age_confirmed` with the agreement
+ * (6.9), and an agreement without it asks the age question again.
  *
  * [local] lists the players who agreed on this server, so a join looks up only them: it gains a player who agrees
  * or whom the backend knows to have agreed, and loses one who withdraws, declines, is erased, or has no agreement left.
@@ -25,7 +25,6 @@ class Consents(
   private val backend: Backend,
   /** The English notice the player reads, line by line. */
   private val notice: () -> List<String>,
-  private val us: (UUID) -> Boolean = { false },
   private val local: Consented? = null,
   private val now: () -> Long = System::currentTimeMillis,
 ) {
@@ -42,7 +41,7 @@ class Consents(
 
   data class Answer(val consent: Given?, val revision: String? = null)
 
-  /** [AGE]: the player agreed to the current notice, but as a US player still has to confirm they're 13 or older. */
+  /** [AGE]: the player agreed to the current notice, but hasn't said they're old enough to. */
   enum class State { GIVEN, MISSING, CHANGED, AGE, UNSUPPORTED }
 
   /** When each player's agreement was last seen. */
@@ -50,6 +49,9 @@ class Consents(
 
   /** When a player whose notice changed had agreed, for the notice that asks again. */
   private val agreedAt = ConcurrentHashMap<UUID, String>()
+
+  /** Players whose agreement on the backend says they're old enough, so a changed notice doesn't ask their age again. */
+  private val aged = ConcurrentHashMap.newKeySet<UUID>()
 
   /** When the backend last said it can't keep consents. */
   @Volatile private var oldSince: Long? = null
@@ -82,6 +84,7 @@ class Consents(
       local?.remove(player)
       return State.MISSING
     }
+    if (given.ageConfirmed == true) aged += player else aged -= player
     // A backend before 6.9 keeps no hash: the version alone decides there.
     val current = answer.revision?.let(::hash)
     if (given.version < VERSION || (current != null && given.hash != current)) {
@@ -90,7 +93,8 @@ class Consents(
       return State.CHANGED
     }
     agreedAt.remove(player)
-    if (asksAge(player) && given.ageConfirmed != true) {
+    // Only a backend that keeps the age (6.9, with a revision) can say it's missing.
+    if (answer.revision != null && given.ageConfirmed != true) {
       seen.remove(player)
       return State.AGE
     }
@@ -99,12 +103,13 @@ class Consents(
     return State.GIVEN
   }
 
-  /** Whether [player] must confirm their age before agreeing: a player in the US. */
-  fun asksAge(player: UUID) = us(player)
+  /** Whether the backend's agreement already says the player is old enough. */
+  fun ageKnown(player: UUID) = player in aged
 
-  /** Records the agreement; [ageConfirmed] when a US player said they're 13 or older. */
+  /** Records the agreement; [ageConfirmed] when the player said they're old enough to give it. */
   suspend fun give(player: UUID, ageConfirmed: Boolean = false) {
     backend.giveConsent(player.toString(), VERSION, revision?.let(::hash), ageConfirmed.takeIf { it })
+    if (ageConfirmed) aged += player
     agreedAt.remove(player)
     seen[player] = now()
     local?.add(player)
@@ -112,6 +117,7 @@ class Consents(
 
   suspend fun withdraw(player: UUID): Boolean {
     seen.remove(player)
+    aged.remove(player)
     local?.remove(player)
     return backend.withdrawConsent(player.toString())
   }
@@ -120,12 +126,14 @@ class Consents(
   fun forget(player: UUID) {
     seen.remove(player)
     agreedAt.remove(player)
+    aged.remove(player)
     local?.remove(player)
   }
 
   /** The player said no, to the notice or to the age question: nothing of theirs goes out. */
   fun declined(player: UUID) {
     seen.remove(player)
+    aged.remove(player)
     local?.remove(player)
   }
 

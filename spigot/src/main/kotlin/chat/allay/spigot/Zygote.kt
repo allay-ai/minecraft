@@ -59,6 +59,7 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var data: PlayerData
   private lateinit var consents: Consents
   private lateinit var consented: Consented
+  private lateinit var ages: Ages
   private lateinit var goals: Goals
   private lateinit var languages: Languages
   private lateinit var features: Features
@@ -87,6 +88,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     // Both outlive /allay reload. Who agreed here, sealed, so a join looks up only them.
     val secret = { configuration.server.token.ifEmpty { license.read() } }
     consented = Consented(SealedFile(File(dataFolder, Consented.FILE), secret, "allay consented v1", logger), logger)
+    ages = Ages(SealedFile(File(dataFolder, Ages.FILE), secret, "allay ages v1", logger), logger)
     // Players' state in memory and what waits to be sent; the backend calls go to the service of the moment.
     data = PlayerData(
       backend = object : PlayerData.Backend {
@@ -169,11 +171,11 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    consents = Consents(service, ::notice, { locales.country(it).equals("US", ignoreCase = true) }, consented)
+    consents = Consents(service, ::notice, consented)
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(this, locales, features, service, scope)
-    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, data, features.deaths, features.goals, scope) { automation.cancel(it) }
+    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, data, features.deaths, features.goals, ages, scope) { automation.cancel(it) }
     registerServer()
   }
 

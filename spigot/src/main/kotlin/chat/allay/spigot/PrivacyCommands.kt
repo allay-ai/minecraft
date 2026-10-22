@@ -36,6 +36,8 @@ class PrivacyCommands(
   private val data: PlayerData,
   private val deaths: chat.allay.spigot.tools.Deaths,
   private val goals: chat.allay.spigot.tools.Goals,
+  /** Who said they're too young to agree, sealed. */
+  private val ages: Ages,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
@@ -45,7 +47,7 @@ class PrivacyCommands(
 
   private val pending = ConcurrentHashMap<UUID, Pending>()
 
-  /** US players who just said they're 13 or older, and when; it counts for the agreement that follows. */
+  /** Players who just said they're old enough to agree here, and when; it counts for the agreement that follows. */
   private val adults = ConcurrentHashMap<UUID, Long>()
 
   /**
@@ -54,6 +56,8 @@ class PrivacyCommands(
    */
   fun ask(player: Player, question: () -> Unit) {
     val lang = locales.of(player)
+    // Too young less than a year ago: no question to the backend, and none to the player.
+    if (ages.blocked(player.uniqueId)) return lang.send(player, "consent.age_blocked")
     pending[player.uniqueId] = Pending(System.currentTimeMillis(), question)
     scope.launch {
       val state = try {
@@ -69,8 +73,8 @@ class PrivacyCommands(
         when (state) {
           Consents.State.MISSING, Consents.State.CHANGED, Consents.State.AGE -> {
             pending[player.uniqueId]?.state = state
-            // A US player confirms their age first (COPPA), then reads the notice.
-            if (consents.asksAge(player.uniqueId) && !adult(player.uniqueId)) ageQuestion(player) else next(player, state)
+            // The age first, unless the backend's agreement already has it, then the notice.
+            if (needsAge(player.uniqueId)) ageQuestion(player) else next(player, state)
           }
           else -> pending.remove(player.uniqueId)?.question?.invoke()
         }
@@ -106,35 +110,40 @@ class PrivacyCommands(
   }
 
   /**
-   * “Are you 13 or older?” with the date that makes it so, in the player's language, for a player in the US (COPPA).
-   * No keeps everything as declining does.
+   * “How old are you?” with five neutral bands, and above it why Allay asks: the law lets only players above an age,
+   * which depends on the country, agree to their data being used.
    */
   private fun ageQuestion(player: Player) {
     val lang = locales.of(player)
-    val locale = java.util.Locale.forLanguageTag(lang.code.replace('_', '-'))
-    val born = java.time.LocalDate.now().minusYears(MIN_AGE).format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG).withLocale(locale))
-    val yes = button(lang, "consent.age_yes", "consent.age_yes_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age yes"))
-    val no = button(lang, "consent.age_no", "consent.age_no_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age no"))
-    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.age_question", "date" to born))), TextComponent(" "), yes, TextComponent(" "), no)
+    lang.send(player, "consent.age_why")
+    val bands = AgeGate.Band.entries.flatMap { band ->
+      val key = "consent.age_" + band.wire.replace('-', '_')
+      listOf(TextComponent(" "), button(lang, key, "consent.age_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age ${band.wire}")))
+    }
+    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.age_question"))), *bands.toTypedArray())
   }
 
-  /** `/allay privacy age yes|no`, from the age question's buttons. */
+  /**
+   * `/allay privacy age <band>`, from the age question's buttons. Old enough for the player's country goes on to the
+   * notice; too young keeps nothing but a sealed note that they said so, so the question waits a year.
+   */
   fun age(sender: CommandSender, answer: String) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    when (answer.lowercase()) {
-      "yes" -> {
-        adults[player.uniqueId] = System.currentTimeMillis()
-        next(player, pending[player.uniqueId]?.state ?: Consents.State.MISSING)
-      }
-      "no" -> {
-        adults.remove(player.uniqueId)
-        pending.remove(player.uniqueId)
-        consents.declined(player.uniqueId)
-        locales.of(sender).send(sender, "consent.age_under")
-      }
-      else -> locales.of(sender).send(sender, "privacy.usage")
+    val band = AgeGate.Band.parse(answer) ?: return locales.of(sender).send(sender, "privacy.usage")
+    if (AgeGate.allows(band, locales.country(player.uniqueId))) {
+      adults[player.uniqueId] = System.currentTimeMillis()
+      next(player, pending[player.uniqueId]?.state ?: Consents.State.MISSING)
+      return
     }
+    adults.remove(player.uniqueId)
+    pending.remove(player.uniqueId)
+    consents.declined(player.uniqueId)
+    ages.block(player.uniqueId)
+    locales.of(sender).send(sender, "consent.age_under")
   }
+
+  /** Whether the player still has to say their age: not just now, and not on their agreement with the backend. */
+  private fun needsAge(player: UUID) = !adult(player) && !consents.ageKnown(player)
 
   private fun adult(player: UUID) = adults[player]?.let { System.currentTimeMillis() - it < PENDING_MS } == true
 
@@ -145,15 +154,16 @@ class PrivacyCommands(
     }
 
   /**
-   * `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. A US player
-   * who hasn't confirmed their age gets the age question first.
+   * `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. A player who
+   * hasn't said their age gets the age question first.
    */
   fun agree(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    if (consents.asksAge(player.uniqueId) && !adult(player.uniqueId)) return ageQuestion(player)
+    if (ages.blocked(player.uniqueId)) return locales.of(sender).send(sender, "consent.age_blocked")
+    if (needsAge(player.uniqueId)) return ageQuestion(player)
     var question: (() -> Unit)? = null
     request(sender, after = { question?.invoke() }) { lang ->
-      consents.give(player.uniqueId, ageConfirmed = adults.remove(player.uniqueId) != null)
+      consents.give(player.uniqueId, ageConfirmed = adults.remove(player.uniqueId) != null || consents.ageKnown(player.uniqueId))
       // What the player set before agreeing goes to the backend now, and what it kept comes back.
       data.consented(player.uniqueId)
       question = pending.remove(player.uniqueId)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
@@ -351,7 +361,5 @@ class PrivacyCommands(
     private val UNTIL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     /** A question older than this doesn't go on when its asker agrees: they've moved on. */
     private const val PENDING_MS = 10 * 60_000L
-    /** COPPA's line: below it, a US player's data needs a parent's consent, which Allay doesn't collect. */
-    private const val MIN_AGE = 13L
   }
 }
