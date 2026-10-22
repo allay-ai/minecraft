@@ -2,6 +2,20 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.7.0
+
+Needs Allay Server 6.9, which keeps players' data. Against an older backend Allay keeps working, but settings, goals, and time zones last only until the server stops, deaths aren't kept, exports have no link, and the log says so once.
+
+- 🔐 **Nothing personal on your server.** The plugin no longer writes `notes/`, `goals/`, `deaths/`, `players.json`, `timezones.json`, or `exports/`. Each player's settings, time zone, and goals live on Allay's backend, encrypted: they load when a player who agreed joins, stay in memory while they play, and go back a few seconds after a change, when they leave, and at shutdown, never on the server thread. A file API that serves the plugin folder, WorldAPI's included, finds nothing about players there.
+- 📍 **Notes are memories with a place.** “Remember there's a fletcher here” keeps the spot with the memory, `/allay memory` lists places with their coordinates, and coordinates in `/allay memory <text>` give it one. The note button under an answer does the same. The notebook tools are gone from the plugin: Allay Server 6.9 finds memories nearest first itself, so `tools.enabled.add_note`, `find_notes`, and `delete_note` and `tools.notes.max_per_player` do nothing anymore.
+- 💀 **Deaths go to the backend.** Each death goes out as it happens, and the backend keeps the history Allay pages through. `get_death_info` reports the last death as it lies now: what dropped, whether the area is loaded, and when the items despawn. `tools.deaths.max_per_player` is gone; the backend keeps the newest 100.
+- 📦 **Export by link.** `/allay privacy export` gives a player a link to everything Allay keeps about them, good for 24 hours; an admin gets the same link for a player with `/allay privacy export <player>`. The link shows only to whoever asked.
+- ✋ **Asked again when the notice changes.** The agreement carries the hash of the notice and of the backend's privacy policy revision. When either changes, a player who agreed before reads that it changed, since when, and what's new, and agrees again. The notice now says how long things stay and that they're encrypted.
+- 🧒 **US players confirm their age.** A player whose IP is in the US (GeoIP) answers “Are you 13 or older?”, with the date that makes it so, before the notice (COPPA). No keeps everything, as declining does. `geoip.enabled: false` turns the question off along with the lookup.
+- 📨 **Nothing is lost when the backend is away.** What can't be sent waits, trying again after growing pauses; at shutdown it goes into `plugins/Allay/pending.bin`, sealed with AES-256-GCM under a key derived from the license or `server.token`, and out on the next start.
+- 📐 **The player's position goes with each question**, so Allay measures distances to memories and deaths from where the player stands.
+- 🧹 **The move from MCBuddy is gone.** A server coming straight from MCBuddy runs Allay 6.6 once first.
+
 ## 6.6.0
 
 For Allay Server 6.8, which pages the history; an older backend sees the last death only.
