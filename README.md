@@ -37,7 +37,7 @@ Allay is built to follow the GDPR in the EU and US privacy laws such as COPPA an
 - ⏳ **Nothing stays longer than the policy says.** A conversation lasts 30 days, records of questions 30 days, memories and the rest a year after the player's last question.
 - ✋ **Players agree first.** A short notice comes before the first question and again whenever it changes. Players in the US also confirm they're 13 or older.
 - 📦 **Players control their data.** `/allay privacy` shows what's kept, gives a download link, and erases it.
-- 🧹 **Your server keeps nothing personal.** The plugin holds a player's data in memory while they play and stores none of it in its folder.
+- 🧹 **Your server keeps almost nothing.** The plugin holds a player's data in memory while they play; its folder keeps only a sealed list of who agreed.
 
 ## Get started
 
