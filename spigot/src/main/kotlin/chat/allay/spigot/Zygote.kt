@@ -84,7 +84,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     server.pluginManager.registerEvents(reminders, this)
     notes = Notes(dataFolder, logger) { configuration.tools.maxNotes }
     goals = Goals(this, locales) { configuration.tools.maxGoals }
-    val deaths = Deaths()
+    val deaths = Deaths(DeathLog(dataFolder, logger) { configuration.tools.maxDeaths }) { logger.warning(it) }
     val settings = PlayerSettings(dataFolder, logger)
     locales.choices = { settings.of(it).language }
     languages = Languages(locales, settings)
