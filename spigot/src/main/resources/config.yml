@@ -139,7 +139,7 @@ tools:
     get_server: true              # Server version, players online, and the plugins with their versions
     get_locations: true           # Respawn point, world spawn, and the last death
     get_nearby_players: true      # Other players as the asker's locator bar shows them: name, distance, direction
-    get_death_info: true          # Where the player died, what dropped, how long it will lie there, and earlier deaths
+    get_death_info: true          # Where the player last died, what dropped, and how long it will lie there; Allay's backend keeps earlier deaths
     find_villagers: true          # Villagers around and their trades; can look for one item
     scan_nearby_containers: true  # Containers around and what's in them (only those the player could open: outside claims, or with GriefPrevention's container trust)
     find_item: true               # Where an item is: inventory, ender chest, containers around, inside shulker boxes and bundles (the same containers)
@@ -162,10 +162,6 @@ tools:
     allay_settings: true          # Chat mode and its tip on or off when the player asks in words
     # Goals with a bar at the top of the screen, kept in plugins/Allay/goals
     goals: true                   # Set, list, and cancel goals: “collect 16 diamonds”, “reach level 30”
-    # The player's notebook: notes with coordinates, kept in plugins/Allay/notes
-    add_note: true                # Write a note (by default where the player stands)
-    find_notes: true              # Find notes, nearest first
-    delete_note: true             # Delete a note
     # Harmless actions: they give nothing and change nothing in the world
     point_to: true                # Point the compass at a spot or a player on the locator bar and draw a trail there (only the asker sees it)
     show_marks: true              # Glowing boxes, ghost blocks, and labels over blocks that only the asker sees: their chests, where to put torches
@@ -201,13 +197,8 @@ tools:
   # Reminders live in memory: a restart or the player leaving drops them.
   reminders:
     max_pending: 10           # Reminders one player can have waiting
-  notes:
-    max_per_player: 200       # Notes in one player's notebook
   goals:
     max_per_player: 5         # Goals one player can have at once
-  # Each player's deaths, kept in plugins/Allay/deaths for get_death_info: when, where, and how.
-  deaths:
-    max_per_player: 100       # The newest deaths one player keeps; older ones drop off
   # The trail point_to and the way buttons draw. It ends early once the player arrives,
   # and /allay cancel stops it.
   point_to:

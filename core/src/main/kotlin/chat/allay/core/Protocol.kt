@@ -48,9 +48,22 @@ object Protocol {
   /** Empty [model] means the backend's default; empty [search_model] means no web search. */
   @Serializable data class Provider(val base_url: String, val model: String, val search_model: String)
 
-  /** [dimension] (since 5.3) is where the player stands, so the model knows which dimension “here” is. */
-  /** [private] is true while the player has full privacy on (backend 6.5): the admin panel then knows them by pseudonym only. */
-  @Serializable data class PlayerInfo(val name: String, val uuid: String, val op: Boolean, val dimension: String? = null, val private: Boolean? = null)
+  /**
+   * [dimension] (since 5.3) is where the player stands, so the model knows which dimension “here” is. [private] is true
+   * while the player has full privacy on (backend 6.5): the admin panel then knows them by pseudonym only. [position]
+   * (backend 6.9) is the block they stand on, for distances to memories with a place and deaths, and for “here”.
+   */
+  @Serializable data class PlayerInfo(
+    val name: String,
+    val uuid: String,
+    val op: Boolean,
+    val dimension: String? = null,
+    val private: Boolean? = null,
+    val position: Position? = null,
+  )
+
+  /** A block in a world; [world] is the world's folder name, which tells two overworlds apart. */
+  @Serializable data class Position(val x: Int, val y: Int, val z: Int, val dimension: String, val world: String? = null)
 
   /**
    * [id] is random and kept by the plugin; it names the server's shared thread of public questions. [address] and [port]

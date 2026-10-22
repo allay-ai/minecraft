@@ -20,5 +20,8 @@ interface Asker {
   /** The dimension the player stood in when they asked, as `Dimensions` ids; null for the console. */
   val dimension: String? get() = null
 
+  /** Where the player stood when they asked; null for the console. */
+  val position: Protocol.Position? get() = null
+
   fun can(permission: String): Boolean
 }

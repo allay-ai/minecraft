@@ -12,7 +12,6 @@ import chat.allay.core.PlayerSettings
 import chat.allay.core.tools.Books
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ClientTool
-import chat.allay.core.tools.Notes
 import chat.allay.core.tools.TimeZones
 import chat.allay.spigot.ChatMode
 import chat.allay.spigot.Locales
@@ -22,10 +21,11 @@ class Features(
   val plugin: Plugin,
   val locales: Locales,
   val reminders: Reminders,
-  val notes: Notes,
   val goals: Goals,
   val books: Books,
   val deaths: Deaths,
+  /** Each player's state and deaths on the backend. */
+  val data: PlayerData,
   val zones: TimeZones,
   val settings: PlayerSettings,
   val chat: ChatMode,
@@ -57,7 +57,6 @@ class ToolContext(
 
   val plugin: Plugin get() = features.plugin
   val reminders: Reminders get() = features.reminders
-  val notes: Notes get() = features.notes
   val structureRadius: Int get() = features.structureRadius()
   val player: Player? get() = sender as? Player
 
@@ -84,6 +83,6 @@ typealias Tool = ClientTool<ToolContext>
 /** Every tool this plugin offers. */
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
-    NotebookTools.all + ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all +
+    ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all +
     chat.allay.spigot.automation.TaskTools.all + chat.allay.spigot.automation.Chests.all + chat.allay.spigot.automation.Jobs.all
 }

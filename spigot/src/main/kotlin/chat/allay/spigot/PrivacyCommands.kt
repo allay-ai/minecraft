@@ -5,11 +5,6 @@ import chat.allay.core.tools.*
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.put
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.HoverEvent
 import net.md_5.bungee.api.chat.TextComponent
@@ -19,19 +14,15 @@ import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import chat.allay.spigot.Minecraft.formatMessage
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermissions
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * `/allay privacy`: what Allay keeps about a player and for how long, and their data on request (since backend 6.0).
- * A player erases their own; admins export or erase anyone's, for a player who asked them. An export is personal data,
- * so it goes into an owner-only file, never into chat or the log. Before a player's first question, the notice asks
- * them to agree, with buttons; the backend keeps the answer (since 6.1).
+ * A player exports or erases their own; admins do it for anyone who asked them. An export is a link to the backend,
+ * good for a day (6.9), shown only to whoever asked for it, never in the log. Before a player's first question, the
+ * notice asks them to agree, with buttons; the backend keeps the answer (since 6.1).
  */
 class PrivacyCommands(
   private val plugin: JavaPlugin,
@@ -40,11 +31,10 @@ class PrivacyCommands(
   private val service: Service<*>,
   private val consents: Consents,
   private val settings: PlayerSettings,
-  /** What the plugin itself keeps about a player, next to the backend's. */
-  private val notes: Notes,
-  private val deaths: DeathLog,
+  /** What the plugin holds about a player while they play; the backend keeps the rest. */
+  private val data: PlayerData,
+  private val deaths: chat.allay.spigot.tools.Deaths,
   private val goals: chat.allay.spigot.tools.Goals,
-  private val zones: TimeZones,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
@@ -103,6 +93,8 @@ class PrivacyCommands(
     var question: (() -> Unit)? = null
     request(sender, after = { question?.invoke() }) { lang ->
       consents.give(player.uniqueId)
+      // What the player set before agreeing goes to the backend now, and what it kept comes back.
+      data.consented(player.uniqueId)
       question = pending.remove(player.uniqueId)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
       lang.text(if (question != null) "consent.given" else "consent.given_idle")
     }
@@ -190,14 +182,49 @@ class PrivacyCommands(
     }
   }
 
-  /** `/allay privacy export <player|uuid>`: everything the backend keeps about them, into `exports/` for the admin to hand over. */
+  /** `/allay privacy export`: a link to everything kept about the player, for them alone. */
+  fun exportSelf(sender: CommandSender) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "privacy.admin")
+    link(sender, player.uniqueId, null)
+  }
+
+  /** `/allay privacy export <player|uuid>`: the same link for an admin to hand to a player who asked. */
   fun export(sender: CommandSender, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
-    request(sender) { lang ->
-      val json = withLocal(target.uniqueId, service.export(target.uniqueId.toString()))
-      val file = save(target.uniqueId, json)
-      plugin.logger.info("${sender.name} exported what Allay keeps about a player to exports/${file.name}")
-      lang.text("privacy.exported", "player" to (target.name ?: who), "file" to "plugins/${plugin.name}/exports/${file.name}")
+    link(sender, target.uniqueId, target.name ?: who)
+    plugin.logger.info("${sender.name} asked for a link to what Allay keeps about a player")
+  }
+
+  /**
+   * Asks the backend for the link and shows it, clickable, to [sender] alone: whoever holds it can download the data
+   * for 24 hours. The console gets it as text, since the console asked.
+   */
+  private fun link(sender: CommandSender, uuid: UUID, name: String?) {
+    val lang = locales.of(sender)
+    scope.launch {
+      val line: () -> Unit = try {
+        val link = service.exportLink(uuid.toString())
+        val until = link.expires_at?.let { runCatching { java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(UNTIL) }.getOrNull() } ?: "24 h"
+        val intro = if (name == null) lang.text("privacy.export_ready", "until" to until) else lang.text("privacy.export_ready_for", "player" to name, "until" to until)
+        ({
+          if (sender is Player) {
+            val button = TextComponent(*plain(formatMessage(lang.text("privacy.export_button")))).apply {
+              clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, link.url)
+              hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text("privacy.export_hover")))))
+            }
+            sender.spigot().sendMessage(*plain(formatMessage(intro)), TextComponent(" "), button)
+          } else sender.sendMessage(formatMessage(intro) + " " + link.url)
+        })
+      } catch (error: ApiErrorException) {
+        // A backend before 6.9 has no links.
+        val text = if (error.apiError.statusCode in setOf(404, 405)) lang.text("privacy.export_unsupported") else ErrorHandler.message(lang, error.apiError)
+        ({ sender.sendMessage(formatMessage(text)) })
+      } catch (error: Exception) {
+        plugin.logger.warning("Privacy request failed: ${error.javaClass.simpleName}")
+        val text = ErrorHandler.message(lang, error)
+        ({ sender.sendMessage(formatMessage(text)) })
+      }
+      onMain(line)
     }
   }
 
@@ -214,28 +241,13 @@ class PrivacyCommands(
   }
 
   /**
-   * The plugin's own data goes on the server thread, where boss bars live, before the backend's, so an old backend that
-   * can't erase still leaves nothing here. Settings go too: chat mode, language, outputs, and full privacy start over.
+   * What the plugin holds in memory goes on the server thread, where boss bars live, before the backend's copy, so
+   * nothing waits here to be sent again. Settings, time zone, goals, and the last death start over.
    */
   private fun forgetHere(uuid: UUID) {
-    notes.forget(uuid)
     deaths.forget(uuid)
     goals.forget(uuid)
-    zones.forget(uuid)
-    settings.forget(uuid)
-  }
-
-  /** The backend's export with what this server keeps under `plugin`: settings, time zone, notebook, goals, and deaths. */
-  private fun withLocal(uuid: UUID, backend: String): String {
-    val local = buildJsonObject {
-      put("settings", Json.encodeToJsonElement(settings.of(uuid)))
-      zones.chosen(uuid)?.let { put("time_zone", it) }
-      put("notes", Json.encodeToJsonElement(notes.of(uuid).all()))
-      put("goals", Json.encodeToJsonElement(goals.snapshot(uuid)))
-      put("deaths", Json.encodeToJsonElement(deaths.of(uuid).all()))
-    }
-    val parsed = runCatching { Json.parseToJsonElement(backend) as? JsonObject }.getOrNull() ?: return backend
-    return Json.encodeToString(JsonObject(parsed + ("plugin" to local)))
+    data.forget(uuid)
   }
 
   /** A UUID as typed, or a player this server has seen by that name; never one it hasn't, to keep typos from erasing a stranger. */
@@ -244,20 +256,6 @@ class PrivacyCommands(
     runCatching { UUID.fromString(who) }.getOrNull()?.let { return plugin.server.getOfflinePlayer(it) }
     plugin.server.getPlayerExact(who)?.let { return it }
     return plugin.server.offlinePlayers.firstOrNull { it.name.equals(who, ignoreCase = true) }
-  }
-
-  private fun save(uuid: UUID, json: String): File {
-    val folder = File(plugin.dataFolder, "exports").apply { mkdirs() }
-    val file = File(folder, "$uuid-${LocalDateTime.now().format(STAMP)}.json")
-    file.createNewFile()
-    try {
-      Files.setPosixFilePermissions(file.toPath(), PosixFilePermissions.fromString("rw-------"))
-    } catch (_: UnsupportedOperationException) {
-      file.setReadable(false, false)
-      file.setReadable(true, true)
-    }
-    file.writeText(json)
-    return file
   }
 
   /** Runs [block] off the server thread; it returns the line to show, colored on the way. [after] runs next, on the server thread. */
@@ -287,7 +285,7 @@ class PrivacyCommands(
   companion object {
     /** The word the confirmation button adds, so a typed `/allay privacy erase` never erases at once. */
     const val CONFIRM = "confirm"
-    private val STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    private val UNTIL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     /** A question older than this doesn't go on when its asker agrees: they've moved on. */
     private const val PENDING_MS = 10 * 60_000L
   }

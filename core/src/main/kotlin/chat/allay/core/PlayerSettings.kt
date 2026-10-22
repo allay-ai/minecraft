@@ -1,13 +1,8 @@
 package chat.allay.core
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Logger
 
 /**
  * One player's Allay settings; [language] is a `lang/` code they chose, null to have it picked for them. [outputs] is
@@ -22,42 +17,18 @@ import java.util.logging.Logger
   val full_privacy: Boolean = false,
 )
 
-/** Each player's settings in `players.json`. Chat reads them off the server thread, so the map is concurrent. */
-class PlayerSettings(private val folder: File, private val log: Logger) {
-  private val file = File(folder, "players.json")
-  private val json = Json { ignoreUnknownKeys = true }
-  private val players = ConcurrentHashMap<String, Settings>(load())
+/**
+ * Each player's settings, part of their state on the backend ([PlayerData], since 6.7). Chat reads them off the server
+ * thread; the state map is concurrent.
+ */
+class PlayerSettings(private val data: PlayerData) {
+  fun of(player: UUID): Settings = data.of(player).settings ?: Settings()
 
-  fun of(player: UUID): Settings = players[player.toString()] ?: Settings()
+  /** How many players in memory have chat mode on; safe from any thread. */
+  fun chatModeCount(): Int = data.all().count { it.settings?.chat_mode == true }
 
-  /** How many players have chat mode on; safe from any thread. */
-  fun chatModeCount(): Int = players.values.count { it.chat_mode }
-
-  fun update(player: UUID, change: (Settings) -> Settings): Settings {
-    val settings = players.compute(player.toString()) { _, old -> change(old ?: Settings()) }!!
-    save()
-    return settings
-  }
-
-  /** Erasure: the player's settings go, so they start from the defaults. */
-  fun forget(player: UUID) {
-    if (players.remove(player.toString()) != null) save()
-  }
-
-  @Synchronized private fun save() {
-    folder.mkdirs()
-    val temp = File(folder, "players.json.tmp")
-    // Players who never changed anything don't need a line.
-    temp.writeText(json.encodeToString(players.filterValues { it != Settings() }))
-    Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-  }
-
-  private fun load(): Map<String, Settings> = if (!file.exists()) emptyMap() else runCatching {
-    json.decodeFromString<Map<String, Settings>>(file.readText())
-  }.getOrElse {
-    log.warning("Couldn't read players.json: ${it.message}; starting over")
-    emptyMap()
-  }
+  fun update(player: UUID, change: (Settings) -> Settings): Settings =
+    data.update(player) { it.copy(settings = change(it.settings ?: Settings()).takeIf { new -> new != Settings() }) }.settings ?: Settings()
 
   companion object {
     /**

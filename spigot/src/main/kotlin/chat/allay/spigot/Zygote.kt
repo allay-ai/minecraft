@@ -29,7 +29,6 @@ import chat.allay.spigot.tools.Drafts
 import chat.allay.spigot.tools.Marks
 import chat.allay.spigot.tools.Features
 import chat.allay.spigot.tools.Goals
-import chat.allay.core.tools.Notes
 import chat.allay.spigot.tools.Reminders
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.tools.ToolRegistry
@@ -41,6 +40,9 @@ import java.util.logging.Logger
 
 /** What the backend takes as a server's name (backend 6.7): letters of any script, digits, spaces, and . _ ' - . */
 private val SERVER_NAME = Regex("[\\p{L}\\p{N} ._'-]{2,32}")
+
+/** How long a shutdown waits to send players' changes before sealing the rest into the spool. */
+private const val SHUTDOWN_MS = 3_000L
 
 class Zygote : JavaPlugin(), TabCompleter {
   private val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
@@ -54,7 +56,8 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var memory: MemoryCommands
   private lateinit var privacy: PrivacyCommands
   private lateinit var reminders: Reminders
-  private lateinit var notes: Notes
+  private lateinit var data: PlayerData
+  private lateinit var consents: Consents
   private lateinit var goals: Goals
   private lateinit var languages: Languages
   private lateinit var features: Features
@@ -80,10 +83,24 @@ class Zygote : JavaPlugin(), TabCompleter {
     // Outlives /allay reload, so reminders already set keep their schedule.
     reminders = Reminders(this, locales) { configuration.tools.maxReminders }
     server.pluginManager.registerEvents(reminders, this)
-    notes = Notes(dataFolder, logger) { configuration.tools.maxNotes }
-    goals = Goals(this, locales) { configuration.tools.maxGoals }
-    val deaths = Deaths(DeathLog(dataFolder, logger) { configuration.tools.maxDeaths }) { logger.warning(it) }
-    val settings = PlayerSettings(dataFolder, logger)
+    // Outlives /allay reload: players' state in memory and what waits to be sent; the backend calls go to the service of the moment.
+    data = PlayerData(
+      backend = object : PlayerData.Backend {
+        override suspend fun state(userId: String) = service.state(userId)
+        override suspend fun saveState(userId: String, state: PlayerState) = service.saveState(userId, state)
+        override suspend fun death(userId: String, death: Death) = service.death(userId, death)
+      },
+      scope = scope,
+      spool = Spool(File(dataFolder, Spool.FILE), { configuration.server.token.ifEmpty { license.read() } }, logger),
+      log = logger,
+      agreed = { consents.known(it) || consents.check(it) == Consents.State.GIVEN },
+      agreedNow = { consents.known(it) },
+      online = { server.getPlayer(it) != null },
+    )
+    goals = Goals(this, locales, data) { configuration.tools.maxGoals }
+    data.loaded = goals::loaded
+    val deaths = Deaths(data)
+    val settings = PlayerSettings(data)
     locales.choices = { settings.of(it).language }
     languages = Languages(locales, settings)
     chat = ChatMode(this, locales, settings) { handler }
@@ -93,11 +110,11 @@ class Zygote : JavaPlugin(), TabCompleter {
       plugin = this,
       locales = locales,
       reminders = reminders,
-      notes = notes,
       goals = goals,
       books = Books(),
       deaths = deaths,
-      zones = TimeZones(dataFolder, logger) { configuration.time.zone },
+      data = data,
+      zones = TimeZones(data) { configuration.time.zone },
       settings = settings,
       chat = chat,
       serverId = PlayerSettings.serverId(dataFolder),
@@ -108,16 +125,19 @@ class Zygote : JavaPlugin(), TabCompleter {
       automation = automation,
     )
     menus = MenuListener(this)
-    listOf(goals, deaths, menus, locales, chat, Marks, Drafts, quota, automation, automation.picking, Jobs).forEach { server.pluginManager.registerEvents(it, this) }
+    listOf(goals, deaths, menus, locales, chat, Marks, Drafts, quota, automation, automation.picking, Jobs, Arrivals()).forEach { server.pluginManager.registerEvents(it, this) }
     Drafts.start(this, locales)
     Jobs.automation = automation
     automation.start()
     goals.start()
     initializeComponents()
+    data.start()
+    // After a reload of the plugin, players already online get their state too.
+    server.onlinePlayers.forEach { data.join(it.uniqueId) }
     // Allay loads at STARTUP, before PlaceholderAPI and Plan; by the first tick every plugin is on.
     server.scheduler.runTask(this, Runnable {
       if (Placeholders.available) placeholders = Placeholders.register(this, settings, goals, locales) { handler }
-      if (Plan.available) plan = Plan.register(this, Plan.Sources(settings, goals, notes, reminders, locales, license, { configuration }) { watch?.status })
+      if (Plan.available) plan = Plan.register(this, Plan.Sources(settings, goals, reminders, locales, license, { configuration }) { watch?.status })
     })
     listOf("ask", "askx", "askall", "allay").map(::getCommand).forEach {
       it?.setExecutor(this)
@@ -144,11 +164,11 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    val consents = Consents(service)
+    consents = Consents(service)
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
-    clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
+    clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(this, locales, features, service, scope)
-    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, features.notes, features.deaths.log, features.goals, features.zones, scope) { automation.cancel(it) }
+    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, data, features.deaths, features.goals, scope) { automation.cancel(it) }
     registerServer()
   }
 
@@ -197,6 +217,19 @@ class Zygote : JavaPlugin(), TabCompleter {
     }
   }
 
+  /** Players' state comes from the backend when they join and goes back when they leave, after every other listener. */
+  private inner class Arrivals : org.bukkit.event.Listener {
+    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+    fun onJoin(event: org.bukkit.event.player.PlayerJoinEvent) {
+      data.join(event.player.uniqueId)
+    }
+
+    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.MONITOR)
+    fun onQuit(event: org.bukkit.event.player.PlayerQuitEvent) {
+      data.quit(event.player.uniqueId)
+    }
+  }
+
   /** What the backend client needs from Bukkit. */
   private val host = object : Host<ToolContext> {
     override val log: Logger get() = logger
@@ -229,7 +262,12 @@ class Zygote : JavaPlugin(), TabCompleter {
     if (::automation.isInitialized) automation.stop()
     watch?.stop()
     if (::reminders.isInitialized) reminders.cancelAll()
-    if (::goals.isInitialized) goals.stop()
+    if (::goals.isInitialized) {
+      server.onlinePlayers.forEach { goals.save(it.uniqueId) }
+      goals.stop()
+    }
+    // Before the scope goes: what changed is sent, or sealed into the spool for the next start.
+    if (::data.isInitialized) data.stop(SHUTDOWN_MS)
     if (::menus.isInitialized) menus.stop()
     Marks.clearAll()
     Drafts.stop()
@@ -290,6 +328,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
         args.size in 2..3 && args[1].equals("full", ignoreCase = true) -> privacy.full(sender, args.getOrNull(2))
         args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
+        args.size == 2 && args[1].equals("export", ignoreCase = true) -> privacy.exportSelf(sender)
         args.size == 3 && args[1].equals("erase", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> privacy.eraseSelf(sender)
         args.size == 3 && args[1].lowercase() in setOf("export", "erase") ->
           if (!sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "messages.no_permission")
@@ -347,7 +386,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
       args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
       args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
-        listOf("agree", "withdraw", "full", "erase") + if (sender.hasPermission(Permissions.ADMIN)) listOf("export") else emptyList()
+        listOf("agree", "withdraw", "full", "export", "erase")
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && args[1].equals("full", ignoreCase = true) -> listOf("on", "off")
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }

@@ -5,7 +5,6 @@ import chat.allay.core.License
 import chat.allay.core.LicenseStatus
 import chat.allay.core.PlayerSettings
 import chat.allay.core.tools.Goal
-import chat.allay.core.tools.Notes
 import chat.allay.spigot.tools.Goals
 import chat.allay.spigot.tools.Reminders
 import com.djrapitops.plan.capability.CapabilityService
@@ -34,7 +33,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * Allay in Plan, when Plan is there: a block on each player's page (chat mode, goals, notes, reminders, language)
+ * Allay in Plan, when Plan is there: a block on each player's page (chat mode, goals, reminders, language)
  * and one in the server's “Plugins Overview” (who pays for the model, chat mode across players). Plan calls these
  * methods off the server thread, so everything here reads thread-safe state. Plan's labels are English: its
  * panel is for the server's admins, not for players.
@@ -45,7 +44,6 @@ object Plan {
   class Sources(
     val settings: PlayerSettings,
     val goals: Goals,
-    val notes: Notes,
     val reminders: Reminders,
     val locales: Locales,
     val license: License,
@@ -98,10 +96,6 @@ object Plan {
       sources.goals.snapshot(playerUUID).forEach { goal -> table.addRow(goal.title, progress(goal), "${(goal.fraction * 100).roundToInt()}%") }
       return table.build()
     }
-
-    @NumberProvider(text = "Notes", description = "Notes in the player's notebook", priority = 70,
-      iconName = "book", iconColor = Color.BROWN)
-    fun notes(playerUUID: UUID): Long = sources.notes.count(playerUUID).toLong()
 
     @NumberProvider(text = "Reminders", description = "Reminders waiting; they last only while the player is online", priority = 60,
       iconName = "bell", iconColor = Color.AMBER)

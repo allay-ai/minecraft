@@ -1,12 +1,6 @@
 package chat.allay.core.tools
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.util.UUID
-import java.util.logging.Logger
 
 /**
  * A goal the player set through the assistant, shown as a boss bar. Progress counts only what happens after it was set:
@@ -88,45 +82,6 @@ class GoalBook(initial: List<Goal>, private val max: () -> Int, private val newI
     if (fresh <= 0) return emptyList()
     return goals.withIndex().filter { (_, goal) -> goal.kind == "pickup" && goal.material == item }.map { (index, goal) ->
       goal.copy(progress = goal.progress + fresh).also { goals[index] = it }
-    }
-  }
-}
-
-/** Goals on disk: `goals/<uuid>.json`, written atomically; a player without goals has no file. */
-class GoalFiles(dataFolder: File, private val log: Logger) {
-  private val folder = File(dataFolder, "goals")
-  private val json = Json { ignoreUnknownKeys = true }
-
-  fun save(uuid: UUID, goals: List<Goal>) {
-    folder.mkdirs()
-    val target = File(folder, "$uuid.json")
-    if (goals.isEmpty()) {
-      target.delete()
-      return
-    }
-    val temp = File(folder, "$uuid.json.tmp")
-    temp.writeText(json.encodeToString(goals))
-    Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-  }
-
-  /** Erasure: the file goes, and a broken copy kept for a human with it. */
-  fun delete(uuid: UUID) {
-    File(folder, "$uuid.json").delete()
-    File(folder, "$uuid.json.broken").delete()
-  }
-
-  /** The goals on disk without touching the file, for readers on other threads; a broken file reads as none. */
-  fun peek(uuid: UUID): List<Goal> = runCatching { json.decodeFromString<List<Goal>>(File(folder, "$uuid.json").readText()) }.getOrDefault(emptyList())
-
-  fun load(uuid: UUID): List<Goal> {
-    val file = File(folder, "$uuid.json")
-    if (!file.exists()) return emptyList()
-    return try {
-      json.decodeFromString<List<Goal>>(file.readText())
-    } catch (error: Exception) {
-      log.warning("Couldn't read goals of $uuid: ${error.message}; keeping it as $uuid.json.broken")
-      file.renameTo(File(folder, "$uuid.json.broken"))
-      emptyList()
     }
   }
 }

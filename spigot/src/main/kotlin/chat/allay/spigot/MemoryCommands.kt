@@ -31,52 +31,54 @@ class MemoryCommands(
     val memories = service.memories(userId(sender))
     if (memories.isEmpty()) return@request listOf(formatMessage(lang.text("memory.empty")))
     (listOf(lang.text("memory.header")) +
-      memories.mapIndexed { index, memory -> lang.text("memory.line", "n" to index + 1, "text" to memory.text) } +
+      memories.mapIndexed { index, memory -> line(lang, index + 1, memory) } +
       lang.text("memory.footer")).map(::formatMessage)
   }
 
+  /** One memory as `/allay memory` lists it; one with a place shows where. */
+  private fun line(lang: Lang, n: Int, memory: Service.Memory): String = memory.place?.let { place ->
+    lang.text("memory.line_place", "n" to n, "text" to memory.text, "x" to place.x, "y" to place.y, "z" to place.z, "dimension" to lang.text("dimensions.${place.dimension}"))
+  } ?: lang.text("memory.line", "n" to n, "text" to memory.text)
+
   /**
-   * `/allay memory <text>`: keeps what the player typed without asking the assistant. Coordinates in it make a note in
-   * the notebook, in the dimension the text names or else where the player stands; anything else is a remembered fact.
+   * `/allay memory <text>`: keeps what the player typed without asking the assistant. Coordinates in it give the memory
+   * a place, in the dimension the text names or else where the player stands (backend 6.9; an older one keeps the text).
    */
   fun remember(sender: CommandSender, text: String): Boolean {
     val lang = locales.of(sender)
-    val spot = QuickNote.spot(text)
-    if (sender is Player && spot != null && features.config().tools.enabled("add_note")) {
-      note(sender, lang, text.take(200), spot)
-      return true
-    }
     if (text.length < 3) {
       lang.send(sender, "memory.remember_usage")
       return true
     }
-    return request(sender) { lang ->
+    val place = (sender as? Player)?.let { player -> QuickNote.spot(text)?.let { place(player, it) } }
+    return save(sender, text, place)
+  }
+
+  /** The note button under an answer: its text with the place the answer named. */
+  fun rememberAt(player: Player, text: String, x: Int, y: Int, z: Int, dimension: String?): Boolean {
+    val current = Dimensions.id(player.world)
+    val where = Dimensions.normalize(dimension) ?: current
+    return save(player, text, Service.Place(x, y, z, where, player.world.name.takeIf { where == current }))
+  }
+
+  private fun save(sender: CommandSender, text: String, place: Service.Place?): Boolean =
+    request(sender) { lang ->
       try {
-        val memory = service.remember(userId(sender), text.take(200))
-        listOf(Minecraft.withText(lang.text("memory.remembered", "text" to Minecraft.SLOT), memory.text))
+        val memory = service.remember(userId(sender), text.take(200), place)
+        val saved = memory.place ?: return@request listOf(Minecraft.withText(lang.text("memory.remembered", "text" to Minecraft.SLOT), memory.text))
+        listOf(Minecraft.withText(lang.text("memory.noted", "text" to Minecraft.SLOT, "x" to saved.x, "y" to saved.y, "z" to saved.z, "dimension" to lang.text("dimensions.${saved.dimension}")), memory.text))
       } catch (error: ApiErrorException) {
         if (error.apiError.code != "MEMORY_FULL") throw error
         listOf(formatMessage(lang.text("memory.full")))
       }
     }
-  }
 
-  private fun note(player: Player, lang: Lang, text: String, spot: QuickNote.Spot) {
+  /** The place the text names, read on the server thread; without a height, the player's own. */
+  private fun place(player: Player, spot: QuickNote.Spot): Service.Place {
     val current = Dimensions.id(player.world)
     val dimension = spot.dimension ?: current
-    val y = spot.y ?: player.location.blockY
-    try {
-      features.notes.of(player.uniqueId).add { id ->
-        // Distances need the world; a note from another dimension keeps only the dimension's name, as add_note does.
-        Note(id, text, spot.x, y, spot.z, if (dimension == current) player.world.name else null, dimension, System.currentTimeMillis())
-      }
-      features.notes.save(player.uniqueId)
-    } catch (error: ToolError) {
-      player.sendMessage(formatMessage("&c${error.message}"))
-      return
-    }
-    val template = lang.text("memory.noted", "text" to Minecraft.SLOT, "x" to spot.x, "y" to y, "z" to spot.z, "dimension" to lang.text("dimensions.$dimension"))
-    player.sendMessage(Minecraft.withText(template, text))
+    // The world's name tells two overworlds apart; a place in another dimension keeps only the dimension.
+    return Service.Place(spot.x, spot.y ?: player.location.blockY, spot.z, dimension, player.world.name.takeIf { dimension == current })
   }
 
   /** Numbers come from a fresh list, so they match what `/allay memory` shows right now. */

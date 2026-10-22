@@ -31,20 +31,39 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.hypot
 import kotlin.math.max
 
-/** Goals on disk in `goals/<uuid>.json`, their boss bars, and the events and ticks that move them. */
-class Goals(private val plugin: Plugin, private val locales: chat.allay.spigot.Locales, private val max: () -> Int) : Listener {
-  private val files = GoalFiles(plugin.dataFolder, plugin.logger)
+/**
+ * Goals, their boss bars, and the events and ticks that move them. The goals are part of each player's state on the
+ * backend ([PlayerData]); while the player plays, the book here is the live copy.
+ */
+class Goals(
+  private val plugin: Plugin,
+  private val locales: chat.allay.spigot.Locales,
+  private val data: PlayerData,
+  private val max: () -> Int,
+) : Listener {
   private val books = ConcurrentHashMap<UUID, GoalBook>()
   private val bars = ConcurrentHashMap<String, BossBar>()
   private var ticker: BukkitTask? = null
 
-  fun of(uuid: UUID): GoalBook = books.computeIfAbsent(uuid) { GoalBook(files.load(it), max) }
+  fun of(uuid: UUID): GoalBook = books.computeIfAbsent(uuid) { GoalBook(data.of(it).goals.orEmpty(), max) }
 
-  /** How many goals an online player has, without touching the disk; safe from any thread. */
+  /** How many goals an online player has; safe from any thread. */
   fun count(uuid: UUID): Int = books[uuid]?.all()?.size ?: 0
 
-  /** A player's goals, online or not, without loading them for good; safe from any thread. */
-  fun snapshot(uuid: UUID): List<Goal> = books[uuid]?.all() ?: files.peek(uuid)
+  /** A player's goals, from the live book or the state in memory; safe from any thread. */
+  fun snapshot(uuid: UUID): List<Goal> = books[uuid]?.all() ?: data.of(uuid).goals.orEmpty()
+
+  /**
+   * The backend sent the player's state after they joined: their goals replace the empty book they started with. Called
+   * off the server thread; the bars change on it.
+   */
+  fun loaded(uuid: UUID, state: PlayerState) {
+    plugin.server.scheduler.runTask(plugin, Runnable {
+      books[uuid] = GoalBook(state.goals.orEmpty(), max)
+      bars.keys.filter { it.startsWith("$uuid:") }.forEach { bars.remove(it)?.removeAll() }
+      plugin.server.getPlayer(uuid)?.let(::show)
+    })
+  }
 
   fun start() {
     ticker = plugin.server.scheduler.runTaskTimer(plugin, Runnable { plugin.server.onlinePlayers.forEach(::poll) }, 20L, 20L)
@@ -161,6 +180,8 @@ class Goals(private val plugin: Plugin, private val locales: chat.allay.spigot.L
 
   @EventHandler fun onQuit(event: PlayerQuitEvent) {
     val uuid = event.player.uniqueId
+    // Progress counted by the ticks goes out with the rest of the player's state.
+    save(uuid)
     bars.keys.filter { it.startsWith("$uuid:") }.forEach { bars.remove(it)?.removeAll() }
     books.remove(uuid)
   }
@@ -187,16 +208,15 @@ class Goals(private val plugin: Plugin, private val locales: chat.allay.spigot.L
 
   @EventHandler fun onAdvancement(event: PlayerAdvancementDoneEvent) = poll(event.player)
 
-  /** Erasure, on the server thread: the player's goals, their bars, and their file go. */
+  /** Erasure, on the server thread: the player's goals and their bars go. */
   fun forget(uuid: UUID) {
     books.remove(uuid)
     bars.keys.filter { it.startsWith("$uuid:") }.forEach { bars.remove(it)?.removeAll() }
-    files.delete(uuid)
   }
 
   fun save(uuid: UUID) {
     val book = books[uuid] ?: return
-    files.save(uuid, book.all())
+    data.update(uuid) { it.copy(goals = book.all().takeIf(List<Goal>::isNotEmpty)) }
   }
 
   private fun key(uuid: UUID, id: String) = "$uuid:$id"

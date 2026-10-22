@@ -16,7 +16,7 @@ import chat.allay.core.Settings
 object AllayTools {
   /** What the server has switched on, by the tool behind each feature. */
   private val FEATURES = mapOf(
-    "notes" to "add_note", "goals" to "goals", "reminders" to "reminders", "books" to "write_book", "buttons" to "add_buttons",
+    "goals" to "goals", "reminders" to "reminders", "books" to "write_book", "buttons" to "add_buttons",
     "compass" to "point_to", "marks" to "show_marks", "drafts" to "show_draft", "redstone" to "inspect_redstone", "sorting" to "sort_inventory", "ping" to "ping_me", "timezone" to "set_timezone",
   )
 
@@ -56,7 +56,6 @@ object AllayTools {
           }
         })
         putJsonObject("limits") {
-          put("notes", config.tools.maxNotes)
           put("reminders", config.tools.maxReminders)
           put("goals", config.tools.maxGoals)
           put("askall_cooldown_seconds", config.askall.cooldownSeconds)

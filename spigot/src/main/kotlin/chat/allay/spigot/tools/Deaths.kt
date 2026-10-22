@@ -9,9 +9,19 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
-/** Writes every death into the player's [DeathLog], so `get_death_info` can tell when, where, and how, across restarts. */
-class Deaths(val log: DeathLog, private val warn: (String) -> Unit) : Listener {
+/**
+ * Sends every death to the backend (6.9), which keeps the history: when, where, and how. The plugin keeps only each
+ * player's last death of this run in memory, so `get_death_info` can say what dropped and whether it still lies there.
+ */
+class Deaths(private val data: PlayerData) : Listener {
+  private val last = ConcurrentHashMap<UUID, Death>()
+
+  /** The player's last death since the server started, or null. */
+  fun latest(uuid: UUID): Death? = last[uuid]
+
   @EventHandler(priority = EventPriority.MONITOR)
   fun onDeath(event: PlayerDeathEvent) {
     val player = event.entity
@@ -36,15 +46,20 @@ class Deaths(val log: DeathLog, private val warn: (String) -> Unit) : Listener {
       z = place.blockZ,
       cause = source.damageType.key.toString(),
       killer = killer?.type?.key?.toString(),
-      killerName = killerName,
+      killer_name = killerName,
       message = event.deathMessage,
       level = player.level,
-      keptInventory = event.keepInventory,
-      drops = drops,
-      experience = event.droppedExp,
+      kept_inventory = event.keepInventory.takeIf { it },
+      drops = drops.takeIf { it.isNotEmpty() },
+      experience = event.droppedExp.takeIf { it > 0 },
     )
-    // A small file once a death: cheap enough for the server thread, and no death is lost to a crash right after.
-    runCatching { log.record(player.uniqueId, death) }.onFailure { warn("Couldn't save a death: ${it.message}") }
+    last[player.uniqueId] = death
+    data.died(player.uniqueId, death)
+  }
+
+  /** Erasure: the last death goes from memory too. */
+  fun forget(uuid: UUID) {
+    last.remove(uuid)
   }
 
   companion object {

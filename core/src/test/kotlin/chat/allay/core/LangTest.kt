@@ -65,8 +65,7 @@ class LangTest {
   @Test fun `every key the code asks for is in en_yml`() {
     val english = bundled("en")
     val used = listOf(File("src/main/kotlin"), File("../spigot/src/main/kotlin")).flatMap { it.walk().toList() }.asSequence()
-      // The migration names MCBuddy's old keys on purpose.
-      .filter { it.name != "McBuddyMigration.kt" }.filter { it.extension == "kt" }
+      .filter { it.extension == "kt" }
       .flatMap { KEY.findAll(it.readText()).map { match -> match.groupValues[1] } }.toSet()
     assertTrue(used.size > 100, "the scan found only ${used.size} keys")
     val missing = used.filterNot { key -> key in english || english.keys.any { it.startsWith("$key.") } }

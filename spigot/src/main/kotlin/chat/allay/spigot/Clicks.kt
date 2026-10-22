@@ -31,7 +31,6 @@ import chat.allay.core.tools.Facts
 import chat.allay.spigot.tools.Features
 import chat.allay.spigot.tools.InteractTools
 import chat.allay.spigot.tools.Locator
-import chat.allay.core.tools.Note
 import chat.allay.core.tools.ToolError
 import chat.allay.spigot.tools.Villagers
 
@@ -46,6 +45,8 @@ class Clicks(
   private val store: ButtonStore,
   /** Asks for the player, publicly when the third argument says so. */
   private val ask: (Player, String, Boolean) -> Unit,
+  /** Where the note button saves its text: a memory with a place on the backend. */
+  private val memory: () -> MemoryCommands,
 ) {
   private val ui = config.ui
   private fun lang(player: Player) = features.locales.of(player)
@@ -187,17 +188,7 @@ class Clicks(
   }
 
   private fun note(player: Player, button: Button.Note) {
-    val current = Dimensions.id(player.world)
-    val dimension = Dimensions.normalize(button.dimension) ?: current
-    try {
-      features.notes.of(player.uniqueId).add { id ->
-        Note(id, button.text, button.x, button.y, button.z, if (dimension == current) player.world.name else null, dimension, System.currentTimeMillis())
-      }
-      features.notes.save(player.uniqueId)
-      lang(player).send(player, "buttons.note_saved", "text" to button.text)
-    } catch (error: ToolError) {
-      player.sendMessage(formatMessage("&c${error.message}"))
-    }
+    memory().rememberAt(player, button.text, button.x, button.y, button.z, button.dimension)
   }
 
   /** `/allay recipe <item>` and the recipe button. */

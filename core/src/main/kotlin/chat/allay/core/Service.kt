@@ -56,7 +56,7 @@ class Service<C>(
   private val identity: Identity? = null,
   /** Whether a player has full privacy on, so each question tells the backend to keep them out of its admin panel. */
   private val fullPrivacy: (java.util.UUID) -> Boolean = { false },
-) : Consents.Backend {
+) : Consents.Backend, PlayerData.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
   @Serializable data class AskXRequest(val action: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
@@ -167,7 +167,7 @@ class Service<C>(
       user_id = uuid?.toString() ?: "console",
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
-      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null) },
+      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null, position = asker.position) },
       server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port),
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
@@ -235,10 +235,12 @@ class Service<C>(
     }.onFailure { host.log.warning("❌ Couldn't send the result of ${call.name}: $it") }
   }
 
-  @Serializable data class Memory(val id: String, val text: String, val created_at: String? = null)
+  /** A remembered fact; since backend 6.9 one with a [place] is what the notebook used to keep. */
+  @Serializable data class Memory(val id: String, val text: String, val place: Place? = null, val created_at: String? = null)
+  @Serializable data class Place(val x: Int, val y: Int, val z: Int, val dimension: String, val world: String? = null)
   @Serializable private data class Memories(val memories: List<Memory> = emptyList())
   @Serializable private data class Deleted(val deleted: Int = 0)
-  @Serializable private data class Remember(val text: String)
+  @Serializable private data class Remember(val text: String, val place: Place? = null)
   @Serializable private data class Remembered(val memory: Memory)
 
   /** `/allay new`: the backend forgets the conversation but keeps the memories. */
@@ -248,16 +250,41 @@ class Service<C>(
     json.decodeFromString<Memories>(send("/api/v2/users/${path(userId)}/memories", "GET")).memories
   }
 
-  /** `/allay memory <text>`: saves a fact as the remember tool would. A full memory answers `MEMORY_FULL`. */
-  suspend fun remember(userId: String, text: String): Memory = withContext(IO) {
-    val body = json.encodeToString(Remember.serializer(), Remember(text))
+  /**
+   * `/allay memory <text>` and the note button: saves a fact as the memories tool would, with a [place] (backend 6.9;
+   * an older one drops it). A full memory answers `MEMORY_FULL`.
+   */
+  suspend fun remember(userId: String, text: String, place: Place? = null): Memory = withContext(IO) {
+    val body = json.encodeToString(Remember.serializer(), Remember(text, place))
     json.decodeFromString<Remembered>(send("/api/v2/users/${path(userId)}/memories", "POST", body)).memory
   }
 
   @Serializable data class Erased(val erased: Boolean = false, val memories: Int = 0, val runs: Int = 0, val traces: Int = 0)
 
-  /** `/allay privacy export`: everything the backend keeps about the player, as the JSON it sent (since backend 6.0). */
-  suspend fun export(userId: String): String = withContext(IO) { send("/api/v2/users/${path(userId)}", "GET") }
+  @Serializable data class ExportLink(val url: String, val expires_at: String? = null)
+
+  /** `/allay privacy export`: a link to everything the backend keeps about the player, good for 24 hours (backend 6.9). */
+  suspend fun exportLink(userId: String): ExportLink = withContext(IO) {
+    json.decodeFromString<ExportLink>(send("/api/v2/users/${path(userId)}/export", "POST", "{}"))
+  }
+
+  @Serializable private data class StateAnswer(val state: PlayerState? = null, val updated_at: String? = null)
+
+  /** The player's time zone, settings, and goals, kept by the backend since 6.9. */
+  override suspend fun state(userId: String): PlayerState? = withContext(IO) {
+    json.decodeFromString<StateAnswer>(send("/api/v2/users/${path(userId)}/state", "GET")).state
+  }
+
+  override suspend fun saveState(userId: String, state: PlayerState) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/state", "PUT", json.encodeToString(PlayerState.serializer(), state))
+    Unit
+  }
+
+  /** One death, for the history the backend pages for the model (6.9). */
+  override suspend fun death(userId: String, death: chat.allay.core.tools.Death) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/deaths", "POST", json.encodeToString(chat.allay.core.tools.Death.serializer(), death))
+    Unit
+  }
 
   /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */
   suspend fun erase(userId: String): Erased = withContext(IO) { json.decodeFromString<Erased>(send("/api/v2/users/${path(userId)}", "DELETE")) }

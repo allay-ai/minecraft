@@ -32,6 +32,19 @@ object Secrets {
     .fold(text) { result, secret -> result.replace(secret, mask(secret)) }
 }
 
+/** Makes [file] readable and writable by its owner alone: `license.key` and the spool of unsent player data. */
+internal fun ownerOnly(file: File) {
+  try {
+    Files.setPosixFilePermissions(file.toPath(), PosixFilePermissions.fromString("rw-------"))
+  } catch (_: UnsupportedOperationException) {
+    // Windows: no POSIX bits, so take away what java.io can.
+    file.setReadable(false, false)
+    file.setReadable(true, true)
+    file.setWritable(false, false)
+    file.setWritable(true, true)
+  }
+}
+
 /**
  * The server's license, `<id>.<secret>`, in `license.key` next to `config.yml`. It stays out of `config.yml` so a
  * config shared for help never carries it. Only the owner may read the file where the system knows permissions.
@@ -79,18 +92,6 @@ class License(folder: File) {
     temp.writeText(license.trim() + "\n")
     Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     cached = null
-  }
-
-  private fun ownerOnly(file: File) {
-    try {
-      Files.setPosixFilePermissions(file.toPath(), PosixFilePermissions.fromString("rw-------"))
-    } catch (_: UnsupportedOperationException) {
-      // Windows: no POSIX bits, so take away what java.io can.
-      file.setReadable(false, false)
-      file.setReadable(true, true)
-      file.setWritable(false, false)
-      file.setWritable(true, true)
-    }
   }
 
   companion object {

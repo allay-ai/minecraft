@@ -44,7 +44,7 @@ class YamlTest {
     config.server.url, config.http.callTimeout, config.http.customHeaders, config.http.userAgent, config.ui.spinnerFrames, config.ui.frameMillis,
     config.ui.particleType, config.ui.particleCount, config.ui.particleHeightOffset, config.ui.bookAuthor,
     config.ui.successSound.name, config.ui.successSound.volume, config.ui.errorSound.pitch, config.ui.thinkingSound.name,
-    config.tools.structureRadius, config.tools.maxNotes, config.tools.hiddenPlugins, config.tools.enabled("look_at"), config.tools.enabled("give_item"),
+    config.tools.structureRadius, config.tools.maxGoals, config.tools.hiddenPlugins, config.tools.enabled("look_at"), config.tools.enabled("give_item"),
     config.askall.cooldownSeconds, config.time.zone, config.blockedCommands, config.locales.default, config.locales.sources, config.locales.countries,
     config.geoIp.enabled, config.geoIp.url, config.geoIp.refreshDays,
   )
@@ -58,7 +58,7 @@ class YamlTest {
       "Allay-Spigot/test (Minecraft Plugin)", yaml.getString("ui.action_bar.spinner", "·✢✳✶✻✽"), yaml.getInt("ui.action_bar.frame_millis", 120).toLong().coerceAtLeast(50),
       yaml.getString("ui.particles.type"), yaml.getInt("ui.particles.count", 3), yaml.getDouble("ui.particles.height_offset", 2.0), yaml.getString("ui.book_author", "Allay"),
       yaml.getString("ui.sounds.success_sound"), yaml.getDouble("ui.sounds.success_volume", 1.0).toFloat(), yaml.getDouble("ui.sounds.error_pitch", 0.9).toFloat(), yaml.getString("ui.sounds.thinking_sound"),
-      yaml.getInt("tools.locate_structure_radius", 64).coerceIn(1, 128), yaml.getInt("tools.notes.max_per_player", 200).coerceIn(1, 1000),
+      yaml.getInt("tools.locate_structure_radius", 64).coerceIn(1, 128), yaml.getInt("tools.goals.max_per_player", 5).coerceIn(1, 20),
       yaml.getStringList("tools.server.hidden_plugins").map(String::lowercase).toSet(), switches?.getBoolean("look_at", true) ?: true,
       (operator?.getBoolean("enabled", true) ?: true) && (operator?.getBoolean("give_item", true) ?: true),
       yaml.getInt("askall.cooldown_seconds", 30).toLong().coerceAtLeast(0), yaml.getString("time.zone", "Europe/Moscow"),
