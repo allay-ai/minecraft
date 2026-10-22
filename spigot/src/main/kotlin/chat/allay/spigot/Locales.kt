@@ -63,7 +63,8 @@ class Locales(private val plugin: JavaPlugin) : Listener {
     plugin.server.onlinePlayers.forEach { current[it.uniqueId] = code(it) }
 
     geoIpTask?.cancel()
-    if (!config.geoIp.enabled || "ip" !in config.locales.sources) {
+    // Open whenever GeoIP is on, also without `ip` in the sources: US players get the age question (COPPA).
+    if (!config.geoIp.enabled) {
       geoIp.close()
       return
     }
@@ -105,6 +106,9 @@ class Locales(private val plugin: JavaPlugin) : Listener {
 
   /** An online player's language without asking Bukkit, so any thread can read it; null when they're offline. */
   fun known(player: UUID): String? = current[player]
+
+  /** The country of the player's IP address, like `US`, while GeoIP is on; null when unknown. */
+  fun country(player: UUID): String? = countries[player]
 
   fun explain(player: Player): Choice {
     val country = countries[player.uniqueId]

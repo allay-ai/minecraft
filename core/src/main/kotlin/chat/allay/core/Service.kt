@@ -318,18 +318,19 @@ class Service<C>(
     json.decodeFromString<PrivacyAnswer>(send("/api/v2/users/${path(userId)}/privacy", "PUT", json.encodeToString(Privacy.serializer(), Privacy(full))))
   }
 
-  @Serializable data class Consent(val version: Int, val accepted_at: String? = null)
-  @Serializable private data class ConsentAnswer(val consent: Consent? = null)
-  @Serializable private data class GiveConsent(val version: Int)
+  @Serializable data class Consent(val version: Int, val hash: String? = null, val revision: String? = null, val accepted_at: String? = null, val age_confirmed: Boolean? = null)
+  @Serializable private data class ConsentAnswer(val consent: Consent? = null, val revision: String? = null)
+  @Serializable private data class GiveConsent(val version: Int, val hash: String? = null, val age_confirmed: Boolean? = null)
   @Serializable private data class Withdrawn(val withdrawn: Boolean = false)
 
-  /** The notice's version the player agreed to (since backend 6.1). */
-  override suspend fun consent(userId: String): Int? = withContext(IO) {
-    json.decodeFromString<ConsentAnswer>(send("/api/v2/users/${path(userId)}/consent", "GET")).consent?.version
+  /** The notice the player agreed to (since backend 6.1), and the policy revision with its hash (6.9). */
+  override suspend fun consent(userId: String): Consents.Answer = withContext(IO) {
+    val answer = json.decodeFromString<ConsentAnswer>(send("/api/v2/users/${path(userId)}/consent", "GET"))
+    Consents.Answer(answer.consent?.let { Consents.Given(it.version, it.hash, it.accepted_at, it.age_confirmed) }, answer.revision)
   }
 
-  override suspend fun giveConsent(userId: String, version: Int) = withContext(IO) {
-    send("/api/v2/users/${path(userId)}/consent", "PUT", json.encodeToString(GiveConsent.serializer(), GiveConsent(version)))
+  override suspend fun giveConsent(userId: String, version: Int, hash: String?, ageConfirmed: Boolean?) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/consent", "PUT", json.encodeToString(GiveConsent.serializer(), GiveConsent(version, hash, ageConfirmed)))
     Unit
   }
 

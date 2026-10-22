@@ -22,7 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
  * `/allay privacy`: what Allay keeps about a player and for how long, and their data on request (since backend 6.0).
  * A player exports or erases their own; admins do it for anyone who asked them. An export is a link to the backend,
  * good for a day (6.9), shown only to whoever asked for it, never in the log. Before a player's first question, the
- * notice asks them to agree, with buttons; the backend keeps the answer (since 6.1).
+ * notice asks them to agree, with buttons; the backend keeps the answer (since 6.1) and the hash of the notice (6.9),
+ * so a player is asked again when the notice or the policy changes.
  */
 class PrivacyCommands(
   private val plugin: JavaPlugin,
@@ -39,10 +40,13 @@ class PrivacyCommands(
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
 ) {
-  /** The question a player asked before agreeing; it goes on once they agree. */
-  private class Pending(val at: Long, val question: () -> Unit)
+  /** The question a player asked before agreeing; it goes on once they agree. [state] is why they were stopped. */
+  private class Pending(val at: Long, val question: () -> Unit, var state: Consents.State = Consents.State.MISSING)
 
   private val pending = ConcurrentHashMap<UUID, Pending>()
+
+  /** US players who just said they're 13 or older, and when; it counts for the agreement that follows. */
+  private val adults = ConcurrentHashMap<UUID, Long>()
 
   /**
    * Before a question from a player Allay hasn't seen agree: the backend says whether they did, and if not, the notice
@@ -62,14 +66,29 @@ class PrivacyCommands(
       }
       if (state == Consents.State.UNSUPPORTED) plugin.logger.warning("The backend can't keep players' consent (it's older than 6.1), so Allay asks nobody; update the backend")
       onMain {
-        if (state == Consents.State.MISSING) notice(player) else pending.remove(player.uniqueId)?.question?.invoke()
+        when (state) {
+          Consents.State.MISSING, Consents.State.CHANGED, Consents.State.AGE -> {
+            pending[player.uniqueId]?.state = state
+            // A US player confirms their age first (COPPA), then reads the notice.
+            if (consents.asksAge(player.uniqueId) && !adult(player.uniqueId)) ageQuestion(player) else next(player, state)
+          }
+          else -> pending.remove(player.uniqueId)?.question?.invoke()
+        }
       }
     }
   }
 
-  /** What Allay does with a player's data, under which law, and the buttons to agree or not. */
-  private fun notice(player: Player) {
+  /**
+   * What Allay does with a player's data, under which law, and the buttons to agree or not. A player who agreed to an
+   * older notice first reads that it changed, and when they agreed.
+   */
+  private fun notice(player: Player, changed: Boolean) {
     val lang = locales.of(player)
+    if (changed) {
+      val since = consents.previous(player.uniqueId)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
+      lang.send(player, if (since != null) "consent.changed" else "consent.changed_undated", "date" to since)
+      lang.send(player, "consent.changed_summary")
+    }
     lang.send(player, "consent.notice")
     lang.send(player, if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self")
     lang.send(player, "consent.keeps")
@@ -81,18 +100,59 @@ class PrivacyCommands(
     player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.question"))), TextComponent(" "), agree, TextComponent(" "), decline, *policy.toTypedArray())
   }
 
+  /** After the age question, or without one: the notice, or for a player who only owed their age, the agreement itself. */
+  private fun next(player: Player, state: Consents.State) {
+    if (state == Consents.State.AGE) agree(player) else notice(player, changed = state == Consents.State.CHANGED)
+  }
+
+  /**
+   * “Are you 13 or older?” with the date that makes it so, in the player's language, for a player in the US (COPPA).
+   * No keeps everything as declining does.
+   */
+  private fun ageQuestion(player: Player) {
+    val lang = locales.of(player)
+    val locale = java.util.Locale.forLanguageTag(lang.code.replace('_', '-'))
+    val born = java.time.LocalDate.now().minusYears(MIN_AGE).format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG).withLocale(locale))
+    val yes = button(lang, "consent.age_yes", "consent.age_yes_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age yes"))
+    val no = button(lang, "consent.age_no", "consent.age_no_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age no"))
+    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.age_question", "date" to born))), TextComponent(" "), yes, TextComponent(" "), no)
+  }
+
+  /** `/allay privacy age yes|no`, from the age question's buttons. */
+  fun age(sender: CommandSender, answer: String) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    when (answer.lowercase()) {
+      "yes" -> {
+        adults[player.uniqueId] = System.currentTimeMillis()
+        next(player, pending[player.uniqueId]?.state ?: Consents.State.MISSING)
+      }
+      "no" -> {
+        adults.remove(player.uniqueId)
+        pending.remove(player.uniqueId)
+        locales.of(sender).send(sender, "consent.age_under")
+      }
+      else -> locales.of(sender).send(sender, "privacy.usage")
+    }
+  }
+
+  private fun adult(player: UUID) = adults[player]?.let { System.currentTimeMillis() - it < PENDING_MS } == true
+
   private fun button(lang: Lang, text: String, hover: String, click: ClickEvent, vararg values: Pair<String, Any>) =
     TextComponent(*plain(formatMessage(lang.text(text)))).apply {
       clickEvent = click
       hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text(hover, *values)))))
     }
 
-  /** `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. */
+  /**
+   * `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. A US player
+   * who hasn't confirmed their age gets the age question first.
+   */
   fun agree(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    if (consents.asksAge(player.uniqueId) && !adult(player.uniqueId)) return ageQuestion(player)
     var question: (() -> Unit)? = null
     request(sender, after = { question?.invoke() }) { lang ->
-      consents.give(player.uniqueId)
+      consents.give(player.uniqueId, ageConfirmed = adults.remove(player.uniqueId) != null)
       // What the player set before agreeing goes to the backend now, and what it kept comes back.
       data.consented(player.uniqueId)
       question = pending.remove(player.uniqueId)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
@@ -104,6 +164,7 @@ class PrivacyCommands(
   fun decline(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     pending.remove(player.uniqueId)
+    adults.remove(player.uniqueId)
     locales.of(sender).send(sender, "consent.declined")
   }
 
@@ -288,5 +349,7 @@ class PrivacyCommands(
     private val UNTIL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     /** A question older than this doesn't go on when its asker agrees: they've moved on. */
     private const val PENDING_MS = 10 * 60_000L
+    /** COPPA's line: below it, a US player's data needs a parent's consent, which Allay doesn't collect. */
+    private const val MIN_AGE = 13L
   }
 }

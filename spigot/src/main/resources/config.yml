@@ -59,7 +59,9 @@ locales:
 geoip:
   # The country database: DB-IP's free “IP to Country Lite”, CC BY 4.0, about 4 MB.
   # The plugin downloads it into geoip/ and refreshes it once it's older than
-  # refresh_days. Lookups happen on your server; no address leaves it.
+  # refresh_days. Lookups happen on your server; no address leaves it. It also tells
+  # which players are in the US: they confirm they're 13 or older before agreeing
+  # to Allay's notice (COPPA). With it off, nobody gets that question.
   enabled: true
   url: "https://download.db-ip.com/free/dbip-country-lite-{year}-{month}.mmdb.gz"
   refresh_days: 30

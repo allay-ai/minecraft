@@ -1,38 +1,68 @@
 package chat.allay.core
 
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Whether a player agreed to Allay's notice, which the plugin shows with buttons before their first question. The
- * backend keeps the agreement (since 6.1); the plugin trusts a positive answer for [RECHECK_MS], so an erasure from
- * the admin panel asks the player again within the hour. A backend before 6.1 can't keep one, and nobody gets asked
- * until the next check an hour later, so an update of the backend counts without a reload.
+ * backend keeps the agreement (since 6.1) with the hash of what the player read (since 6.9); the plugin trusts a
+ * positive answer for [RECHECK_MS], so an erasure from the admin panel asks the player again within the hour. A backend
+ * before 6.1 can't keep one, and nobody gets asked until the next check an hour later, so an update of the backend
+ * counts without a reload.
+ *
+ * The hash covers the English notice ([notice], as the jar ships it, so a server's own translation doesn't count as a
+ * change) and the backend's policy revision. When either changes, a player who agreed before is asked again, with a
+ * notice that says what changed.
+ *
+ * A player in the US ([us], by the country of their IP address) also confirms they're 13 or older before agreeing, for
+ * COPPA; the backend keeps that with the agreement (6.9), and an agreement without it asks the age question again.
  */
-class Consents(private val backend: Backend, private val now: () -> Long = System::currentTimeMillis) {
+class Consents(
+  private val backend: Backend,
+  /** The English notice the player reads, line by line. */
+  private val notice: () -> List<String>,
+  private val us: (UUID) -> Boolean = { false },
+  private val now: () -> Long = System::currentTimeMillis,
+) {
   interface Backend {
-    /** The version of the notice the player agreed to, or null. */
-    suspend fun consent(userId: String): Int?
-    suspend fun giveConsent(userId: String, version: Int)
+    /** The player's agreement and the backend's policy revision (6.9; null before). */
+    suspend fun consent(userId: String): Answer
+    suspend fun giveConsent(userId: String, version: Int, hash: String?, ageConfirmed: Boolean?)
     /** Whether there was an agreement to withdraw. */
     suspend fun withdrawConsent(userId: String): Boolean
   }
 
-  enum class State { GIVEN, MISSING, UNSUPPORTED }
+  /** What the backend keeps: the notice's version, and since 6.9 the hash the player agreed to and whether they confirmed their age. */
+  data class Given(val version: Int, val hash: String? = null, val acceptedAt: String? = null, val ageConfirmed: Boolean? = null)
+
+  data class Answer(val consent: Given?, val revision: String? = null)
+
+  /** [AGE]: the player agreed to the current notice, but as a US player still has to confirm they're 13 or older. */
+  enum class State { GIVEN, MISSING, CHANGED, AGE, UNSUPPORTED }
 
   /** When each player's agreement was last seen. */
   private val seen = ConcurrentHashMap<UUID, Long>()
 
+  /** When a player whose notice changed had agreed, for the notice that asks again. */
+  private val agreedAt = ConcurrentHashMap<UUID, String>()
+
   /** When the backend last said it can't keep consents. */
   @Volatile private var oldSince: Long? = null
+
+  /** The backend's policy revision from its last answer; null before 6.9. */
+  @Volatile private var revision: String? = null
 
   val unsupported get() = oldSince?.let { now() - it < RECHECK_MS } == true
 
   /** Whether [player] may ask without a request to the backend first. */
   fun known(player: UUID) = unsupported || seen[player]?.let { now() - it < RECHECK_MS } == true
 
+  /** When a player asked again because the notice changed had agreed before, as the backend wrote it. */
+  fun previous(player: UUID): String? = agreedAt[player]
+
   suspend fun check(player: UUID): State {
-    val version = try {
+    val answer = try {
       backend.consent(player.toString())
     } catch (error: ApiErrorException) {
       if (error.apiError.statusCode !in OLD_BACKEND) throw error
@@ -40,13 +70,35 @@ class Consents(private val backend: Backend, private val now: () -> Long = Syste
       return State.UNSUPPORTED
     }
     oldSince = null
-    if (version == null || version < VERSION) return State.MISSING
+    revision = answer.revision
+    val given = answer.consent
+    if (given == null) {
+      seen.remove(player)
+      return State.MISSING
+    }
+    // A backend before 6.9 keeps no hash: the version alone decides there.
+    val current = answer.revision?.let(::hash)
+    if (given.version < VERSION || (current != null && given.hash != current)) {
+      seen.remove(player)
+      given.acceptedAt?.let { agreedAt[player] = it }
+      return State.CHANGED
+    }
+    agreedAt.remove(player)
+    if (asksAge(player) && given.ageConfirmed != true) {
+      seen.remove(player)
+      return State.AGE
+    }
     seen[player] = now()
     return State.GIVEN
   }
 
-  suspend fun give(player: UUID) {
-    backend.giveConsent(player.toString(), VERSION)
+  /** Whether [player] must confirm their age before agreeing: a player in the US. */
+  fun asksAge(player: UUID) = us(player)
+
+  /** Records the agreement; [ageConfirmed] when a US player said they're 13 or older. */
+  suspend fun give(player: UUID, ageConfirmed: Boolean = false) {
+    backend.giveConsent(player.toString(), VERSION, revision?.let(::hash), ageConfirmed.takeIf { it })
+    agreedAt.remove(player)
     seen[player] = now()
   }
 
@@ -58,13 +110,20 @@ class Consents(private val backend: Backend, private val now: () -> Long = Syste
   /** The player's data was erased, consent with it: ask again before the next question. */
   fun forget(player: UUID) {
     seen.remove(player)
+    agreedAt.remove(player)
   }
+
+  /** The hex SHA-256 of the notice's lines and the policy [revision], joined by `\n`. */
+  fun hash(revision: String): String = digest(notice() + revision)
 
   companion object {
     /** The notice's version. Raise it when the notice says something new, and every player is asked again. */
-    const val VERSION = 1
+    const val VERSION = 2
     const val RECHECK_MS = 3_600_000L
     /** A backend before 6.1 has no such route. */
     private val OLD_BACKEND = setOf(404, 405)
+
+    fun digest(lines: List<String>): String =
+      MessageDigest.getInstance("SHA-256").digest(lines.joinToString("\n").toByteArray()).joinToString("") { "%02x".format(it) }
   }
 }

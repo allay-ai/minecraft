@@ -164,7 +164,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    consents = Consents(service)
+    consents = Consents(service, ::notice, { locales.country(it).equals("US", ignoreCase = true) })
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(this, locales, features, service, scope)
@@ -215,6 +215,16 @@ class Zygote : JavaPlugin(), TabCompleter {
       provider.legacyKey != null -> logger.info("Paying for the model with the X-OpenRouter-Token key in http.custom_headers (${Secrets.mask(provider.legacyKey)})")
       else -> logger.info("No ${License.FILE} yet: if the backend asks for a subscription, run /allay link")
     }
+  }
+
+  /**
+   * The notice a player agrees to, in English as the jar ships it, for the hash the backend keeps with the agreement: a
+   * server's own wording of `lang/` doesn't count as a new notice.
+   */
+  private fun notice(): List<String> {
+    val english = getResource("lang/en.yml")!!.reader(Charsets.UTF_8).use(Texts::read)
+    val keys = listOf("consent.notice", if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self", "consent.keeps")
+    return keys.map { english[it]?.toString().orEmpty() }
   }
 
   /** Players' state comes from the backend when they join and goes back when they leave, after every other listener. */
@@ -325,6 +335,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         args.size == 1 -> privacy.info(sender)
         args.size == 2 && args[1].equals("agree", ignoreCase = true) -> privacy.agree(sender)
         args.size == 2 && args[1].equals("decline", ignoreCase = true) -> privacy.decline(sender)
+        args.size == 3 && args[1].equals("age", ignoreCase = true) -> privacy.age(sender, args[2])
         args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
         args.size in 2..3 && args[1].equals("full", ignoreCase = true) -> privacy.full(sender, args.getOrNull(2))
         args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
