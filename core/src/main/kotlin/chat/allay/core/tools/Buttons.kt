@@ -16,7 +16,7 @@ sealed interface Button {
   /** Shows the way to another player by name, following them while they're on the presser's locator bar. */
   data class Follow(override val label: String, val player: String) : Button
 
-  /** Writes a note with these coordinates into the player's notebook. */
+  /** Remembers the text with these coordinates: a memory with a place on the backend. */
   data class Note(override val label: String, val text: String, val x: Int, val y: Int, val z: Int, val dimension: String?) : Button
 
   /** Puts text into the player's clipboard, such as coordinates; the client does it, so no id is needed. */

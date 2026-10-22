@@ -15,9 +15,9 @@ object Guide {
     Triple("/allay cancel", Permissions.ASK, "stops the answer being written; with no answer running, ends the way trail"),
     Triple("/allay new", Permissions.ASK, "starts the conversation over; memories stay"),
     Triple("/allay memory", Permissions.ASK, "lists what Allay remembers about the player"),
-    Triple("/allay memory <text>", Permissions.ASK, "remembers the text without asking Allay; with coordinates in it (x y z, or x z), a note in the notebook, in the dimension the text names or where the player stands"),
+    Triple("/allay memory <text>", Permissions.ASK, "remembers the text without asking Allay; with coordinates in it (x y z, or x z), the memory keeps that place, in the dimension the text names or where the player stands"),
     Triple("/allay forget <number|all>", Permissions.ASK, "forgets one remembered fact, or all of them"),
-    Triple("/allay privacy", Permissions.ASK, "what Allay keeps about the player on this server and for how long; /allay privacy erase erases all of it, after a confirmation"),
+    Triple("/allay privacy", Permissions.ASK, "what Allay keeps about the player on this server and for how long; /allay privacy export gives a 24-hour download link to all of it, /allay privacy erase erases it, after a confirmation"),
     Triple("/allay privacy full on|off", Permissions.ASK, "full privacy: the backend's admin panel knows the player by a pseudonym instead of their name, UUID, and skin; memories and the conversation work as before. Also a switch in the /allay window"),
     Triple("/allay privacy agree|withdraw", Permissions.ASK, "agrees to Allay's data notice, which it shows before the first question, or takes the agreement back; without it Allay doesn't answer the player"),
     Triple("/allay recipe <item>", Permissions.ASK, "opens the recipe window for an item"),
@@ -29,7 +29,7 @@ object Guide {
     Triple("/allay status", Permissions.ADMIN, "who pays for the model on this server: the own key, or the subscription with its plan, paid-until date, and how much of the limit is used"),
     Triple("/allay link", Permissions.ADMIN, "a one-time link to pay for Allay's subscription in Telegram Stars (week, month, or year)"),
     Triple("/allay init", Permissions.ADMIN, "on a self-hosted backend, a one-time link that sets up the backend's web admin panel; once it has an account, a one-time link that sets a new password for a forgotten one"),
-    Triple("/allay privacy export|erase <player>", Permissions.ADMIN, "for a player who asks: saves everything Allay keeps about them to a file for them, or erases it"),
+    Triple("/allay privacy export|erase <player>", Permissions.ADMIN, "for a player who asks: a 24-hour link to everything Allay keeps about them, to hand over, or erases it"),
     Triple("/allay locale [player]", Permissions.ADMIN, "which language a player reads Allay in, and why: their IP's country, their game's language, or the default"),
   )
 

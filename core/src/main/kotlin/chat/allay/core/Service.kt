@@ -235,7 +235,7 @@ class Service<C>(
     }.onFailure { host.log.warning("❌ Couldn't send the result of ${call.name}: $it") }
   }
 
-  /** A remembered fact; since backend 6.9 one with a [place] is what the notebook used to keep. */
+  /** A remembered fact; since backend 6.9 one may have a [place], as notes once did. */
   @Serializable data class Memory(val id: String, val text: String, val place: Place? = null, val created_at: String? = null)
   @Serializable data class Place(val x: Int, val y: Int, val z: Int, val dimension: String, val world: String? = null)
   @Serializable private data class Memories(val memories: List<Memory> = emptyList())
