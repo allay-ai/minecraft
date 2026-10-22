@@ -88,6 +88,8 @@ hangarPublish {
     channel = "Release"
     apiKey = providers.environmentVariable("HANGAR_TOKEN")
     changelog = changelogText
+    // The project's main page is the Modrinth text, so both stores say the same.
+    pages.resourcePage(providers.fileContents(rootProject.layout.projectDirectory.file("MODRINTH.md")).asText)
     platforms {
       register(Platforms.PAPER) {
         jar = tasks.shadowJar.flatMap { it.archiveFile }
@@ -95,4 +97,9 @@ hangarPublish {
       }
     }
   }
+}
+
+// As Modrinth's body syncs before its upload, Hangar's main page does before each version.
+tasks.named("publishPluginPublicationToHangar") {
+  dependsOn("syncAllPluginPublicationPagesToHangar")
 }

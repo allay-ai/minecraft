@@ -14,6 +14,17 @@
 - 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects GriefPrevention claims and vanish. PlaceholderAPI and Plan work too.
 - 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request, and full privacy hides their name from the backend's admin panel.
 
+## Privacy and the law
+
+Allay is built to follow the GDPR in the EU and US privacy laws such as COPPA and the CCPA/CPRA. On the hosted backend, [allay.chat](https://allay.chat/privacy/):
+
+- 🇪🇺 **Data stays in the EU**, on servers in Helsinki, Finland.
+- 🔐 **Everything kept about a player is encrypted at rest** with AES-256-GCM: the conversation, memories and places, settings, goals, deaths, and records of questions.
+- ⏳ **Nothing stays longer than the policy says.** A conversation lasts 30 days, records of questions 30 days, memories and the rest a year after the player's last question.
+- ✋ **Players agree first.** A short notice comes before the first question and again whenever it changes. Players in the US also confirm they're 13 or older.
+- 📦 **Players control their data.** `/allay privacy` shows what's kept, gives a download link, and erases it.
+- 🧹 **Your server keeps nothing personal.** The plugin holds a player's data in memory while they play and stores none of it in its folder.
+
 ## Get started
 
 1. Put the jar into `plugins/` of a Spigot or Paper 26.3 server on Java 25, and restart it.
