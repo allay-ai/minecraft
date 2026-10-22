@@ -30,14 +30,16 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 
 ## Privacy and the law
 
-Allay is built to follow the GDPR in the EU and US privacy laws such as COPPA and the CCPA/CPRA. On the hosted backend, [allay.chat](https://allay.chat/privacy/):
+What Allay does with players' data on the hosted backend, [allay.chat](https://allay.chat/privacy/), with the GDPR, Spain's LOPDGDD, and COPPA in mind:
 
-- 🇪🇺 **Data stays in the EU**, on servers in Helsinki, Finland.
-- 🔐 **Everything kept about a player is encrypted at rest** with AES-256-GCM: the conversation, memories and places, settings, goals, deaths, and records of questions.
-- ⏳ **Nothing stays longer than the policy says.** A conversation lasts 30 days, records of questions 30 days, memories and the rest a year after the player's last question.
-- ✋ **Players agree first.** A short notice comes before the first question and again whenever it changes. Players in the US also confirm they're 13 or older.
-- 📦 **Players control their data.** `/allay privacy` shows what's kept, gives a download link, and erases it.
-- 🧹 **Your server keeps almost nothing.** The plugin holds a player's data in memory while they play; its folder keeps only a sealed list of who agreed.
+- 🇪🇺 **Stored in the EU**, on servers in Helsinki, Finland. Encrypted nightly backups sit with Cloudflare R2 for up to 12 months.
+- 🔐 **Sealed with AES-256-GCM:** conversations, memories and places, deaths, settings and goals, and records of questions. Not sealed: the players directory (name, UUID, operator status), the numbers of each question, and the record of each agreement.
+- ⏳ **Kept for:** a conversation 30 days; memories, places, deaths, and settings a year after the player's last question; records of questions 30 days; the numbers and the players directory 2 years.
+- 🌐 **Every question goes through OpenRouter in the USA** to the AI provider that writes the answer.
+- ✋ **Age and agreement first.** Before the first question a player says their age, which must reach their country's age of consent (13 to 16 in the EU, 14 in Spain, 13 in the US), and agrees to a short notice, again whenever it changes. Below that age, Allay answers nothing and sends nothing. With allay.chat no setting in `config.yml` switches this off.
+- 📦 **Players control their data.** `/allay privacy` shows what's kept, gives a 24-hour download link, and erases it; `/allay privacy withdraw` takes the agreement back and erases what it covered.
+- 👥 **Other players stay unnamed.** A player who didn't agree reaches the AI only as “Player 1”, “Player 2”.
+- 🧹 **Your server keeps almost nothing:** a player's data stays in memory while they play, and the plugin's folder holds only sealed lists of who agreed and who was too young.
 
 ## Get started
 
