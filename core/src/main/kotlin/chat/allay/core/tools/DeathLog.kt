@@ -48,6 +48,7 @@ class DeathHistory(initial: List<Death>, private val max: () -> Int) {
   /** Page [page] of [size], counted from 1, newest first; an error names the page count when there's no such page. */
   @Synchronized fun page(page: Int, size: Int = PAGE): Page {
     val pages = (deaths.size + size - 1) / size
+    if (page != 1 && pages == 0) throw ToolError("no deaths are recorded for this player yet")
     if (page < 1 || (page > pages && page != 1)) throw ToolError("there ${if (pages == 1) "is 1 page" else "are $pages pages"} of deaths; ask for 1–$pages")
     val newest = deaths.asReversed()
     return Page(newest.drop((page - 1) * size).take(size), page, pages, deaths.size)
