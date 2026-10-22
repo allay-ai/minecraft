@@ -98,7 +98,7 @@ class Handler(
       return true
     }
     // Nothing about a player reaches the backend before they agree; the question goes on once they do.
-    if (sender is Player && configuration.privacy.consent && !consents.known(sender.uniqueId)) {
+    if (sender is Player && configuration.privacy.asks && !consents.known(sender.uniqueId)) {
       privacy().ask(sender) { ask(sender, message, mode, public, tip) }
       return true
     }

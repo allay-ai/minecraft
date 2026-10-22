@@ -284,6 +284,8 @@ models: {}
 # them to agree, with buttons in chat; until they do, nothing about them reaches the
 # backend. The backend keeps the answer (Allay Server 6.1 and newer; an older one
 # can't, and Allay asks nobody). /allay privacy withdraw takes it back.
+# consent: false skips the notice, but only with a backend of your own (server.token);
+# with allay.chat every player is asked.
 privacy:
   consent: true
   # The page the question links to. Empty: allay.chat's privacy policy, or no link

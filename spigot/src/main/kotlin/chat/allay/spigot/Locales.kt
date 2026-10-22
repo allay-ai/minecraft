@@ -63,8 +63,8 @@ class Locales(private val plugin: JavaPlugin) : Listener {
     plugin.server.onlinePlayers.forEach { current[it.uniqueId] = code(it) }
 
     geoIpTask?.cancel()
-    // Open whenever GeoIP is on, also without `ip` in the sources: US players get the age question (COPPA).
-    if (!config.geoIp.enabled) {
+    // Open whenever countries are looked up, also without `ip` in the sources: the age question needs the country.
+    if (!config.geoIp.lookups) {
       geoIp.close()
       return
     }

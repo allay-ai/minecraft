@@ -156,6 +156,11 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   val privacy = Privacy() ; inner class Privacy {
     /** Ask each player to agree before their first question; the backend keeps the answer (since 6.1). */
     val consent = config.boolean("privacy.consent", true)
+    /**
+     * Whether the age question and the notice come before a first question. Always on a hosted backend (no
+     * `server.token`): allay.chat answers only players who agreed, so [consent] counts only for a backend of your own.
+     */
+    val asks get() = consent || server.token.isEmpty()
     /** The page the question links to; empty means allay.chat's policy, or none with a backend of your own. */
     val policyUrl = config.string("privacy.policy_url", "").trim().ifEmpty { if (server.token.isEmpty()) POLICY_URL else "" }
   }
@@ -179,7 +184,10 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
       ?: DEFAULT_COUNTRIES,
   )
 
-  class GeoIp(val enabled: Boolean, val url: String, val refreshDays: Int)
+  /** [enabled] as written; [lookups] says whether countries are looked up, always on a hosted backend, for the age question. */
+  inner class GeoIp(val enabled: Boolean, val url: String, val refreshDays: Int) {
+    val lookups get() = enabled || server.token.isEmpty()
+  }
 
   val geoIp = GeoIp(
     enabled = config.boolean("geoip.enabled", true),

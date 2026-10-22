@@ -209,6 +209,9 @@ class Zygote : JavaPlugin(), TabCompleter {
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */
   private fun reportProvider() {
     val provider = configuration.provider
+    // allay.chat answers only players who agreed, at an age the law allows: these switches are for a backend of your own.
+    if (configuration.server.token.isEmpty() && !configuration.privacy.consent) logger.warning("privacy.consent: false works only with a backend of your own (server.token); allay.chat's players still get the notice")
+    if (configuration.server.token.isEmpty() && !configuration.geoIp.enabled) logger.warning("geoip.enabled: false works only with a backend of your own (server.token); for allay.chat the country still sets the age a player must be to agree")
     if (configuration.server.token.isNotEmpty()) logger.info("Signing in to the backend with server.token ${Secrets.mask(configuration.server.token)}")
     when {
       provider.byok && provider.apiKey.isEmpty() ->
