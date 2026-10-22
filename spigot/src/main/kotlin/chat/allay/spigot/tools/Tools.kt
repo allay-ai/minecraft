@@ -26,6 +26,8 @@ class Features(
   val deaths: Deaths,
   /** Each player's state and deaths on the backend. */
   val data: PlayerData,
+  /** Whether a player agreed to the notice on this server: only they appear by name to the model. */
+  val consented: (java.util.UUID) -> Boolean,
   val zones: TimeZones,
   val settings: PlayerSettings,
   val chat: ChatMode,
@@ -51,6 +53,8 @@ class ToolContext(
   val buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
   /** The automation agent whose wake this is; null in the main chat. */
   val task: chat.allay.core.tasks.Task? = null,
+  /** Other players' labels for this run. */
+  val others: OtherPlayers = OtherPlayers(),
 ) {
   /** The asker's language, for the summaries under tool lines. */
   val lang: Lang get() = features.locales.of(sender)
@@ -61,6 +65,16 @@ class ToolContext(
   val player: Player? get() = sender as? Player
 
   fun requirePlayer(): Player = player ?: throw chat.allay.core.tools.ToolError("there is no player: the question came from the console")
+
+  /** How the model reads [other]: their name when they agreed here, else this run's “Player N”. */
+  fun nameOf(other: Player): String = others.label(other.uniqueId, other.name, features.consented(other.uniqueId))
+
+  /** An online player by this run's label or by name, whom the asker may know about; on the bar or not. */
+  fun playerNamed(name: String): Player? {
+    val viewer = requirePlayer()
+    others.player(name)?.let { id -> plugin.server.getPlayer(id)?.takeIf { it != viewer && chat.allay.spigot.Vanish.visible(viewer, it) } }?.let { return it }
+    return Locator.named(viewer, name)
+  }
 
   /**
    * The automation agent of this wake, or a [chat.allay.core.tools.ToolError] for the main chat, and for an agent that was

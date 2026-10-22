@@ -28,12 +28,12 @@ object InteractTools {
     if (list.isEmpty()) throw ToolError("buttons is empty")
     if (context.buttons.size + list.size > MAX_BUTTONS) throw ToolError("at most $MAX_BUTTONS buttons under one answer; ${context.buttons.size} already added")
     // Every button is checked before any is added, so a bad one doesn't leave half a row.
-    val made = list.map { button(player, it) }
+    val made = list.map { button(context, player, it) }
     context.buttons += made
     ToolOutput(buildJsonObject { put("added", made.size); put("total", context.buttons.size) }, context.lang.text("summary.buttons", "count" to made.size))
   }
 
-  private fun button(player: Player, args: JsonObject): Button {
+  private fun button(context: ToolContext, player: Player, args: JsonObject): Button {
     val type = args.string("type") ?: throw ToolError("each button needs a type")
     val label = args.string("label")?.take(24) ?: throw ToolError("each button needs a short label")
     fun coordinates(): Triple<Int, Int, Int> {
@@ -44,8 +44,8 @@ object InteractTools {
     return when (type) {
       "ask" -> Button.Ask(label, args.string("question")?.take(200) ?: throw ToolError("ask needs the question it asks"))
       "point" -> args.string("player")?.trim()?.ifEmpty { null }?.let { name ->
-        val target = Locator.named(player, name) ?: throw ToolError("nobody called $name is online; don't offer this button")
-        if (!Locator.shows(player, target)) throw ToolError("${target.name} isn't on the asker's locator bar right now; don't offer the way to them")
+        val target = context.playerNamed(name) ?: throw ToolError("nobody called $name is online; don't offer this button")
+        if (!Locator.shows(player, target)) throw ToolError("${context.nameOf(target)} isn't on the asker's locator bar right now; don't offer the way to them")
         Button.Follow(label, target.name)
       } ?: coordinates().let { (x, y, z) -> Button.Point(label, x, y, z, args.string("dimension")?.let(Dimensions::parse)) }
       "note" -> coordinates().let { (x, y, z) ->

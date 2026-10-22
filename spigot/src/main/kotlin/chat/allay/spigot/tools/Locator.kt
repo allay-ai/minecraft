@@ -83,7 +83,7 @@ object LocatorTools {
             val dy = other.location.y - player.location.y
             val dz = other.location.z - player.location.z
             add(buildJsonObject {
-              put("name", other.name)
+              put("name", context.nameOf(other))
               put("distance", Math.round(other.location.distance(player.location)))
               put("direction", Facts.direction(dx, dz))
               if (dy > HEIGHT) put("height", "above") else if (dy < -HEIGHT) put("height", "below")
@@ -92,7 +92,7 @@ object LocatorTools {
         })
         // Everyone in the player list sees these names anyway; where they are stays unsaid.
         put("others_online", buildJsonArray {
-          Vanish.visibleTo(player, player.server.onlinePlayers).filter { it != player && it !in around }.sortedBy { it.name.lowercase() }.forEach { add(it.name) }
+          Vanish.visibleTo(player, player.server.onlinePlayers).filter { it != player && it !in around }.sortedBy { it.name.lowercase() }.forEach { add(context.nameOf(it)) }
         })
       }
       val lang = context.lang

@@ -76,7 +76,7 @@ object OperatorTools {
   private val teleport = tool("teleport") { context, player, args ->
     val name = args.string("player")
     val target = if (name != null) {
-      val other = player.server.getPlayerExact(name)?.takeIf { it.isOnline } ?: throw ToolError("player $name is offline")
+      val other = (context.playerNamed(name) ?: player.server.getPlayerExact(name))?.takeIf { it.isOnline } ?: throw ToolError("player $name is offline")
       other.location
     } else {
       val world = worldFor(player, args.string("dimension"))

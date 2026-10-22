@@ -63,10 +63,10 @@ object ActionTools {
 
   /** `point_to` with `player`: a trail that follows someone on the asker's locator bar. */
   private fun follow(context: ToolContext, player: Player, args: JsonObject, name: String): ToolOutput {
-    val target = Locator.named(player, name)
+    val target = context.playerNamed(name)
       ?: throw ToolError("nobody called $name is online; match the name against get_nearby_players, or ask the player who they mean")
     if (!Locator.shows(player, target)) {
-      throw ToolError("${target.name} is online but not on the asker's locator bar right now: in another dimension, hidden (crouching, a carved pumpkin or a mob head, invisibility), or out of range. Say so; don't guess where they are")
+      throw ToolError("${context.nameOf(target)} is online but not on the asker's locator bar right now: in another dimension, hidden (crouching, a carved pumpkin or a mob head, invisibility), or out of range. Say so; don't guess where they are")
     }
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
@@ -81,7 +81,7 @@ object ActionTools {
     val distance = Math.round(target.location.distance(player.location))
     val direction = Facts.direction(dx, dz)
     val result = buildJsonObject {
-      put("player", target.name)
+      put("player", context.nameOf(target))
       put("distance", distance)
       put("direction", direction)
       put("seconds", seconds)

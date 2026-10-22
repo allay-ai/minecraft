@@ -33,6 +33,9 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   private val reported = AtomicLong()
   private val answer = StringBuilder()
 
+  /** Other players as the model reads them in this run. */
+  val others = OtherPlayers()
+
   /** Buttons the tools asked for; they go under the answer. */
   val buttons: MutableList<chat.allay.core.tools.Button> = java.util.Collections.synchronizedList(mutableListOf())
 

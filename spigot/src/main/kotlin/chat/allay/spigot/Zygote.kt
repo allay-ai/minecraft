@@ -121,6 +121,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       books = Books(),
       deaths = deaths,
       data = data,
+      consented = { consented.has(it) },
       zones = TimeZones(data) { configuration.time.zone },
       settings = settings,
       chat = chat,
@@ -259,7 +260,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     // server-ip is usually empty: the game listens everywhere, and only the owner knows the name players type.
     override val address: String? get() = server.ip.trim().takeIf { it.isNotEmpty() && it != "0.0.0.0" }
     override val port: Int get() = server.port
-    override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task)
+    override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task, run.others)
     override fun <T> onMain(seconds: Long, block: () -> T): T = server.scheduler.callSyncMethod(this@Zygote) { block() }.get(seconds, TimeUnit.SECONDS)
   }
 
