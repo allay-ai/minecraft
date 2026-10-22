@@ -39,7 +39,7 @@ The contract with the backend is `docs/protocol-v2.md` in allay-ai/server. Chang
 
 ## Coming from MCBuddy
 
-Allay was MCBuddy until 4.0.0. `McBuddyMigration` (core) runs first in `onEnable`: it moves `plugins/mcbuddy-spigot/` into `plugins/Allay/`, puts everything back if a move fails, does nothing when both folders hold players' data (settings already in `plugins/Allay/` win and the old ones stay behind), and leaves `moved-from-mcbuddy.txt` so it runs once. It compares the moved `lang/` files with 3.1.0's, and 2.4.0's and 3.0.0's, kept in `core/src/main/resources/mcbuddy/<version>/`, and keeps only the lines an admin changed. The backend still accepts the 3.x tool names `get_buddy_guide` and `buddy_settings`. It points a `server.url` of `https://mcbuddy.ru`, which is gone, at `https://allay.chat`.
+Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcbuddy-spigot/` by itself: a server coming straight from MCBuddy runs Allay 6.6 once first. The backend still accepts the 3.x tool names `get_buddy_guide` and `buddy_settings`.
 
 ## Rules that keep it working
 

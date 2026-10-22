@@ -73,8 +73,6 @@ class Zygote : JavaPlugin(), TabCompleter {
   private val locales = Locales(this)
 
   override fun onEnable() {
-    // Before anything reads the data folder: a server coming from MCBuddy brings its data along.
-    McBuddyMigration(File(dataFolder.parentFile, "mcbuddy-spigot"), dataFolder, logger).run()
     saveDefaultConfig()
     // Both outlive /allay reload: the license file, and what operators already heard about the subscription.
     license = License(dataFolder)
