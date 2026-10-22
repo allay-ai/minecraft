@@ -150,7 +150,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons) { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }
     memory = MemoryCommands(this, locales, features, service, scope)
-    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, scope) { automation.cancel(it) }
+    privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, features.notes, features.deaths.log, scope) { automation.cancel(it) }
     registerServer()
   }
 

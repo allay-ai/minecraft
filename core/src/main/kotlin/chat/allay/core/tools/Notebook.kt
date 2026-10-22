@@ -65,6 +65,12 @@ class Notes(dataFolder: File, private val log: Logger, private val max: () -> In
   fun count(uuid: UUID): Int = books[uuid]?.all()?.size
     ?: runCatching { json.decodeFromString<List<Note>>(File(folder, "$uuid.json").readText()).size }.getOrDefault(0)
 
+  /** Erasure: the player's notebook goes from memory and disk. */
+  fun forget(uuid: UUID) {
+    books.remove(uuid)
+    File(folder, "$uuid.json").delete()
+  }
+
   fun save(uuid: UUID) {
     val book = books[uuid] ?: return
     folder.mkdirs()

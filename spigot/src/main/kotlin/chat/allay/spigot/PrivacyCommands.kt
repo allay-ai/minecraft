@@ -5,6 +5,10 @@ import chat.allay.core.tools.*
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
 import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.HoverEvent
 import net.md_5.bungee.api.chat.TextComponent
@@ -35,6 +39,9 @@ class PrivacyCommands(
   private val service: Service<*>,
   private val consents: Consents,
   private val settings: PlayerSettings,
+  /** What the plugin itself keeps about a player, next to the backend's: their notes and deaths. */
+  private val notes: Notes,
+  private val deaths: DeathLog,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
   private val stopAgents: (Player) -> Unit,
@@ -171,6 +178,7 @@ class PrivacyCommands(
   fun eraseSelf(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     request(sender) { lang ->
+      forgetHere(player.uniqueId)
       val erased = service.erase(player.uniqueId.toString())
       consents.forget(player.uniqueId)
       // Without the name: the log shouldn't keep who asked to be forgotten.
@@ -183,7 +191,7 @@ class PrivacyCommands(
   fun export(sender: CommandSender, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
     request(sender) { lang ->
-      val json = service.export(target.uniqueId.toString())
+      val json = withLocal(target.uniqueId, service.export(target.uniqueId.toString()))
       val file = save(target.uniqueId, json)
       plugin.logger.info("${sender.name} exported what Allay keeps about a player to exports/${file.name}")
       lang.text("privacy.exported", "player" to (target.name ?: who), "file" to "plugins/${plugin.name}/exports/${file.name}")
@@ -194,11 +202,28 @@ class PrivacyCommands(
   fun erase(sender: CommandSender, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
     request(sender) { lang ->
+      forgetHere(target.uniqueId)
       val erased = service.erase(target.uniqueId.toString())
       consents.forget(target.uniqueId)
       plugin.logger.info("${sender.name} erased what Allay kept about a player")
       lang.text("privacy.erased", "player" to (target.name ?: who), "memories" to erased.memories, "runs" to erased.runs)
     }
+  }
+
+  /** The plugin's own data goes before the backend's, so an old backend that can't erase still leaves nothing here. */
+  private fun forgetHere(uuid: UUID) {
+    notes.forget(uuid)
+    deaths.forget(uuid)
+  }
+
+  /** The backend's export with what this server keeps under `plugin`: the notebook and the deaths. */
+  private fun withLocal(uuid: UUID, backend: String): String {
+    val local = buildJsonObject {
+      put("notes", Json.encodeToJsonElement(notes.of(uuid).all()))
+      put("deaths", Json.encodeToJsonElement(deaths.of(uuid).all()))
+    }
+    val parsed = runCatching { Json.parseToJsonElement(backend) as? JsonObject }.getOrNull() ?: return backend
+    return Json.encodeToString(JsonObject(parsed + ("plugin" to local)))
   }
 
   /** A UUID as typed, or a player this server has seen by that name; never one it hasn't, to keep typos from erasing a stranger. */
