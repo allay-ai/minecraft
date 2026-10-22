@@ -58,6 +58,7 @@ class Zygote : JavaPlugin(), TabCompleter {
   private lateinit var reminders: Reminders
   private lateinit var data: PlayerData
   private lateinit var consents: Consents
+  private lateinit var consented: Consented
   private lateinit var goals: Goals
   private lateinit var languages: Languages
   private lateinit var features: Features
@@ -83,7 +84,10 @@ class Zygote : JavaPlugin(), TabCompleter {
     // Outlives /allay reload, so reminders already set keep their schedule.
     reminders = Reminders(this, locales) { configuration.tools.maxReminders }
     server.pluginManager.registerEvents(reminders, this)
-    // Outlives /allay reload: players' state in memory and what waits to be sent; the backend calls go to the service of the moment.
+    // Both outlive /allay reload. Who agreed here, sealed, so a join looks up only them.
+    val secret = { configuration.server.token.ifEmpty { license.read() } }
+    consented = Consented(SealedFile(File(dataFolder, Consented.FILE), secret, "allay consented v1", logger), logger)
+    // Players' state in memory and what waits to be sent; the backend calls go to the service of the moment.
     data = PlayerData(
       backend = object : PlayerData.Backend {
         override suspend fun state(userId: String) = service.state(userId)
@@ -91,10 +95,11 @@ class Zygote : JavaPlugin(), TabCompleter {
         override suspend fun death(userId: String, death: Death) = service.death(userId, death)
       },
       scope = scope,
-      spool = Spool(File(dataFolder, Spool.FILE), { configuration.server.token.ifEmpty { license.read() } }, logger),
+      spool = Spool(File(dataFolder, Spool.FILE), secret, logger),
       log = logger,
-      agreed = { consents.known(it) || consents.check(it) == Consents.State.GIVEN },
-      agreedNow = { consents.known(it) },
+      // Only players on the list ever reach the backend from here; anyone else does when they use Allay.
+      agreed = { consents.listed(it) && (consents.known(it) || consents.check(it) == Consents.State.GIVEN) },
+      agreedNow = { consents.listed(it) && consents.known(it) },
       online = { server.getPlayer(it) != null },
     )
     goals = Goals(this, locales, data) { configuration.tools.maxGoals }
@@ -164,7 +169,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    consents = Consents(service, ::notice, { locales.country(it).equals("US", ignoreCase = true) })
+    consents = Consents(service, ::notice, { locales.country(it).equals("US", ignoreCase = true) }, consented)
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(this, locales, features, service, scope)

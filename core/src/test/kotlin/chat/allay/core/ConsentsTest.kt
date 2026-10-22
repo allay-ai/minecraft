@@ -116,6 +116,36 @@ class ConsentsTest {
     assertEquals(Consents.State.GIVEN, other.check(player))
   }
 
+  @Test fun `the sealed list holds who agreed here, and loses them the ways they leave`() = runBlocking {
+    val file = java.nio.file.Files.createTempDirectory("allay-consented").resolve(Consented.FILE).toFile()
+    val log = java.util.logging.Logger.getAnonymousLogger()
+    fun list() = Consented(SealedFile(file, { "lic.secret-value" }, "allay consented v1", log), log)
+    val backend = FakeBackend()
+    val consents = Consents(backend, { notice }, local = list())
+    assertFalse(consents.listed(player))
+    consents.check(player)
+    consents.give(player)
+    // Sealed on disk, and read back by a fresh start.
+    assertFalse(file.readText(Charsets.ISO_8859_1).contains(player.toString()))
+    assertTrue(list().has(player))
+    consents.declined(player)
+    assertFalse(list().has(player))
+    // The backend knows the agreement: the list learns it back.
+    assertEquals(Consents.State.GIVEN, consents.check(player))
+    assertTrue(consents.listed(player))
+    // Erased in the admin panel: the backend has nothing, so the list drops the player.
+    backend.given.clear()
+    assertEquals(Consents.State.MISSING, consents.check(player))
+    assertFalse(list().has(player))
+    consents.check(player)
+    consents.give(player)
+    assertTrue(consents.withdraw(player))
+    assertFalse(consents.listed(player))
+    consents.give(player)
+    consents.forget(player)
+    assertFalse(list().has(player))
+  }
+
   @Test fun `withdrawing and erasing ask again`() = runBlocking {
     val backend = FakeBackend()
     val consents = consents(backend)

@@ -17,12 +17,16 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * A player in the US ([us], by the country of their IP address) also confirms they're 13 or older before agreeing, for
  * COPPA; the backend keeps that with the agreement (6.9), and an agreement without it asks the age question again.
+ *
+ * [local] lists the players who agreed on this server, so a join looks up only them: it gains a player who agrees
+ * or whom the backend knows to have agreed, and loses one who withdraws, declines, is erased, or has no agreement left.
  */
 class Consents(
   private val backend: Backend,
   /** The English notice the player reads, line by line. */
   private val notice: () -> List<String>,
   private val us: (UUID) -> Boolean = { false },
+  private val local: Consented? = null,
   private val now: () -> Long = System::currentTimeMillis,
 ) {
   interface Backend {
@@ -74,6 +78,8 @@ class Consents(
     val given = answer.consent
     if (given == null) {
       seen.remove(player)
+      // Erased in the admin panel, or never agreed here.
+      local?.remove(player)
       return State.MISSING
     }
     // A backend before 6.9 keeps no hash: the version alone decides there.
@@ -89,6 +95,7 @@ class Consents(
       return State.AGE
     }
     seen[player] = now()
+    local?.add(player)
     return State.GIVEN
   }
 
@@ -100,10 +107,12 @@ class Consents(
     backend.giveConsent(player.toString(), VERSION, revision?.let(::hash), ageConfirmed.takeIf { it })
     agreedAt.remove(player)
     seen[player] = now()
+    local?.add(player)
   }
 
   suspend fun withdraw(player: UUID): Boolean {
     seen.remove(player)
+    local?.remove(player)
     return backend.withdrawConsent(player.toString())
   }
 
@@ -111,7 +120,17 @@ class Consents(
   fun forget(player: UUID) {
     seen.remove(player)
     agreedAt.remove(player)
+    local?.remove(player)
   }
+
+  /** The player said no, to the notice or to the age question: nothing of theirs goes out. */
+  fun declined(player: UUID) {
+    seen.remove(player)
+    local?.remove(player)
+  }
+
+  /** Whether the player is on this server's list of those who agreed, without a request. */
+  fun listed(player: UUID) = local?.has(player) ?: true
 
   /** The hex SHA-256 of the notice's lines and the policy [revision], joined by `\n`. */
   fun hash(revision: String): String = digest(notice() + revision)

@@ -129,6 +129,7 @@ class PrivacyCommands(
       "no" -> {
         adults.remove(player.uniqueId)
         pending.remove(player.uniqueId)
+        consents.declined(player.uniqueId)
         locales.of(sender).send(sender, "consent.age_under")
       }
       else -> locales.of(sender).send(sender, "privacy.usage")
@@ -165,6 +166,7 @@ class PrivacyCommands(
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     pending.remove(player.uniqueId)
     adults.remove(player.uniqueId)
+    consents.declined(player.uniqueId)
     locales.of(sender).send(sender, "consent.declined")
   }
 
