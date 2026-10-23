@@ -46,6 +46,9 @@ dependencies {
   compileOnly("eu.pb4:placeholder-api:3.2.0+26.3") { isTransitive = false }
   compileOnly("eu.pb4:common-protection-api:2.0.0") { isTransitive = false }
   compileOnly("com.djrapitops:plan-api:5.9-R1.3")
+  // The game tests run with Text Placeholder API and a claims provider of their own behind Common Protection API.
+  "gametestImplementation"("eu.pb4:placeholder-api:3.2.0+26.3") { isTransitive = false }
+  "gametestImplementation"("eu.pb4:common-protection-api:2.0.0") { isTransitive = false }
 
   testImplementation(kotlin("test"))
   testImplementation(platform("org.junit:junit-bom:6.1.3"))
