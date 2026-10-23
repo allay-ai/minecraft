@@ -16,6 +16,21 @@
 
 Allay runs on Moonlands, my hard survival server with friends. Join at `minecraft.mairwunnx.com` and ask it something.
 
+## In the game
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/status.gif" alt="Allay answering: the status above the hotbar, the tools it uses, then the answer with buttons" width="760"></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/answer.webp" alt="Allay’s answer with Recipe, Way, Copy, Remember, and Yes buttons in the text"><br><sub>Buttons sit right in the answer: the recipe, the way, coordinates, a note, the next question.</sub></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.webp" alt="A polite message with a Send button, and the line it sent in chat"><br><sub>Allay writes to the others for you; nothing goes out until you press Send.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory.webp" alt="The memory window with four memories"><br><sub>What Allay remembers, in the game’s own window.</sub></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/consent.webp" alt="The data notice window with I agree, No thanks, and Privacy policy"><br><sub>Every player reads what Allay sends and keeps before the first question.</sub></td>
+  </tr>
+</table>
+
 ## What you get
 
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.

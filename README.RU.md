@@ -16,6 +16,21 @@
 
 Allay работает на Moonlands — моём хардкорном выживании с друзьями. Заходите на `ru.minecraft.mairwunnx.com` и спросите его о чём-нибудь.
 
+## В игре
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/status.gif" alt="Allay отвечает: статус над хотбаром, его инструменты и ответ с кнопками" width="760"></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/answer.webp" alt="Ответ Allay с кнопками «Рецепт», «Путь», «Копировать», «Запомнить» и «Да» в тексте"><br><sub>Кнопки стоят прямо в ответе: рецепт, путь, координаты, заметка, следующий вопрос.</sub></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.webp" alt="Вежливое сообщение с кнопкой «Отправить» и строка, которую она отправила"><br><sub>Allay пишет другим за вас; ничего не уйдёт, пока вы не нажмёте «Отправить».</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" alt="Окно памяти с четырьмя записями"><br><sub>Что помнит Allay, в окне самой игры.</sub></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" alt="Окно с уведомлением о данных и кнопками «Даю согласие», «Нет, спасибо», «Политика конфиденциальности»"><br><sub>Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит.</sub></td>
+  </tr>
+</table>
+
 ## Что вы получаете
 
 - 💬 **Ответы из настоящей игры.** «Какой меч лучше?» или «куда я дел редстоун?» — Allay заглядывает в инвентарь, в блок под прицелом и в сундуки вокруг, а не гадает.
