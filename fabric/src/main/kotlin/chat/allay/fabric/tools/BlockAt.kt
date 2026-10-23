@@ -2,8 +2,10 @@ package chat.allay.fabric.tools
 
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.Holder
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.biome.Biome
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
@@ -41,6 +43,9 @@ class BlockAt(val level: ServerLevel, pos: BlockPos) {
   val passable: Boolean get() = state.getCollisionShape(level, pos).isEmpty
 
   val liquid: Boolean get() = state.liquid()
+
+  /** The biome as Bukkit's `Block.getBiome` reads it: the game's stored cell of 4×4×4 blocks, not the blended biome. */
+  val biome: Holder<Biome> get() = level.getNoiseBiome(x shr 2, y shr 2, z shr 2)
 
   /** Distance from the block's middle to [point]. */
   fun distance(point: Vec3) = center.distanceTo(point)

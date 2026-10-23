@@ -151,4 +151,23 @@ class FixesGameTests {
     equal(helper, groups, groups.distinct().sortedBy(types::indexOf), "the order of the recipe types")
     helper.succeed()
   }
+
+  @GameTest(padding = 48)
+  fun theBiomeIsTheBlocksOwnCellAsOnBukkit(helper: GameTestHelper) {
+    val server = helper.level.server
+    val near = helper.absolutePos(BlockPos(4, 4, 4))
+    val cell = BlockPos((near.x shr 2) shl 2, (near.y shr 2) shl 2, (near.z shr 2) shl 2)
+    server.commands.performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "fillbiome ${cell.x} ${cell.y} ${cell.z} ${cell.x + 3} ${cell.y + 3} ${cell.z + 3} minecraft:cherry_grove")
+    val noise = helper.level.getNoiseBiome(cell.x shr 2, cell.y shr 2, cell.z shr 2).unwrapKey().get().identifier().path
+    equal(helper, noise, "cherry_grove", "the cell's biome after fillbiome at $cell")
+    // The game blends biomes for a block near a cell's edge; Bukkit reads the cell itself.
+    val blended = BlockPos.betweenClosed(cell, cell.offset(3, 3, 3)).map { it.immutable() }
+      .firstOrNull { helper.level.getBiome(it).unwrapKey().get().identifier().path != "cherry_grove" }
+    helper.assertTrue(blended != null, "a block of the cell the game blends with its neighbors")
+    val player = survivor(helper)
+    player.teleportTo(blended!!.x + 0.5, blended.y.toDouble(), blended.z + 0.5)
+    equal(helper, Players.run(player, "get_player_status").result.jsonObject["biome"]?.jsonPrimitive?.content, "cherry_grove", "the biome")
+    player.discard()
+    helper.succeed()
+  }
 }

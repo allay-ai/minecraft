@@ -145,7 +145,7 @@ class Goals(
           if (advancement != null && player.advancements.getOrStartProgress(advancement).isDone) 1 else 0
         }
         "reach" -> distance(player, goal)?.let { d -> if (d <= (goal.radius ?: 10)) goal.target else (goal.baseline - d.toLong()).coerceIn(0, goal.target - 1) } ?: goal.progress
-        "biome" -> if (player.level().getBiome(player.blockPosition()).unwrapKey().map { it.identifier().path }.orElse(null) == goal.biome) 1 else 0
+        "biome" -> if (player.level().at(player.blockPosition()).biome.unwrapKey().map { it.identifier().path }.orElse(null) == goal.biome) 1 else 0
         "dimension" -> if (Dimensions.id(player.level()) == Dimensions.normalize(goal.dimension)) 1 else 0
         else -> continue
       }

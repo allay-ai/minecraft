@@ -61,7 +61,7 @@ object PlayerTools {
       put("y", pos.y)
       put("z", pos.z)
       put("dimension", Dimensions.id(level))
-      put("biome", Worlds.key(level.getBiome(pos)))
+      put("biome", Worlds.key(level.at(pos).biome))
       put("light", level.getMaxLocalRawBrightness(pos))
       put("facing", player.direction.getName())
       if (player.abilities.flying) put("flying", true)
