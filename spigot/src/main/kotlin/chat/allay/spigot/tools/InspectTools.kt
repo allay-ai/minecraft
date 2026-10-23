@@ -202,7 +202,8 @@ object InspectTools {
   private val brewing = tool("get_brewing_items") { context, player, _ ->
     val items = player.inventory.contents.filterNotNull().filter { it.type.key.key in brewingIds }
     val origin = player.location
-    val stands = blockEntitiesNear(origin, 8).filterIsInstance<BrewingStand>()
+    // A stand is a container like any other: only the ones the player could open show.
+    val stands = blockEntitiesNear(origin, 8).filterIsInstance<BrewingStand>().filter { chat.allay.spigot.Claims.mayOpen(player, it) }
       .sortedBy { it.location.distanceSquared(origin) }.take(4)
     val result = buildJsonObject {
       put("inventory", buildJsonArray { items.forEach { it.compact()?.let(::add) } })
