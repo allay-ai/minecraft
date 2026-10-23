@@ -22,7 +22,7 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
   private val deaths = Deaths(allay.data)
   private val automation = Automation(platform, locales, { allay.config }, { allay.service }, { allay.clicks }, { allay.quota }, allay.scope)
 
-  private val features = Features(
+  val features = Features(
     fabric = platform,
     locales = locales,
     reminders = allay.reminders,
@@ -84,6 +84,7 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
   override fun languages(player: PlayerAudience): Unit = Menus.languages(player, allay) { settings(player) }
 
   override fun start() {
+    chat.allay.fabric.menus.Menu.start()
     Marks.start()
     deaths.start()
     automation.start()

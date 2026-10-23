@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "allay-gametest",
+  "version": "0.0.0",
+  "name": "Allay game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["chat.allay.fabric.gametest.AllayGameTests"],
+    "fabric-client-gametest": ["chat.allay.fabric.gametest.SingleplayerClientTest"]
+  },
+  "depends": {
+    "allay": "*"
+  }
+}

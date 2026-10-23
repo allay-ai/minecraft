@@ -4,7 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "AdvancementMixin", "BlockDisplayAccess", "DeathMixin", "DisplayAccess", "ItemDisplayAccess", "LocaleMixin", "PickupMixin", "PlaceMixin",
-    "TextDisplayAccess"
+    "RecipeAccess$Shaped", "RecipeAccess$Shapeless", "RecipeAccess$Single", "RecipeAccess$Smithing", "TextDisplayAccess"
   ],
   "injectors": {
     "defaultRequire": 1
