@@ -3,9 +3,9 @@
   "package": "chat.allay.fabric.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
-    "AdvancementMixin", "BlockDisplayAccess", "DeathMixin", "DisplayAccess", "ItemDisplayAccess", "LocaleMixin", "PickupMixin", "PlaceMixin",
-    "RecipeAccess$Shaped", "RecipeAccess$Shapeless", "RecipeAccess$Single", "RecipeAccess$Smithing", "TextDisplayAccess",
-    "InfoAccess$BrewingStand", "InfoAccess$Spawner"
+    "AdvancementMixin", "BlockDisplayAccess", "BrewingAccess", "BrewMixin", "DeathMixin", "DisplayAccess", "FurnaceAccess", "InfoAccess$Spawner",
+    "ItemDisplayAccess", "LocaleMixin", "PickupMixin", "PlaceMixin", "RecipeAccess$Shaped", "RecipeAccess$Shapeless",
+    "RecipeAccess$Single", "RecipeAccess$Smithing", "SmeltMixin", "TextDisplayAccess"
   ],
   "injectors": {
     "defaultRequire": 1

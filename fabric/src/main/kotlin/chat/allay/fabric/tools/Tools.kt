@@ -70,5 +70,6 @@ typealias Tool = ClientTool<ToolContext>
 /** Every tool this mod offers: the same names, arguments, and results as on Bukkit, so the model can't tell. */
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
-    MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all + chat.allay.core.tools.TaskTools.all
+    ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all +
+    chat.allay.core.tools.TaskTools.all + chat.allay.fabric.automation.PickTools.all + chat.allay.fabric.automation.Chests.all + chat.allay.fabric.automation.Jobs.all
 }

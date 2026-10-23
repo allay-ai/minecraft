@@ -216,7 +216,7 @@ object InspectTools {
       put("brewing_stands", buildJsonArray {
         stands.forEach { block ->
           val stand = block.entity as BrewingStandBlockEntity
-          val access = stand as InfoAccess.BrewingStand
+          val access = stand as chat.allay.fabric.mixin.BrewingAccess
           add(buildJsonObject {
             place(block.x, block.y, block.z, player)
             put("fuel_level", access.`allay$fuel`())
