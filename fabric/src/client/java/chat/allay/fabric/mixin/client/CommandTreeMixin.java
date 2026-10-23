@@ -1,6 +1,6 @@
 package chat.allay.fabric.mixin.client;
 
-import chat.allay.fabric.client.AllayClient;
+import chat.allay.modcore.Elsewhere;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -21,6 +21,6 @@ abstract class CommandTreeMixin {
 
   @Inject(method = "handleCommands", at = @At("TAIL"))
   private void allay$serverCommands(ClientboundCommandsPacket packet, CallbackInfo callback) {
-    AllayClient.serverCommands(commands.getRoot().getChildren().stream().map(node -> node.getName()).toList());
+    Elsewhere.serverCommands(commands.getRoot().getChildren().stream().map(node -> node.getName()).toList());
   }
 }
