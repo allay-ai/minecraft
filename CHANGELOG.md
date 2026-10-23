@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.10.0
+
+Ready for the Fabric and NeoForge mods to come. Nothing changes in the game.
+
+- 🧱 **More of Allay in its core.** The flow of a question, the commands, chat mode, billing, memory, privacy, the agents' wakes, and the tools that need no world now live in the core, apart from Bukkit, behind one seam a mod implements. The plugin is a thin adapter around it.
+- 🧩 **Where Allay runs.** The plugin tells the backend it's the `spigot` build on a `server` (Allay Server 6.12 shows it in the admin panel and tells the model). A player who meets a Solo license that belongs to someone else reads why.
+
 ## 6.9.0
 
 Needs Allay Server 6.11, which writes buttons into the answer; with an older backend answers come without buttons.
