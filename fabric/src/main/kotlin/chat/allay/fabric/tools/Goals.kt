@@ -19,7 +19,6 @@ import net.minecraft.stats.Stats
 import net.minecraft.world.BossEvent
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.item.ItemEntity
-import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.enchantment.EnchantmentEffectComponents
@@ -296,8 +295,11 @@ object Statistics {
     return typed[wanted]?.first ?: if (wanted in custom) Kind.UNTYPED else null
   }
 
-  /** The block an item stands for, when Bukkit would call it a block too: the same id, like `diamond_ore`, not `redstone`. */
-  fun block(item: Item): Block? = (item as? BlockItem)?.block?.takeIf { BuiltInRegistries.BLOCK.getKey(it) == BuiltInRegistries.ITEM.getKey(item) }
+  /**
+   * The block an item stands for, when Bukkit would call it a block too: a block with the same id, like `diamond_ore`
+   * or `wheat` (the crop, though the item isn't placed), not `redstone`.
+   */
+  fun block(item: Item): Block? = BuiltInRegistries.BLOCK.getOptional(BuiltInRegistries.ITEM.getKey(item)).orElse(null)?.takeUnless { it.defaultBlockState().isAir }
 
   /** The game's statistic for a goal's names; throws when they don't make one. */
   @Suppress("UNCHECKED_CAST")

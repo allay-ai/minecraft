@@ -170,4 +170,25 @@ class FixesGameTests {
     player.discard()
     helper.succeed()
   }
+
+  @GameTest(environment = "allay-gametest:goals")
+  fun aMiningGoalTakesWheatButNotRedstone(helper: GameTestHelper) {
+    val player = survivor(helper)
+    fun goal(item: String) = runCatching {
+      Players.run(player, "goals", buildJsonObject {
+        put("action", "set")
+        put("kind", "stat")
+        put("title", "Harvest")
+        put("statistic", "mine_block")
+        put("item", item)
+        put("target", 3)
+      })
+    }.exceptionOrNull()?.message
+    // Bukkit's Material.WHEAT is the crop block too; redstone the item has no block of its name.
+    equal(helper, goal("wheat"), null, "a goal for wheat")
+    equal(helper, goal("redstone"), "redstone is not a block", "a goal for redstone")
+    Players.run(player, "goals", buildJsonObject { put("action", "cancel"); put("all", true) })
+    player.discard()
+    helper.succeed()
+  }
 }
