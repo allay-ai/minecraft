@@ -9,7 +9,8 @@ import net.minecraft.server.permissions.Permissions as Game
 
 /**
  * Allay's permissions on Fabric: through fabric-permissions-api when a permissions mod brings it (LuckPerms does),
- * else as `plugin.yml` would give them by default, operators (level 2) getting everything.
+ * else as `plugin.yml` would give them by default, operators (level 2) getting everything. The owner of a singleplayer
+ * world runs Allay there even without cheats: they may link a license and reload, but get no operator tools.
  */
 object Perms {
   private val api by lazy { FabricLoader.getInstance().isModLoaded("fabric-permissions-api-v0") }
@@ -20,9 +21,15 @@ object Perms {
   }
 
   fun check(player: ServerPlayer, permission: String): Boolean {
+    if (permission in OWNERS && owner(player)) return true
     val fallback = Permissions.byDefault(permission, player.permissions().hasPermission(Game.COMMANDS_GAMEMASTER))
     return if (api) Api.check(player, permission, fallback) else fallback
   }
+
+  private val OWNERS = setOf(Permissions.ADMIN, Permissions.RELOAD)
+
+  /** The player whose game runs this singleplayer world, opened to LAN or not. */
+  fun owner(player: ServerPlayer): Boolean = player.level().server.let { !it.isDedicatedServer && it.isSingleplayerOwner(player.nameAndId()) }
 
   // Only touched when the API is loaded; its classes aren't there otherwise.
   private object Api {

@@ -29,6 +29,10 @@ class SingleplayerClientTest : FabricClientGameTest {
       check(side == "integrated") { "Allay runs as $side in a singleplayer world, not integrated" }
       check(inSave) { "the world's server id isn't inside the world's save" }
       check(shared) { "config.yml and license.key aren't shared in config/allay/" }
+      val admin = world.server.computeOnServer<Boolean, RuntimeException> { server ->
+        chat.allay.fabric.Perms.check(server.playerList.players.single(), chat.allay.core.Permissions.ADMIN)
+      }
+      check(admin) { "the world's owner can't link a license" }
       world.server.runCommand("allay status")
       context.waitTicks(20)
     }
