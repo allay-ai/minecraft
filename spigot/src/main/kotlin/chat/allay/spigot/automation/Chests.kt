@@ -131,7 +131,7 @@ object Chests {
         "apply" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
           val agent = automation.agent(task)
-          val planned = agent.plan ?: throw ToolError("no plan to apply; call plan first")
+          val planned = agent.plan as? Planned ?: throw ToolError("no plan to apply; call plan first")
           for (block in planned.blocks) {
             Blocks.unsuitable(player, block, Blocks.place(block) in planned.adding)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")

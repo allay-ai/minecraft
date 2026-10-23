@@ -25,7 +25,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   private val locales = allay.locales
   private val goals = Goals(plugin, locales, allay.data) { allay.config.tools.maxGoals }
   private val deaths = Deaths(allay.data)
-  private val automation = Automation(plugin, locales, { allay.config }, { allay.service }, { allay.clicks }, { allay.quota }, allay.scope)
+  private val automation = Automation(plugin, allay.platform, locales, { allay.config }, { allay.service }, { allay.clicks }, { allay.quota }, allay.scope)
   private val menus = MenuListener(plugin)
   private var placeholders: AutoCloseable? = null
   private var plan: AutoCloseable? = null

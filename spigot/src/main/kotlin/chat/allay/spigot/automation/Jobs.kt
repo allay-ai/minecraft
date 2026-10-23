@@ -55,7 +55,7 @@ object Jobs : Listener {
   fun busy(block: Block) = of(block) != null
 
   /** Whether [job] still works; a finished one stays on its agent for collect. */
-  fun active(job: Automation.Job) = job in running
+  fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
 
   fun start(plugin: Plugin) {
     plugin.server.scheduler.runTaskTimer(plugin, Runnable { running.toList().forEach(BlockJob::check) }, 20L, 20L)

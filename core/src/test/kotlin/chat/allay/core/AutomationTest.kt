@@ -445,4 +445,12 @@ class AutomationTest {
     assertNull(Retry.after(ApiErrorException(ApiError("AI_ERROR", "the model failed"))))
     assertNull(Retry.after(IllegalStateException("mid-stream")))
   }
+
+  @Test fun `an agent pauses in another world or past its distance, and only then`() {
+    val anchor = Protocol.Position(0, 64, 0, "overworld", "world")
+    assertFalse(chat.allay.core.tasks.Agents.away(Protocol.Position(40, 70, -40, "overworld", "world"), anchor, 64))
+    assertTrue(chat.allay.core.tasks.Agents.away(Protocol.Position(60, 64, 60, "overworld", "world"), anchor, 64))
+    assertTrue(chat.allay.core.tasks.Agents.away(Protocol.Position(0, 64, 0, "the_nether", "world_nether"), anchor, 64))
+    assertTrue(chat.allay.core.tasks.Agents.away(Protocol.Position(0, 64, 0, "overworld", "other"), anchor, 64))
+  }
 }
