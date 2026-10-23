@@ -130,12 +130,4 @@ class ToolsTest {
     assertEquals("26.3", WorldTools.version("26.3.build.169-beta"))
     assertEquals("26.1.2", WorldTools.version("26.1.2-R0.1-SNAPSHOT"))
   }
-
-  @Test fun `plugin descriptions are one short line`() {
-    assertEquals("Graves for your items", WorldTools.shortDescription("  Graves for\n your   items "))
-    assertNull(WorldTools.shortDescription("   "))
-    val long = WorldTools.shortDescription("word ".repeat(60))!!
-    assertEquals(120, long.length)
-    assertTrue(long.endsWith("…"))
-  }
 }

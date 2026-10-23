@@ -71,6 +71,16 @@ object Facts {
     put("direction", direction(dx, dz))
   }
 
+  /** A plugin's or mod's own one-liner, cut to keep the tool result small; descriptions can run to paragraphs. */
+  fun shortDescription(text: String): String? {
+    val line = text.replace(Regex("\\s+"), " ").trim()
+    return when {
+      line.isEmpty() -> null
+      line.length <= 120 -> line
+      else -> line.take(119).trimEnd() + "…"
+    }
+  }
+
   /** `minecraft:diamond_ore` reads as `diamond_ore`: the namespace costs tokens and says nothing. */
   fun short(key: String) = key.removePrefix("minecraft:")
 }

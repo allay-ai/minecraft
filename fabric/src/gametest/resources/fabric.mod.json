@@ -5,7 +5,9 @@
   "name": "Allay game tests",
   "environment": "*",
   "entrypoints": {
-    "fabric-gametest": ["chat.allay.fabric.gametest.AllayGameTests", "chat.allay.fabric.gametest.MenusGameTests"],
+    "fabric-gametest": [
+      "chat.allay.fabric.gametest.AllayGameTests", "chat.allay.fabric.gametest.InfoGameTests", "chat.allay.fabric.gametest.MenusGameTests"
+    ],
     "fabric-client-gametest": ["chat.allay.fabric.gametest.SingleplayerClientTest"]
   },
   "depends": {
