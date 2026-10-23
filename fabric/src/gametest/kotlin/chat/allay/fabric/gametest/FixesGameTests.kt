@@ -237,4 +237,18 @@ class FixesGameTests {
     player.discard()
     helper.succeed()
   }
+
+  @GameTest
+  fun aSpectatorsDeathKeepsTheInventory(helper: GameTestHelper) {
+    val player = survivor(helper)
+    player.inventory.setItem(0, ItemStack(Items.DIRT, 5))
+    player.setGameMode(GameType.SPECTATOR)
+    player.die(helper.level.damageSources().genericKill())
+    val death = Players.features.deaths.latest(player.uuid)
+    helper.assertTrue(death != null, "the death is remembered")
+    equal(helper, death!!.kept_inventory, true, "kept_inventory for a spectator")
+    equal(helper, death.drops, null, "drops of a spectator")
+    player.discard()
+    helper.succeed()
+  }
 }

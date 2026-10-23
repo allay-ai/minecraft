@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import org.slf4j.LoggerFactory
@@ -53,6 +54,15 @@ object Hooks {
   /** A player dies, with what they carry still on them. */
   val died = Event<(ServerPlayer, DamageSource) -> Unit>()
 
+  /**
+   * What a dying player dropped, as the game spawned it: the inventory and what the loot table adds. Not for a
+   * spectator, who drops nothing; it comes after [died].
+   */
+  val deathDrops = Event<(ServerPlayer, List<ItemStack>) -> Unit>()
+
+  /** The items spawned while a player drops their death loot; null the rest of the time. */
+  private var drops: MutableList<ItemStack>? = null
+
   /** A player picked up [count] of the stack an item entity held. */
   val pickup = Event<(ServerPlayer, ItemEntity, ItemStack, Int) -> Unit>()
 
@@ -64,6 +74,21 @@ object Hooks {
 
   fun placed(player: ServerPlayer, level: ServerLevel, pos: BlockPos) = placedBlock.each { it(player, level, pos) }
   fun dying(player: ServerPlayer, source: DamageSource) = died.each { it(player, source) }
+  fun dropping() {
+    drops = mutableListOf()
+  }
+
+  fun spawned(entity: Entity) {
+    val list = drops ?: return
+    if (entity is ItemEntity) list += entity.item.copy()
+  }
+
+  fun dropped(player: ServerPlayer) {
+    val list = drops ?: return
+    drops = null
+    deathDrops.each { it(player, list) }
+  }
+
   fun pickedUp(player: ServerPlayer, item: ItemEntity, stack: ItemStack, count: Int) = pickup.each { it(player, item, stack, count) }
   fun advanced(player: ServerPlayer, holder: AdvancementHolder) = advancement.each { it(player, holder) }
 
@@ -73,5 +98,8 @@ object Hooks {
     return taken
   }
 
-  fun clear() = listOf(joined, left, placedBlock, brokeBlock, hitBlock, arrived, died, pickup, advancement, tick).forEach { it.clear() }
+  fun clear() {
+    listOf(joined, left, placedBlock, brokeBlock, hitBlock, arrived, died, deathDrops, pickup, advancement, tick).forEach { it.clear() }
+    drops = null
+  }
 }
