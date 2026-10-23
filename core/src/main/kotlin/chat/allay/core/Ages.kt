@@ -7,7 +7,7 @@ import java.util.logging.Logger
 /**
  * How old a player must be to agree to their data being used, by the country of their IP address: the GDPR (Art. 8)
  * lets each EU and EEA country pick 13 to 16, Spain's LOPDGDD (Art. 7) says 14, and COPPA sets 13 in the US. An
- * unknown country gets the strictest, 16.
+ * unknown country gets the strictest, 16. Players from anywhere else aren't asked ([asks]).
  */
 object AgeGate {
   /** The bands the question offers; [min] is the youngest age in each. Neutral on purpose: no band names the line. */
@@ -25,6 +25,9 @@ object AgeGate {
     listOf("CZ", "FR", "GR", "SI").forEach { put(it, 15) }
     listOf("DE", "HR", "HU", "IE", "LU", "NL", "PL", "RO", "SK", "LI").forEach { put(it, 16) }
   }
+
+  /** Whether a player from [country] says their age before agreeing: in the EU, the EEA, and the US, or when the country is unknown. */
+  fun asks(country: String?): Boolean = country.isNullOrBlank() || country.uppercase().let { it in AGES || it == "US" }
 
   /** The age of consent for [country], an ISO code like `ES`; 13 outside the EU and EEA, 16 when unknown. */
   fun threshold(country: String?): Int = when {

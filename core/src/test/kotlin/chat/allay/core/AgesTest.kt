@@ -21,6 +21,15 @@ class AgesTest {
     assertEquals(16, AgeGate.threshold(null))
   }
 
+  @Test fun `only the EU, the EEA, the US, and an unknown country ask the age`() {
+    assertTrue(AgeGate.asks("es"))
+    assertTrue(AgeGate.asks("NO"))
+    assertTrue(AgeGate.asks("US"))
+    assertTrue(AgeGate.asks(null))
+    assertFalse(AgeGate.asks("RU"))
+    assertFalse(AgeGate.asks("BR"))
+  }
+
   @Test fun `a band counts only when its youngest age is old enough`() {
     assertTrue(AgeGate.allows(AgeGate.Band.AGE_13, "US"))
     assertFalse(AgeGate.allows(AgeGate.Band.UNDER_13, "US"))

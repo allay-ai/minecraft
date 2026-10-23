@@ -15,8 +15,9 @@ import java.util.concurrent.ConcurrentHashMap
  * change) and the backend's policy revision. When either changes, a player who agreed before is asked again, with a
  * notice that says what changed.
  *
- * Every player also says their age before agreeing ([AgeGate]); the backend keeps `age_confirmed` with the agreement
- * (6.9), and an agreement without it asks the age question again.
+ * A player in a country that sets an age of consent ([AgeGate.asks], decided by [asksAge]) also says their age before
+ * agreeing; the backend keeps `age_confirmed` with the agreement (6.9), and an agreement without it asks the age
+ * question again. Anyone else agrees without it.
  *
  * [local] lists the players who agreed on this server, so a join looks up only them: it gains a player who agrees
  * or whom the backend knows to have agreed, and loses one who withdraws, declines, is erased, or has no agreement left.
@@ -26,6 +27,8 @@ class Consents(
   /** The English notice the player reads, line by line. */
   private val notice: () -> List<String>,
   private val local: Consented? = null,
+  /** Whether the player has to say their age before agreeing. */
+  private val asksAge: (UUID) -> Boolean = { true },
   private val now: () -> Long = System::currentTimeMillis,
 ) {
   interface Backend {
@@ -94,7 +97,7 @@ class Consents(
     }
     agreedAt.remove(player)
     // Only a backend that keeps the age (6.9, with a revision) can say it's missing.
-    if (answer.revision != null && given.ageConfirmed != true) {
+    if (answer.revision != null && given.ageConfirmed != true && asksAge(player)) {
       seen.remove(player)
       return State.AGE
     }

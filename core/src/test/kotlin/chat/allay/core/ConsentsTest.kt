@@ -117,6 +117,16 @@ class ConsentsTest {
     assertFalse(consents.ageKnown(player))
   }
 
+  @Test fun `a player from a country without an age of consent agrees without their age`() = runBlocking {
+    val backend = FakeBackend()
+    val consents = Consents(backend, { notice }, asksAge = { false }, now = { 0L })
+    assertEquals(Consents.State.MISSING, consents.check(player))
+    consents.give(player)
+    assertNull(backend.given.getValue(player.toString()).ageConfirmed)
+    assertEquals(Consents.State.GIVEN, consents.check(player))
+    assertTrue(consents.known(player))
+  }
+
   @Test fun `a backend before 6_9 never asks the age again`() = runBlocking {
     val backend = FakeBackend(revision = null)
     val consents = consents(backend)
