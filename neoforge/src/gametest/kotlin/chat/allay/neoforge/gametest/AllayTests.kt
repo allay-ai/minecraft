@@ -27,15 +27,15 @@ import java.lang.reflect.Method
 import java.util.function.Consumer
 
 /**
- * modcore's game tests on NeoForge, as Fabric API runs them on Fabric: every method marked [GameTest] in the shared
- * classes is a test, named and set up the same way, in an empty 8×8×8 structure. A dev-only mod next to Allay;
+ * modcore's game tests on NeoForge, as Fabric API runs them on Fabric, and NeoForge's own ([NeoForgeGameTests]): every
+ * method marked [GameTest] in these classes is a test, named and set up the same way, in an empty 8×8×8 structure. A dev-only mod next to Allay;
  * `./gradlew :neoforge:runGameTestServer` runs them, and `runClientGameTest` the singleplayer check ([ClientCheck]).
  */
 @Mod("allay_gametest")
 class AllayTests(modBus: IEventBus) {
   private class Test(val id: Identifier, val annotation: GameTest, val run: Consumer<GameTestHelper>)
 
-  private val tests = listOf(AllayGameTests(), AutomationGameTests(), GoalsGameTests(), InfoGameTests(), MenusGameTests(), FixesGameTests())
+  private val tests = listOf(AllayGameTests(), AutomationGameTests(), GoalsGameTests(), InfoGameTests(), MenusGameTests(), FixesGameTests(), NeoForgeGameTests())
     .flatMap { instance -> instance.javaClass.methods.filter { it.isAnnotationPresent(GameTest::class.java) }.map { test(instance, it) } }
 
   init {
