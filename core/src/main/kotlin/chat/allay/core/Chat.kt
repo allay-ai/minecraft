@@ -17,6 +17,20 @@ object Permissions {
   fun quota(tier: String) = "allay.quota.$tier"
   /** A tier of `models` in config.yml: `allay.model.vip`. */
   fun model(tier: String) = "allay.model.$tier"
+
+  /**
+   * Whether a player without a permissions plugin or mod has [permission]: operators get everything, everyone else
+   * what `plugin.yml` gives by default. The mods read it; Bukkit reads `plugin.yml` itself.
+   */
+  fun byDefault(permission: String, operator: Boolean): Boolean = when {
+    operator -> true
+    permission in OPERATORS -> false
+    // Tiers are for the players a server picks.
+    permission.startsWith("allay.quota.") || permission.startsWith("allay.model.") -> false
+    else -> permission.startsWith("allay.")
+  }
+
+  private val OPERATORS = setOf(ASKALL_NO_COOLDOWN, ASKX, RELOAD, ADMIN)
 }
 
 /** Chat mode's prefixes: where a line a player writes in chat goes, by its first character. */
