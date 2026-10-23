@@ -27,6 +27,7 @@ import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.Registries
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket
 import net.minecraft.resources.Identifier
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
@@ -40,6 +41,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.Fireworks
+import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.item.crafting.RecipeType
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
@@ -47,6 +49,7 @@ import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.portal.TeleportTransition
 import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -276,6 +279,27 @@ class FixesGameTests {
     val seen = Players.run(player, "look_at").result.jsonObject
     equal(helper, seen["kind"]?.jsonPrimitive?.content, "entity", "what the player looks at from inside an armor stand: $seen")
     stand.discard()
+    player.discard()
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun scaffoldingClearsTheGhostWhereItWent(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val base = helper.absolutePos(BlockPos(2, 1, 2))
+    helper.level.setBlockAndUpdate(base, Blocks.SCAFFOLDING.defaultBlockState())
+    val top = base.above()
+    player.packets()
+    Players.run(player, "show_marks", buildJsonObject {
+      putJsonArray("marks") { add(buildJsonObject { put("x", top.x); put("y", top.y); put("z", top.z); put("block", "scaffolding") }) }
+    })
+    val ghosts = added(player)
+    // A click on the scaffolding's side puts the new one on top of the column, not at the clicked block.
+    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.SCAFFOLDING))
+    player.mainHandItem.useOn(UseOnContext(player, InteractionHand.MAIN_HAND, BlockHitResult(Vec3.atCenterOf(base).add(0.0, 0.0, -0.5), Direction.NORTH, base, false)))
+    helper.assertTrue(helper.level.getBlockState(top).`is`(Blocks.SCAFFOLDING), "the scaffolding went on top")
+    val removed = player.packets().filterIsInstance<ClientboundRemoveEntitiesPacket>().flatMap { it.entityIds }.toSet()
+    helper.assertTrue(removed.containsAll(ghosts), "the ghost on top went out: $ghosts, removed $removed")
     player.discard()
     helper.succeed()
   }
