@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "allay",
+  "version": "${version}",
+  "name": "Allay",
+  "description": "An AI helper in chat, named after the friendly mob: ask about the game with /ask or right in chat mode, with answers grounded in your inventory, surroundings, and this world, in each player's language.",
+  "authors": ["MairwunNx"],
+  "contact": {
+    "homepage": "https://allay.chat",
+    "sources": "https://github.com/allay-ai/minecraft",
+    "issues": "https://github.com/allay-ai/minecraft/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/allay/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["chat.allay.fabric.AllayMod"]
+  },
+  "mixins": ["allay.mixins.json"],
+  "depends": {
+    "fabricloader": ">=${loader}",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft}",
+    "java": ">=25"
+  },
+  "suggests": {
+    "placeholder-api": "*",
+    "luckperms": "*"
+  }
+}

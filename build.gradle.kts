@@ -4,6 +4,7 @@ plugins {
   id("com.gradleup.shadow") version "9.6.1" apply false
   id("com.modrinth.minotaur") version "2.10.0" apply false
   id("io.papermc.hangar-publish-plugin") version "0.1.4" apply false
+  id("net.fabricmc.fabric-loom") version "1.19.3" apply false
 }
 
 allprojects {
@@ -26,6 +27,10 @@ allprojects {
     }
     maven("https://repo.extendedclip.com/releases/")
     maven("https://repo.playeranalytics.net/releases/")
+    // Text Placeholder API and Common Protection API, for the Fabric mod.
+    maven("https://maven.nucleoid.xyz/") {
+      content { includeGroup("eu.pb4") }
+    }
     // GriefPrevention publishes nowhere else; only its group comes from here.
     maven("https://jitpack.io") {
       content { includeGroup("com.github.GriefPrevention") }
