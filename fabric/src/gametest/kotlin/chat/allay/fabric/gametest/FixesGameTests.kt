@@ -22,17 +22,23 @@ import kotlinx.serialization.json.putJsonObject
 import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.component.DataComponents
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.permissions.LevelBasedPermissionSet
+import net.minecraft.server.players.NameAndId
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.RecipeType
+import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.portal.TeleportTransition
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -189,6 +195,30 @@ class FixesGameTests {
     equal(helper, goal("redstone"), "redstone is not a block", "a goal for redstone")
     Players.run(player, "goals", buildJsonObject { put("action", "cancel"); put("all", true) })
     player.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun giveItemDropsWhatDoesntFitInCreativeAndStoresABooksEnchantments(helper: GameTestHelper) {
+    val asker = survivor(helper)
+    val server = helper.level.server
+    server.playerList.op(NameAndId(asker.gameProfile), java.util.Optional.of(LevelBasedPermissionSet.GAMEMASTER), java.util.Optional.of(false))
+    try {
+      asker.setGameMode(GameType.CREATIVE)
+      (0 until 36).forEach { asker.inventory.setItem(it, ItemStack(Items.DIRT, 64)) }
+      val given = Players.run(asker, "give_item", buildJsonObject { put("item", "stone"); put("count", 10) }).result.jsonObject
+      equal(helper, given["dropped_at_feet"]?.jsonPrimitive?.int, 10, "stones at the feet of a creative player with a full inventory")
+      val dropped = helper.level.getEntitiesOfClass(ItemEntity::class.java, AABB(asker.blockPosition()).inflate(2.0)).filter { it.item.`is`(Items.STONE) }.sumOf { it.item.count }
+      equal(helper, dropped, 10, "stones lying there")
+      asker.inventory.clearContent()
+      Players.run(asker, "give_item", buildJsonObject { put("item", "enchanted_book"); putJsonObject("enchantments") { put("sharpness", 3) } })
+      val book = (0 until 36).map { asker.inventory.getItem(it) }.first { it.`is`(Items.ENCHANTED_BOOK) }
+      val stored = book.get(DataComponents.STORED_ENCHANTMENTS)!!
+      equal(helper, stored.entrySet().map { it.key.unwrapKey().get().identifier().path to it.intValue }, listOf("sharpness" to 3), "the book's stored enchantments")
+    } finally {
+      server.playerList.deop(NameAndId(asker.gameProfile))
+    }
+    asker.discard()
     helper.succeed()
   }
 }

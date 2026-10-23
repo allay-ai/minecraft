@@ -2,6 +2,7 @@ package chat.allay.fabric.tools
 
 import chat.allay.core.*
 import chat.allay.core.tools.*
+import chat.allay.fabric.automation.Slots
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -14,7 +15,6 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.Permissions
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.entity.ai.attributes.Attributes
-import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items as GameItems
 import net.minecraft.world.level.GameType
@@ -57,13 +57,13 @@ object OperatorTools {
     var left = count
     while (left > 0) {
       val stack = ItemStack(item, minOf(max, left))
-      // Any level on any item, as Bukkit's `addUnsafeEnchantment`.
+      // Any level on any item, as Bukkit's `addUnsafeEnchantment`; a book stores them for an anvil, as the plugin does.
       enchantments.forEach { (enchantment, level) -> stack.enchant(enchantment, level) }
       left -= stack.count
-      player.inventory.add(stack)
-      if (!stack.isEmpty) {
-        dropped += stack.count
-        ItemEntity(player.level(), player.x, player.y, player.z, stack).also { it.setDefaultPickUpDelay(); player.level().addFreshEntity(it) }
+      // As Bukkit's `addItem`: the game's own `add` voids what doesn't fit in creative, and nothing would fall.
+      Slots.add(player, stack)?.let { rest ->
+        dropped += rest.count
+        Slots.drop(player, rest)
       }
     }
     val result = buildJsonObject {

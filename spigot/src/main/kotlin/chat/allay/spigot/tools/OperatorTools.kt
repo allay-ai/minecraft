@@ -16,6 +16,7 @@ import org.bukkit.World
 import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.meta.EnchantmentStorageMeta
 import org.bukkit.potion.PotionEffect
 import chat.allay.core.tools.Facts.round1
 
@@ -53,7 +54,14 @@ object OperatorTools {
     var left = count
     while (left > 0) {
       val stack = ItemStack(material, minOf(max, left))
-      enchantments.forEach { (enchantment, level) -> stack.addUnsafeEnchantment(enchantment, level) }
+      // A book stores its enchantments for an anvil; anything else takes them on itself, any level on any item.
+      val book = stack.itemMeta as? EnchantmentStorageMeta
+      if (book != null) {
+        enchantments.forEach { (enchantment, level) -> book.addStoredEnchant(enchantment, level, true) }
+        stack.itemMeta = book
+      } else {
+        enchantments.forEach { (enchantment, level) -> stack.addUnsafeEnchantment(enchantment, level) }
+      }
       left -= stack.amount
       player.inventory.addItem(stack).values.forEach { rest ->
         dropped += rest.amount
