@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "chat.allay.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": ["DyingMixin", "PlaceMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -17,7 +17,7 @@
     "main": ["chat.allay.fabric.AllayMod"],
     "client": ["chat.allay.fabric.client.AllayClient"]
   },
-  "mixins": ["allay.mixins.json", { "config": "allay.client.mixins.json", "environment": "client" }],
+  "mixins": ["allay.mixins.json", "allay.fabric.mixins.json", { "config": "allay.client.mixins.json", "environment": "client" }],
   "depends": {
     "fabricloader": ">=${loader}",
     "fabric-api": "*",

@@ -9,18 +9,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * A player dies, with their inventory still on them: Fabric's death events come before a totem decides or after the
- * drops are gone, so both mods catch it here. Bukkit's `PlayerDeathEvent` is this. Around the drops, the items the game spawns are counted
- * ([DropMixin]), as the event's drops list them: the inventory and whatever the loot table adds.
+ * Around a dying player's drops, the items the game spawns are counted ([DropMixin]), as Bukkit's `PlayerDeathEvent`
+ * lists them: the inventory and whatever the loot table adds. The death itself, with the inventory still on, comes from
+ * each loader: Fabric's `DyingMixin`, NeoForge's `LivingDeathEvent` once nobody cancelled it.
  */
 @Mixin(ServerPlayer.class)
 abstract class DeathMixin {
   private static final String DROP = "Lnet/minecraft/server/level/ServerPlayer;dropAllDeathLoot(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;)V";
-
-  @Inject(method = "die", at = @At("HEAD"))
-  private void allay$dying(DamageSource source, CallbackInfo callback) {
-    Hooks.INSTANCE.dying((ServerPlayer) (Object) this, source);
-  }
 
   @Inject(method = "die", at = @At(value = "INVOKE", target = DROP))
   private void allay$dropping(DamageSource source, CallbackInfo callback) {

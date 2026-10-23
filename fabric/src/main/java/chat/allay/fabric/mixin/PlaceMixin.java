@@ -1,4 +1,4 @@
-package chat.allay.modcore.mixin;
+package chat.allay.fabric.mixin;
 
 import chat.allay.modcore.Hooks;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -12,8 +12,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * A player placed a block: Fabric has no event for it and NeoForge's comes before the block is down, so both mods
- * catch it here; Bukkit's `BlockPlaceEvent` is this. The spot is where the block went, from the context the item
+ * A player placed a block: Fabric has no event for it, Bukkit's `BlockPlaceEvent` is this (NeoForge's `EntityPlaceEvent`
+ * in `neoforge`, since a claims mod may take the block back there after this point). The spot is where the block went, from the context the item
  * settled on: scaffolding or a slab may go elsewhere than the clicked block.
  */
 @Mixin(BlockItem.class)
