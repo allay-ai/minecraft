@@ -22,25 +22,15 @@ import org.bukkit.entity.Player
  * whose transmit range is 0 (crouching, a carved pumpkin or a mob head on the head, invisibility) is off it.
  */
 object Locator {
-  /**
-   * One dot on the bar, in plain numbers so tests can hold it to the game. A spectator sees every player who
-   * transmits, however far; nobody else sees a spectator, or anyone beyond both players' ranges.
-   */
-  fun shows(viewerSpectator: Boolean, targetSpectator: Boolean, transmit: Double, receive: Double, distance: Double): Boolean {
-    if (transmit <= 0) return false
-    if (viewerSpectator) return true
-    return !targetSpectator && distance <= minOf(transmit, receive)
-  }
-
   /** Whether [target] is on [viewer]'s bar right now. A vanished player stays hidden, as everywhere in Allay. */
   fun shows(viewer: Player, target: Player): Boolean {
     if (target == viewer || !target.isOnline || target.world != viewer.world || !Vanish.visible(viewer, target)) return false
     if (!barOn(viewer)) return false
-    return shows(
+    return LocatorBar.shows(
       viewerSpectator = viewer.gameMode == GameMode.SPECTATOR,
       targetSpectator = target.gameMode == GameMode.SPECTATOR,
-      transmit = target.getAttribute(Attribute.WAYPOINT_TRANSMIT_RANGE)?.value ?: DEFAULT_RANGE,
-      receive = viewer.getAttribute(Attribute.WAYPOINT_RECEIVE_RANGE)?.value ?: DEFAULT_RANGE,
+      transmit = target.getAttribute(Attribute.WAYPOINT_TRANSMIT_RANGE)?.value ?: LocatorBar.DEFAULT_RANGE,
+      receive = viewer.getAttribute(Attribute.WAYPOINT_RECEIVE_RANGE)?.value ?: LocatorBar.DEFAULT_RANGE,
       distance = target.location.distance(viewer.location),
     )
   }
@@ -58,9 +48,6 @@ object Locator {
     val rule = Registry.GAME_RULE.get(NamespacedKey.minecraft("locator_bar")) ?: return true
     return viewer.world.getGameRuleValue(rule) as? Boolean ?: true
   }
-
-  /** The game's default for both ranges. */
-  private const val DEFAULT_RANGE = 6.0E7
 }
 
 /** `get_nearby_players`: who is on the asker's locator bar, so they can ask for the way to someone by name. */
