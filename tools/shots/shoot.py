@@ -44,9 +44,10 @@ VIEW = "40.5 118 110.5 10 22"
 FLOOR = "40 117 110"
 
 # Crops as fractions of the window: left, top, right, bottom.
-CHAT = (0.005, 0.52, 0.67, 0.99)
+# Down to the window's last row, so the hotbar shows whole; the left edge leaves out the window's rounded corner.
+CHAT = (0.007, 0.52, 0.67, 1.0)
 # The animation keeps to the chat and the hotbar: the world above them moves (clouds, mobs) and costs a GIF its size.
-STATUS = (0.005, 0.52, 0.80, 0.99)
+STATUS = (0.007, 0.52, 0.80, 1.0)
 # Each window as tall as it is.
 DIALOGS = {"consent": (0.17, 0.0, 0.83, 0.70), "memory": (0.17, 0.0, 0.83, 0.70), "privacy": (0.17, 0.0, 0.83, 1.0)}
 # What the player holds, so the hotbar looks lived in; the coal and sticks are what the torches answer counts.
@@ -253,20 +254,23 @@ def film(lang: str, name: str, start_lines: list[str], seconds: float):
     """Records the window (record.swift) while [start_lines] play out; [render] makes the files."""
     frames = WORK / "raw" / lang
     frames.mkdir(parents=True, exist_ok=True)
-    recording = subprocess.Popen([str(recorder()), str(seconds + LEAD), str(frames / f"{name}.mov")])
+    typist = compiled("type")
+    recording = subprocess.Popen([str(compiled("record")), str(seconds + LEAD), str(frames / f"{name}.mov")])
     time.sleep(LEAD)
-    drive(*start_lines)
+    # Typed into the chat like a player does; the lines' text without the leading slash.
+    for line in start_lines:
+        subprocess.run([str(typist), line], check=True)
     if recording.wait() != 0:
         sys.exit("Couldn't record the game's window")
     render(lang, name)
     log(f"{lang}: {name}")
 
 
-def recorder() -> pathlib.Path:
-    """record.swift, compiled once: the interpreter would take seconds to start, and the recording would lag."""
-    binary = WORK / "record"
-    if not binary.exists() or binary.stat().st_mtime < (HERE / "record.swift").stat().st_mtime:
-        subprocess.run(["swiftc", "-O", str(HERE / "record.swift"), "-o", str(binary)], check=True)
+def compiled(name: str) -> pathlib.Path:
+    """record.swift or type.swift, compiled once: the interpreter takes seconds to start, and the animation would lag."""
+    binary = WORK / name
+    if not binary.exists() or binary.stat().st_mtime < (HERE / f"{name}.swift").stat().st_mtime:
+        subprocess.run(["swiftc", "-O", str(HERE / f"{name}.swift"), "-o", str(binary)], check=True)
     return binary
 
 
@@ -328,8 +332,9 @@ def scenes(lang: str):
     drive("allay privacy agree", wait=10)
 
     # The same question again, agreed: the live status, then the answer with its buttons.
-    time.sleep(FADE)
-    film(lang, "status", [f"ask {torches['question'][lang]}"], 10.5)
+    # Typing opens the chat with its whole history, so the history goes first: blank lines push it out, then fade.
+    drive("!clear", wait=FADE)
+    film(lang, "status", [f"ask {torches['question'][lang]}"], 14)
 
     # A message to send: the answer with Send, and the line the button sends.
     time.sleep(FADE)
