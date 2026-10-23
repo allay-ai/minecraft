@@ -35,7 +35,9 @@ object LocationTools {
 
   /** Where the player respawns now, as Bukkit's `getRespawnLocation`: a bed or anchor that's still there, or null. */
   fun respawnPoint(player: ServerPlayer): Place? {
-    player.respawnConfig ?: return null
+    val config = player.respawnConfig ?: return null
+    // A dimension that's gone: the game would send the player to the world spawn, Bukkit says there's no point.
+    player.level().server.getLevel(config.respawnData().dimension()) ?: return null
     // Without using an anchor's charge; a bed or anchor that's gone leaves the game falling back to the world spawn.
     val transition = player.findRespawnPositionAndUseSpawnBlock(false, TeleportTransition.DO_NOTHING)
     return if (transition.missingRespawnBlock()) null else Place(transition.newLevel(), transition.position())

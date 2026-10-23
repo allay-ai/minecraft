@@ -114,12 +114,15 @@ class Sources private constructor(val list: List<Source>) {
     fun plain(item: ItemStack): Boolean = !Tag.SHULKER_BOXES.isTagged(item.type) && item.type != Material.BUNDLE && !item.type.name.endsWith("_BUNDLE") &&
       item.isSimilar(ItemStack(item.type))
 
-    /** The places around [player] within [radius], the inventory and its bundles first. */
+    /**
+     * The places around [player] within [radius], the inventory and its bundles first. The inventory is asked of the
+     * player at each use: a respawn gives them a new one, and with keepInventory it holds the same stacks, so a job
+     * refilling from the old one would hand out items twice.
+     */
     fun around(player: Player, radius: Int): Sources {
       val list = mutableListOf<Source>()
-      val inventory = player.inventory
-      list += Source(Blocks.inventory(player), true, null, { inventory.storageContents.toList() }, { inventory.storageContents = it.toTypedArray() })
-      for (slot in 0 until 36) bundles(list, "${Blocks.inventory(player)}#$slot", 1, { inventory.getItem(slot) }, { inventory.setItem(slot, it) })
+      list += Source(Blocks.inventory(player), true, null, { player.inventory.storageContents.toList() }, { player.inventory.storageContents = it.toTypedArray() })
+      for (slot in 0 until 36) bundles(list, "${Blocks.inventory(player)}#$slot", 1, { player.inventory.getItem(slot) }, { player.inventory.setItem(slot, it) })
       val ender = Blocks.near(player.location, radius) { it.type == Material.ENDER_CHEST }.isNotEmpty()
       if (ender) list += Source("ender:${player.uniqueId}", true, null, { player.enderChest.contents.toList() }, { player.enderChest.contents = it.toTypedArray() })
       Blocks.near(player.location, radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct().forEach { block ->

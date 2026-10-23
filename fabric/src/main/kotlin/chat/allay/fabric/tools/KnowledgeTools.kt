@@ -38,6 +38,7 @@ object KnowledgeTools {
       // Potions come from the brewing stand, which the game's recipe book doesn't describe.
       if (item in POTIONS || "potion" in item) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
       val material = InteractTools.item(asked)
+      tags = tags()
       val all = Recipes.forItem(context.server, material).mapNotNull { describe(it.value()) }
       val found = all.take(5)
       val result = buildJsonObject {
@@ -48,11 +49,16 @@ object KnowledgeTools {
       return ToolOutput(result, if (found.isEmpty()) context.lang.text("summary.recipes_none") else context.lang.text("summary.recipes", "count" to all.size))
     }
 
-    /** Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. */
-    private val tags: Map<Set<Item>, String> by lazy {
+    /**
+     * Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. Read again on
+     * every call: data packs change them, and a singleplayer game keeps this object from one world to the next.
+     * Server thread only.
+     */
+    private var tags: Map<Set<Item>, String> = emptyMap()
+
+    private fun tags(): Map<Set<Item>, String> =
       BuiltInRegistries.ITEM.getTags().toList().groupBy({ tag -> tag.stream().map { it.value() }.toList().toSet() }, { it.key().location().path })
         .mapValues { (_, keys) -> keys.minBy { it.length } }
-    }
 
     private fun choice(choice: Ingredient?): String {
       choice ?: return ""

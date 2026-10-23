@@ -25,7 +25,12 @@ import net.minecraft.world.item.crafting.StonecutterRecipe
  * ingredients in the grid. Data packs count, as on Bukkit. Read on the server thread.
  */
 object Recipes {
-  fun all(server: MinecraftServer): Collection<RecipeHolder<*>> = server.recipeManager.recipes
+  /**
+   * Every recipe in the order Bukkit's `recipeIterator` walks them: grouped by type, the types in the order the game
+   * first met them. Only the first few recipes for an item reach the model, so the order matters.
+   */
+  fun all(server: MinecraftServer): Collection<RecipeHolder<*>> =
+    ((server.recipeManager as RecipeAccess.Manager).`allay$recipes`() as RecipeAccess.Map).`allay$byType`().values()
 
   /** What [recipe] makes, or null for a special one with no fixed result (map cloning, dyeing armor). */
   fun result(recipe: Recipe<*>): ItemStack? = when (recipe) {
@@ -42,7 +47,7 @@ object Recipes {
       val recipe = holder.value()
       (recipe is ShapedRecipe || recipe is ShapelessRecipe || recipe is AbstractCookingRecipe || recipe is StonecutterRecipe || recipe is SmithingTransformRecipe) &&
         result(recipe)?.item == item
-    }.sortedBy { it.id().identifier().toString() }
+    }
 
   /** A shapeless recipe's ingredients, in order. */
   fun ingredients(recipe: ShapelessRecipe): List<Ingredient> = (recipe as RecipeAccess.Shapeless).`allay$ingredients`()

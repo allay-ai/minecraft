@@ -1,5 +1,6 @@
 package chat.allay.spigot
 
+import chat.allay.core.tools.SpawnProtection
 import me.ryanhamshire.GriefPrevention.ClaimPermission
 import me.ryanhamshire.GriefPrevention.GriefPrevention
 import org.bukkit.Bukkit
@@ -28,9 +29,21 @@ object Claims {
 
   /**
    * Whether the player could build at [location]: outside any claim, or in one where they may build (their own,
-   * or with build trust). Allay reads redstone and compares drafts only there, so nobody takes apart a neighbor's machine.
+   * or with build trust), and outside the spawn protection the game keeps from non-operators. Allay reads redstone
+   * and compares drafts only there, so nobody takes apart a neighbor's machine.
    */
-  fun mayBuild(player: Player, location: Location): Boolean = ask { GriefPreventionHook.allows(player, location, build = true) }
+  fun mayBuild(player: Player, location: Location): Boolean {
+    if (spawnProtected(player, location)) return false
+    return ask { GriefPreventionHook.allows(player, location, build = true) }
+  }
+
+  /** The game's spawn protection: in the main world, around its spawn, for a non-operator once there are operators. */
+  private fun spawnProtected(player: Player, location: Location): Boolean {
+    val world = location.world ?: return false
+    if (world != Bukkit.getWorlds().firstOrNull() || player.isOp || Bukkit.getSpawnRadius() <= 0) return false
+    val spawn = world.spawnLocation
+    return SpawnProtection.covers(Bukkit.getOperators().isNotEmpty(), player.isOp, Bukkit.getSpawnRadius(), location.blockX - spawn.blockX, location.blockZ - spawn.blockZ)
+  }
 
   /** Whether [location] lies in a GriefPrevention claim; false without GriefPrevention. */
   fun claimed(location: Location): Boolean = available && runCatching { GriefPreventionHook.claimed(location) }.getOrDefault(false)

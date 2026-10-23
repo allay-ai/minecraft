@@ -10,6 +10,7 @@ import net.minecraft.core.Holder
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.ItemTags
 import net.minecraft.world.effect.MobEffectInstance
@@ -62,9 +63,12 @@ fun ItemStack?.compact(slot: Int? = null): JsonObject? = data()?.compact(slot)
 
 fun Iterable<ItemStack?>.data(): List<ItemData?> = map { it.data() }
 
-/** Everything about one item, for `inspect_item`; the map in it knows whether [player] stands on it. */
-fun detail(item: ItemStack, player: ServerPlayer?): JsonObject =
-  Items.detail(item.data(full = true, level = player?.level())!!, player?.let { Spot(Worlds.name(it.level()), it.blockX, it.blockZ) })
+/**
+ * Everything about one item, for `inspect_item`; the map in it knows whether [player] stands on it. Without a player
+ * (the console), a map is read from the [server]'s overworld, where the game keeps every map, as Bukkit's `MapMeta` is.
+ */
+fun detail(item: ItemStack, player: ServerPlayer?, server: MinecraftServer? = player?.level()?.server): JsonObject =
+  Items.detail(item.data(full = true, level = player?.level() ?: server?.overworld())!!, player?.let { Spot(Worlds.name(it.level()), it.blockX, it.blockZ) })
 
 /** What a shulker box or bundle holds, in slot order with empty slots as null; null for any other item. */
 fun contents(item: ItemStack): List<ItemStack?>? = when {
@@ -127,7 +131,8 @@ private fun details(item: ItemStack, level: Level?): ItemData.Details {
       else -> null
     },
     firework = when {
-      item.has(DataComponents.FIREWORKS) -> item.get(DataComponents.FIREWORKS)!!.let { ItemData.Firework(it.flightDuration(), it.explosions().map(::explosion)) }
+      // Bukkit's FireworkMeta reads only the rocket's own components: a bare rocket flies for 0.
+      item.item == GameItems.FIREWORK_ROCKET -> item.own(DataComponents.FIREWORKS).let { ItemData.Firework(it?.flightDuration() ?: 0, it?.explosions().orEmpty().map(::explosion)) }
       item.has(DataComponents.FIREWORK_EXPLOSION) && item.item == GameItems.FIREWORK_STAR -> ItemData.Firework(null, listOf(explosion(item.get(DataComponents.FIREWORK_EXPLOSION)!!)))
       else -> null
     },

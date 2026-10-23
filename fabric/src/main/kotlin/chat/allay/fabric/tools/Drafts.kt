@@ -59,6 +59,7 @@ object Drafts {
     this.locales = locales
     ticker = scheduler.every(10L, 10L) { drafts.values.toList().forEach(::tick) }
     Hooks.left += { clear(it.uuid) }
+    Hooks.arrived += { player -> drafts[player.uuid]?.let { draft -> Ghosts.resend(player, draft.drawn.values.flatMap { it.second }) } }
   }
 
   fun stop() {

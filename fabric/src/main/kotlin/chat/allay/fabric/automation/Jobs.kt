@@ -54,6 +54,12 @@ object Jobs {
     job.blocks.forEach { block -> if (of(block) == null) kinds -= block }
   }
 
+  /** Forgets every job when Allay stops. */
+  fun clear() {
+    running.clear()
+    kinds.clear()
+  }
+
   private fun of(block: BlockAt) = running.firstOrNull { job -> block in job.blocks }
 
   fun busy(block: BlockAt) = of(block) != null

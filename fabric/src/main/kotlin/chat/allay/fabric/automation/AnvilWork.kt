@@ -174,7 +174,7 @@ object AnvilWork {
       val worn = wear(anvil, steps)
       val now = made.get(DataComponents.ENCHANTMENTS)?.entrySet()?.joinToString { "${Worlds.key(it.key)} ${it.intValue}" }.orEmpty()
       task.report("anvil: ${Slots.id(made)} in inventory slot $slot now has ${now.ifEmpty { "no enchantments" }}${rename?.let { ", named “$it”" } ?: ""}, for $total levels")
-      Sounds.play(player, if (worn == null) SoundEvents.ANVIL_DESTROY else SoundEvents.ANVIL_USE, 1f, 1f)
+      Sounds.play(player, anvil.corner, if (worn == null) SoundEvents.ANVIL_DESTROY else SoundEvents.ANVIL_USE, 1f, 1f)
       Marks.show(context.scheduler, player, listOf(Marks.Mark(anvil, null, Slots.id(made).replace('_', ' '), Marks.Hue.GREEN)).filter { worn != null }, 10)
       return ToolOutput(JsonObject(out + ("done" to JsonPrimitive(true)) + ("anvil_now" to JsonPrimitive(worn ?: "air"))), context.lang.text("summary.anvil_done", "levels" to total))
     }

@@ -3,7 +3,9 @@ package chat.allay.fabric.automation
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.fabric.audience
 import chat.allay.fabric.mixin.BrewingAccess
+import chat.allay.fabric.player
 import chat.allay.fabric.tools.BlockAt
 import chat.allay.fabric.tools.BrewingRecipes
 import chat.allay.fabric.tools.InteractTools
@@ -106,8 +108,13 @@ object Stands {
   }
 
   private class Job(
-    override val task: Task, val player: ServerPlayer, val chains: List<List<Brewing.Brew>>, val loads: List<Load>, val sources: Sources, val to: Jobs.Output?,
+    override val task: Task, starter: ServerPlayer, val chains: List<List<Brewing.Brew>>, val loads: List<Load>, val sources: Sources, val to: Jobs.Output?,
   ) : Jobs.BlockJob {
+    private val owner = starter.audience
+
+    /** The player as the game has them now: a respawn makes a new one, and what goes to the old one is lost. */
+    val player: ServerPlayer get() = owner.player
+
     override val blocks get() = loads.map { it.block }
     var delivered = 0
 

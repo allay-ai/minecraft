@@ -73,6 +73,13 @@ object Ghosts {
     entity.entityData.nonDefaultValues?.let { player.connection.send(ClientboundSetEntityDataPacket(entity.id, it)) }
   }
 
+  /**
+   * Sends [ghosts] again once the player's client started a new world and forgot them ([chat.allay.fabric.Hooks.arrived]):
+   * those in the level the player is in now. The others wait until the player comes back to theirs, as a hidden entity
+   * on Bukkit shows again only in its own world.
+   */
+  fun resend(player: ServerPlayer, ghosts: Iterable<Ghost>) = show(player, ghosts.filter { it.entity.level() === player.level() })
+
   /** Takes [ghosts] away from [player]'s client, if they're still there to hear it. */
   fun hide(player: ServerPlayer?, ghosts: Iterable<Ghost>) {
     val ids = ghosts.map { it.id }.toIntArray()
