@@ -282,7 +282,7 @@ models: {}
 #  vip: "anthropic/claude-sonnet-5.5"
 
 # Before a player's first question Allay shows what it does with their data and asks
-# them to agree, with buttons in chat; until they do, nothing about them reaches the
+# them to agree, in a window with buttons; until they do, nothing about them reaches the
 # backend. The backend keeps the answer (Allay Server 6.1 and newer; an older one
 # can't, and Allay asks nobody). /allay privacy withdraw takes it back.
 # consent: false skips the notice, but only with a backend of your own (server.token);

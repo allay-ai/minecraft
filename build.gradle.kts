@@ -16,6 +16,14 @@ allprojects {
     maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") {
       name = "spigotmc-repo"
     }
+    // paper-api, only for the windows Paper draws its own way (spigot's `paper` source set).
+    maven("https://repo.papermc.io/repository/maven-public/") {
+      content {
+        includeGroup("io.papermc.paper")
+        includeModule("com.mojang", "brigadier")
+        includeVersion("net.md-5", "bungeecord-chat", "1.21-R0.2-deprecated+build.21")
+      }
+    }
     maven("https://repo.extendedclip.com/releases/")
     maven("https://repo.playeranalytics.net/releases/")
     // GriefPrevention publishes nowhere else; only its group comes from here.

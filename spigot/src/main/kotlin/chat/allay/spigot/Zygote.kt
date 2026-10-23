@@ -172,7 +172,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     watch = BillingWatch(this, locales, licenses, credentials, announcements, billing).also { it.start() }
     reportProvider()
     executor = Executor(this, configuration, locales, animator)
-    consents = Consents(service, ::notice, consented)
+    consents = Consents(service, ::notice, consented, asksAge = { AgeGate.asks(locales.country(it)) })
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(this, locales, features, service, scope)
@@ -346,6 +346,7 @@ class Zygote : JavaPlugin(), TabCompleter {
         args.size == 1 -> privacy.info(sender)
         args.size == 2 && args[1].equals("agree", ignoreCase = true) -> privacy.agree(sender)
         args.size == 2 && args[1].equals("decline", ignoreCase = true) -> privacy.decline(sender)
+        args.size == 2 && args[1].equals("review", ignoreCase = true) -> privacy.review(sender)
         args.size == 3 && args[1].equals("age", ignoreCase = true) -> privacy.age(sender, args[2])
         args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
         args.size in 2..3 && args[1].equals("full", ignoreCase = true) -> privacy.full(sender, args.getOrNull(2))

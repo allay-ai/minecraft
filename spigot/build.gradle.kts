@@ -8,7 +8,13 @@ plugins {
   id("io.papermc.hangar-publish-plugin")
 }
 
+// Paper leaves out Spigot's dialog API and has its own: this source set draws windows with it, and loads only on Paper.
+val paper: SourceSet by sourceSets.creating
+
 dependencies {
+  "paperCompileOnly"(project(":core"))
+  "paperCompileOnly"("io.papermc.paper:paper-api:26.3.build.205-stable")
+  implementation(paper.output)
   implementation(project(":core"))
   compileOnly("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")
   compileOnly("me.clip:placeholderapi:2.12.3")

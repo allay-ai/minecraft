@@ -22,8 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
  * `/allay privacy`: what Allay keeps about a player and for how long, and their data on request (since backend 6.0).
  * A player exports or erases their own; admins do it for anyone who asked them. An export is a link to the backend,
  * good for a day (6.9), shown only to whoever asked for it, never in the log. Before a player's first question, the
- * notice asks them to agree, with buttons; the backend keeps the answer (since 6.1) and the hash of the notice (6.9),
- * so a player is asked again when the notice or the policy changes.
+ * notice asks them to agree in the game's own window (a dialog), with buttons; the backend keeps the answer (since 6.1)
+ * and the hash of the notice (6.9), so a player is asked again when the notice or the policy changes.
  */
 class PrivacyCommands(
   private val plugin: JavaPlugin,
@@ -43,7 +43,7 @@ class PrivacyCommands(
   private val stopAgents: (Player) -> Unit,
 ) {
   /** The question a player asked before agreeing; it goes on once they agree. [state] is why they were stopped. */
-  private class Pending(val at: Long, val question: () -> Unit, var state: Consents.State = Consents.State.MISSING)
+  private class Pending(val at: Long, val question: (() -> Unit)?, var state: Consents.State = Consents.State.MISSING)
 
   private val pending = ConcurrentHashMap<UUID, Pending>()
 
@@ -54,7 +54,7 @@ class PrivacyCommands(
    * Before a question from a player Allay hasn't seen agree: the backend says whether they did, and if not, the notice
    * asks them. [question] runs on the server thread once they agree, or at once when they already have.
    */
-  fun ask(player: Player, question: () -> Unit) {
+  fun ask(player: Player, question: (() -> Unit)?) {
     val lang = locales.of(player)
     // Too young less than a year ago: no question to the backend, and none to the player.
     if (ages.blocked(player.uniqueId)) return lang.send(player, "consent.age_blocked")
@@ -75,35 +75,39 @@ class PrivacyCommands(
             pending[player.uniqueId]?.state = state
             // The age first, unless the backend's agreement already has it, then the notice.
             if (needsAge(player.uniqueId)) ageQuestion(player) else next(player, state)
+            reminder(player)
           }
-          else -> pending.remove(player.uniqueId)?.question?.invoke()
+          else -> pending.remove(player.uniqueId)?.question?.invoke() ?: lang.send(player, "consent.already")
         }
       }
     }
   }
 
   /**
-   * What Allay does with a player's data, under which law, and the buttons to agree or not. A player who agreed to an
-   * older notice first reads that it changed, and when they agreed.
+   * What Allay does with a player's data, under which law, in a window with the buttons to agree or not. A player who
+   * agreed to an older notice first reads that it changed, and when they agreed.
    */
   private fun notice(player: Player, changed: Boolean) {
     val lang = locales.of(player)
-    if (changed) {
-      val since = consents.previous(player.uniqueId)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
-      lang.send(player, if (since != null) "consent.changed" else "consent.changed_undated", "date" to since)
-      lang.send(player, "consent.changed_summary")
+    val paragraphs = buildList {
+      if (changed) {
+        val since = consents.previous(player.uniqueId)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
+        add(lang.text(if (since != null) "consent.changed" else "consent.changed_undated", "date" to since))
+        add(lang.text("consent.changed_summary"))
+      }
+      add(lang.text("consent.notice"))
+      // Whoever runs the server answers for Allay on it, named by the server's name in config.yml when it has one.
+      val server = configuration.server.name.takeIf { it.isNotEmpty() }?.let { lang.text("consent.server_named", "name" to it) } ?: lang.text("consent.server_this")
+      add(lang.text(if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self", "server" to server))
+      add(lang.text("consent.keeps"))
     }
-    lang.send(player, "consent.notice")
-    // Whoever runs the server answers for Allay on it, named by the server's name in config.yml when it has one.
-    val server = configuration.server.name.takeIf { it.isNotEmpty() }?.let { lang.text("consent.server_named", "name" to it) } ?: lang.text("consent.server_this")
-    lang.send(player, if (configuration.server.token.isEmpty()) "consent.hosted" else "consent.self", "server" to server)
-    lang.send(player, "consent.keeps")
-    val agree = button(lang, "consent.agree", "consent.agree_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy agree"))
-    val decline = button(lang, "consent.decline", "consent.decline_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy decline"))
-    val policy = configuration.privacy.policyUrl.takeIf { it.isNotEmpty() }
-      ?.let { listOf(TextComponent(" "), button(lang, "consent.policy", "consent.policy_hover", ClickEvent(ClickEvent.Action.OPEN_URL, it), "url" to it)) }
-      .orEmpty()
-    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.question"))), TextComponent(" "), agree, TextComponent(" "), decline, *policy.toTypedArray())
+    val buttons = listOfNotNull(
+      button(lang, "consent.agree", "consent.agree_hover", command = "/allay privacy agree"),
+      button(lang, "consent.decline", "consent.decline_hover", command = "/allay privacy decline"),
+      configuration.privacy.policyUrl.takeIf { it.isNotEmpty() }
+        ?.let { button(lang, "consent.policy", "consent.policy_hover", url = it, values = arrayOf("url" to it), width = 2 * BUTTON_WIDTH + 4) },
+    )
+    show(player, lang.text("consent.title"), paragraphs, buttons, columns = 2)
   }
 
   /** After the age question, or without one: the notice, or for a player who only owed their age, the agreement itself. */
@@ -112,17 +116,44 @@ class PrivacyCommands(
   }
 
   /**
-   * “How old are you?” with five neutral bands, and above it why Allay asks: the law lets only players above an age,
-   * which depends on the country, agree to their data being used.
+   * “How old are you?” in a window with five neutral bands, and above them why Allay asks: the law lets only players
+   * above an age, which depends on the country, agree to their data being used.
    */
   private fun ageQuestion(player: Player) {
     val lang = locales.of(player)
-    lang.send(player, "consent.age_why")
-    val bands = AgeGate.Band.entries.flatMap { band ->
+    val bands = AgeGate.Band.entries.map { band ->
       val key = "consent.age_" + band.wire.replace('-', '_')
-      listOf(TextComponent(" "), button(lang, key, "consent.age_hover", ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy age ${band.wire}")))
+      button(lang, key, "consent.age_hover", command = "/allay privacy age ${band.wire}", width = AGE_WIDTH)
     }
-    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.age_question"))), *bands.toTypedArray())
+    show(player, lang.text("consent.age_question"), listOf(lang.text("consent.age_why")), bands, columns = 1)
+  }
+
+  /**
+   * The answer closes the window or opens the next one; Escape closes it, and the question waits for [PENDING_MS]. Gray
+   * reads poorly over the blurred game, so the window's text is white and what chat shows in white turns yellow.
+   */
+  private fun show(player: Player, title: String, paragraphs: List<String>, buttons: List<Window.Button>, columns: Int) =
+    Windows.show(player, Window(formatMessage(title), paragraphs.map { brighter(formatMessage(it)) }, buttons, columns, BODY_WIDTH))
+
+  private fun brighter(text: String) = text.replace("§f", "§e").replace("§7", "§f")
+
+  /** One line in chat under the window, to open it again after Escape. */
+  private fun reminder(player: Player) {
+    val lang = locales.of(player)
+    val button = TextComponent(*plain(formatMessage(lang.text("consent.reopen_button")))).apply {
+      clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy review")
+      hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text("consent.reopen_hover")))))
+    }
+    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.reopen"))), TextComponent(" "), button)
+  }
+
+  /** `/allay privacy review`, from the line under the window: the window again, where the player left it. */
+  fun review(sender: CommandSender) {
+    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    if (ages.blocked(player.uniqueId)) return locales.of(sender).send(sender, "consent.age_blocked")
+    val waiting = pending[player.uniqueId]?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }
+      ?: return ask(player, null)
+    if (needsAge(player.uniqueId)) ageQuestion(player) else next(player, waiting.state)
   }
 
   /**
@@ -133,10 +164,12 @@ class PrivacyCommands(
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     val band = AgeGate.Band.parse(answer) ?: return locales.of(sender).send(sender, "privacy.usage")
     if (AgeGate.allows(band, locales.country(player.uniqueId))) {
+      Windows.close(player)
       adults[player.uniqueId] = System.currentTimeMillis()
       next(player, pending[player.uniqueId]?.state ?: Consents.State.MISSING)
       return
     }
+    Windows.close(player)
     adults.remove(player.uniqueId)
     pending.remove(player.uniqueId)
     consents.declined(player.uniqueId)
@@ -144,16 +177,16 @@ class PrivacyCommands(
     locales.of(sender).send(sender, "consent.age_under")
   }
 
-  /** Whether the player still has to say their age: not just now, and not on their agreement with the backend. */
-  private fun needsAge(player: UUID) = !adult(player) && !consents.ageKnown(player)
+  /**
+   * Whether the player still has to say their age: only where the law sets an age of consent, and not just now or on
+   * their agreement with the backend.
+   */
+  private fun needsAge(player: UUID) = AgeGate.asks(locales.country(player)) && !adult(player) && !consents.ageKnown(player)
 
   private fun adult(player: UUID) = adults[player]?.let { System.currentTimeMillis() - it < PENDING_MS } == true
 
-  private fun button(lang: Lang, text: String, hover: String, click: ClickEvent, vararg values: Pair<String, Any>) =
-    TextComponent(*plain(formatMessage(lang.text(text)))).apply {
-      clickEvent = click
-      hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text(hover, *values)))))
-    }
+  private fun button(lang: Lang, text: String, hover: String, command: String? = null, url: String? = null, values: Array<Pair<String, Any>> = emptyArray(), width: Int = BUTTON_WIDTH) =
+    Window.Button(formatMessage(lang.text(text)), formatMessage(lang.text(hover, *values)), width, command, url)
 
   /**
    * `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. A player who
@@ -163,6 +196,7 @@ class PrivacyCommands(
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
     if (ages.blocked(player.uniqueId)) return locales.of(sender).send(sender, "consent.age_blocked")
     if (needsAge(player.uniqueId)) return ageQuestion(player)
+    Windows.close(player)
     var question: (() -> Unit)? = null
     request(sender, after = { question?.invoke() }) { lang ->
       consents.give(player.uniqueId, ageConfirmed = adults.remove(player.uniqueId) != null || consents.ageKnown(player.uniqueId))
@@ -176,6 +210,7 @@ class PrivacyCommands(
   /** `/allay privacy decline`: nothing goes to the backend, and the question is dropped. */
   fun decline(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    Windows.close(player)
     pending.remove(player.uniqueId)
     adults.remove(player.uniqueId)
     consents.declined(player.uniqueId)
@@ -367,5 +402,9 @@ class PrivacyCommands(
     private val UNTIL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     /** A question older than this doesn't go on when its asker agrees: they've moved on. */
     private const val PENDING_MS = 10 * 60_000L
+    /** Widths in the window, in pixels: the text, the notice's buttons, and the age bands. */
+    private const val BODY_WIDTH = 400
+    private const val BUTTON_WIDTH = 150
+    private const val AGE_WIDTH = 200
   }
 }

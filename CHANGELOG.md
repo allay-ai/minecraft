@@ -2,6 +2,11 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.8.0
+
+- 🪟 **The notice and the age question in a window.** Allay asks for agreement in the game's own window instead of thirty-odd lines of chat: the age bands as buttons, then what Allay sends and keeps, with “I agree”, “No, thanks”, and the privacy policy at the bottom. Escape closes it; one line in chat opens it again (`/allay privacy review`). Addresses like allay.chat in it are links. Paper draws it with its own dialog API, Spigot with BungeeCord's.
+- 🌍 **The age question only where the law asks it.** Players from the EU, the EEA, and the US, or from an unknown country, say their age first; everyone else agrees without it, and an agreement without an age no longer asks them again.
+
 ## 6.7.1
 
 - 🏷️ **Your server's name, not its MOTD.** `/allay link` sends `server.name` to the bot when it's set, and the MOTD only otherwise, so @AllayChatBot and the admin panel call your server what you named it.
