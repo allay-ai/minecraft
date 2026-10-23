@@ -208,15 +208,18 @@ class Identity(private val billing: Billing, private val config: Config, private
   }
 }
 
-/** The license endpoints. Blocking; call them off the server thread. */
-class Billing(private val client: OkHttpClient, private val config: Config, val license: License) {
+/**
+ * The license endpoints. Blocking; call them off the server thread. [loader] and [side] go with a new license, so the
+ * backend can make one from a player's own game Solo (backend 6.12).
+ */
+class Billing(private val client: OkHttpClient, private val config: Config, val license: License, private val loader: String? = null, private val side: String? = null) {
   private val json = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
   }
   private val errorParser = ErrorParser()
 
-  @Serializable private data class LinkRequest(val name: String? = null)
+  @Serializable private data class LinkRequest(val name: String? = null, val loader: String? = null, val side: String? = null)
 
   fun status(): LicenseStatus = json.decodeFromString(send(Request.Builder().url(url()).get().build()))
 
@@ -229,7 +232,7 @@ class Billing(private val client: OkHttpClient, private val config: Config, val 
     if (license.broken) throw ApiErrorException(ApiError(LICENSE_FILE_BROKEN, "license.key holds no license"))
     val hadLicense = license.read() != null
     val name = config.server.name.ifEmpty { null } ?: serverName?.let { Billing.serverName(it) }?.ifEmpty { null }
-    val body = json.encodeToString(LinkRequest(name))
+    val body = json.encodeToString(LinkRequest(name, loader, side))
     val claim = json.decodeFromString<LicenseClaim>(send(Request.Builder().url(url()).post(body.toRequestBody(JSON)).build()))
     if (!hadLicense && claim.billing) claim.license?.takeIf(License::valid)?.let(license::write)
     return claim

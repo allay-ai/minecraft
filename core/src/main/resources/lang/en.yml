@@ -595,6 +595,7 @@ errors:
     TOKEN_INVALID: "&eAllay can't sign in on this server right now. Your admins know what to do."
     TOKEN_NOT_SET: "&eAllay can't sign in on this server right now. Your admins know what to do."
     PLAYER_BLOCKED: "&cAllay is switched off for you on this server."
+    SOLO_PLAYER_TAKEN: "&cThis Allay belongs to another player: a Solo license answers one. Its owner can hand it on in the Telegram bot."
   http:
     "400": "&cBad request. Try rephrasing."
     "401": "&cAuthorization failed. Tell an admin."
@@ -625,6 +626,9 @@ billing:
     week: "weekly"
     month: "monthly"
     year: "yearly"
+    solo_week: "Solo weekly"
+    solo_month: "Solo monthly"
+    solo_year: "Solo yearly"
   link:
     byok: "&7/allay link is for the subscription. This server pays with its own key now; to switch, set &fprovider.mode: hosted&7 in config.yml and run &f/allay reload&7."
     created: "&aA new license is saved in &fplugins/Allay/license.key&a. Keep it to yourself: whoever has it uses your subscription."

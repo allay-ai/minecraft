@@ -595,6 +595,7 @@ errors:
     TOKEN_INVALID: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
     TOKEN_NOT_SET: "&eO Allay não consegue entrar neste servidor agora. Seus admins sabem o que fazer."
     PLAYER_BLOCKED: "&cO Allay está desativado para você neste servidor."
+    SOLO_PLAYER_TAKEN: "&cEste Allay é de outro jogador: uma licença Solo responde a um só. O dono pode passá-la no bot do Telegram."
   http:
     "400": "&cPedido inválido. Tente reformular."
     "401": "&cFalha na autorização. Avise um admin."
@@ -625,6 +626,9 @@ billing:
     week: "semanal"
     month: "mensal"
     year: "anual"
+    solo_week: "Solo semanal"
+    solo_month: "Solo mensal"
+    solo_year: "Solo anual"
   link:
     byok: "&7/allay link é para a assinatura. Agora este servidor paga com a própria chave; para mudar, coloque &fprovider.mode: hosted&7 no config.yml e use &f/allay reload&7."
     created: "&aUma licença nova foi salva em &fplugins/Allay/license.key&a. Guarde só para você: quem tiver ela usa a sua assinatura."

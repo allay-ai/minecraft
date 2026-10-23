@@ -595,6 +595,7 @@ errors:
     TOKEN_INVALID: "&eAllay kann sich auf diesem Server gerade nicht anmelden. Deine Admins wissen, was zu tun ist."
     TOKEN_NOT_SET: "&eAllay kann sich auf diesem Server gerade nicht anmelden. Deine Admins wissen, was zu tun ist."
     PLAYER_BLOCKED: "&cAllay ist auf diesem Server für dich abgeschaltet."
+    SOLO_PLAYER_TAKEN: "&cDieses Allay gehört einem anderen Spieler: Eine Solo-Lizenz antwortet nur einem. Ihr Besitzer kann sie im Telegram-Bot weitergeben."
   http:
     "400": "&cUngültige Anfrage. Formulier es anders."
     "401": "&cAnmeldung fehlgeschlagen. Sag einem Admin Bescheid."
@@ -625,6 +626,9 @@ billing:
     week: "Woche"
     month: "Monat"
     year: "Jahr"
+    solo_week: "Solo-Woche"
+    solo_month: "Solo-Monat"
+    solo_year: "Solo-Jahr"
   link:
     byok: "&7/allay link ist fürs Abo. Dieser Server zahlt gerade mit seinem eigenen Schlüssel; zum Wechseln setz &fprovider.mode: hosted&7 in config.yml und führ &f/allay reload&7 aus."
     created: "&aEine neue Lizenz liegt in &fplugins/Allay/license.key&a. Behalt sie für dich: Wer sie hat, nutzt dein Abo."

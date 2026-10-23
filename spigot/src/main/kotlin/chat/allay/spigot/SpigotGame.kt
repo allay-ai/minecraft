@@ -57,6 +57,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun effects(config: Config): Effects = BukkitEffects(plugin, config)
   override val software: String get() = server.name
   override val gameVersion: String get() = WorldTools.version(server.bukkitVersion)
+  override val loader = "spigot"
   // server-ip is usually empty: the game listens everywhere, and only the owner knows the name players type.
   override val address: String? get() = server.ip.trim().takeIf { it.isNotEmpty() && it != "0.0.0.0" }
   override val port: Int get() = server.port

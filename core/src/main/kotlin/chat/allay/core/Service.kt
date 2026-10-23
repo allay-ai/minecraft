@@ -27,6 +27,15 @@ interface Host<C> {
   val software: String
   val gameVersion: String
 
+  /** What Allay runs on: `spigot` for the plugin, `fabric` or `neoforge` for a mod. */
+  val loader: String
+
+  /**
+   * Where Allay runs: `server` (a dedicated server), `integrated` (the server inside a player's own game: singleplayer or
+   * LAN), or `client` (a mod in the player's game on a server without Allay).
+   */
+  val side: String get() = "server"
+
   /** The address the game listens on when the server's config names one, and its port; for the backend's admin panel. */
   val address: String? get() = null
   val port: Int? get() = null
@@ -168,7 +177,7 @@ class Service<C>(
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
       player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null, position = asker.position) },
-      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port),
+      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port, host.loader, host.side),
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
       provider = credentials.block(run.model),
@@ -298,6 +307,8 @@ class Service<C>(
     val plugin_version: String,
     val address: String? = null,
     val port: Int? = null,
+    val loader: String? = null,
+    val side: String? = null,
   )
 
   /**
@@ -305,7 +316,7 @@ class Service<C>(
    * A name another server on the backend holds fails with `NAME_TAKEN`.
    */
   suspend fun register(motd: String?) = withContext(IO) {
-    val body = Register(serverId, config.server.name.ifEmpty { null }, motd, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port)
+    val body = Register(serverId, config.server.name.ifEmpty { null }, motd, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port, host.loader, host.side)
     send("/api/v2/server", "PUT", json.encodeToString(Register.serializer(), body))
     Unit
   }

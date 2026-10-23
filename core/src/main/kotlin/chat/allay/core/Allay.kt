@@ -46,6 +46,10 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     /** The server software and the game version, like `Paper` and `26.3`, and where it listens. */
     val software: String
     val gameVersion: String
+
+    /** What Allay runs on and where, as [Host.loader] and [Host.side] say. */
+    val loader: String
+    val side: String get() = "server"
     val address: String? get() = null
     val port: Int? get() = null
 
@@ -162,7 +166,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     effects = game.effects(config)
     animator = Animator(platform, config, effects)
     val tools = ToolRegistry(game.tools(), config.tools::enabled)
-    val licenses = Billing(client, config, license)
+    val licenses = Billing(client, config, license, game.loader, game.side)
     val identity = Identity(licenses, config, { platform.motd }, log)
     service = Service(config, client, tools, zones, serverId, host, scope, credentials, game.tasks, identity) { settings.of(it).full_privacy }
     quota.report()
@@ -278,6 +282,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     override val pluginVersion get() = platform.version
     override val software get() = game.software
     override val gameVersion get() = game.gameVersion
+    override val loader get() = game.loader
+    override val side get() = game.side
     override val address get() = game.address
     override val port get() = game.port
     override fun context(run: Run) = game.context(run)

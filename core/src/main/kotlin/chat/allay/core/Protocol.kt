@@ -69,7 +69,11 @@ object Protocol {
    * [id] is random and kept by the plugin; it names the server's shared thread of public questions. [address] and [port]
    * say where players join, for the backend's admin panel (backend 6.6).
    */
-  @Serializable data class ServerInfo(val id: String? = null, val software: String, val version: String, val plugin_version: String, val address: String? = null, val port: Int? = null)
+  /** [loader] and [side] since backend 6.12: what Allay runs on and where, see [Host.loader] and [Host.side]. */
+  @Serializable data class ServerInfo(
+    val id: String? = null, val software: String, val version: String, val plugin_version: String, val address: String? = null, val port: Int? = null,
+    val loader: String? = null, val side: String? = null,
+  )
 
   @Serializable data class Start(val run_id: String, val model: String? = null)
 

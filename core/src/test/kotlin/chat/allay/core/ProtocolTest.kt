@@ -23,6 +23,14 @@ class ProtocolTest {
     )
   }
 
+  @Test fun `the server says what Allay runs on and where`() {
+    val server = Protocol.ServerInfo(software = "Paper", version = "26.3", plugin_version = "6.10.0", loader = "spigot", side = "server")
+    assertEquals(
+      """{"software":"Paper","version":"26.3","plugin_version":"6.10.0","loader":"spigot","side":"server"}""",
+      Protocol.json.encodeToString(Protocol.ServerInfo.serializer(), server),
+    )
+  }
+
   @Test fun `full privacy goes with the player only when it's on`() {
     val off = Protocol.PlayerInfo("Steve", "u", op = false)
     val on = off.copy(private = true)
