@@ -1,7 +1,9 @@
 package chat.allay.spigot.menus
 
-import chat.allay.spigot.Languages
-import chat.allay.spigot.Locales
+import chat.allay.core.Languages
+import chat.allay.core.Locales
+import chat.allay.spigot.audience
+import chat.allay.spigot.of
 
 import org.bukkit.Material
 import org.bukkit.Sound
@@ -20,7 +22,7 @@ class LanguageMenu(
   override fun draw() {
     clear()
     val lang = locales.of(player)
-    val chosen = languages.chosen(player)
+    val chosen = languages.chosen(player.audience)
     val current = lang.text("menus.language.current")
     val pick = lang.text("menus.language.pick")
     set(AUTO, icon(Material.COMPASS, lang.text("menus.language.auto"), listOf(lang.text("menus.language.auto_what"), "", if (chosen == null) current else pick)).shine(chosen == null))
@@ -42,7 +44,7 @@ class LanguageMenu(
 
   /** Back to the settings, already in the new language. */
   private fun picked(code: String?) {
-    languages.choose(player, code)
+    languages.choose(player.audience, code)
     player.playSound(player.location, Sound.UI_BUTTON_CLICK, 0.5f, 1.2f)
     back()
   }

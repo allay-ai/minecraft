@@ -1,10 +1,16 @@
 package chat.allay.spigot.menus
 
+import chat.allay.spigot.of
+import chat.allay.spigot.code
+import chat.allay.spigot.audience
+
 import chat.allay.core.Lang
 import chat.allay.core.Permissions
-import chat.allay.spigot.Languages
-import chat.allay.spigot.MemoryCommands
-import chat.allay.spigot.PrivacyCommands
+import chat.allay.core.Languages
+import chat.allay.core.MemoryCommands
+import chat.allay.core.PrivacyCommands
+import chat.allay.spigot.audience
+import chat.allay.spigot.explain
 import chat.allay.spigot.tools.Features
 import org.bukkit.Material
 import org.bukkit.Sound
@@ -85,29 +91,29 @@ class SettingsMenu(
     val settings = features.settings.of(player.uniqueId)
     when (slot) {
       CHAT, STATE_CHAT -> if (chatAllowed) {
-        features.chat.set(player, !settings.chat_mode)
+        features.chat.set(player.audience, !settings.chat_mode)
         changed()
       }
       TIP, STATE_TIP -> if (chatAllowed) {
-        features.chat.hints(player, !settings.hints)
+        features.chat.hints(player.audience, !settings.hints)
         changed()
       }
       PRIVATE, STATE_PRIVATE -> if (askAllowed) {
-        privacy.setFull(player, !settings.full_privacy)
+        privacy.setFull(player.audience, !settings.full_privacy)
         changed()
       }
       MEMORY -> if (askAllowed) {
         player.closeInventory()
-        memory.open(player)
+        memory.open(player.audience)
       }
       // A fresh start can't be undone, so a plain click only explains how.
       NEW -> if (askAllowed && shift) {
         player.closeInventory()
-        memory.newSession(player)
+        memory.newSession(player.audience)
       }
       DATA -> if (askAllowed) {
         player.closeInventory()
-        privacy.info(player)
+        privacy.info(player.audience)
       }
       LANGUAGE -> chooseLanguage()
       RELOAD -> if (reloadAllowed) {

@@ -1,5 +1,9 @@
 package chat.allay.spigot.tools
 
+import chat.allay.spigot.of
+import chat.allay.spigot.code
+import chat.allay.spigot.audience
+
 import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.spigot.send
@@ -25,7 +29,6 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitTask
-import chat.allay.spigot.Minecraft.formatMessage
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.hypot
@@ -37,7 +40,7 @@ import kotlin.math.max
  */
 class Goals(
   private val plugin: Plugin,
-  private val locales: chat.allay.spigot.Locales,
+  private val locales: chat.allay.core.Locales,
   private val data: PlayerData,
   private val max: () -> Int,
 ) : Listener {
@@ -150,7 +153,7 @@ class Goals(
   private fun update(player: Player, goal: Goal) {
     if (goal.done) return complete(player, goal)
     val bar = bars[key(player.uniqueId, goal.id)] ?: return show(player)
-    bar.setTitle(formatMessage(label(goal, locales.of(player))))
+    bar.setTitle(Legacy.color(label(goal, locales.of(player))))
     bar.progress = goal.fraction
   }
 
@@ -168,7 +171,7 @@ class Goals(
       bars.computeIfAbsent(key(player.uniqueId, goal.id)) {
         val color = runCatching { BarColor.valueOf(goal.color.uppercase()) }.getOrDefault(BarColor.GREEN)
         val style = runCatching { BarStyle.valueOf(goal.style.uppercase()) }.getOrDefault(BarStyle.SOLID)
-        Bukkit.createBossBar(formatMessage(label(goal, locales.of(player))), color, style)
+        Bukkit.createBossBar(Legacy.color(label(goal, locales.of(player))), color, style)
       }.apply {
         progress = goal.fraction
         if (player !in players) addPlayer(player)

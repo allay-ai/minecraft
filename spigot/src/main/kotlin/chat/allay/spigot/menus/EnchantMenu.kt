@@ -101,7 +101,7 @@ class EnchantMenu(player: Player, private val lang: Lang, private val item: Item
       slot == PLAN -> {
         if (selected.isEmpty()) {
           player.playSound(player.location, Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f)
-          player.sendMessage(chat.allay.spigot.Minecraft.formatMessage(lang.text("menus.enchant.plan_empty")))
+          player.sendMessage(Legacy.color(lang.text("menus.enchant.plan_empty")))
           return
         }
         val books = selected.toList()

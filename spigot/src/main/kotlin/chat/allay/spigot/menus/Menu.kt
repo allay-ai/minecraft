@@ -17,14 +17,13 @@ import org.bukkit.inventory.InventoryHolder
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitTask
-import chat.allay.spigot.Minecraft.formatMessage
 
 /**
  * A window that only shows things. Every item in it is a picture: [MenuListener] cancels every click and drag,
  * so nothing can leave it, and clicks become [click] calls instead.
  */
 abstract class Menu(val player: Player, size: Int, title: String) : InventoryHolder {
-  private val inventory: Inventory = Bukkit.createInventory(this, size, formatMessage(title))
+  private val inventory: Inventory = Bukkit.createInventory(this, size, Legacy.color(title))
 
   override fun getInventory(): Inventory = inventory
 
@@ -60,8 +59,8 @@ abstract class Menu(val player: Player, size: Int, title: String) : InventoryHol
 
     fun ItemStack.lore(name: String?, lore: List<String>): ItemStack = apply {
       val meta = itemMeta ?: return@apply
-      name?.let { meta.setDisplayName(formatMessage(it)) }
-      if (lore.isNotEmpty()) meta.lore = (meta.lore.orEmpty()) + lore.map(::formatMessage)
+      name?.let { meta.setDisplayName(Legacy.color(it)) }
+      if (lore.isNotEmpty()) meta.lore = (meta.lore.orEmpty()) + lore.map(Legacy::color)
       itemMeta = meta
     }
   }

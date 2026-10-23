@@ -2,7 +2,7 @@ package chat.allay.core
 
 /**
  * A window the game draws over the screen (a dialog, since 1.21.6): a title, paragraphs, text fields, and buttons in
- * [columns], with [exit] at the bottom. Texts come colored with `§` codes; each platform draws the window with its own API.
+ * [columns], with [exit] at the bottom. Texts may carry `&` codes; each platform draws [ready] with its own API.
  */
 data class Window(
   val title: String,
@@ -25,4 +25,22 @@ data class Window(
 
   /** A text field the buttons' commands read as `$(key)`. */
   data class Input(val key: String, val label: String, val maxLength: Int, val width: Int, val initial: String = "")
+
+  /**
+   * The window as the game should draw it, colored. Gray reads poorly over the blurred game, so a window's paragraphs
+   * are white, and what chat shows in white turns yellow.
+   */
+  fun ready(): Window = copy(title = Legacy.color(title), paragraphs = paragraphs.map { brighter(Legacy.color(it)) })
+
+  companion object {
+    /** Widths in pixels: the text, and a button or field across it. */
+    const val BODY = 400
+    const val WIDE = 300
+
+    /** A button from [lang]'s texts: [label] and [hover] are keys. */
+    fun button(lang: Lang, label: String, hover: String, command: String? = null, url: String? = null, width: Int = WIDE, vararg values: Pair<String, Any>) =
+      Button(Legacy.color(lang.text(label, *values)), Legacy.color(lang.text(hover, *values)), width, command, url)
+
+    private fun brighter(text: String) = text.replace("§f", "§e").replace("§7", "§f").replace("§8", "§7")
+  }
 }

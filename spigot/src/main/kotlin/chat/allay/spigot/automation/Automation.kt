@@ -1,5 +1,9 @@
 package chat.allay.spigot.automation
 
+import chat.allay.spigot.of
+import chat.allay.spigot.code
+import chat.allay.spigot.audience
+
 import chat.allay.core.*
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Reservations
@@ -7,10 +11,9 @@ import chat.allay.core.tasks.Task
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ToolError
-import chat.allay.spigot.Clicks
-import chat.allay.spigot.Locales
-import chat.allay.spigot.Minecraft
-import chat.allay.spigot.QuotaGate
+import chat.allay.core.Clicks
+import chat.allay.core.Locales
+import chat.allay.core.QuotaGate
 import chat.allay.spigot.SenderAsker
 import chat.allay.spigot.send
 import chat.allay.spigot.tools.ToolContext
@@ -186,15 +189,15 @@ class Automation(
   /** A line from the agent to its player, with [buttons] under it. */
   fun say(player: Player, task: Task, text: String, buttons: List<Button> = emptyList()) {
     line(player, task, "automation.say", "text" to text)
-    if (buttons.isNotEmpty()) clicks().show(player, buttons)
+    if (buttons.isNotEmpty()) clicks().show(player.audience, buttons)
   }
 
   private fun line(player: Player, task: Task, key: String, vararg values: Pair<String, Any?>) {
     val lang = locales.of(player)
     val text = values.toMap()["text"]?.toString()
-    val template = lang.text(key, "title" to title(player, task), *values.filter { it.first != "text" }.toTypedArray(), "text" to Minecraft.SLOT)
+    val template = lang.text(key, "title" to title(player, task), *values.filter { it.first != "text" }.toTypedArray(), "text" to Legacy.SLOT)
     // The agent's own words keep their colors, like Allay's answers; nothing a player typed gets here unescaped.
-    player.sendMessage(Minecraft.formatMessage(if (text != null) template.replace(Minecraft.SLOT, text) else template.replace(Minecraft.SLOT, "")))
+    player.sendMessage(Legacy.color(if (text != null) template.replace(Legacy.SLOT, text) else template.replace(Legacy.SLOT, "")))
   }
 
   /** `/allay cancel` with no answer running: stops the player's agents. True when there were any. */
@@ -216,7 +219,7 @@ class Automation(
     val player = plugin.server.getPlayer(task.owner) ?: return end(task, null)
     val settings = config().automation
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
-    if (!quota().allows(player)) return end(task, locales.of(player).text("automation.quota"))
+    if (!quota().allows(player.audience)) return end(task, locales.of(player).text("automation.quota"))
     val message = task.drain()
     task.wakes++
     task.running = true
@@ -227,7 +230,7 @@ class Automation(
     agent.said = null
     val lang = locales.of(player)
     val run = Run(SenderAsker(player, locales.code(player)), Run.Mode.TASK, lang, config().ui.verbSeconds, task = task)
-    run.model = quota().model(player)
+    run.model = quota().model(player.audience)
     agent.run = run
     val quiet = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) {}

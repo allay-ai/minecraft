@@ -1,12 +1,13 @@
 package chat.allay.spigot
 
 import chat.allay.core.Config
+import chat.allay.core.Locales
 import chat.allay.core.License
 import chat.allay.core.LicenseStatus
 import chat.allay.core.PlayerSettings
 import chat.allay.core.tools.Goal
 import chat.allay.spigot.tools.Goals
-import chat.allay.spigot.tools.Reminders
+import chat.allay.core.tools.Reminders
 import com.djrapitops.plan.capability.CapabilityService
 import com.djrapitops.plan.extension.CallEvents
 import com.djrapitops.plan.extension.DataExtension

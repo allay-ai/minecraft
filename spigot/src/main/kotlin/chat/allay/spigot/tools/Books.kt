@@ -7,7 +7,6 @@ import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.BookMeta
 import chat.allay.core.tools.WrittenBook
-import chat.allay.spigot.Minecraft.formatMessage
 
 /** A book the assistant wrote, as the game's written book. */
 object BookItems {
@@ -16,7 +15,7 @@ object BookItems {
     meta.title = book.title.take(32)
     meta.author = author
     meta.generation = BookMeta.Generation.ORIGINAL
-    meta.pages = book.pages.map(::formatMessage)
+    meta.pages = book.pages.map(Legacy::color)
     itemMeta = meta
   }
 }

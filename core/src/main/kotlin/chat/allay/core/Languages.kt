@@ -1,8 +1,4 @@
-package chat.allay.spigot
-
-import chat.allay.core.*
-
-import org.bukkit.entity.Player
+package chat.allay.core
 
 /** `/allay language` and the settings window: the player picks the language Allay speaks to them, or leaves it to Allay. */
 class Languages(private val locales: Locales, private val settings: PlayerSettings) {
@@ -13,11 +9,11 @@ class Languages(private val locales: Locales, private val settings: PlayerSettin
   fun codes(): List<String> = locales.codes.sortedWith(compareBy({ it !in Texts.BUNDLED }, { Texts.BUNDLED.indexOf(it) }, { it }))
 
   /** The player's own choice, or null when Allay picks. */
-  fun chosen(player: Player): String? = settings.of(player.uniqueId).language?.takeIf { it in locales.codes }
+  fun chosen(player: PlayerAudience): String? = settings.of(player.uuid).language?.takeIf { it in locales.codes }
 
   /** Sets the player's language, or with null hands the choice back to Allay; they hear it in the language they get. */
-  fun choose(player: Player, code: String?) {
-    settings.update(player.uniqueId) { it.copy(language = code) }
+  fun choose(player: PlayerAudience, code: String?) {
+    settings.update(player.uuid) { it.copy(language = code) }
     locales.chose(player)
     val lang = locales.of(player)
     if (code == null) lang.send(player, "messages.language_auto", "language" to name(lang.code))
@@ -25,7 +21,7 @@ class Languages(private val locales: Locales, private val settings: PlayerSettin
   }
 
   /** `/allay language <code|auto>`; false when there's no such language. */
-  fun choose(player: Player, typed: String): Boolean {
+  fun choose(player: PlayerAudience, typed: String): Boolean {
     val wanted = LocaleResolver.normalize(typed)
     if (wanted == "auto") return true.also { choose(player, null) }
     val code = locales.codes.firstOrNull { it == wanted } ?: locales.codes.firstOrNull { it == wanted.substringBefore('_') } ?: return false

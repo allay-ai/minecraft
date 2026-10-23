@@ -1,5 +1,7 @@
 package chat.allay.spigot.tools
 
+import chat.allay.spigot.audience
+
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
@@ -78,8 +80,8 @@ object AllayTools {
       if (!player.hasPermission(Permissions.CHAT)) throw ToolError("chat mode is not allowed for this player on this server")
       // The answer confirms the change, so the plugin only speaks up to explain chat mode's prefixes.
       var now: Settings = context.features.settings.of(player.uniqueId)
-      chatMode?.let { now = context.features.chat.set(player, it, announce = false) }
-      hints?.let { now = context.features.chat.hints(player, it, announce = false) }
+      chatMode?.let { now = context.features.chat.set(player.audience, it, announce = false) }
+      hints?.let { now = context.features.chat.hints(player.audience, it, announce = false) }
       val result = buildJsonObject {
         put("chat_mode", now.chat_mode)
         put("hints", now.hints)

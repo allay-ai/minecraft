@@ -1,64 +1,50 @@
-package chat.allay.spigot
-
-import chat.allay.core.*
-import chat.allay.core.tools.*
-
-import net.md_5.bungee.api.chat.TextComponent
-import org.bukkit.ChatColor
-import org.bukkit.plugin.java.JavaPlugin
-import org.bukkit.scheduler.BukkitTask
-import chat.allay.spigot.Minecraft.formatMessage
+package chat.allay.core
 
 /**
  * Polls the subscription every 5 minutes, off the server thread, and tells operators online (and the console) about a
  * payment, a quota past 80% and 100%, and an end three days off. `subscription.json` keeps what they heard across restarts.
  */
 class BillingWatch(
-  private val plugin: JavaPlugin,
+  private val platform: Platform,
   private val locales: Locales,
   private val billing: Billing,
   private val credentials: Credentials,
   private val announcements: Announcements,
   private val commands: BillingCommands,
 ) {
-  private var task: BukkitTask? = null
+  private var task: AutoCloseable? = null
 
   /** The subscription as the last poll saw it; null with a key of the server's own or before the first poll. */
   @Volatile var status: LicenseStatus? = null; private set
 
   fun start() {
     stop()
-    task = plugin.server.scheduler.runTaskTimerAsynchronously(plugin, Runnable(::poll), 20L * 30, 20L * 60 * 5)
+    task = platform.scheduler.every(20L * 30, 20L * 60 * 5, async = true, ::poll)
   }
 
   fun stop() {
-    task?.cancel()
+    task?.close()
     task = null
   }
 
   private fun poll() {
     if (credentials.byok || billing.license.read() == null) return
     val status = runCatching { billing.status() }
-      .onFailure { plugin.logger.fine("Couldn't check the subscription: ${credentials.scrub(it.toString())}") }
+      .onFailure { platform.log.fine("Couldn't check the subscription: ${credentials.scrub(it.toString())}") }
       .getOrNull() ?: return
     this.status = status
     val notices = announcements.check(status)
-    if (notices.isNotEmpty() && plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable { notices.forEach(::announce) })
+    if (notices.isNotEmpty()) platform.scheduler.main { notices.forEach(::announce) }
   }
 
   private fun announce(notice: Notice) {
-    val operators = plugin.server.onlinePlayers.filter { it.hasPermission(Permissions.ADMIN) }
-    operators.forEach { player ->
+    platform.players.filter { it.can(Permissions.ADMIN) }.forEach { player ->
       val lang = locales.of(player)
-      val text = formatMessage(text(lang, notice, commands.zone(player)))
-      if (notice is Notice.Paid) {
-        player.spigot().sendMessage(*plain(text))
-      } else {
-        player.spigot().sendMessage(*plain(text), TextComponent(" "), commands.linkButton(lang, "billing.notice.renew"))
-      }
+      val text = Line.Text(Legacy.color(text(lang, notice, commands.zone(player))))
+      player.send(if (notice is Notice.Paid) Line(text) else Line(text, Line.SPACE, commands.linkButton(lang, "billing.notice.renew")))
     }
-    val console = plugin.server.consoleSender
-    plugin.logger.info(ChatColor.stripColor(formatMessage(text(locales.of(console), notice, commands.zone(console)))))
+    val console = platform.console
+    platform.log.info(Legacy.strip(Legacy.color(text(locales.of(console), notice, commands.zone(console)))))
   }
 
   private fun text(lang: Lang, notice: Notice, zone: java.time.ZoneId): String = when (notice) {

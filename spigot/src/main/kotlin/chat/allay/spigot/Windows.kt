@@ -1,8 +1,6 @@
 package chat.allay.spigot
 
-import chat.allay.core.Lang
 import chat.allay.core.Window
-import chat.allay.spigot.Minecraft.formatMessage
 import chat.allay.spigot.paper.PaperWindows
 import net.md_5.bungee.api.ChatColor
 import net.md_5.bungee.api.chat.ClickEvent
@@ -23,24 +21,11 @@ import org.bukkit.entity.Player
 object Windows {
   private val paper = runCatching { Class.forName("io.papermc.paper.dialog.Dialog") }.isSuccess
 
-  /** Widths in pixels: the text, and a button or field across it. */
-  const val BODY = 400
-  const val WIDE = 300
-
-  /**
-   * Gray reads poorly over the blurred game, so a window's paragraphs are white, and what chat shows in white turns
-   * yellow. Texts may still carry `&` codes; they're colored here.
-   */
+  /** Draws [window] colored, as [Window.ready] has it. */
   fun show(player: Player, window: Window) {
-    val ready = window.copy(title = formatMessage(window.title), paragraphs = window.paragraphs.map { brighter(formatMessage(it)) })
+    val ready = window.ready()
     if (paper) PaperWindows.show(player, ready) else spigot(player, ready)
   }
-
-  /** A button from [lang]'s texts: [label] and [hover] are keys. */
-  fun button(lang: Lang, label: String, hover: String, command: String? = null, url: String? = null, width: Int = WIDE, vararg values: Pair<String, Any>) =
-    Window.Button(formatMessage(lang.text(label, *values)), formatMessage(lang.text(hover, *values)), width, command, url)
-
-  private fun brighter(text: String) = text.replace("§f", "§e").replace("§7", "§f").replace("§8", "§7")
 
   fun close(player: Player) = if (paper) PaperWindows.close(player) else player.clearDialog()
 

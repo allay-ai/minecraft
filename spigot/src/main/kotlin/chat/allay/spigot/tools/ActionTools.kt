@@ -1,5 +1,7 @@
 package chat.allay.spigot.tools
 
+import chat.allay.spigot.audience
+
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
@@ -156,11 +158,11 @@ object ActionTools {
         val minutes = args.int("minutes") ?: throw ToolError("minutes is required to add a reminder")
         if (minutes !in 1..120) throw ToolError("minutes must be 1–120")
         val text = args.string("text")?.take(100) ?: throw ToolError("text is required to add a reminder")
-        val reminder = context.reminders.add(player, minutes, text)
+        val reminder = context.reminders.add(player.audience, minutes, text)
         ToolOutput(buildJsonObject { put("id", reminder.id); put("minutes", minutes); put("text", text) }, lang.text("summary.reminder_set", "minutes" to minutes))
       }
       "list" -> {
-        val list = context.reminders.of(player).list()
+        val list = context.reminders.of(player.uniqueId).list()
         val now = System.currentTimeMillis()
         val result = buildJsonObject {
           put("reminders", buildJsonArray {
@@ -177,7 +179,7 @@ object ActionTools {
         ToolOutput(result, if (list.isEmpty()) lang.text("summary.reminders_none") else lang.text("summary.reminders", "count" to list.size))
       }
       "cancel" -> {
-        val book = context.reminders.of(player)
+        val book = context.reminders.of(player.uniqueId)
         val all = args.bool("all") == true
         val cancelled = if (all) book.cancelAll() else book.cancel(args.string("id") ?: throw ToolError("id is required to cancel a reminder, or all: true"))
         if (cancelled == 0 && !all) throw ToolError("there is no reminder with this id")

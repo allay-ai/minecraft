@@ -31,5 +31,5 @@ val Run.sender: CommandSender get() = (asker as SenderAsker).sender
 /** Sends the message unless the server turned it off with an empty text. */
 fun Lang.send(to: CommandSender, key: String, vararg values: Pair<String, Any?>) {
   val text = text(key, *values)
-  if (text.isNotEmpty()) to.sendMessage(Minecraft.formatMessage(text))
+  if (text.isNotEmpty()) to.sendMessage(Legacy.color(text))
 }

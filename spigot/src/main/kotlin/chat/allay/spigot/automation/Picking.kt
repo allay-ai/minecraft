@@ -1,9 +1,13 @@
 package chat.allay.spigot.automation
 
+import chat.allay.spigot.of
+import chat.allay.spigot.code
+import chat.allay.spigot.audience
+
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ToolError
-import chat.allay.spigot.Locales
+import chat.allay.core.Locales
 import chat.allay.spigot.send
 import chat.allay.spigot.tools.Marks
 

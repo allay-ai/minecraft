@@ -1,19 +1,7 @@
-package chat.allay.spigot
-
-import chat.allay.core.*
-import chat.allay.core.tools.*
+package chat.allay.core
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import net.md_5.bungee.api.chat.ClickEvent
-import net.md_5.bungee.api.chat.HoverEvent
-import net.md_5.bungee.api.chat.TextComponent
-import net.md_5.bungee.api.chat.hover.content.Text
-import org.bukkit.OfflinePlayer
-import org.bukkit.command.CommandSender
-import org.bukkit.entity.Player
-import org.bukkit.plugin.java.JavaPlugin
-import chat.allay.spigot.Minecraft.formatMessage
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -26,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
  * and the hash of the notice (6.9), so a player is asked again when the notice or the policy changes.
  */
 class PrivacyCommands(
-  private val plugin: JavaPlugin,
+  private val platform: Platform,
   private val configuration: Config,
   private val locales: Locales,
   private val service: Service<*>,
@@ -34,13 +22,13 @@ class PrivacyCommands(
   private val settings: PlayerSettings,
   /** What the plugin holds about a player while they play; the backend keeps the rest. */
   private val data: PlayerData,
-  private val deaths: chat.allay.spigot.tools.Deaths,
-  private val goals: chat.allay.spigot.tools.Goals,
+  /** Forgets what the platform's own pieces hold about a player in memory: their last death, their goals' boss bars. */
+  private val forgetHere: (UUID) -> Unit,
   /** Who said they're too young to agree, sealed. */
   private val ages: Ages,
   private val scope: CoroutineScope,
   /** Stops the player's automation agents, which ask the backend on their own. */
-  private val stopAgents: (Player) -> Unit,
+  private val stopAgents: (PlayerAudience) -> Unit,
 ) {
   /** The question a player asked before agreeing; it goes on once they agree. [state] is why they were stopped. */
   private class Pending(val at: Long, val question: (() -> Unit)?, var state: Consents.State = Consents.State.MISSING)
@@ -54,30 +42,30 @@ class PrivacyCommands(
    * Before a question from a player Allay hasn't seen agree: the backend says whether they did, and if not, the notice
    * asks them. [question] runs on the server thread once they agree, or at once when they already have.
    */
-  fun ask(player: Player, question: (() -> Unit)?) {
+  fun ask(player: PlayerAudience, question: (() -> Unit)?) {
     val lang = locales.of(player)
     // Too young less than a year ago: no question to the backend, and none to the player.
-    if (ages.blocked(player.uniqueId)) return lang.send(player, "consent.age_blocked")
-    pending[player.uniqueId] = Pending(System.currentTimeMillis(), question)
+    if (ages.blocked(player.uuid)) return lang.send(player, "consent.age_blocked")
+    pending[player.uuid] = Pending(System.currentTimeMillis(), question)
     scope.launch {
       val state = try {
-        consents.check(player.uniqueId)
+        consents.check(player.uuid)
       } catch (error: Exception) {
-        pending.remove(player.uniqueId)
-        plugin.logger.warning("Couldn't read a player's consent: ${(error as? ApiErrorException)?.apiError?.code ?: error.javaClass.simpleName}")
-        onMain { player.sendMessage(formatMessage(ErrorHandler.message(lang, error))) }
+        pending.remove(player.uuid)
+        platform.log.warning("Couldn't read a player's consent: ${(error as? ApiErrorException)?.apiError?.code ?: error.javaClass.simpleName}")
+        onMain { player.send(Legacy.color(ErrorHandler.message(lang, error))) }
         return@launch
       }
-      if (state == Consents.State.UNSUPPORTED) plugin.logger.warning("The backend can't keep players' consent (it's older than 6.1), so Allay asks nobody; update the backend")
+      if (state == Consents.State.UNSUPPORTED) platform.log.warning("The backend can't keep players' consent (it's older than 6.1), so Allay asks nobody; update the backend")
       onMain {
         when (state) {
           Consents.State.MISSING, Consents.State.CHANGED, Consents.State.AGE -> {
-            pending[player.uniqueId]?.state = state
+            pending[player.uuid]?.state = state
             // The age first, unless the backend's agreement already has it, then the notice.
-            if (needsAge(player.uniqueId)) ageQuestion(player) else next(player, state)
+            if (needsAge(player.uuid)) ageQuestion(player) else next(player, state)
             reminder(player)
           }
-          else -> pending.remove(player.uniqueId)?.question?.invoke() ?: lang.send(player, "consent.already")
+          else -> pending.remove(player.uuid)?.question?.invoke() ?: lang.send(player, "consent.already")
         }
       }
     }
@@ -87,11 +75,11 @@ class PrivacyCommands(
    * What Allay does with a player's data, under which law, in a window with the buttons to agree or not. A player who
    * agreed to an older notice first reads that it changed, and when they agreed.
    */
-  private fun notice(player: Player, changed: Boolean) {
+  private fun notice(player: PlayerAudience, changed: Boolean) {
     val lang = locales.of(player)
     val paragraphs = buildList {
       if (changed) {
-        val since = consents.previous(player.uniqueId)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
+        val since = consents.previous(player.uuid)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
         add(lang.text(if (since != null) "consent.changed" else "consent.changed_undated", "date" to since))
         add(lang.text("consent.changed_summary"))
       }
@@ -111,7 +99,7 @@ class PrivacyCommands(
   }
 
   /** After the age question, or without one: the notice, or for a player who only owed their age, the agreement itself. */
-  private fun next(player: Player, state: Consents.State) {
+  private fun next(player: PlayerAudience, state: Consents.State) {
     if (state == Consents.State.AGE) agree(player) else notice(player, changed = state == Consents.State.CHANGED)
   }
 
@@ -119,7 +107,7 @@ class PrivacyCommands(
    * “How old are you?” in a window with five neutral bands, and above them why Allay asks: the law lets only players
    * above an age, which depends on the country, agree to their data being used.
    */
-  private fun ageQuestion(player: Player) {
+  private fun ageQuestion(player: PlayerAudience) {
     val lang = locales.of(player)
     val bands = AgeGate.Band.entries.map { band ->
       val key = "consent.age_" + band.wire.replace('-', '_')
@@ -129,46 +117,43 @@ class PrivacyCommands(
   }
 
   /** The answer closes the window or opens the next one; Escape closes it, and the question waits for [PENDING_MS]. */
-  private fun show(player: Player, title: String, paragraphs: List<String>, buttons: List<Window.Button>, columns: Int) =
-    Windows.show(player, Window(title, paragraphs, buttons, columns, Windows.BODY, links = true))
+  private fun show(player: PlayerAudience, title: String, paragraphs: List<String>, buttons: List<Window.Button>, columns: Int) =
+    player.show(Window(title, paragraphs, buttons, columns, Window.BODY, links = true))
 
   /** One line in chat under the window, to open it again after Escape. */
-  private fun reminder(player: Player) {
+  private fun reminder(player: PlayerAudience) {
     val lang = locales.of(player)
-    val button = TextComponent(*plain(formatMessage(lang.text("consent.reopen_button")))).apply {
-      clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy review")
-      hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text("consent.reopen_hover")))))
-    }
-    player.spigot().sendMessage(*plain(formatMessage(lang.text("consent.reopen"))), TextComponent(" "), button)
+    val button = Line.Button(Legacy.color(lang.text("consent.reopen_button")), Legacy.color(lang.text("consent.reopen_hover")), Line.Click.Run("/allay privacy review"))
+    player.send(Line(Line.Text(Legacy.color(lang.text("consent.reopen"))), Line.SPACE, button))
   }
 
   /** `/allay privacy review`, from the line under the window: the window again, where the player left it. */
-  fun review(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    if (ages.blocked(player.uniqueId)) return locales.of(sender).send(sender, "consent.age_blocked")
-    val waiting = pending[player.uniqueId]?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }
+  fun review(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
+    if (ages.blocked(player.uuid)) return locales.of(sender).send(sender, "consent.age_blocked")
+    val waiting = pending[player.uuid]?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }
       ?: return ask(player, null)
-    if (needsAge(player.uniqueId)) ageQuestion(player) else next(player, waiting.state)
+    if (needsAge(player.uuid)) ageQuestion(player) else next(player, waiting.state)
   }
 
   /**
    * `/allay privacy age <band>`, from the age question's buttons. Old enough for the player's country goes on to the
    * notice; too young keeps nothing but a sealed note that they said so, so the question waits a year.
    */
-  fun age(sender: CommandSender, answer: String) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+  fun age(sender: Audience, answer: String) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
     val band = AgeGate.Band.parse(answer) ?: return locales.of(sender).send(sender, "privacy.usage")
-    if (AgeGate.allows(band, locales.country(player.uniqueId))) {
-      Windows.close(player)
-      adults[player.uniqueId] = System.currentTimeMillis()
-      next(player, pending[player.uniqueId]?.state ?: Consents.State.MISSING)
+    if (AgeGate.allows(band, locales.country(player.uuid))) {
+      player.closeWindow()
+      adults[player.uuid] = System.currentTimeMillis()
+      next(player, pending[player.uuid]?.state ?: Consents.State.MISSING)
       return
     }
-    Windows.close(player)
-    adults.remove(player.uniqueId)
-    pending.remove(player.uniqueId)
-    consents.declined(player.uniqueId)
-    ages.block(player.uniqueId)
+    player.closeWindow()
+    adults.remove(player.uuid)
+    pending.remove(player.uuid)
+    consents.declined(player.uuid)
+    ages.block(player.uuid)
     locales.of(sender).send(sender, "consent.age_under")
   }
 
@@ -181,34 +166,34 @@ class PrivacyCommands(
   private fun adult(player: UUID) = adults[player]?.let { System.currentTimeMillis() - it < PENDING_MS } == true
 
   private fun button(lang: Lang, text: String, hover: String, command: String? = null, url: String? = null, values: Array<Pair<String, Any>> = emptyArray(), width: Int = BUTTON_WIDTH) =
-    Window.Button(formatMessage(lang.text(text)), formatMessage(lang.text(hover, *values)), width, command, url)
+    Window.Button(Legacy.color(lang.text(text)), Legacy.color(lang.text(hover, *values)), width, command, url)
 
   /**
    * `/allay privacy agree`: the backend records it, and the question that brought up the notice goes on. A player who
    * hasn't said their age gets the age question first.
    */
-  fun agree(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    if (ages.blocked(player.uniqueId)) return locales.of(sender).send(sender, "consent.age_blocked")
-    if (needsAge(player.uniqueId)) return ageQuestion(player)
-    Windows.close(player)
+  fun agree(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
+    if (ages.blocked(player.uuid)) return locales.of(sender).send(sender, "consent.age_blocked")
+    if (needsAge(player.uuid)) return ageQuestion(player)
+    player.closeWindow()
     var question: (() -> Unit)? = null
     request(sender, after = { question?.invoke() }) { lang ->
-      consents.give(player.uniqueId, ageConfirmed = adults.remove(player.uniqueId) != null || consents.ageKnown(player.uniqueId))
+      consents.give(player.uuid, ageConfirmed = adults.remove(player.uuid) != null || consents.ageKnown(player.uuid))
       // What the player set before agreeing goes to the backend now, and what it kept comes back.
-      data.consented(player.uniqueId)
-      question = pending.remove(player.uniqueId)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
+      data.consented(player.uuid)
+      question = pending.remove(player.uuid)?.takeIf { System.currentTimeMillis() - it.at < PENDING_MS }?.question
       lang.text(if (question != null) "consent.given" else "consent.given_idle")
     }
   }
 
   /** `/allay privacy decline`: nothing goes to the backend, and the question is dropped. */
-  fun decline(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    Windows.close(player)
-    pending.remove(player.uniqueId)
-    adults.remove(player.uniqueId)
-    consents.declined(player.uniqueId)
+  fun decline(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
+    player.closeWindow()
+    pending.remove(player.uuid)
+    adults.remove(player.uuid)
+    consents.declined(player.uuid)
     locales.of(sender).send(sender, "consent.declined")
   }
 
@@ -216,13 +201,13 @@ class PrivacyCommands(
    * `/allay privacy withdraw`: Allay stops answering, the player's agents stop, and what the agreement covered goes: the
    * backend erases memories, places, deaths, settings, and the conversation (6.9), and nothing of theirs stays here.
    */
-  fun withdraw(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    Windows.close(player)
-    pending.remove(player.uniqueId)
-    forgetHere(player.uniqueId)
+  fun withdraw(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
+    player.closeWindow()
+    pending.remove(player.uuid)
+    forget(player.uuid)
     request(sender, after = { stopAgents(player) }) { lang ->
-      lang.text(if (consents.withdraw(player.uniqueId)) "consent.withdrawn" else "consent.not_given")
+      lang.text(if (consents.withdraw(player.uuid)) "consent.withdrawn" else "consent.not_given")
     }
   }
 
@@ -231,10 +216,10 @@ class PrivacyCommands(
    * UUID, or face. The switch lives here and goes with every question; the backend hears it at once only from a player
    * who agreed to the notice, since nothing about anyone else reaches it.
    */
-  fun full(sender: CommandSender, word: String?) {
+  fun full(sender: Audience, word: String?) {
     val lang = locales.of(sender)
-    val player = sender as? Player ?: return lang.send(sender, "messages.players_only")
-    val now = settings.of(player.uniqueId).full_privacy
+    val player = sender as? PlayerAudience ?: return lang.send(sender, "messages.players_only")
+    val now = settings.of(player.uuid).full_privacy
     val on = when (word?.lowercase()) {
       null -> return lang.send(player, if (now) "privacy.full_is_on" else "privacy.full_is_off")
       "on" -> true
@@ -246,12 +231,12 @@ class PrivacyCommands(
   }
 
   /** Flips the switch and tells the backend; the settings window calls it too. */
-  fun setFull(player: Player, on: Boolean) {
-    settings.update(player.uniqueId) { it.copy(full_privacy = on) }
+  fun setFull(player: PlayerAudience, on: Boolean) {
+    settings.update(player.uuid) { it.copy(full_privacy = on) }
     request(player) { lang ->
-      if (consents.known(player.uniqueId) || consents.check(player.uniqueId) == Consents.State.GIVEN) {
+      if (consents.known(player.uuid) || consents.check(player.uuid) == Consents.State.GIVEN) {
         try {
-          service.privacy(player.uniqueId.toString(), on)
+          service.privacy(player.uuid.toString(), on)
         } catch (error: ApiErrorException) {
           // A backend before 6.5 has no switch: it shows the name either way, and the player should know.
           if (error.apiError.statusCode in setOf(404, 405)) return@request lang.text("privacy.full_unsupported") else throw error
@@ -262,14 +247,14 @@ class PrivacyCommands(
   }
 
   /** The switch in the privacy window: flips it and shows the window again, without a line in chat. */
-  fun toggleFull(player: Player) {
-    val on = !settings.of(player.uniqueId).full_privacy
-    settings.update(player.uniqueId) { it.copy(full_privacy = on) }
+  fun toggleFull(player: PlayerAudience) {
+    val on = !settings.of(player.uuid).full_privacy
+    settings.update(player.uuid) { it.copy(full_privacy = on) }
     scope.launch {
       try {
-        if (consents.known(player.uniqueId) || consents.check(player.uniqueId) == Consents.State.GIVEN) service.privacy(player.uniqueId.toString(), on)
+        if (consents.known(player.uuid) || consents.check(player.uuid) == Consents.State.GIVEN) service.privacy(player.uuid.toString(), on)
       } catch (error: Exception) {
-        plugin.logger.warning("Couldn't send full privacy to the backend: ${error.javaClass.simpleName}")
+        platform.log.warning("Couldn't send full privacy to the backend: ${error.javaClass.simpleName}")
       }
       onMain { info(player) }
     }
@@ -279,86 +264,86 @@ class PrivacyCommands(
    * `/allay privacy`: a player's data in a window: what Allay keeps, full privacy as a switch, and buttons to download,
    * withdraw, or erase it all. The console reads it in lines.
    */
-  fun info(sender: CommandSender) {
-    val player = sender as? Player ?: return infoLines(sender)
+  fun info(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return infoLines(sender)
     val lang = locales.of(player)
-    val full = settings.of(player.uniqueId).full_privacy
+    val full = settings.of(player.uuid).full_privacy
     val paragraphs = buildList {
       addAll(lang.text("privacy.info").split('\n'))
       add(lang.text(if (full) "privacy.window.full_is_on" else "privacy.window.full_is_off"))
-      if (player.hasPermission(Permissions.ADMIN)) add(lang.text("privacy.admin"))
+      if (player.can(Permissions.ADMIN)) add(lang.text("privacy.admin"))
     }
     val buttons = listOf(
-      Windows.button(lang, if (full) "privacy.window.full_off" else "privacy.window.full_on", "privacy.window.full_hover", "/allay privacy full toggle"),
-      Windows.button(lang, "privacy.window.export", "privacy.window.export_hover", "/allay privacy export"),
-      Windows.button(lang, "privacy.window.withdraw", "privacy.window.withdraw_hover", "/allay privacy withdraw"),
-      Windows.button(lang, "privacy.window.erase", "privacy.erase_hover", "/allay privacy erase"),
+      Window.button(lang, if (full) "privacy.window.full_off" else "privacy.window.full_on", "privacy.window.full_hover", "/allay privacy full toggle"),
+      Window.button(lang, "privacy.window.export", "privacy.window.export_hover", "/allay privacy export"),
+      Window.button(lang, "privacy.window.withdraw", "privacy.window.withdraw_hover", "/allay privacy withdraw"),
+      Window.button(lang, "privacy.window.erase", "privacy.erase_hover", "/allay privacy erase"),
     )
-    Windows.show(player, Window(lang.text("privacy.window.title"), paragraphs, buttons, 1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay")))
+    player.show(Window(lang.text("privacy.window.title"), paragraphs, buttons, 1, Window.BODY, exit = Window.button(lang, "windows.back", "windows.back_hover", "/allay")))
   }
 
   /** `/allay privacy withdraw` from a player: it erases what the agreement covered, so the window asks once more. */
-  fun confirmWithdraw(sender: CommandSender) {
-    val player = sender as? Player ?: return withdraw(sender)
+  fun confirmWithdraw(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return withdraw(sender)
     val lang = locales.of(player)
-    Windows.show(player, Window(
+    player.show(Window(
       lang.text("privacy.window.withdraw_title"), listOf(lang.text("privacy.window.withdraw_about")),
-      listOf(Windows.button(lang, "privacy.window.withdraw_yes", "privacy.window.withdraw_hover", "/allay privacy withdraw $CONFIRM")),
-      1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
+      listOf(Window.button(lang, "privacy.window.withdraw_yes", "privacy.window.withdraw_hover", "/allay privacy withdraw $CONFIRM")),
+      1, Window.BODY, exit = Window.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
     ))
   }
 
-  private fun infoLines(sender: CommandSender) {
+  private fun infoLines(sender: Audience) {
     val lang = locales.of(sender)
     lang.send(sender, "privacy.info")
-    (sender as? Player)?.let { lang.send(it, if (settings.of(it.uniqueId).full_privacy) "privacy.full_is_on" else "privacy.full_is_off") }
+    (sender as? PlayerAudience)?.let { lang.send(it, if (settings.of(it.uuid).full_privacy) "privacy.full_is_on" else "privacy.full_is_off") }
     lang.send(sender, "privacy.commands")
-    if (sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "privacy.admin")
+    if (sender.can(Permissions.ADMIN)) lang.send(sender, "privacy.admin")
   }
 
   /** `/allay privacy erase`: asks once more in a window, since nothing brings the data back. */
-  fun confirmSelf(sender: CommandSender) {
+  fun confirmSelf(sender: Audience) {
     val lang = locales.of(sender)
-    val player = sender as? Player ?: return lang.send(sender, "privacy.admin")
-    Windows.show(player, Window(
+    val player = sender as? PlayerAudience ?: return lang.send(sender, "privacy.admin")
+    player.show(Window(
       lang.text("privacy.window.erase_title"), listOf(lang.text("privacy.erase_confirm")),
-      listOf(Windows.button(lang, "privacy.window.erase_yes", "privacy.erase_hover", "/allay privacy erase $CONFIRM")),
-      1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
+      listOf(Window.button(lang, "privacy.window.erase_yes", "privacy.erase_hover", "/allay privacy erase $CONFIRM")),
+      1, Window.BODY, exit = Window.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
     ))
   }
 
-  fun eraseSelf(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
-    Windows.close(player)
-    forgetHere(player.uniqueId)
+  fun eraseSelf(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
+    player.closeWindow()
+    forget(player.uuid)
     request(sender) { lang ->
-      val erased = service.erase(player.uniqueId.toString())
-      consents.forget(player.uniqueId)
+      val erased = service.erase(player.uuid.toString())
+      consents.forget(player.uuid)
       // Without the name: the log shouldn't keep who asked to be forgotten.
-      plugin.logger.info("A player erased what Allay kept about them")
+      platform.log.info("A player erased what Allay kept about them")
       lang.text("privacy.erased_self", "memories" to erased.memories)
     }
   }
 
   /** `/allay privacy export`: a link to everything kept about the player, for them alone, in chat, where it can be copied. */
-  fun exportSelf(sender: CommandSender) {
-    val player = sender as? Player ?: return locales.of(sender).send(sender, "privacy.admin")
-    Windows.close(player)
-    link(sender, player.uniqueId, null)
+  fun exportSelf(sender: Audience) {
+    val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "privacy.admin")
+    player.closeWindow()
+    link(sender, player.uuid, null)
   }
 
   /** `/allay privacy export <player|uuid>`: the same link for an admin to hand to a player who asked. */
-  fun export(sender: CommandSender, who: String) {
+  fun export(sender: Audience, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
-    link(sender, target.uniqueId, target.name ?: who)
-    plugin.logger.info("${sender.name} asked for a link to what Allay keeps about a player")
+    link(sender, target.first, target.second ?: who)
+    platform.log.info("${sender.name} asked for a link to what Allay keeps about a player")
   }
 
   /**
    * Asks the backend for the link and shows it, clickable, to [sender] alone: whoever holds it can download the data
    * for 24 hours. The console gets it as text, since the console asked.
    */
-  private fun link(sender: CommandSender, uuid: UUID, name: String?) {
+  private fun link(sender: Audience, uuid: UUID, name: String?) {
     val lang = locales.of(sender)
     scope.launch {
       val line: () -> Unit = try {
@@ -366,36 +351,33 @@ class PrivacyCommands(
         val until = link.expires_at?.let { runCatching { java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(UNTIL) }.getOrNull() } ?: "24 h"
         val intro = if (name == null) lang.text("privacy.export_ready", "until" to until) else lang.text("privacy.export_ready_for", "player" to name, "until" to until)
         ({
-          if (sender is Player) {
-            val button = TextComponent(*plain(formatMessage(lang.text("privacy.export_button")))).apply {
-              clickEvent = ClickEvent(ClickEvent.Action.OPEN_URL, link.url)
-              hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text("privacy.export_hover")))))
-            }
-            sender.spigot().sendMessage(*plain(formatMessage(intro)), TextComponent(" "), button)
-          } else sender.sendMessage(formatMessage(intro) + " " + link.url)
+          if (sender is PlayerAudience) {
+            val button = Line.Button(Legacy.color(lang.text("privacy.export_button")), Legacy.color(lang.text("privacy.export_hover")), Line.Click.Open(link.url))
+            sender.send(Line(Line.Text(Legacy.color(intro)), Line.SPACE, button))
+          } else sender.send(Legacy.color(intro) + " " + link.url)
         })
       } catch (error: ApiErrorException) {
         // A backend before 6.9 has no links.
         val text = if (error.apiError.statusCode in setOf(404, 405)) lang.text("privacy.export_unsupported") else ErrorHandler.message(lang, error.apiError)
-        ({ sender.sendMessage(formatMessage(text)) })
+        ({ sender.send(Legacy.color(text)) })
       } catch (error: Exception) {
-        plugin.logger.warning("Privacy request failed: ${error.javaClass.simpleName}")
+        platform.log.warning("Privacy request failed: ${error.javaClass.simpleName}")
         val text = ErrorHandler.message(lang, error)
-        ({ sender.sendMessage(formatMessage(text)) })
+        ({ sender.send(Legacy.color(text)) })
       }
       onMain(line)
     }
   }
 
   /** `/allay privacy erase <player|uuid>`: for a player who asked an admin to be forgotten. */
-  fun erase(sender: CommandSender, who: String) {
+  fun erase(sender: Audience, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
-    forgetHere(target.uniqueId)
+    forget(target.first)
     request(sender) { lang ->
-      val erased = service.erase(target.uniqueId.toString())
-      consents.forget(target.uniqueId)
-      plugin.logger.info("${sender.name} erased what Allay kept about a player")
-      lang.text("privacy.erased", "player" to (target.name ?: who), "memories" to erased.memories, "runs" to erased.runs)
+      val erased = service.erase(target.first.toString())
+      consents.forget(target.first)
+      platform.log.info("${sender.name} erased what Allay kept about a player")
+      lang.text("privacy.erased", "player" to (target.second ?: who), "memories" to erased.memories, "runs" to erased.runs)
     }
   }
 
@@ -403,22 +385,16 @@ class PrivacyCommands(
    * What the plugin holds in memory goes on the server thread, where boss bars live, before the backend's copy, so
    * nothing waits here to be sent again. Settings, time zone, goals, and the last death start over.
    */
-  private fun forgetHere(uuid: UUID) {
-    deaths.forget(uuid)
-    goals.forget(uuid)
+  private fun forget(uuid: UUID) {
+    forgetHere(uuid)
     data.forget(uuid)
   }
 
   /** A UUID as typed, or a player this server has seen by that name; never one it hasn't, to keep typos from erasing a stranger. */
-  @Suppress("DEPRECATION")
-  private fun playerOf(who: String): OfflinePlayer? {
-    runCatching { UUID.fromString(who) }.getOrNull()?.let { return plugin.server.getOfflinePlayer(it) }
-    plugin.server.getPlayerExact(who)?.let { return it }
-    return plugin.server.offlinePlayers.firstOrNull { it.name.equals(who, ignoreCase = true) }
-  }
+  private fun playerOf(who: String): Pair<UUID, String?>? = platform.known(who)
 
   /** Runs [block] off the server thread; it returns the line to show, colored on the way. [after] runs next, on the server thread. */
-  private fun request(sender: CommandSender, after: () -> Unit = {}, block: suspend (Lang) -> String) {
+  private fun request(sender: Audience, after: () -> Unit = {}, block: suspend (Lang) -> String) {
     val lang = locales.of(sender)
     scope.launch {
       val line = try {
@@ -427,19 +403,17 @@ class PrivacyCommands(
         // A backend before 6.0 has no such route.
         if (error.apiError.statusCode in setOf(404, 405)) lang.text("privacy.unsupported") else ErrorHandler.message(lang, error.apiError)
       } catch (error: Exception) {
-        plugin.logger.warning("Privacy request failed: ${error.javaClass.simpleName}")
+        platform.log.warning("Privacy request failed: ${error.javaClass.simpleName}")
         ErrorHandler.message(lang, error)
       }
       onMain {
-        sender.sendMessage(formatMessage(line))
+        sender.send(Legacy.color(line))
         after()
       }
     }
   }
 
-  private fun onMain(block: () -> Unit) {
-    if (plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable(block))
-  }
+  private fun onMain(block: () -> Unit) = platform.scheduler.main(block)
 
   companion object {
     /** The word the confirmation button adds, so a typed `/allay privacy erase` never erases at once. */

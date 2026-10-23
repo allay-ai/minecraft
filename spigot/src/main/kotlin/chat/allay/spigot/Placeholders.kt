@@ -1,5 +1,7 @@
 package chat.allay.spigot
 
+import chat.allay.core.Handler
+import chat.allay.core.Locales
 import chat.allay.core.PlayerSettings
 import chat.allay.spigot.tools.Goals
 import me.clip.placeholderapi.PlaceholderAPI
@@ -56,7 +58,7 @@ object Placeholders {
         "chat_mode" -> bool(settings.of(id).chat_mode)
         "thinking" -> bool(handler().busy(id))
         "goals" -> "${goals.count(id)}"
-        "language" -> player.player?.let(locales::code) ?: ""
+        "language" -> player.player?.let { locales.code(it) } ?: ""
         else -> null
       }
     }

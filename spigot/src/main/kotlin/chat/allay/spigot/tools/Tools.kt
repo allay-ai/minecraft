@@ -13,8 +13,9 @@ import chat.allay.core.tools.Books
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ClientTool
 import chat.allay.core.tools.TimeZones
-import chat.allay.spigot.ChatMode
-import chat.allay.spigot.Locales
+import chat.allay.core.ChatMode
+import chat.allay.core.Locales
+import chat.allay.spigot.of
 
 /** What tools keep between calls, built once and shared by every run. Limits are read on use, so `/allay reload` applies them. */
 class Features(
