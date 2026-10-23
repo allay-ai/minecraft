@@ -61,7 +61,10 @@ object Jobs {
   /** Whether [job] still works; a finished one stays on its agent for collect. */
   fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
 
+  private lateinit var scheduler: Scheduler
+
   fun start(scheduler: Scheduler) {
+    this.scheduler = scheduler
     scheduler.every(20L, 20L) { running.toList().forEach(BlockJob::check) }
     Hooks.brokeBlock += { _, level, pos ->
       val block = level.at(pos)
@@ -71,12 +74,15 @@ object Jobs {
     }
   }
 
-  /** A furnace at [pos] finished an item. The job looks a tick later, as on Bukkit, once the furnace is done with it. */
+  /**
+   * A furnace at [pos] finished an item. The job looks a tick later, as on Bukkit, once the furnace is done with it and
+   * has counted the recipe for its experience; the scheduler's `main` would run it right away on the server thread.
+   */
   fun smelted(level: ServerLevel, pos: BlockPos) {
     if (running.isEmpty()) return
     val block = level.at(pos)
     val job = of(block) ?: return
-    automation.later { job.smelted(block) }
+    scheduler.later(1L) { job.smelted(block) }
   }
 
   /** A brewing stand at [pos] finished a step. */
@@ -84,7 +90,7 @@ object Jobs {
     if (running.isEmpty()) return
     val block = level.at(pos)
     val job = of(block) ?: return
-    automation.later { job.brewed(block) }
+    scheduler.later(1L) { job.brewed(block) }
   }
 
   /** Where output goes: `"inventory"`, `"auto"` (the chests around that hold the same, else the inventory), or chests by coordinates. */
