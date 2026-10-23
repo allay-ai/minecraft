@@ -68,16 +68,23 @@ jobs:
       - name: Build and test
         run: ./gradlew build -PreleaseVersion="$VERSION"
       - name: Publish the GitHub release
-        # allay-spigot.jar too, so releases/latest/download/allay-spigot.jar always fetches the newest one.
+        # Each jar twice: with its version, and without, so releases/latest/download/allay-spigot.jar and
+        # allay-fabric.jar always fetch the newest one.
         run: |
           cp "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Allay $VERSION" --notes-file "$NOTES" "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar
+          cp "fabric/build/libs/allay-fabric-$VERSION.jar" fabric/build/libs/allay-fabric.jar
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Allay $VERSION" --notes-file "$NOTES" \
+            "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar \
+            "fabric/build/libs/allay-fabric-$VERSION.jar" fabric/build/libs/allay-fabric.jar
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Publish to Modrinth
         if: inputs.modrinth
-        # Minotaur reads the project while it runs, which the configuration cache doesn't allow.
-        run: ./gradlew modrinth -PreleaseVersion="$VERSION" -PchangelogFile="$NOTES" --no-configuration-cache
+        # The plugin through Minotaur, which reads the project while it runs, so not with the configuration cache; the
+        # mod through Modrinth's v3 API, which takes the environment Minotaur can't set.
+        run: |
+          ./gradlew :spigot:modrinth -PreleaseVersion="$VERSION" -PchangelogFile="$NOTES" --no-configuration-cache
+          python3 -I tools/modrinth_mods.py --version "$VERSION" --notes "$NOTES"
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
       - name: Publish to Hangar

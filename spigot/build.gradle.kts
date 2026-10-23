@@ -72,8 +72,9 @@ val changelogText = (findProperty("changelogFile") as String?)?.let { rootProjec
 modrinth {
   token = providers.environmentVariable("MODRINTH_TOKEN")
   projectId = "allay-ai"
-  versionNumber = project.version.toString()
-  versionName = "Allay AI ${project.version}"
+  // Each platform is its own version of the one project: this one `X.Y.Z+spigot`, the mod's `X.Y.Z+fabric`.
+  versionNumber = "${project.version}+spigot"
+  versionName = "Allay AI ${project.version} for Spigot and Paper"
   versionType = "release"
   uploadFile.set(tasks.shadowJar)
   gameVersions.addAll("26.3")
