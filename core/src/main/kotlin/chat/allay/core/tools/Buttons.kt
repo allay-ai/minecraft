@@ -3,12 +3,18 @@ package chat.allay.core.tools
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-/** A clickable `[label]` under an answer. Each one does something harmless for the player who got it. */
+/** A clickable `[label]` in or under an answer. Each one does something harmless for the player who got it. */
 sealed interface Button {
   val label: String
 
   /** Asks Allay this question, as if the player typed `/ask question`; under an answer everyone read, as `/askall`. */
   data class Ask(override val label: String, val question: String, val public: Boolean = false) : Button
+
+  /** Runs [command] as the player who clicks, minus `blocked_commands`; only in private answers. */
+  data class Command(override val label: String, val command: String) : Button
+
+  /** Sends [text] to the public chat as the player who clicks, once; only in private answers. */
+  data class Say(override val label: String, val text: String) : Button
 
   /** Shows the way to a spot with a particle trail and the compass. */
   data class Point(override val label: String, val x: Int, val y: Int, val z: Int, val dimension: String?) : Button
@@ -88,7 +94,7 @@ class ButtonStore(private val ttlMillis: Long = 60 * 60_000L, private val perPla
         entries.remove(id.lowercase())
         return null
       }
-      if (entry.button is Button.Note || entry.button is Button.TakeBook) entries.remove(id.lowercase())
+      if (entry.button is Button.Note || entry.button is Button.TakeBook || entry.button is Button.Say) entries.remove(id.lowercase())
       return entry.button
     }
   }

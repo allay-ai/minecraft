@@ -163,22 +163,20 @@ class Handler(
 
     if (run.mode == Run.Mode.ASK) {
       player?.let(animator::playSuccessSound)
+      // The buttons sit in the answer where Allay wrote them; each reader gets their own ids. A book's buttons and an
+      // agent's still come under it.
+      val pieces = clicks().pieces(run, outcome.answer)
       if (run.public) {
-        broadcast("public.answer", sender, outcome.answer, colored = true)
+        broadcastAnswer(sender, pieces, outcome.answer)
         everyoneBut(sender).forEach(animator::playPublicAnswerSound)
+      } else if (player != null) {
+        player.spigot().sendMessage(*clicks().answer(player, run.lang.text("messages.answer", "text" to Minecraft.SLOT), pieces, public = false, asker = player))
       } else {
-        sender.sendMessage(labeled(run, outcome.answer))
+        sender.sendMessage(labeled(run, InlineButtons.plain(outcome.answer)))
       }
-      // Under an answer everyone reads, everyone gets the buttons, each with their own ids, and a question
-      // button asks everyone again, so the shared thread goes on. The anvil plan reads the asker's inventory: theirs alone.
-      // Nobody gets the way to themself.
       val buttons = run.buttons.toList()
       if (run.public) {
-        val shared = buttons.map { if (it is Button.Ask) it.copy(public = true) else it }
-        plugin.server.onlinePlayers.forEach { reader ->
-          val own = shared.filterNot { it is Button.Follow && it.player.equals(reader.name, ignoreCase = true) }
-          clicks().show(reader, if (reader == player) own else own.filterNot { it is Button.Anvil })
-        }
+        plugin.server.onlinePlayers.forEach { reader -> clicks().show(reader, buttons) }
       } else {
         player?.let { clicks().show(it, buttons) }
       }
@@ -212,6 +210,17 @@ class Handler(
       val template = locales.of(reader).about(Placeholders.about(asker)).text(key, "player" to asker.name, "text" to Minecraft.SLOT)
       reader.sendMessage(if (colored) formatMessage(template.replace(Minecraft.SLOT, text)) else Minecraft.withText(template, text))
     }
+  }
+
+  /** The answer everyone reads, with its buttons, in each reader's language; the console reads the labels. */
+  private fun broadcastAnswer(asker: CommandSender, pieces: List<Clicks.Piece>, answer: String) {
+    plugin.server.onlinePlayers.forEach { reader ->
+      val template = locales.of(reader).about(Placeholders.about(asker)).text("public.answer", "player" to asker.name, "text" to Minecraft.SLOT)
+      reader.spigot().sendMessage(*clicks().answer(reader, template, pieces, public = true, asker = asker as? Player))
+    }
+    val console = plugin.server.consoleSender
+    val template = locales.of(console).about(Placeholders.about(asker)).text("public.answer", "player" to asker.name, "text" to Minecraft.SLOT)
+    console.sendMessage(formatMessage(template.replace(Minecraft.SLOT, InlineButtons.plain(answer))))
   }
 
   /** Allay's answer under its name, as public answers have it. The answer is Allay's own text, so its colors stay. */

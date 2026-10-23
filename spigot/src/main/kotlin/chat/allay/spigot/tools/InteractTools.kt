@@ -5,6 +5,7 @@ import chat.allay.core.tools.*
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.bukkit.Material
@@ -13,24 +14,28 @@ import chat.allay.spigot.menus.RecipeMenu
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-/** Tools that shape how the answer reaches the player: buttons under it, a book for long ones, and their clock. */
+/** Tools that shape how the answer reaches the player: a book for long ones and their clock; and the buttons in it. */
 object InteractTools {
   private fun tool(name: String, body: (ToolContext, Player, JsonObject) -> ToolOutput) = object : Tool {
     override val name = name
     override fun run(context: ToolContext, args: JsonObject) = body(context, context.requirePlayer(), args)
   }
 
-  /** Buttons under one answer, books included; more would crowd the chat line. Six fits a way button for each player around. */
+  /** Buttons under one answer: a book's two. */
   const val MAX_BUTTONS = 6
 
-  private val buttons = tool("add_buttons") { context, player, args ->
-    val list = (args["buttons"] as? JsonArray)?.mapNotNull { it as? JsonObject } ?: throw ToolError("buttons is required: an array of objects")
-    if (list.isEmpty()) throw ToolError("buttons is empty")
-    if (context.buttons.size + list.size > MAX_BUTTONS) throw ToolError("at most $MAX_BUTTONS buttons under one answer; ${context.buttons.size} already added")
-    // Every button is checked before any is added, so a bad one doesn't leave half a row.
-    val made = list.map { button(context, player, it) }
-    context.buttons += made
-    ToolOutput(buildJsonObject { put("added", made.size); put("total", context.buttons.size) }, context.lang.text("summary.buttons", "count" to made.size))
+  /**
+   * The [Button] behind a tag the model wrote into its answer (`<button action="…">Label</button>`), checked as the old
+   * `add_buttons` tool checked it. A [ToolError] means the tag can't work, and the label shows as plain text.
+   */
+  fun fromTag(context: ToolContext, player: Player, tag: InlineButtons.Part.Tag): Button {
+    val args = buildJsonObject {
+      tag.attributes.forEach { (key, value) -> if (key != "slots") put(key, value) }
+      put("type", tag.attributes["action"] ?: "")
+      put("label", tag.label)
+      tag.attributes["slots"]?.let { slots -> put("slots", JsonArray(slots.split(',', ' ').mapNotNull { it.trim().toIntOrNull() }.map(::JsonPrimitive))) }
+    }
+    return button(context, player, args)
   }
 
   private fun button(context: ToolContext, player: Player, args: JsonObject): Button {
@@ -43,6 +48,9 @@ object InteractTools {
     }
     return when (type) {
       "ask" -> Button.Ask(label, args.string("question")?.take(200) ?: throw ToolError("ask needs the question it asks"))
+      "command" -> Button.Command(label, args.string("command")?.take(256)?.takeIf { it.startsWith("/") && it.length > 1 } ?: throw ToolError("command needs a command starting with /"))
+      // Never a command: the client would run a line starting with / as one.
+      "say" -> Button.Say(label, args.string("text")?.take(256)?.takeUnless { it.startsWith("/") } ?: throw ToolError("say needs the text to send"))
       "point" -> args.string("player")?.trim()?.ifEmpty { null }?.let { name ->
         val target = context.playerNamed(name) ?: throw ToolError("nobody called $name is online; don't offer this button")
         if (!Locator.shows(player, target)) throw ToolError("${context.nameOf(target)} isn't on the asker's locator bar right now; don't offer the way to them")
@@ -69,7 +77,7 @@ object InteractTools {
         Button.Anvil(label, slots)
       }
       "villagers" -> Button.Villagers(label, args.string("item")?.let { material(it).key.key })
-      else -> throw ToolError("unknown button type $type; use ask, point, note, copy, recipe, enchants, brewing, anvil, or villagers")
+      else -> throw ToolError("unknown button type $type")
     }
   }
 
@@ -98,5 +106,5 @@ object InteractTools {
     ToolOutput(buildJsonObject { put("zone", zone.id); put("local_time", now) }, context.lang.text("summary.timezone", "zone" to zone.id, "time" to now))
   }
 
-  val all = listOf(buttons, book, timezone)
+  val all = listOf(book, timezone)
 }

@@ -157,7 +157,7 @@ tools:
     get_brewing_recipe: true      # How to brew a potion, step by step, from the game's own recipes
     scan_farm: true               # The farm around: crops by stage, farmland, animals, spawners
     # How the answer reaches the player
-    add_buttons: true             # Buttons under the answer: next question, the way, a note, a recipe, enchantments, villagers
+    add_buttons: true             # Buttons in the answer: next question, the way, a note, windows, a command, a line to send
     write_book: true              # A long answer as a book when the player asks for detail; the book is free to take
     set_timezone: true            # The player's time zone, so the assistant knows their real time
     # Allay about itself

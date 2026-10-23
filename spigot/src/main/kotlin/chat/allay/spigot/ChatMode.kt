@@ -31,11 +31,27 @@ class ChatMode(
 
   fun on(player: Player) = settings.of(player.uniqueId).chat_mode
 
+  /** Players whose chat line comes from a say button right now, so chat mode lets it through. */
+  private val saying: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+
+  /**
+   * A say button: [text] goes to the public chat as the player, through every chat plugin, as if they typed it. On the
+   * server thread the game fires the chat event at once, so chat mode sees the mark.
+   */
+  fun say(player: Player, text: String) {
+    saying += player.uniqueId
+    try {
+      player.chat(text.replace('§', '&'))
+    } finally {
+      saying -= player.uniqueId
+    }
+  }
+
   // LOWEST, so the line never reaches other chat plugins as an ordinary message.
   @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
   fun onChat(event: AsyncPlayerChatEvent) {
     val player = event.player
-    if (!on(player)) return
+    if (!on(player) || player.uniqueId in saying) return
     val (route, text) = Chat.route(event.message)
     if (route == Chat.Route.CHAT) {
       if (text.isEmpty()) event.isCancelled = true else event.message = text

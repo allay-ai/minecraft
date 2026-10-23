@@ -30,12 +30,13 @@ import chat.allay.core.tools.Dimensions
 import chat.allay.core.tools.Facts
 import chat.allay.spigot.tools.Features
 import chat.allay.spigot.tools.InteractTools
+import chat.allay.spigot.tools.ToolContext
 import chat.allay.spigot.tools.Locator
 import chat.allay.core.tools.ToolError
 import chat.allay.spigot.tools.Villagers
 
 /**
- * Buttons under answers and the windows behind them. A button runs `/allay do <id>`; the id leads to an action
+ * Buttons in and under answers and the windows behind them. A button runs `/allay do <id>`; the id leads to an action
  * this player was offered, so nobody can press a button they weren't shown.
  */
 class Clicks(
@@ -50,6 +51,72 @@ class Clicks(
 ) {
   private val ui = config.ui
   private fun lang(player: Player) = features.locales.of(player)
+
+  /** A piece of an answer: its own text, or a button with the label to draw when it can't work for this reader. */
+  sealed interface Piece {
+    data class Text(val text: String) : Piece
+    data class Press(val label: String, val button: Button?) : Piece
+  }
+
+  /**
+   * The answer's tags as buttons, checked once on the server thread with the asker's view of the world: a tag that
+   * can't work becomes its label. With buttons switched off in `config.yml`, every tag is a label.
+   */
+  fun pieces(run: Run, answer: String): List<Piece> {
+    val player = run.sender as? Player
+    val context = ToolContext(run.sender, features, task = run.task, others = run.others)
+    return InlineButtons.parse(answer).map { part ->
+      when (part) {
+        is InlineButtons.Part.Text -> Piece.Text(part.text)
+        is InlineButtons.Part.Tag -> Piece.Press(part.label, player?.takeIf { config.tools.enabled("add_buttons") }?.let { asker ->
+          try {
+            InteractTools.fromTag(context, asker, part)
+          } catch (error: ToolError) {
+            plugin.logger.fine("A button in the answer can't work: ${error.message}")
+            null
+          }
+        })
+      }
+    }
+  }
+
+  /**
+   * The answer in [template] (its `{text}` is [Minecraft.SLOT]) for [reader], with each button in place. Colors carry
+   * over a button, as if it weren't there. In an answer everyone reads ([public]), a command or a line to the chat stays
+   * a label: someone could talk Allay into one for everybody. The anvil plan reads the asker's inventory, and nobody gets
+   * the way to themself.
+   */
+  fun answer(reader: Player, template: String, pieces: List<Piece>, public: Boolean, asker: Player?): Array<BaseComponent> {
+    val lang = lang(reader)
+    val (before, after) = formatMessage(template).split(Minecraft.SLOT, limit = 2).let { it[0] to it.getOrElse(1) { "" } }
+    val parts = mutableListOf<BaseComponent>()
+    var drawn = ""
+    fun text(legacy: String) {
+      if (legacy.isEmpty()) return
+      parts += TextComponent.fromLegacyText(org.bukkit.ChatColor.getLastColors(drawn) + legacy)
+      drawn += legacy
+    }
+    text(before)
+    pieces.forEach { piece ->
+      when (piece) {
+        is Piece.Text -> text(formatMessage(piece.text))
+        is Piece.Press -> {
+          val button = piece.button?.let { if (public && it is Button.Ask) it.copy(public = true) else it }?.takeUnless {
+            public && (it is Button.Command || it is Button.Say) ||
+              reader != asker && it is Button.Anvil ||
+              it is Button.Follow && it.player.equals(reader.name, ignoreCase = true)
+          }
+          parts += when (button) {
+            null -> TextComponent(*TextComponent.fromLegacyText(org.bukkit.ChatColor.getLastColors(drawn) + piece.label))
+            is Button.Copy -> copyable(lang.text("buttons.format", "label" to piece.label), button.text, hover(lang, reader, button))
+            else -> clickable(lang.text("buttons.format", "label" to piece.label), store.add(reader.uniqueId, button), hover(lang, reader, button))
+          }
+        }
+      }
+    }
+    text(after)
+    return parts.toTypedArray()
+  }
 
   /** Draws one chat line of `[label]` buttons. */
   fun show(player: Player, buttons: List<Button>) {
@@ -100,6 +167,8 @@ class Clicks(
 
   private fun hover(lang: Lang, player: Player, button: Button): String = when (button) {
     is Button.Ask -> lang.text("buttons.hover.ask", "question" to button.question)
+    is Button.Command -> lang.text("buttons.hover.command", "command" to button.command)
+    is Button.Say -> lang.text("buttons.hover.say", "text" to button.text)
     is Button.Point -> lang.text("buttons.hover.point", "x" to button.x, "y" to button.y, "z" to button.z)
     is Button.Follow -> lang.text("buttons.hover.follow", "name" to button.player)
     is Button.Note -> lang.text("buttons.hover.note", "text" to button.text, "x" to button.x, "y" to button.y, "z" to button.z)
@@ -130,6 +199,8 @@ class Clicks(
         ask(player, button.question, public)
       }
       is Button.Point -> point(player, button)
+      is Button.Command -> command(player, button.command)
+      is Button.Say -> features.chat.say(player, button.text)
       is Button.Follow -> follow(player, button)
       is Button.Note -> note(player, button)
       // Copying happens in the client and never reaches the store; kept for a complete `when`.
@@ -158,6 +229,14 @@ class Clicks(
         lang.send(player, "automation.not_restored", "reason" to (error.message ?: ""))
       }
     }
+  }
+
+  /** A command button runs as the player who clicks, as if typed; `blocked_commands` stay blocked, as for `/askx`. */
+  private fun command(player: Player, command: String) {
+    val line = command.removePrefix("/")
+    if (line.substringBefore(' ').lowercase() in config.blockedCommands) return lang(player).send(player, "buttons.command_blocked", "command" to command)
+    plugin.logger.info("${player.name} ran a command from a button in Allay's answer: /$line")
+    player.performCommand(line)
   }
 
   private fun point(player: Player, button: Button.Point) {
@@ -191,7 +270,7 @@ class Clicks(
     memory().rememberAt(player, button.text, button.x, button.y, button.z, button.dimension)
   }
 
-  /** `/allay recipe <item>` and the recipe button. */
+  /** The recipe button. */
   fun recipe(player: Player, item: String) {
     val material = try {
       InteractTools.material(item)
@@ -206,7 +285,7 @@ class Clicks(
     RecipeMenu(player, lang(player), material).open()
   }
 
-  /** `/allay enchants` and the enchanting button: the window for whatever is in hand right now. */
+  /** The enchanting button: the window for whatever is in hand right now. */
   fun enchants(player: Player) {
     val item = player.inventory.itemInMainHand.takeUnless { it.type.isAir || it.type == Material.BOOK || it.type == Material.ENCHANTED_BOOK }
       ?: return lang(player).send(player, "messages.hold_item")
@@ -214,7 +293,7 @@ class Clicks(
     EnchantMenu(player, lang(player), item.clone()).open()
   }
 
-  /** `/allay brewing <potion>` and the brewing button: the steps from a water bottle, as the game's recipes have them. */
+  /** The brewing button: the steps from a water bottle, as the game's recipes have them. */
   fun brewing(player: Player, potion: String, form: String?) {
     val lang = lang(player)
     val chain = try {
@@ -226,7 +305,7 @@ class Clicks(
     BrewingMenu(player, lang, chain.first, chain.second).open()
   }
 
-  /** `/allay anvil` and the anvil button: the cheapest way to merge what the player has onto the item in hand. */
+  /** The anvil button: the cheapest way to merge what the player has onto the item in hand. */
   fun anvil(player: Player, slots: List<Int>?) {
     val planned = try {
       Anvils.plan(player, slots)
@@ -236,7 +315,7 @@ class Clicks(
     AnvilPlanMenu(player, lang(player), planned).open()
   }
 
-  /** `/allay villagers` and the villagers button. */
+  /** The villagers button. */
   fun villagers(player: Player, item: String?) {
     val material = item?.let { runCatching { InteractTools.material(it) }.getOrNull() }
     val found = Villagers.around(player, features.villagerRadius(), material)

@@ -14,7 +14,7 @@ import org.bukkit.inventory.meta.Repairable
 
 /**
  * Merging what the player has on an anvil: the item in hand, enchanted books, and other items of its kind from the
- * inventory, planned by [Mechanics.mergePlan]. Shared by `get_anvil_plan`, its button, and `/allay anvil`.
+ * inventory, planned by [Mechanics.mergePlan]. Shared by `get_anvil_plan` and its button.
  */
 object Anvils {
   /** One thing the plan may use; [slot] is null for the item in hand. */
