@@ -33,7 +33,8 @@ class AllayGameTests {
     helper.succeed()
   }
 
-  @GameTest
+  /** In a batch of its own: every player in the dimension within range shows on the bar, other tests' too. */
+  @GameTest(environment = "allay-gametest:locator")
   fun nearbyPlayersAreTheLocatorBarsAndNoMore(helper: GameTestHelper) {
     val asker = survivor(helper)
     val other = survivor(helper, Vec3(1.5, 2.0, 3.5))
