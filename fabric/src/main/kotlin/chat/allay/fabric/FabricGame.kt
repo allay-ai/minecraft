@@ -4,6 +4,7 @@ import chat.allay.core.*
 import chat.allay.fabric.automation.Automation
 import chat.allay.fabric.menus.Menus
 import chat.allay.fabric.tools.Deaths
+import chat.allay.fabric.tools.Drafts
 import chat.allay.fabric.tools.Features
 import chat.allay.fabric.tools.Goals
 import chat.allay.fabric.tools.Marks
@@ -60,9 +61,11 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
     val player = audience.player
     val trail = Trails.stop(player)
     val marks = Marks.clear(player)
+    val draft = Drafts.clear(player)
     when {
       // Agents say themselves that they stopped.
       automation.cancel(player) -> Handler.Hidden.AGENTS
+      draft -> Handler.Hidden.DRAFT
       marks -> Handler.Hidden.MARKS
       trail -> Handler.Hidden.TRAIL
       else -> Handler.Hidden.NOTHING
@@ -86,6 +89,7 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
   override fun start() {
     chat.allay.fabric.menus.Menu.start()
     Marks.start()
+    Drafts.start(platform.scheduler, locales)
     deaths.start()
     automation.start()
     goals.start(server)
@@ -97,5 +101,6 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
     server.playerList.players.forEach { goals.save(it.uuid) }
     goals.stop()
     Marks.clearAll()
+    Drafts.stop()
   }
 }
