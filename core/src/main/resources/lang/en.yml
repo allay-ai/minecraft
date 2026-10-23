@@ -231,6 +231,8 @@ summary:
 messages:
   # Every answer Allay writes, private or not, starts with its name, as public answers do.
   answer: "&3✦ &bAllay &8»&r {text}"
+  # The Fabric mod in a player's game, on a server without Allay: its commands only say so.
+  not_on_this_server: "&3✦ &bAllay &8»&7 Allay doesn't run on this server, so I can't answer here. I work in your singleplayer world, and on servers that have Allay: ask the owner to add it from &fallay.chat&7."
   usage: "&7Usage: &f/ask <question>\n&7Example: &f/ask how do I craft a diamond pickaxe?\n&7In front of everyone: &f/askall <question>&7, chat mode and more: &f/allay"
   askx_usage: "&7Usage: &f/askx <what to do>\n&7Example: &f/askx give me a diamond sword with sharpness 5"
   askall_usage: "&7Usage: &f/askall <question>&7 – everyone online sees the question and the answer"

@@ -231,6 +231,7 @@ summary:
 messages:
   # Every answer Allay writes, private or not, starts with its name, as public answers do.
   answer: "&3✦ &bAllay &8»&r {text}"
+  not_on_this_server: "&3✦ &bAllay &8»&7 Auf diesem Server läuft Allay nicht, deshalb kann ich hier nicht antworten. Ich arbeite in deiner Einzelspielerwelt und auf Servern mit Allay: Bitte den Betreiber, es von &fallay.chat&7 zu installieren."
   usage: "&7Verwendung: &f/ask <Frage>\n&7Beispiel: &f/ask wie stelle ich eine Diamantspitzhacke her?\n&7Vor allen: &f/askall <Frage>&7, Chatmodus und mehr: &f/allay"
   askx_usage: "&7Verwendung: &f/askx <was ich tun soll>\n&7Beispiel: &f/askx gib mir ein Diamantschwert mit Schärfe 5"
   askall_usage: "&7Verwendung: &f/askall <Frage>&7 – alle Spieler online sehen Frage und Antwort"
