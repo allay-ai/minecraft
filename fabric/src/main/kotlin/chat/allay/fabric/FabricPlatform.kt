@@ -201,11 +201,15 @@ class FabricPlatform(val server: MinecraftServer) : Platform {
     return saved.firstNotNullOfOrNull { id -> cache.get(id).orElse(null)?.takeIf { it.name().equals(who, ignoreCase = true) } }?.let { it.id() to it.name() }
   }
 
+  /**
+   * As Bukkit's `dispatchCommand`: false only for a command the server doesn't have. One the sender may not use, or
+   * typed wrong, still runs as typed, and the game tells them why it didn't work.
+   */
   override fun dispatch(who: Audience, command: String): Boolean {
     val source = (who as FabricSender).source
-    val parsed = server.commands.dispatcher.parse(command, source)
-    if (parsed.reader.canRead() || parsed.context.command == null) return false
-    server.commands.performCommand(parsed, command)
+    val dispatcher = server.commands.dispatcher
+    if (dispatcher.root.getChild(command.trim().substringBefore(' ')) == null) return false
+    server.commands.performCommand(dispatcher.parse(command, source), command)
     return true
   }
 

@@ -3,6 +3,7 @@ package chat.allay.fabric.gametest
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
+import chat.allay.fabric.AllayMod
 import chat.allay.fabric.FabricPlayer
 import chat.allay.fabric.automation.Blocks as AutomationBlocks
 import chat.allay.fabric.automation.Sources
@@ -300,6 +301,18 @@ class FixesGameTests {
     helper.assertTrue(helper.level.getBlockState(top).`is`(Blocks.SCAFFOLDING), "the scaffolding went on top")
     val removed = player.packets().filterIsInstance<ClientboundRemoveEntitiesPacket>().flatMap { it.entityIds }.toSet()
     helper.assertTrue(removed.containsAll(ghosts), "the ghost on top went out: $ghosts, removed $removed")
+    player.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun aCommandRunsWhenTheServerHasIt(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val platform = AllayMod.platform!!
+    // Not an operator: the game refuses, as Bukkit's dispatchCommand would, but the command is there.
+    equal(helper, platform.dispatch(FabricPlayer(player), "gamemode creative"), true, "a command the player may not use")
+    equal(helper, player.gameMode(), GameType.SURVIVAL, "the game mode stays")
+    equal(helper, platform.dispatch(FabricPlayer(player), "allaynosuchcommand now"), false, "a command the server doesn't have")
     player.discard()
     helper.succeed()
   }
