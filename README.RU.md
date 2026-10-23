@@ -18,18 +18,19 @@ Allay работает на Moonlands — моём хардкорном выжи
 
 ## В игре
 
-<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/status.gif" alt="Allay отвечает: статус над хотбаром, его инструменты и ответ с кнопками" width="760"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/status.gif" width="760" alt="Allay отвечает: статус над хотбаром, его инструменты и ответ с кнопками"></p>
 
-<table>
-  <tr>
-    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/answer.webp" alt="Ответ Allay с кнопками «Рецепт», «Путь», «Копировать», «Запомнить» и «Да» в тексте"><br><sub>Кнопки стоят прямо в ответе: рецепт, путь, координаты, заметка, следующий вопрос.</sub></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.webp" alt="Вежливое сообщение с кнопкой «Отправить» и строка, которую она отправила"><br><sub>Allay пишет другим за вас; ничего не уйдёт, пока вы не нажмёте «Отправить».</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" alt="Окно памяти с четырьмя записями"><br><sub>Что помнит Allay, в окне самой игры.</sub></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" alt="Окно с уведомлением о данных и кнопками «Даю согласие», «Нет, спасибо», «Политика конфиденциальности»"><br><sub>Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит.</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/answer.webp" width="49%" alt="Ответ Allay с кнопками «Рецепт», «Путь», «Копировать», «Запомнить» и «Да» в тексте">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.webp" width="49%" alt="Вежливое сообщение с кнопкой «Отправить» и строка, которую она отправила">
+  <br><sub>Кнопки стоят прямо в ответе · Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить»</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" width="49%" alt="Окно памяти">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" width="49%" alt="Окно с уведомлением о данных">
+  <br><sub>Что помнит Allay, в окне самой игры · Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит</sub>
+</p>
 
 ## Что вы получаете
 
