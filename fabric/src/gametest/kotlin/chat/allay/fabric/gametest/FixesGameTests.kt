@@ -32,11 +32,13 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.LevelBasedPermissionSet
 import net.minecraft.server.players.NameAndId
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.component.Fireworks
 import net.minecraft.world.item.crafting.RecipeType
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
@@ -248,6 +250,18 @@ class FixesGameTests {
     helper.assertTrue(death != null, "the death is remembered")
     equal(helper, death!!.kept_inventory, true, "kept_inventory for a spectator")
     equal(helper, death.drops, null, "drops of a spectator")
+    player.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun aRocketsFlightIsItsOwn(helper: GameTestHelper) {
+    val player = survivor(helper)
+    fun flight(): String = Players.run(player, "inspect_item").result.toString()
+    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.FIREWORK_ROCKET))
+    helper.assertTrue("\"flight\":0" in flight(), "a bare rocket flies for 0, as Bukkit's FireworkMeta reads it: ${flight()}")
+    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.FIREWORK_ROCKET).apply { set(DataComponents.FIREWORKS, Fireworks(3, listOf())) })
+    helper.assertTrue("\"flight\":3" in flight(), "a rocket of flight 3: ${flight()}")
     player.discard()
     helper.succeed()
   }
