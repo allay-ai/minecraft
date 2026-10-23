@@ -9,19 +9,22 @@ import net.minecraft.world.level.Level
 import org.slf4j.LoggerFactory
 
 /**
- * Which containers Allay may tell a player about: the ones they could open themself. Claims come from any mod behind
- * Patbox's Common Protection API (GOML, Flan, and others): a container in a claim needs the right to use blocks there.
+ * Which containers Allay may tell a player about: the ones they could open themself. Claims come from Flan, and from
+ * any mod behind Patbox's Common Protection API (GOML and others): a container in a claim needs the right to open
+ * containers there.
  * An unopened structure chest (its loot table still waits) stays hidden from everyone, as on Paper. Without a claims
  * mod, every container but those is open. Runs on the server thread, where claims live.
  */
 object Claims {
-  val available: Boolean by lazy { FabricLoader.getInstance().isModLoaded("common-protection-api") }
+  private val protection by lazy { FabricLoader.getInstance().isModLoaded("common-protection-api") }
+  private val flan by lazy { FabricLoader.getInstance().isModLoaded("flan") }
+  val available: Boolean get() = protection || flan
 
   private var warned = false
 
   fun mayOpen(player: ServerPlayer, level: Level, pos: BlockPos): Boolean {
     if ((level.getBlockEntity(pos) as? RandomizableContainer)?.lootTable != null) return false
-    return ask { Api.interact(player, level, pos) }
+    return ask { (!protection || Api.interact(player, level, pos)) && (!flan || Flan.open(player, pos)) }
   }
 
   /**
@@ -31,11 +34,13 @@ object Claims {
    */
   fun mayBuild(player: ServerPlayer, level: Level, pos: BlockPos): Boolean {
     if (level is ServerLevel && level.server.isUnderSpawnProtection(level, pos, player)) return false
-    return ask { Api.build(player, level, pos) }
+    return ask { (!protection || Api.build(player, level, pos)) && (!flan || Flan.build(player, pos)) }
   }
 
   /** Whether [pos] lies in a claim; false without a claims mod. */
-  fun claimed(level: Level, pos: BlockPos): Boolean = available && runCatching { Api.claimed(level, pos) }.getOrDefault(false)
+  fun claimed(level: Level, pos: BlockPos): Boolean = runCatching {
+    (protection && Api.claimed(level, pos)) || (flan && level is ServerLevel && Flan.claimed(level, pos))
+  }.getOrDefault(false)
 
   private fun ask(check: () -> Boolean): Boolean {
     if (!available) return true
@@ -49,6 +54,20 @@ object Claims {
       }
       false
     }
+  }
+
+  // Only touched when Flan is loaded; its classes aren't there otherwise.
+  private object Flan {
+    fun open(player: ServerPlayer, pos: BlockPos) =
+      io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.OPENCONTAINER)
+
+    fun build(player: ServerPlayer, pos: BlockPos) =
+      io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.PLACE) &&
+        io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.BREAK)
+
+    /** Outside any claim Flan answers with its global one. */
+    fun claimed(level: ServerLevel, pos: BlockPos) =
+      io.github.flemmli97.flan.api.ClaimHandler.getPermissionStorage(level).getForPermissionCheck(pos) is io.github.flemmli97.flan.claim.Claim
   }
 
   // Only touched when the API is loaded; its classes aren't there otherwise.

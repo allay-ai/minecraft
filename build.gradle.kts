@@ -31,6 +31,10 @@ allprojects {
     maven("https://maven.nucleoid.xyz/") {
       content { includeGroup("eu.pb4") }
     }
+    // Flan, the Fabric claims mod, publishes only to Modrinth.
+    maven("https://api.modrinth.com/maven") {
+      content { includeGroup("maven.modrinth") }
+    }
     // GriefPrevention publishes nowhere else; only its group comes from here.
     maven("https://jitpack.io") {
       content { includeGroup("com.github.GriefPrevention") }
