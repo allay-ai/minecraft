@@ -4,20 +4,20 @@ The “Release” workflow takes the notes for a version from its section here, 
 
 ## 6.11.0
 
-Allay comes to Fabric. The plugin for Spigot and Paper works as before.
+Allay comes to Fabric and NeoForge. The plugin for Spigot and Paper works as before.
 
-- 🧱 **A Fabric mod.** `allay-fabric.jar` for Fabric 26.3 with Fabric API, Kotlin inside. It runs on a dedicated server and in a singleplayer world, opened to LAN or not, with every tool, window, button, and automation agent the plugin has, and the same names, arguments, and answers, so Allay answers the same everywhere. The backend hears `fabric` and `server` or `integrated`.
-- 🙅 **Only where Allay runs.** With the mod in their game, a player on a server without Allay gets one line in their language for `/ask`, `/askall`, `/askx`, and `/allay`: Allay can't answer there, and where it can. On a server with Allay, the plugin or the mod, those commands go to the server as before, and nothing clashes: the mod adds no blocks or items, so a game with it joins any server.
-- 📁 **Where the mod keeps its files.** `config/allay/`: `config.yml`, the texts, `license.key`, and the country database, shared by every singleplayer world, so one license and one setup serve them all. A singleplayer world keeps only its own server id in its save.
+- 🧱 **Two mods.** `allay-fabric.jar` for Fabric 26.3 with Fabric API, and `allay-neoforge.jar` for NeoForge 26.3 with nothing else; Kotlin is inside both. They run on a dedicated server and in a singleplayer world, opened to LAN or not, with every tool, window, button, and automation agent the plugin has, and the same names, arguments, and answers, so Allay answers the same everywhere. The backend hears `fabric` or `neoforge`, and `server` or `integrated`.
+- 🙅 **Only where Allay runs.** With a mod in their game, a player on a server without Allay gets one line in their language for `/ask`, `/askall`, `/askx`, and `/allay`: Allay can't answer there, and where it can. On a server with Allay, the plugin or a mod, those commands go to the server as before, and nothing clashes: the mods add no blocks or items, so a game with one joins any server.
+- 📁 **Where the mods keep their files.** `config/allay/`: `config.yml`, the texts, `license.key`, and the country database, shared by every singleplayer world, so one license and one setup serve them all. A singleplayer world keeps only its own server id in its save.
 - 🔑 **The owner of a singleplayer world runs Allay there**, cheats or not: they link a license and reload, but get no operator tools without cheats.
-- 🧩 **Integrations on Fabric**, each optional: Flan and the claims mods behind Common Protection API in place of GriefPrevention, Text Placeholder API in place of PlaceholderAPI (`{papi:…}` takes its ids, `%allay:chat_mode%` and the rest), Plan's Fabric build, LuckPerms or any mod behind fabric-permissions-api for permissions (operators get everything without one), and the Vanish mod.
-- 🧪 **Fabric's differences, where the game leaves no choice.** Worlds are named by dimension (`overworld`), not by folder. `get_server` lists mods, and `tools.server.hidden_plugins` hides a mod by its id or name. Chat mode turns `~text` into a plain line sent as the player, since the game signs chat.
-- 🔊 **Sounds by the game's id.** `ui.sounds.*_sound` takes `entity.allay.item_given` as well as Bukkit's `ENTITY_ALLAY_ITEM_GIVEN`, on both platforms.
+- 🧩 **Integrations in the mods**, each optional: claims from Flan and Open Parties and Claims on both loaders, and from the mods behind Common Protection API on Fabric, in place of GriefPrevention; Text Placeholder API in place of PlaceholderAPI (`{papi:…}` takes its ids, `%allay:chat_mode%` and the rest), on NeoForge through its NeoForge port; LuckPerms for permissions, on Fabric through fabric-permissions-api and on NeoForge through its PermissionAPI (operators get everything without one); the Vanish mod on Fabric and Vanishmod on NeoForge; Plan's Fabric build on Fabric only, since Plan has no NeoForge build.
+- 🧪 **The mods' differences, where the game leaves no choice.** Worlds are named by dimension (`overworld`), not by folder. `get_server` lists mods, and `tools.server.hidden_plugins` hides a mod by its id or name. Chat mode turns `~text` into a plain line sent as the player, since the game signs chat. On NeoForge a quota or model tier added to `config.yml` reaches LuckPerms after the server restarts.
+- 🔊 **Sounds by the game's id.** `ui.sounds.*_sound` takes `entity.allay.item_given` as well as Bukkit's `ENTITY_ALLAY_ITEM_GIVEN`, on every platform.
 - 🔁 **Nothing doubles after a death.** Furnace, brewing, and other automation jobs take ingredients from the player's inventory as it is after a respawn; with `keepInventory`, a refill after a death could copy items.
 - 📕 **`give_item` makes a working enchanted book**: the enchantments are stored in it, so it works on an anvil, instead of sitting on the book.
 - 🏛️ **Spawn protection counts** for `inspect_redstone` and drafts: a non-operator can't read or check builds inside it, as they can't build there.
-- 🔒 **Brewing stands follow claims** on both platforms: `get_brewing_items` lists only stands the player could open themself.
-- 📦 **Releases carry both jars**, each also without its version: `releases/latest/download/allay-spigot.jar` and `allay-fabric.jar`. On Modrinth the plugin's versions read `X.Y.Z+spigot` and the mod's `X.Y.Z+fabric`.
+- 🔒 **Brewing stands follow claims** on every platform: `get_brewing_items` lists only stands the player could open themself.
+- 📦 **Releases carry all three jars**, each also without its version: `releases/latest/download/allay-spigot.jar`, `allay-fabric.jar`, and `allay-neoforge.jar`. On Modrinth the plugin's versions read `X.Y.Z+spigot` and the mods' `X.Y.Z+fabric` and `X.Y.Z+neoforge`.
 
 ## 6.10.0
 
