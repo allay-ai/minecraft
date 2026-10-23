@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "chat.allay.fabric.mixin.client",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["CommandTreeMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -10,7 +10,8 @@ import net.minecraft.world.level.storage.LevelResource
 /**
  * A real client in a fresh singleplayer world: Allay starts on the game's own server as `integrated`, keeps the
  * world's server id inside its save and everything that goes with the license in `config/allay/`, and answers
- * `/allay` in chat. `./gradlew :fabric:runClientGameTest` opens a game window.
+ * `/allay` in chat; then a dedicated server with Allay, where the player's commands go to the server, not to the mod
+ * in their game. `./gradlew :fabric:runClientGameTest` opens a game window.
  */
 class SingleplayerClientTest : FabricClientGameTest {
   override fun runTest(context: ClientGameTestContext) {
@@ -33,8 +34,18 @@ class SingleplayerClientTest : FabricClientGameTest {
         chat.allay.fabric.Perms.check(server.playerList.players.single(), chat.allay.core.Permissions.ADMIN)
       }
       check(admin) { "the world's owner can't link a license" }
+      check(context.computeOnClient<Boolean, RuntimeException> { !chat.allay.fabric.client.AllayClient.mine() }) { "the mod in the game answers instead of the game's own server" }
       world.server.runCommand("allay status")
       context.waitTicks(20)
+    }
+
+    // A dedicated server with Allay of its own: the player's /allay goes to it, never to the mod in their game.
+    context.worldBuilder().createServer().use { server ->
+      server.connect().use { connection ->
+        connection.waitForChunksRender()
+        val local = context.computeOnClient<Boolean, RuntimeException> { chat.allay.fabric.client.AllayClient.mine() }
+        check(!local) { "the mod in the player's game answered for a server that has Allay" }
+      }
     }
   }
 }

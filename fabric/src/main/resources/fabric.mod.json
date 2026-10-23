@@ -14,9 +14,10 @@
   "icon": "assets/allay/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["chat.allay.fabric.AllayMod"]
+    "main": ["chat.allay.fabric.AllayMod"],
+    "client": ["chat.allay.fabric.client.AllayClient"]
   },
-  "mixins": ["allay.mixins.json"],
+  "mixins": ["allay.mixins.json", { "config": "allay.client.mixins.json", "environment": "client" }],
   "depends": {
     "fabricloader": ">=${loader}",
     "fabric-api": "*",

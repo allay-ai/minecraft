@@ -14,8 +14,11 @@ base {
 }
 
 loom {
+  // What only a player's game runs goes in the client source set, so a dedicated server never loads a client class.
+  splitEnvironmentSourceSets()
   mods.register("allay") {
     sourceSet(sourceSets.main.get())
+    sourceSet(sourceSets.getByName("client"))
   }
 }
 
@@ -78,6 +81,7 @@ tasks {
   // ships its own copy.
   shadowJar {
     archiveClassifier = ""
+    from(sourceSets.getByName("client").output)
     configurations = listOf(shade)
     listOf("kotlin", "kotlinx", "okhttp3", "okio", "com.maxmind", "org.yaml.snakeyaml").forEach { relocate(it, "chat.allay.libs.$it") }
     mergeServiceFiles()
