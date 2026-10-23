@@ -2,14 +2,14 @@
 Screenshots and an animation of Allay for the READMEs, Modrinth, and allay.chat, taken in a real game: a local Paper
 with the plugin as built, stub.py instead of the backend (its answers are fixtures/*.json), the vanilla client from
 the Minecraft launcher, offline, and ShotDriver (Driver.java) to type for the player. macOS only: screencapture takes
-the game's window and nothing else on the screen.
+the stills and record.swift (ScreenCaptureKit) the animation, both of the game's window and nothing else on the screen.
 
     ./gradlew build
     python3 -I tools/shots/shoot.py [--langs en,ru,es] [--keep ru]
 
-Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, privacy.webp, and
-status.gif with status.mp4 and status.webp, its last frame. --keep leaves the server, the stub, and the client in that language running afterwards, to
-press the buttons by hand; stop them with --stop.
+Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, privacy.webp, and status.gif with
+status.mp4 and status.webp, its last frame. --keep leaves the server, the stub, and the client in that language
+running afterwards, to press the buttons by hand; --stop ends them. --remake crops and encodes the last run again.
 """
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import urllib.request
 
@@ -30,6 +29,7 @@ REPO = HERE.parents[1]
 OUT = REPO / "media" / "screenshots"
 WORK = pathlib.Path.home() / ".cache" / "allay-shots"
 MC = pathlib.Path.home() / "Library" / "Application Support" / "minecraft"
+SRGB = "/System/Library/ColorSync/Profiles/sRGB Profile.icc"
 GAME = "26.3"
 SERVER_PORT = 25599
 STUB_PORT = 28111
@@ -48,9 +48,11 @@ CHAT = (0.005, 0.52, 0.67, 0.99)
 # The animation keeps to the chat and the hotbar: the world above them moves (clouds, mobs) and costs a GIF its size.
 STATUS = (0.005, 0.52, 0.80, 0.99)
 # Each window as tall as it is.
-DIALOGS = {"consent": (0.17, 0.0, 0.83, 0.70), "memory": (0.17, 0.0, 0.83, 0.62), "privacy": (0.17, 0.0, 0.83, 1.0)}
+DIALOGS = {"consent": (0.17, 0.0, 0.83, 0.70), "memory": (0.17, 0.0, 0.83, 0.70), "privacy": (0.17, 0.0, 0.83, 1.0)}
 # What the player holds, so the hotbar looks lived in; the coal and sticks are what the torches answer counts.
 HOTBAR = ["torch 24", "diamond_pickaxe", "iron_sword", "coal 7", "stick 4", "bread 12", "compass", "oak_log 48", "crafting_table"]
+# How long the recording runs before the question, so the animation starts on a quiet screen.
+LEAD = 1.0
 # The chat shows a line for ten seconds; a scene waits that long first, so only its own lines show.
 FADE = 10.5
 
@@ -232,7 +234,8 @@ def crop(source: pathlib.Path, target: pathlib.Path, box: tuple, width: int):
     inner = h - bar
     x0, y0, x1, y1 = round(w * box[0]), bar + round(inner * box[1]), round(w * box[2]), bar + round(inner * box[3])
     target.parent.mkdir(parents=True, exist_ok=True)
-    args = ["magick", str(source), "-crop", f"{x1 - x0}x{y1 - y0}+{x0}+{y0}", "+repage", "-resize", f"{width}x"]
+    # screencapture keeps the display's Display P3; browsers would show those numbers as sRGB, washed out.
+    args = ["magick", str(source), "-profile", SRGB, "-strip", "-crop", f"{x1 - x0}x{y1 - y0}+{x0}+{y0}", "+repage", "-resize", f"{width}x"]
     if target.suffix == ".webp":
         args += ["-quality", "90"]
     subprocess.run(args + [str(target)], check=True)
@@ -247,47 +250,55 @@ def shot(lang: str, name: str, box: tuple, width: int = 1400):
 
 
 def film(lang: str, name: str, start_lines: list[str], seconds: float):
-    """Grabs the window as fast as screencapture goes while [start_lines] play out; [render] makes the files."""
-    frames = WORK / "raw" / lang / name
-    shutil.rmtree(frames, ignore_errors=True)
-    frames.mkdir(parents=True)
-    taken: list[float] = []
-    began = time.time()
-    threading.Thread(target=drive, args=start_lines, daemon=True).start()
-    while time.time() - began < seconds:
-        # A frame the screen didn't give is skipped; the one before it simply stays longer.
-        if grab(frames / f"{len(taken):04d}.png", tries=1):
-            taken.append(time.time() - began)
-    (frames / "times.json").write_text(json.dumps(taken))
+    """Records the window (record.swift) while [start_lines] play out; [render] makes the files."""
+    frames = WORK / "raw" / lang
+    frames.mkdir(parents=True, exist_ok=True)
+    recording = subprocess.Popen([str(recorder()), str(seconds + LEAD), str(frames / f"{name}.mov")])
+    time.sleep(LEAD)
+    drive(*start_lines)
+    if recording.wait() != 0:
+        sys.exit("Couldn't record the game's window")
     render(lang, name)
-    log(f"{lang}: {name} ({len(taken)} frames in {seconds:.0f} s)")
+    log(f"{lang}: {name}")
+
+
+def recorder() -> pathlib.Path:
+    """record.swift, compiled once: the interpreter would take seconds to start, and the recording would lag."""
+    binary = WORK / "record"
+    if not binary.exists() or binary.stat().st_mtime < (HERE / "record.swift").stat().st_mtime:
+        subprocess.run(["swiftc", "-O", str(HERE / "record.swift"), "-o", str(binary)], check=True)
+    return binary
 
 
 def render(lang: str, name: str):
     """
-    The animation from its raw frames: a GIF for the READMEs, an MP4 for the site, its last frame as the video's
-    poster, and that frame again as the answer's still. Each frame stays until the next was taken; the last holds
-    for 2.5 seconds, so the answer can be read.
+    The animation from its recording: a GIF for the READMEs, an MP4 for the site, the last frame as the video's
+    poster, and that frame again, wider, as the answer's still. The last frame holds for 2.5 seconds, so the answer
+    can be read.
     """
-    frames = WORK / "raw" / lang / name
-    times = json.loads((frames / "times.json").read_text())
-    durations = [later - earlier for earlier, later in zip(times, times[1:])] + [2.5]
-    cropped = []
-    for n in range(len(times)):
-        target = frames / f"c{n:04d}.png"
-        crop(frames / f"{n:04d}.png", target, STATUS, 1000)
-        cropped.append(target)
+    video = WORK / "raw" / lang / f"{name}.mov"
+    w, h = (int(v) for v in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(video)],
+                                           capture_output=True, text=True, check=True).stdout.strip().split(","))
+
+    def area(box: tuple) -> str:
+        bar = round(h * 28 / (HEIGHT + 28))
+        inner = h - bar
+        x0, y0, x1, y1 = round(w * box[0]), bar + round(inner * box[1]), round(w * box[2]), bar + round(inner * box[3])
+        return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
     out = OUT / lang
     out.mkdir(parents=True, exist_ok=True)
-    # Only what changed goes into each GIF frame (within 4%, so the world's flicker doesn't count): 0.6 MB, not 30.
-    sequence = [arg for path, seconds in zip(cropped, durations) for arg in ("-delay", str(round(seconds * 100)), str(path))]
-    subprocess.run(["magick", *sequence, "-resize", "760x", "-dither", "None", "-colors", "128", "-fuzz", "4%", "-layers", "OptimizeTransparency", "-loop", "0", str(out / f"{name}.gif")], check=True)
-    listing = frames / "frames.txt"
-    listing.write_text("".join(f"file '{path}'\nduration {seconds:.3f}\n" for path, seconds in zip(cropped, durations)) + f"file '{cropped[-1]}'\n")
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing), "-vf", "fps=24,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2",
-                    "-c:v", "libx264", "-crf", "24", "-movflags", "+faststart", str(out / f"{name}.mp4")], check=True)
-    subprocess.run(["magick", str(cropped[-1]), "-quality", "90", str(out / f"{name}.webp")], check=True)
-    crop(frames / f"{len(times) - 1:04d}.png", out / "answer.webp", CHAT, 1400)
+    clip = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(LEAD - 0.4), "-i", str(video)]
+    hold = "tpad=stop_mode=clone:stop_duration=2.5"
+    gif = f"{area(STATUS)},fps=15,scale=760:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=192[p];[b][p]paletteuse=dither=bayer:bayer_scale=5"
+    subprocess.run(clip + ["-vf", gif, str(out / f"{name}.gif")], check=True)
+    subprocess.run(clip + ["-vf", f"{area(STATUS)},scale=1000:-2:flags=lanczos,{hold},format=yuv420p", "-c:v", "libx264", "-crf", "22", "-movflags", "+faststart", "-an", str(out / f"{name}.mp4")], check=True)
+    # ffmpeg here may have no WebP encoder: the frame goes through a PNG and ImageMagick.
+    for box, width, target in ((STATUS, 1000, out / f"{name}.webp"), (CHAT, 1400, out / "answer.webp")):
+        frame = WORK / "raw" / lang / f"{target.stem}-last.png"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-sseof", "-0.2", "-i", str(video), "-frames:v", "1", "-update", "1",
+                        "-vf", f"{area(box)},scale={width}:-2:flags=lanczos", str(frame)], check=True)
+        subprocess.run(["magick", str(frame), "-quality", "90", str(target)], check=True)
 
 
 def remake(lang: str):
