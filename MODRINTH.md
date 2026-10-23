@@ -9,7 +9,7 @@
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar; glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
 - 🧹 **A tidy inventory.** “Sword first, food in the last row”, and **[Put back]** undoes it.
-- 🪟 **Buttons and windows.** Recipes, brewing steps, the cheapest anvil order, enchantments, and villager trades, one click under the answer.
+- 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game's own windows.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
 - 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects GriefPrevention claims and vanish. PlaceholderAPI and Plan work too.
 - 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request, and full privacy hides their name from the backend's admin panel.

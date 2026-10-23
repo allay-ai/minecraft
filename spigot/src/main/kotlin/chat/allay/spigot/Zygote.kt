@@ -175,7 +175,7 @@ class Zygote : JavaPlugin(), TabCompleter {
     consents = Consents(service, ::notice, consented, asksAge = { AgeGate.asks(locales.country(it)) })
     handler = Handler(this, configuration, locales, service, animator, executor, scope, { billing }, { clicks }, quota, automation, consents) { privacy }
     clicks = Clicks(this, configuration, features, buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
-    memory = MemoryCommands(this, locales, features, service, scope)
+    memory = MemoryCommands(this, locales, features, service, scope, buttons)
     privacy = PrivacyCommands(this, configuration, locales, service, consents, features.settings, data, features.deaths, features.goals, ages, scope) { automation.cancel(it) }
     registerServer()
   }
@@ -348,7 +348,10 @@ class Zygote : JavaPlugin(), TabCompleter {
         args.size == 2 && args[1].equals("decline", ignoreCase = true) -> privacy.decline(sender)
         args.size == 2 && args[1].equals("review", ignoreCase = true) -> privacy.review(sender)
         args.size == 3 && args[1].equals("age", ignoreCase = true) -> privacy.age(sender, args[2])
-        args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.withdraw(sender)
+        args.size == 2 && args[1].equals("withdraw", ignoreCase = true) -> privacy.confirmWithdraw(sender)
+        args.size == 3 && args[1].equals("withdraw", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> privacy.withdraw(sender)
+        // The window's switch: the window again instead of a line in chat.
+        args.size == 3 && args[1].equals("full", ignoreCase = true) && args[2].equals("toggle", ignoreCase = true) && player != null -> privacy.toggleFull(player)
         args.size in 2..3 && args[1].equals("full", ignoreCase = true) -> privacy.full(sender, args.getOrNull(2))
         args.size == 2 && args[1].equals("erase", ignoreCase = true) -> privacy.confirmSelf(sender)
         args.size == 2 && args[1].equals("export", ignoreCase = true) -> privacy.exportSelf(sender)
@@ -369,22 +372,40 @@ class Zygote : JavaPlugin(), TabCompleter {
       !asker -> lang.send(sender, "messages.no_permission")
       word == "cancel" && args.size == 1 -> handler.cancel(sender)
       word == "new" && args.size == 1 -> memory.newSession(sender)
-      word == "memory" && args.size == 1 -> memory.list(sender)
-      word == "memory" -> memory.remember(sender, args.drop(1).joinToString(" "))
-      word == "forget" && args.size <= 2 -> args.getOrNull(1)?.let { memory.forget(sender, it) } ?: memory.usage(sender)
-      word == "recipe" && player != null ->
-        if (args.size < 2) lang.send(sender, "messages.recipe_usage") else clicks.recipe(player, args.drop(1).joinToString("_"))
-      word == "enchants" && args.size == 1 && player != null -> clicks.enchants(player)
-      word == "villagers" && args.size == 1 && player != null -> clicks.villagers(player, null)
-      word == "brewing" && player != null ->
-        if (args.size < 2) lang.send(sender, "messages.brewing_usage") else clicks.brewing(player, args[1], args.getOrNull(2))
-      word == "anvil" && args.size == 1 && player != null -> clicks.anvil(player, null)
+      word == "memory" -> memory(sender, player, args.drop(1))
       else -> usage(sender, lang)
     }
   }
 
+  /**
+   * `/allay memory` opens the window; its buttons run the rest: `new` (the field to add one), `add` and `here` with
+   * the text, `show` and `forget` with a memory's id, and `clear`, which asks once more before `clear confirm`.
+   */
+  private fun memory(sender: CommandSender, player: Player?, args: List<String>) {
+    val word = args.firstOrNull()?.lowercase()
+    val rest = args.drop(1).joinToString(" ")
+    when {
+      word == null -> memory.open(sender)
+      word == "add" -> memory.remember(sender, rest)
+      player == null -> locales.of(sender).send(sender, "messages.players_only")
+      word == "here" -> memory.remember(player, rest, here = true)
+      word == "new" -> memory.create(player)
+      word == "show" && args.size == 2 -> memory.show(player, args[1])
+      word == "forget" && args.size == 2 -> memory.forget(player, args[1])
+      word == "clear" && args.size == 1 -> memory.confirmClear(player)
+      word == "clear" && args.getOrNull(1) == PrivacyCommands.CONFIRM -> memory.forget(player, null)
+      else -> memory.open(sender)
+    }
+  }
+
   private fun settingsMenu(player: Player): Unit =
-    SettingsMenu(player, locales.of(player), features, memory, privacy, description.version, languages) { languageMenu(player) }.open()
+    SettingsMenu(player, locales.of(player), features, memory, privacy, description.version, languages, SettingsMenu.Admin(
+      reload = { handleReloadCommand(player) },
+      status = { billing.status(player) },
+      // Nothing to pay with a key of your own, a backend without billing, or a subscription that runs.
+      pay = { !configuration.provider.byok && watch?.status?.let { it.billing && it.active } != true },
+      link = { billing.link(player) },
+    )) { languageMenu(player) }.open()
 
   private fun languageMenu(player: Player): Unit = LanguageMenu(player, locales, languages) { settingsMenu(player) }.open()
 
@@ -399,7 +420,7 @@ class Zygote : JavaPlugin(), TabCompleter {
       args.size == 1 -> buildList {
         if (sender is Player) add("language")
         if (sender.hasPermission(Permissions.CHAT)) addAll(listOf("chat", "hints"))
-        if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "forget", "privacy", "recipe", "enchants", "villagers", "brewing", "anvil"))
+        if (sender.hasPermission(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "privacy"))
         if (sender.hasPermission(Permissions.RELOAD)) add("reload")
         if (sender.hasPermission(Permissions.ADMIN)) addAll(listOf("status", "link", "locale", "init"))
       }
@@ -407,18 +428,11 @@ class Zygote : JavaPlugin(), TabCompleter {
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
       args.size == 2 && args[0].lowercase() in setOf("chat", "hints") -> listOf("on", "off")
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> languages.codes() + "auto"
-      args.size == 2 && args[0].equals("forget", ignoreCase = true) -> listOf("all")
       args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
         listOf("agree", "withdraw", "full", "export", "erase")
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && args[1].equals("full", ignoreCase = true) -> listOf("on", "off")
       args.size == 3 && args[0].equals("privacy", ignoreCase = true) && sender.hasPermission(Permissions.ADMIN) ->
         Vanish.visibleTo(sender, server.onlinePlayers).map { it.name }
-      args.size == 2 && args[0].equals("recipe", ignoreCase = true) ->
-        return Material.entries.asSequence().filter { it.isItem && !it.isAir && !it.isLegacy }.map { it.key.key }
-          .filter { it.startsWith(args[1].lowercase()) }.take(50).toList()
-      args.size == 2 && args[0].equals("brewing", ignoreCase = true) ->
-        return Brewing.potions(BrewingRecipes.all(server)).filter { it.startsWith(args[1].lowercase()) }.take(50)
-      args.size == 3 && args[0].equals("brewing", ignoreCase = true) -> Brewing.FORMS
       else -> return emptyList()
     }
     return options.filter { it.startsWith(args.last(), ignoreCase = true) }

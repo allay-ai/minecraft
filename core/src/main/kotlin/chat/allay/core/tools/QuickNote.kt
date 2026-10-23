@@ -1,7 +1,7 @@
 package chat.allay.core.tools
 
 /**
- * `/allay memory <text>` without the assistant. Two or three whole numbers in the text are a place, so the memory gets
+ * `/allay memory add <text>` without the assistant. Two or three whole numbers in the text are a place, so the memory gets
  * one; the dimension is the one the text names (“в аду”, “the end”), or none when it names none or several.
  */
 object QuickNote {

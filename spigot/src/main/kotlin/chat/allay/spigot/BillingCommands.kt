@@ -87,29 +87,34 @@ class BillingCommands(
     }
   }
 
-  /** `/allay status`: who pays for the model and, for the subscription, how it stands. */
+  /**
+   * `/allay status`: who pays for the model and, for the subscription, how it stands. A player reads it in a window,
+   * with a button to pay when there's nothing paid; the console in lines.
+   */
   fun status(sender: CommandSender) {
     val lang = locales.of(sender)
     val provider = config.provider
-    if (provider.byok) {
-      lang.send(sender, "billing.status.header")
-      lang.send(sender, "billing.status.byok")
-      lang.send(sender, "billing.status.base_url", "url" to provider.baseUrl)
-      lang.send(sender, "billing.status.model", "model" to provider.model.ifEmpty { lang.text("billing.status.default_model") })
-      lang.send(sender, "billing.status.search_model", "model" to provider.searchModel.ifEmpty { lang.text("billing.status.no_search") })
-      if (provider.apiKey.isEmpty()) lang.send(sender, "billing.status.no_key") else lang.send(sender, "billing.status.key", "key" to Secrets.mask(provider.apiKey))
-      when {
-        credentials.token != null -> lang.send(sender, "billing.status.token", "token" to Secrets.mask(credentials.token))
-        billing.license.id != null -> lang.send(sender, "billing.status.identity", "id" to billing.license.id)
-      }
-      return
+    if (provider.byok) return request(sender, window = true) {
+      listOfNotNull(
+        Line(lang.text("billing.status.header")),
+        Line(lang.text("billing.status.byok")),
+        Line(lang.text("billing.status.base_url", "url" to provider.baseUrl)),
+        Line(lang.text("billing.status.model", "model" to provider.model.ifEmpty { lang.text("billing.status.default_model") })),
+        Line(lang.text("billing.status.search_model", "model" to provider.searchModel.ifEmpty { lang.text("billing.status.no_search") })),
+        Line(if (provider.apiKey.isEmpty()) lang.text("billing.status.no_key") else lang.text("billing.status.key", "key" to Secrets.mask(provider.apiKey))),
+        credentials.token?.let { Line(lang.text("billing.status.token", "token" to Secrets.mask(it))) }
+          ?: billing.license.id?.let { Line(lang.text("billing.status.identity", "id" to it)) },
+      )
     }
-    // A self-hosted backend knows the server by its token, and needs no license at all.
-    credentials.token?.let { lang.send(sender, "billing.status.token", "token" to Secrets.mask(it)) }
     val zone = zone(sender)
     val license = billing.license
-    request(sender) {
-      val header = listOf(Line(lang.text("billing.status.header")), Line(lang.text("billing.status.hosted")))
+    request(sender, window = true) {
+      // A self-hosted backend knows the server by its token, and needs no license at all.
+      val header = listOfNotNull(
+        Line(lang.text("billing.status.header")),
+        credentials.token?.let { Line(lang.text("billing.status.token", "token" to Secrets.mask(it))) },
+        Line(lang.text("billing.status.hosted")),
+      )
       if (license.broken) throw ApiErrorException(ApiError(Billing.LICENSE_FILE_BROKEN, "license.key holds no license"))
       val status = if (license.read() == null) {
         // Without a license only a backend with billing off answers 200; anything else means there's none yet.
@@ -216,8 +221,22 @@ class BillingCommands(
     }
   }
 
+  /**
+   * Lines as a window: the first is its title, and a line with a button to pay gives the window that button. The
+   * payment link itself still comes to chat, where it can be copied.
+   */
+  private fun window(player: Player, lines: List<Line>) {
+    val lang = locales.of(player)
+    val pay = lines.any { it.buttons.isNotEmpty() }
+    Windows.show(player, Window(
+      lines.first().text, lines.drop(1).map { it.text }.filter { it.isNotEmpty() },
+      if (pay) listOf(Windows.button(lang, "billing.status.pay", "billing.notice.renew_hover", "/allay link")) else emptyList(),
+      1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay"),
+    ))
+  }
+
   /** Runs [block] off the server thread and shows its lines on it; errors become the reader's error text. */
-  private fun request(sender: CommandSender, block: suspend () -> List<Line>) {
+  private fun request(sender: CommandSender, window: Boolean = false, block: suspend () -> List<Line>) {
     val lang = locales.of(sender)
     scope.launch(Dispatchers.IO) {
       val lines = try {
@@ -233,7 +252,9 @@ class BillingCommands(
         plugin.logger.warning("License request failed: ${credentials.scrub(error.toString())}")
         listOf(Line(ErrorHandler.message(lang, error)))
       }
-      if (plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable { lines.forEach { show(sender, it) } })
+      if (plugin.isEnabled) plugin.server.scheduler.runTask(plugin, Runnable {
+        if (window && sender is Player && lines.size > 1) window(sender, lines) else lines.forEach { show(sender, it) }
+      })
     }
   }
 }

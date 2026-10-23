@@ -16,8 +16,9 @@ import java.time.format.DateTimeFormatter
 
 /**
  * `/allay`: the player's Allay settings in one window, and nothing else. Toggles switch chat mode, its tip, and full
- * privacy; the rest opens what `/allay`'s subcommands open. The recipe, enchanting, and villager windows open from
- * buttons under answers, where Allay knows what they're for. Like every [Menu], it only shows pictures.
+ * privacy; memory and “My data” open their own windows (dialogs). Admins get a bottom row: reload, the subscription's
+ * status, and the payment link while nothing runs. The recipe, enchanting, and villager windows open from buttons in
+ * answers, where Allay knows what they're for. Like every [Menu], it only shows pictures.
  */
 class SettingsMenu(
   player: Player,
@@ -27,8 +28,14 @@ class SettingsMenu(
   private val privacy: PrivacyCommands,
   private val version: String,
   private val languages: Languages,
+  private val admin: Admin,
   private val chooseLanguage: () -> Unit,
 ) : Menu(player, 45, lang.text("menus.settings.title")) {
+  /** What the admins' row does; [pay] says whether there's anything to pay for. */
+  class Admin(val reload: () -> Unit, val status: () -> Unit, val pay: () -> Boolean, val link: () -> Unit)
+
+  private val reloadAllowed get() = player.hasPermission(Permissions.RELOAD)
+  private val adminAllowed get() = player.hasPermission(Permissions.ADMIN)
   private val chatAllowed get() = player.hasPermission(Permissions.CHAT)
   private val askAllowed get() = player.hasPermission(Permissions.ASK)
 
@@ -54,6 +61,12 @@ class SettingsMenu(
       set(DATA, icon(Material.SHIELD, lang.text("menus.settings.data"), lines("data_what", "data_click")))
     }
     set(CLOSE, icon(Material.BARRIER, lang.text("menus.close")))
+
+    if (reloadAllowed) set(RELOAD, icon(Material.REPEATING_COMMAND_BLOCK, lang.text("menus.settings.reload"), lines("reload_what")))
+    if (adminAllowed) {
+      set(STATUS, icon(Material.GOLD_INGOT, lang.text("menus.settings.status"), lines("status_what")))
+      if (admin.pay()) set(LINK, icon(Material.EMERALD, lang.text("menus.settings.link"), lines("link_what")))
+    }
   }
 
   /** A setting and, under it, a pane that's green when it's on: the way the game's own toggles read at a glance. */
@@ -85,19 +98,31 @@ class SettingsMenu(
       }
       MEMORY -> if (askAllowed) {
         player.closeInventory()
-        memory.list(player)
+        memory.open(player)
       }
       // A fresh start can't be undone, so a plain click only explains how.
       NEW -> if (askAllowed && shift) {
         player.closeInventory()
         memory.newSession(player)
       }
-      // Closed first: the answer goes to chat, which an open window hides.
       DATA -> if (askAllowed) {
         player.closeInventory()
         privacy.info(player)
       }
       LANGUAGE -> chooseLanguage()
+      RELOAD -> if (reloadAllowed) {
+        admin.reload()
+        changed()
+      }
+      STATUS -> if (adminAllowed) {
+        player.closeInventory()
+        admin.status()
+      }
+      // Closed first: the link comes to chat, which an open window hides.
+      LINK -> if (adminAllowed && admin.pay()) {
+        player.closeInventory()
+        admin.link()
+      }
       CLOSE -> player.closeInventory()
     }
   }
@@ -124,5 +149,9 @@ class SettingsMenu(
     const val NEW = 29
     const val DATA = 34
     const val CLOSE = 40
+    // Admins' row around Close: reload on the left, the subscription and paying for it on the right.
+    const val RELOAD = 38
+    const val STATUS = 42
+    const val LINK = 43
   }
 }

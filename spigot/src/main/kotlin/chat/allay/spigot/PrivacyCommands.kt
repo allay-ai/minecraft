@@ -128,14 +128,9 @@ class PrivacyCommands(
     show(player, lang.text("consent.age_question"), listOf(lang.text("consent.age_why")), bands, columns = 1)
   }
 
-  /**
-   * The answer closes the window or opens the next one; Escape closes it, and the question waits for [PENDING_MS]. Gray
-   * reads poorly over the blurred game, so the window's text is white and what chat shows in white turns yellow.
-   */
+  /** The answer closes the window or opens the next one; Escape closes it, and the question waits for [PENDING_MS]. */
   private fun show(player: Player, title: String, paragraphs: List<String>, buttons: List<Window.Button>, columns: Int) =
-    Windows.show(player, Window(formatMessage(title), paragraphs.map { brighter(formatMessage(it)) }, buttons, columns, BODY_WIDTH))
-
-  private fun brighter(text: String) = text.replace("§f", "§e").replace("§7", "§f")
+    Windows.show(player, Window(title, paragraphs, buttons, columns, Windows.BODY, links = true))
 
   /** One line in chat under the window, to open it again after Escape. */
   private fun reminder(player: Player) {
@@ -223,6 +218,7 @@ class PrivacyCommands(
    */
   fun withdraw(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    Windows.close(player)
     pending.remove(player.uniqueId)
     forgetHere(player.uniqueId)
     request(sender, after = { stopAgents(player) }) { lang ->
@@ -265,7 +261,54 @@ class PrivacyCommands(
     }
   }
 
+  /** The switch in the privacy window: flips it and shows the window again, without a line in chat. */
+  fun toggleFull(player: Player) {
+    val on = !settings.of(player.uniqueId).full_privacy
+    settings.update(player.uniqueId) { it.copy(full_privacy = on) }
+    scope.launch {
+      try {
+        if (consents.known(player.uniqueId) || consents.check(player.uniqueId) == Consents.State.GIVEN) service.privacy(player.uniqueId.toString(), on)
+      } catch (error: Exception) {
+        plugin.logger.warning("Couldn't send full privacy to the backend: ${error.javaClass.simpleName}")
+      }
+      onMain { info(player) }
+    }
+  }
+
+  /**
+   * `/allay privacy`: a player's data in a window: what Allay keeps, full privacy as a switch, and buttons to download,
+   * withdraw, or erase it all. The console reads it in lines.
+   */
   fun info(sender: CommandSender) {
+    val player = sender as? Player ?: return infoLines(sender)
+    val lang = locales.of(player)
+    val full = settings.of(player.uniqueId).full_privacy
+    val paragraphs = buildList {
+      addAll(lang.text("privacy.info").split('\n'))
+      add(lang.text(if (full) "privacy.window.full_is_on" else "privacy.window.full_is_off"))
+      if (player.hasPermission(Permissions.ADMIN)) add(lang.text("privacy.admin"))
+    }
+    val buttons = listOf(
+      Windows.button(lang, if (full) "privacy.window.full_off" else "privacy.window.full_on", "privacy.window.full_hover", "/allay privacy full toggle"),
+      Windows.button(lang, "privacy.window.export", "privacy.window.export_hover", "/allay privacy export"),
+      Windows.button(lang, "privacy.window.withdraw", "privacy.window.withdraw_hover", "/allay privacy withdraw"),
+      Windows.button(lang, "privacy.window.erase", "privacy.erase_hover", "/allay privacy erase"),
+    )
+    Windows.show(player, Window(lang.text("privacy.window.title"), paragraphs, buttons, 1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay")))
+  }
+
+  /** `/allay privacy withdraw` from a player: it erases what the agreement covered, so the window asks once more. */
+  fun confirmWithdraw(sender: CommandSender) {
+    val player = sender as? Player ?: return withdraw(sender)
+    val lang = locales.of(player)
+    Windows.show(player, Window(
+      lang.text("privacy.window.withdraw_title"), listOf(lang.text("privacy.window.withdraw_about")),
+      listOf(Windows.button(lang, "privacy.window.withdraw_yes", "privacy.window.withdraw_hover", "/allay privacy withdraw $CONFIRM")),
+      1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
+    ))
+  }
+
+  private fun infoLines(sender: CommandSender) {
     val lang = locales.of(sender)
     lang.send(sender, "privacy.info")
     (sender as? Player)?.let { lang.send(it, if (settings.of(it.uniqueId).full_privacy) "privacy.full_is_on" else "privacy.full_is_off") }
@@ -273,19 +316,20 @@ class PrivacyCommands(
     if (sender.hasPermission(Permissions.ADMIN)) lang.send(sender, "privacy.admin")
   }
 
-  /** `/allay privacy erase`: asks once more, with a button, since nothing brings the data back. */
+  /** `/allay privacy erase`: asks once more in a window, since nothing brings the data back. */
   fun confirmSelf(sender: CommandSender) {
     val lang = locales.of(sender)
     val player = sender as? Player ?: return lang.send(sender, "privacy.admin")
-    val button = TextComponent(*plain(formatMessage(lang.text("privacy.erase_button")))).apply {
-      clickEvent = ClickEvent(ClickEvent.Action.RUN_COMMAND, "/allay privacy erase $CONFIRM")
-      hoverEvent = HoverEvent(HoverEvent.Action.SHOW_TEXT, Text(plain(formatMessage(lang.text("privacy.erase_hover")))))
-    }
-    player.spigot().sendMessage(*plain(formatMessage(lang.text("privacy.erase_confirm"))), TextComponent(" "), button)
+    Windows.show(player, Window(
+      lang.text("privacy.window.erase_title"), listOf(lang.text("privacy.erase_confirm")),
+      listOf(Windows.button(lang, "privacy.window.erase_yes", "privacy.erase_hover", "/allay privacy erase $CONFIRM")),
+      1, Windows.BODY, exit = Windows.button(lang, "windows.back", "windows.back_hover", "/allay privacy"),
+    ))
   }
 
   fun eraseSelf(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "messages.players_only")
+    Windows.close(player)
     forgetHere(player.uniqueId)
     request(sender) { lang ->
       val erased = service.erase(player.uniqueId.toString())
@@ -296,9 +340,10 @@ class PrivacyCommands(
     }
   }
 
-  /** `/allay privacy export`: a link to everything kept about the player, for them alone. */
+  /** `/allay privacy export`: a link to everything kept about the player, for them alone, in chat, where it can be copied. */
   fun exportSelf(sender: CommandSender) {
     val player = sender as? Player ?: return locales.of(sender).send(sender, "privacy.admin")
+    Windows.close(player)
     link(sender, player.uniqueId, null)
   }
 
@@ -402,8 +447,7 @@ class PrivacyCommands(
     private val UNTIL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     /** A question older than this doesn't go on when its asker agrees: they've moved on. */
     private const val PENDING_MS = 10 * 60_000L
-    /** Widths in the window, in pixels: the text, the notice's buttons, and the age bands. */
-    private const val BODY_WIDTH = 400
+    /** Widths in the window, in pixels: the notice's buttons and the age bands. */
     private const val BUTTON_WIDTH = 150
     private const val AGE_WIDTH = 200
   }

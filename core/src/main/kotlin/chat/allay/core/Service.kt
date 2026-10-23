@@ -251,7 +251,7 @@ class Service<C>(
   }
 
   /**
-   * `/allay memory <text>` and the note button: saves a fact as the memories tool would, with a [place] (backend 6.9;
+   * `/allay memory add <text>` (the memory window) and the note button: saves a fact as the memories tool would, with a [place] (backend 6.9;
    * an older one drops it). A full memory answers `MEMORY_FULL`.
    */
   suspend fun remember(userId: String, text: String, place: Place? = null): Memory = withContext(IO) {

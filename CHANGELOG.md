@@ -2,6 +2,17 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.9.0
+
+Needs Allay Server 6.11, which writes buttons into the answer; with an older backend answers come without buttons.
+
+- 🔘 **Buttons in the answer.** Allay writes its buttons where they belong in the text instead of a row under it: a follow-up question, the way, coordinates to copy, a note, a window. A button Allay can't use here shows as plain text. The `add_buttons` tool is gone.
+- ✉️ **Messages to send.** Ask Allay to write to the others for you (“ask politely in chat for 12 diamonds”) and it shows the message with a **Send** button; nothing goes out until you press it. In your own answers Allay can also offer a command you could type yourself; `blocked_commands` still apply. Neither kind ever comes in an answer everyone reads.
+- 🧠 **Memory in a window.** `/allay memory` opens what Allay remembers: open one to see its place, get the way there, or forget it; add one by hand, with your place if you like; forget everything after a confirmation. `/allay forget` is gone.
+- 🛡️ **Your data in a window.** `/allay privacy` opens what's kept, with full privacy as a switch and buttons to download it (the link still comes to chat), take your agreement back, or erase it all, each after a confirmation.
+- 🛠️ **Admins in `/allay`.** Reload, the subscription's status (in a window), and the payment link while nothing is paid, as buttons.
+- ✂️ **Fewer commands.** `/allay recipe`, `enchants`, `villagers`, `brewing`, and `anvil` are gone: Allay offers those windows as buttons when they help.
+
 ## 6.8.0
 
 - 🪟 **The notice and the age question in a window.** Allay asks for agreement in the game's own window instead of thirty-odd lines of chat: the age bands as buttons, then what Allay sends and keeps, with “I agree”, “No, thanks”, and the privacy policy at the bottom. Escape closes it; one line in chat opens it again (`/allay privacy review`). Addresses like allay.chat in it are links. Paper draws it with its own dialog API, Spigot with BungeeCord's.
