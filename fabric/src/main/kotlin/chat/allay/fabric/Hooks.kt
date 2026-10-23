@@ -44,6 +44,12 @@ object Hooks {
   /** A player hit a block with a left click; true from a listener means it took the click, and the block takes no damage. */
   val hitBlock = Event<(ServerPlayer, ServerLevel, BlockPos) -> Boolean>()
 
+  /**
+   * A player's client starts a new world: they respawned, as a new [ServerPlayer], or went to another dimension. The
+   * client forgets every entity it knew then, the ones only it knew about ([chat.allay.fabric.tools.Ghosts]) too.
+   */
+  val arrived = Event<(ServerPlayer) -> Unit>()
+
   /** A player dies, with what they carry still on them. */
   val died = Event<(ServerPlayer, DamageSource) -> Unit>()
 
@@ -67,5 +73,5 @@ object Hooks {
     return taken
   }
 
-  fun clear() = listOf(joined, left, placedBlock, brokeBlock, hitBlock, died, pickup, advancement, tick).forEach { it.clear() }
+  fun clear() = listOf(joined, left, placedBlock, brokeBlock, hitBlock, arrived, died, pickup, advancement, tick).forEach { it.clear() }
 }

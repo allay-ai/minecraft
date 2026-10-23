@@ -57,6 +57,7 @@ class Picking(private val scheduler: Scheduler, private val locales: Locales, pr
         true
       }
     }
+    Hooks.arrived += { player -> sessions[player.uuid]?.let { Ghosts.resend(player, it.picked.values.flatten()) } }
   }
 
   /** Starts picking for [task]; with [looking], the block under the crosshair is picked right away. */

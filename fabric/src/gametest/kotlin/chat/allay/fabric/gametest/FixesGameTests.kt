@@ -21,12 +21,16 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.portal.TeleportTransition
+import net.minecraft.world.phys.Vec3
 
 /**
  * What the audit of the mod against the plugin found: players who respawn or change worlds, the order and the reading
@@ -105,6 +109,31 @@ class FixesGameTests {
     around.forEach { helper.level.setBlockAndUpdate(it, Blocks.SHULKER_BOX.defaultBlockState()) }
     helper.assertTrue(!AutomationBlocks.sees(player, helper.level.at(chest)), "a chest behind shulker boxes is out of sight")
     player.discard()
+    helper.succeed()
+  }
+
+  /** The ids of the entities the server told [player]'s client about since the last look. */
+  private fun added(player: Players.Survivor) = player.packets().filterIsInstance<ClientboundAddEntityPacket>().map { it.id }.toSet()
+
+  @GameTest(environment = RESPAWNS)
+  fun marksComeBackAfterARespawnAndInTheirOwnWorld(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val spot = helper.absolutePos(BlockPos(2, 2, 2))
+    player.packets()
+    Players.run(player, "show_marks", buildJsonObject {
+      putJsonArray("marks") { add(buildJsonObject { put("x", spot.x); put("y", spot.y); put("z", spot.z); put("block", "torch"); put("label", "here") }) }
+    })
+    val ghosts = added(player)
+    equal(helper, ghosts.size, 2, "the ghost and its label")
+    val fresh = respawn(player)
+    helper.assertTrue(added(player).containsAll(ghosts), "the respawned player's client hears of the marks again")
+    // In another world they wait; back in theirs, they show again.
+    val nether = helper.level.server.getLevel(Level.NETHER)!!
+    fresh.teleport(TeleportTransition(nether, Vec3(0.5, 100.0, 0.5), Vec3.ZERO, 0f, 0f, TeleportTransition.DO_NOTHING))
+    helper.assertTrue(added(player).intersect(ghosts).isEmpty(), "marks of the overworld in the nether")
+    fresh.teleport(TeleportTransition(helper.level, Vec3.atCenterOf(spot), Vec3.ZERO, 0f, 0f, TeleportTransition.DO_NOTHING))
+    helper.assertTrue(added(player).containsAll(ghosts), "the marks show again back home")
+    fresh.discard()
     helper.succeed()
   }
 }

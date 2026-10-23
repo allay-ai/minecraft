@@ -10,6 +10,8 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback
@@ -47,6 +49,8 @@ class AllayMod : ModInitializer {
     PlayerBlockBreakEvents.AFTER.register { level, player, pos, _, _ ->
       if (player is ServerPlayer && level is ServerLevel) Hooks.brokeBlock.each { it(player, level, pos) }
     }
+    ServerPlayerEvents.AFTER_RESPAWN.register { _, player, _ -> Hooks.arrived.each { it(player) } }
+    ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register { player, _, _ -> Hooks.arrived.each { it(player) } }
     AttackBlockCallback.EVENT.register { player, level, _, pos, _ ->
       if (player is ServerPlayer && level is ServerLevel && Hooks.hit(player, level, pos)) InteractionResult.FAIL else InteractionResult.PASS
     }

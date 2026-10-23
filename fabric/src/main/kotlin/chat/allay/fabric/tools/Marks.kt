@@ -64,6 +64,7 @@ object Marks {
 
   fun start() {
     Hooks.left += { clear(it) }
+    Hooks.arrived += { player -> shown[player.uuid]?.let { Ghosts.resend(player, it.ghosts.values.flatten()) } }
     // A ghost is done once the player puts a block there: the mark over that spot goes out.
     Hooks.placedBlock += { player, level, pos ->
       shown[player.uuid]?.let { marks -> marks.ghosts.remove(level.at(pos))?.let { Ghosts.hide(player, it) } }
