@@ -11,6 +11,7 @@ Allay comes to Fabric. The plugin for Spigot and Paper works as before.
 - 🔑 **The owner of a singleplayer world runs Allay there**, cheats or not: they link a license and reload, but get no operator tools without cheats.
 - 🧩 **Integrations on Fabric**, each optional: Flan and the claims mods behind Common Protection API in place of GriefPrevention, Text Placeholder API in place of PlaceholderAPI (`{papi:…}` takes its ids, `%allay:chat_mode%` and the rest), Plan's Fabric build, LuckPerms or any mod behind fabric-permissions-api for permissions (operators get everything without one), and the Vanish mod.
 - 🧪 **Fabric's differences, where the game leaves no choice.** Worlds are named by dimension (`overworld`), not by folder. `get_server` lists mods, and `tools.server.hidden_plugins` hides a mod by its id or name. Chat mode turns `~text` into a plain line sent as the player, since the game signs chat.
+- 🔊 **Sounds by the game's id.** `ui.sounds.*_sound` takes `entity.allay.item_given` as well as Bukkit's `ENTITY_ALLAY_ITEM_GIVEN`, on both platforms.
 - 🔒 **Brewing stands follow claims** on both platforms: `get_brewing_items` lists only stands the player could open themself.
 - 📦 **Releases carry both jars**, each also without its version: `releases/latest/download/allay-spigot.jar` and `allay-fabric.jar`. On Modrinth the plugin's versions read `X.Y.Z+spigot` and the mod's `X.Y.Z+fabric`.
 

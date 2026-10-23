@@ -139,7 +139,10 @@ class BukkitEffects(private val plugin: JavaPlugin, config: Config) : Effects {
     Cue.REMINDER to Sound.BLOCK_NOTE_BLOCK_BELL,
   )
 
-  private fun sound(setting: Config.Sound, default: Sound) = value(setting.key, setting.name, default) { Sound.valueOf(it) }
+  /** By Bukkit's name (`ENTITY_ALLAY_ITEM_GIVEN`) or the game's id (`entity.allay.item_given`), as the mods read it. */
+  private fun sound(setting: Config.Sound, default: Sound) = value(setting.key, setting.name, default) { name ->
+    if ('.' in name) org.bukkit.Registry.SOUNDS.get(org.bukkit.NamespacedKey.fromString(name.lowercase())!!)!! else Sound.valueOf(name)
+  }
 
   /** A name from the config as Bukkit's value; an unknown name falls back to [default] with a warning. */
   private fun <T> value(key: String, name: String?, default: T, parse: (String) -> T): T {
