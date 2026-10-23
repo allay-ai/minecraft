@@ -31,6 +31,15 @@ object Permissions {
   }
 
   private val OPERATORS = setOf(ASKALL_NO_COOLDOWN, ASKX, RELOAD, ADMIN)
+
+  /**
+   * Every permission Allay may ask about, for a permissions API that wants each named up front (NeoForge's): the fixed
+   * ones, each kind of automation, and the tiers [config] names in `quota.tiers` and `models`.
+   */
+  fun all(config: YamlConfig?): List<String> {
+    val tiers = config?.let { QuotaSettings.parse(it).tiers.keys.map(::quota) + ModelTiers.parse(it).models.keys.map(::model) }.orEmpty()
+    return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION) + chat.allay.core.tasks.Kind.entries.map(::automation) + tiers).distinct()
+  }
 }
 
 /** Chat mode's prefixes: where a line a player writes in chat goes, by its first character. */
