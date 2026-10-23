@@ -67,6 +67,10 @@ class AllayMod : ModInitializer {
     } catch (error: Throwable) {
       platform.on = false
       LoggerFactory.getLogger("Allay").error("Allay couldn't start", error)
+      // As Bukkit disables a plugin whose start failed: what started stops, and its listeners and timers go.
+      runCatching { allay.disable() }.onFailure { LoggerFactory.getLogger("Allay").error("Allay couldn't stop what it started", it) }
+      platform.scheduler.stop()
+      Hooks.clear()
     }
   }
 
