@@ -24,7 +24,8 @@ MODS = {
     # loader: its name on the version, the projects it can't run without, the ones it works with, and where it runs.
     # Allay runs on either side: on a dedicated server, under a singleplayer world, and on its own on a player's
     # game. Players joining a server with Allay need nothing on their side, and Kotlin is inside the jar.
-    "fabric": ("Fabric", ["fabric-api"], ["placeholder-api", "luckperms", "plan"], "client_or_server"),
+    "fabric": ("Fabric", ["fabric-api"], ["placeholder-api", "luckperms", "plan", "open-parties-and-claims"], "client_or_server"),
+    "neoforge": ("NeoForge", [], ["luckperms", "placeholder-api-neoforge", "open-parties-and-claims", "flan", "vanishmod"], "client_or_server"),
 }
 
 

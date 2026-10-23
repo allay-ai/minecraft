@@ -27,6 +27,7 @@ jobs:
           path: |
             spigot/build/libs/allay-spigot-*.jar
             fabric/build/libs/allay-fabric-*.jar
+            neoforge/build/libs/allay-neoforge-*.jar
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

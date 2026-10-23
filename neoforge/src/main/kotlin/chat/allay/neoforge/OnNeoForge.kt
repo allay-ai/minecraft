@@ -25,7 +25,7 @@ object OnNeoForge : Loader {
 
   // FML wants a number, so a dev build carries 0.0.0-dev; Allay calls it dev on every platform.
   override val version: String
-    get() = ModList.get().getModContainerById("allay").map { it.modInfo.version.toString() }.orElse("dev").let { if (it == "0.0.0-dev") "dev" else it }
+    get() = ModList.get().getModContainerById("allay").map { it.modInfo.version.toString() }.orElse("dev").removePrefix("0.0.0-")
 
   override val config: Path get() = FMLPaths.CONFIGDIR.get()
   override fun loaded(mod: String) = ModList.get().isLoaded(mod)

@@ -101,8 +101,8 @@ kotlin {
 
 tasks {
   processResources {
-    // FML wants a version number; a dev build is 0.0.0-dev.
-    val version = project.version.toString().let { if (it == "dev") "0.0.0-dev" else it }
+    // FML wants a version number: a dev build is 0.0.0-dev, CI's 0.0.0-dev-<sha>.
+    val version = project.version.toString().let { if (it.startsWith("dev")) "0.0.0-$it" else it }
     val properties = mapOf("version" to version, "neoforge" to neoforgeVersion, "minecraft" to minecraft)
     inputs.properties(properties)
     filesMatching("META-INF/neoforge.mods.toml") { expand(properties) }
