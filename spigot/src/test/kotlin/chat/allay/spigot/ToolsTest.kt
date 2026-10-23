@@ -1,6 +1,7 @@
 package chat.allay.spigot
 
 import chat.allay.core.Texts
+import chat.allay.core.tools.CLIENT_TOOLS
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.spigot.tools.ToolContext
 import chat.allay.spigot.tools.Tools
@@ -34,17 +35,7 @@ class ToolsTest {
   }
 
   @Test fun `the plugin offers exactly the tools of the protocol`() {
-    val names = Tools.all().map { it.name }.toSet()
-    assertEquals(
-      setOf("get_player_status", "get_inventory", "get_surroundings", "look_at", "get_world", "get_statistics", "get_advancements", "get_recipes", "locate_structure", "get_server", "get_locations", "get_nearby_players", "show_marks", "show_draft", "inspect_redstone",
-        "point_to", "sort_inventory", "reminders", "scan_nearby_containers", "find_item", "get_light_spawn_check", "get_brewing_items", "get_brewing_recipe", "scan_farm",
-        "get_item_durability", "get_xp_info", "get_food_options", "ping_me",
-        "locate_biome", "get_death_info", "find_villagers", "get_anvil_plan", "write_book", "set_timezone", "goals", "inspect_item",
-        "get_allay_guide", "allay_settings",
-        "start_task", "message_task", "cancel_task", "say", "wait", "finish", "pick_blocks", "chests", "smelt", "brew", "craft", "anvil",
-        "give_item", "teleport", "set_gamemode", "heal", "apply_effect", "set_time", "set_weather"),
-      names,
-    )
+    assertEquals(CLIENT_TOOLS, Tools.all().map { it.name }.toSet())
   }
 
   @Test fun `switched off tools are neither offered nor runnable`() {
