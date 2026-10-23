@@ -88,7 +88,7 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
     Marks.start()
     deaths.start()
     automation.start()
-    goals.start()
+    goals.start(server)
     Hooks.left += { Trails.stop(it) }
   }
 
