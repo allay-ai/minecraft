@@ -292,7 +292,8 @@ class AutomationGameTests {
       equal(helper, carried(player, Items.IRON_INGOT), 2, "the ingots reach the inventory")
       val paid = Regex("with (\\d+) experience").find(news!!)!!.groupValues[1].toInt()
       val orbs = helper.level.getEntitiesOfClass(ExperienceOrb::class.java, AABB(player.blockPosition()).inflate(2.0)).sumOf { it.value }
-      equal(helper, orbs, paid, "the experience waits at the player's feet")
+      // The player may have picked some of it up already.
+      equal(helper, orbs + player.totalExperience, paid, "the experience waits at the player's feet or is theirs")
       helper.assertTrue(paid in 1..2, "two raw iron give one or two points: $paid")
       val store = (helper.level.getBlockEntity(furnace) as AbstractFurnaceBlockEntity) as FurnaceAccess
       helper.assertTrue(store.`allay$recipesUsed`().isEmpty(), "the furnace's store is empty")

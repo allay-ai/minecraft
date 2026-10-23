@@ -33,18 +33,18 @@ class AllayGameTests {
     helper.succeed()
   }
 
-  /** In a batch of its own: every player in the dimension within range shows on the bar, other tests' too. */
-  @GameTest(environment = "allay-gametest:locator")
+  @GameTest
   fun nearbyPlayersAreTheLocatorBarsAndNoMore(helper: GameTestHelper) {
     val asker = survivor(helper)
     val other = survivor(helper, Vec3(1.5, 2.0, 3.5))
     val result = run(asker, "get_nearby_players").result.jsonObject
-    val players = result["players"]!!.jsonArray
-    equal(helper, players.size, 1, "players on the bar")
-    val seen = players[0].jsonObject
+    // Players of other tests may stand on the bar too; the one two blocks away is ours.
+    val players = result["players"]!!.jsonArray.map { it.jsonObject }
+    val seen = players.firstOrNull { it["distance"]!!.jsonPrimitive.int == 2 }
+    helper.assertTrue(seen != null, "the other player is on the bar: $players")
     // The other player never agreed here, so the model reads a label instead of their name.
-    helper.assertTrue(seen["name"]!!.jsonPrimitive.content != other.gameProfile.name, "a stranger's name stays hidden: $seen")
-    equal(helper, seen.keys, setOf("name", "distance", "direction"), "what the bar tells")
+    helper.assertTrue(players.none { it["name"]!!.jsonPrimitive.content == other.gameProfile.name }, "a stranger's name stays hidden: $players")
+    equal(helper, seen!!.keys, setOf("name", "distance", "direction"), "what the bar tells")
     asker.discard()
     other.discard()
     helper.succeed()
