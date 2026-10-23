@@ -28,14 +28,19 @@ loom {
 fabricApi {
   configureTests {
     createSourceSet = true
-    modId = "allay-gametest"
+    modId = "allay_gametest"
     enableGameTests = true
     enableClientGameTests = true
     eula = true
   }
 }
 
-// What goes into the jar besides the mod's own classes: core and its libraries, relocated as on Bukkit.
+// The game tests are modcore's, shared with NeoForge; Fabric API's `GameTest` stands in for the annotation they name.
+kotlin.sourceSets.named("gametest") {
+  kotlin.srcDir(project(":modcore").file("src/gametest/kotlin"))
+}
+
+// What goes into the jar besides the mod's own classes: modcore, core, and core's libraries, relocated as on Bukkit.
 val shade: Configuration by configurations.creating
 
 dependencies {
@@ -43,7 +48,10 @@ dependencies {
   implementation("net.fabricmc:fabric-loader:$loader")
   implementation("net.fabricmc.fabric-api:fabric-api:$fabricApi")
   implementation(project(":core"))
+  // Without its Minecraft: the game comes from Loom here.
+  implementation(project(":modcore")) { isTransitive = false }
   shade(project(":core"))
+  shade(project(":modcore")) { isTransitive = false }
   // Optional mods: Allay asks them only when they're loaded.
   compileOnly("me.lucko:fabric-permissions-api:0.7.0")
   compileOnly("eu.pb4:placeholder-api:3.2.0+26.3") { isTransitive = false }

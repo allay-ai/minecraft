@@ -2,7 +2,7 @@ package chat.allay.fabric.client
 
 import chat.allay.core.Legacy
 import chat.allay.core.Texts as Languages
-import chat.allay.fabric.Texts
+import chat.allay.modcore.Texts
 
 import com.mojang.brigadier.arguments.StringArgumentType
 import net.fabricmc.api.ClientModInitializer
@@ -11,7 +11,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.minecraft.client.Minecraft
 
 /**
- * Allay in a player's game. In singleplayer and on LAN it runs on the game's own server ([chat.allay.fabric.AllayMod]).
+ * Allay in a player's game. In singleplayer and on LAN it runs on the game's own server ([chat.allay.modcore.Mod]).
  * On a server without Allay it can't do anything: the world, the chests, and the answers belong to that server. There
  * `/ask`, `/askall`, `/askx`, and `/allay` only say so in the player's language. On a server with Allay they go to it.
  */

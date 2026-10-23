@@ -5,6 +5,7 @@ plugins {
   id("com.modrinth.minotaur") version "2.10.0" apply false
   id("io.papermc.hangar-publish-plugin") version "0.1.4" apply false
   id("net.fabricmc.fabric-loom") version "1.19.3" apply false
+  id("net.neoforged.moddev") version "2.0.148" apply false
 }
 
 allprojects {
@@ -31,7 +32,11 @@ allprojects {
     maven("https://maven.nucleoid.xyz/") {
       content { includeGroup("eu.pb4") }
     }
-    // Flan, the Fabric claims mod, publishes only to Modrinth.
+    // Mixin's annotations for modcore, as Fabric publishes them.
+    maven("https://maven.fabricmc.net/") {
+      content { includeModule("net.fabricmc", "sponge-mixin") }
+    }
+    // Flan and Open Parties and Claims, the claims mods, and Vanishmod publish to Modrinth.
     maven("https://api.modrinth.com/maven") {
       content { includeGroup("maven.modrinth") }
     }

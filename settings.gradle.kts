@@ -8,5 +8,6 @@ pluginManagement {
 rootProject.name = "allay"
 
 // core holds everything that doesn't touch a game platform; spigot is the plugin for Spigot, Paper, and their forks;
-// fabric is the mod for Fabric, on a dedicated server and in a singleplayer world.
-include("core", "spigot", "fabric")
+// modcore is what the mods share, the game without a loader; fabric is the mod for Fabric, on a dedicated server and
+// in a singleplayer world.
+include("core", "spigot", "modcore", "fabric")

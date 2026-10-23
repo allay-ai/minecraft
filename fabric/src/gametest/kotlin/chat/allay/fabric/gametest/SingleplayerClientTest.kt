@@ -1,6 +1,6 @@
 package chat.allay.fabric.gametest
 
-import chat.allay.fabric.AllayMod
+import chat.allay.modcore.Mod
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext
@@ -19,10 +19,10 @@ class SingleplayerClientTest : FabricClientGameTest {
     context.worldBuilder().create().use { world ->
       world.connection.waitForChunksRender()
       val (side, inSave, shared) = world.server.computeOnServer<Triple<String?, Boolean, Boolean>, RuntimeException> { server ->
-        val platform = AllayMod.platform
+        val platform = Mod.platform
         val folder = platform?.folder?.toPath()
         Triple(
-          AllayMod.allay?.game?.side,
+          Mod.allay?.game?.side,
           folder?.startsWith(server.getWorldPath(LevelResource.ROOT).normalize()) == true,
           platform?.shared?.resolve("config.yml")?.exists() == true && platform.shared.resolve("license.key").parentFile == FabricLoader.getInstance().configDir.resolve("allay").toFile(),
         )
@@ -31,7 +31,7 @@ class SingleplayerClientTest : FabricClientGameTest {
       check(inSave) { "the world's server id isn't inside the world's save" }
       check(shared) { "config.yml and license.key aren't shared in config/allay/" }
       val admin = world.server.computeOnServer<Boolean, RuntimeException> { server ->
-        chat.allay.fabric.Perms.check(server.playerList.players.single(), chat.allay.core.Permissions.ADMIN)
+        chat.allay.modcore.Perms.check(server.playerList.players.single(), chat.allay.core.Permissions.ADMIN)
       }
       check(admin) { "the world's owner can't link a license" }
       check(context.computeOnClient<Boolean, RuntimeException> { !chat.allay.fabric.client.AllayClient.mine() }) { "the mod in the game answers instead of the game's own server" }
