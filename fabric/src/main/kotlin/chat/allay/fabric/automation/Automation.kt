@@ -52,7 +52,9 @@ class Automation(
 
   fun start() {
     agents.start()
+    Jobs.automation = this
     Jobs.start(platform.scheduler)
+    picking.start()
     Hooks.left += { agents.quit(it.audience) }
   }
 
