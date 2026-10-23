@@ -1,6 +1,8 @@
 package chat.allay.fabric.automation
 
 import chat.allay.core.tasks.Reservations
+import chat.allay.fabric.audience
+import chat.allay.fabric.player
 import chat.allay.fabric.tools.BlockAt
 
 import net.minecraft.core.component.DataComponents
@@ -114,16 +116,21 @@ class Sources private constructor(val list: List<Source>) {
     fun plain(item: ItemStack): Boolean = !item.`is`(ItemTags.SHULKER_BOXES) && !item.`is`(ItemTags.BUNDLES) &&
       ItemStack.isSameItemSameComponents(item, ItemStack(item.item))
 
-    /** The places around [player] within [radius], the inventory and its bundles first. */
+    /**
+     * The places around [player] within [radius], the inventory and its bundles first. The player's own places read the
+     * player as the game has them at each use: a respawn makes a new one, and with keepInventory it holds the same
+     * stacks, so a job refilling from the old inventory would hand out items twice.
+     */
     fun around(player: ServerPlayer, radius: Int): Sources {
       val list = mutableListOf<Source>()
-      val inventory = player.inventory
-      list += Source(Blocks.inventory(player), true, null, { Slots.STORAGE.map { Slots.copy(inventory.getItem(it)) } }, { items ->
-        Slots.STORAGE.forEach { inventory.setItem(it, Slots.copy(items.getOrNull(it)) ?: ItemStack.EMPTY) }
+      val owner = player.audience
+      val inventory = { owner.player.inventory }
+      list += Source(Blocks.inventory(player), true, null, { Slots.STORAGE.map { Slots.copy(inventory().getItem(it)) } }, { items ->
+        Slots.STORAGE.forEach { inventory().setItem(it, Slots.copy(items.getOrNull(it)) ?: ItemStack.EMPTY) }
       })
-      for (slot in Slots.STORAGE) bundles(list, "${Blocks.inventory(player)}#$slot", 1, { Slots.copy(inventory.getItem(slot)) }, { inventory.setItem(slot, it ?: ItemStack.EMPTY) })
+      for (slot in Slots.STORAGE) bundles(list, "${Blocks.inventory(player)}#$slot", 1, { Slots.copy(inventory().getItem(slot)) }, { inventory().setItem(slot, it ?: ItemStack.EMPTY) })
       val ender = Blocks.near(player, radius) { it.state.`is`(GameBlocks.ENDER_CHEST) }.isNotEmpty()
-      if (ender) list += Source("ender:${player.uuid}", true, null, { Slots.read(player.enderChestInventory) }, { Slots.write(player.enderChestInventory, it) })
+      if (ender) list += Source("ender:${player.uuid}", true, null, { Slots.read(owner.player.enderChestInventory) }, { Slots.write(owner.player.enderChestInventory, it) })
       Blocks.near(player, radius) { Blocks.storage(it.state) }.map(Blocks::root).distinct().forEach { block ->
         // A farm's output or a sorter's chest (a hopper on it) stays out, as it does for sorting.
         if (Blocks.inventory(block) == null || Blocks.unsuitable(player, block) != null) return@forEach

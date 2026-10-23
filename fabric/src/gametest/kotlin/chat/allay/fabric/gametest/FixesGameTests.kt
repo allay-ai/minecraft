@@ -4,6 +4,7 @@ import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.fabric.FabricPlayer
+import chat.allay.fabric.automation.Sources
 import chat.allay.fabric.gametest.Players.survivor
 import chat.allay.fabric.tools.ToolContext
 
@@ -74,5 +75,18 @@ class FixesGameTests {
       Players.features.automation.end(task, null)
       fresh.discard()
     }
+  }
+
+  @GameTest(environment = RESPAWNS)
+  fun sourcesTakeFromThePlayerAfterARespawn(helper: GameTestHelper) {
+    val player = survivor(helper)
+    player.inventory.setItem(9, ItemStack(Items.COBBLESTONE, 10))
+    val sources = Sources.around(player, 4)
+    val fresh = respawn(player)
+    val taken = sources.list.first().take({ it.`is`(Items.COBBLESTONE) }, 4)
+    equal(helper, taken.sumOf { it.count }, 4, "taken")
+    equal(helper, carried(fresh, Items.COBBLESTONE), 6, "cobblestone left with the respawned player")
+    fresh.discard()
+    helper.succeed()
   }
 }
