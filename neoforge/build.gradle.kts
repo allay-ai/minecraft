@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
   kotlin("jvm")
   kotlin("plugin.serialization")
@@ -130,8 +132,14 @@ tasks {
     dependsOn(shadowJar)
   }
 
+  // A game that hangs is killed, and the run fails: the check closes the game itself within three minutes.
+  named("runGameTestServer") {
+    timeout = Duration.ofMinutes(10)
+  }
+
   // The singleplayer check writes what it found; anything but `ok` fails the run.
   named("runClientGameTest") {
+    timeout = Duration.ofMinutes(6)
     val result = file("run/clientgametest/allay-check.txt")
     doFirst { result.delete() }
     doLast {

@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
   kotlin("jvm")
   kotlin("plugin.serialization")
@@ -105,5 +107,10 @@ tasks {
 
   assemble {
     dependsOn(shadowJar)
+  }
+
+  // A game that hangs is killed, and the run fails.
+  matching { it.name == "runGameTest" || it.name == "runClientGameTest" }.configureEach {
+    timeout = Duration.ofMinutes(10)
   }
 }
