@@ -38,7 +38,8 @@ class Automation(
   val picking: Picking = Picking(plugin, locales, this)
   val undo = Undo()
 
-  private val agents = Agents(platform, locales, config, service, clicks, quota, scope, object : Agents.World {
+  /** The core's side of the agents: their wakes, limits, and lifecycle. */
+  val agents = Agents(platform, locales, config, service, clicks, quota, scope, object : Agents.World {
     override fun stopPicking(player: PlayerAudience, task: Task?) = picking.stop(player.player, task)
     override fun tick(now: Long) = picking.tick(now)
     override fun active(job: Agents.Job) = Jobs.active(job)

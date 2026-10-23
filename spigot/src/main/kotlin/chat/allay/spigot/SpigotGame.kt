@@ -48,6 +48,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     biomeRadius = { allay.config.tools.biomeRadius },
     villagerRadius = { allay.config.tools.villagerRadius },
     automation = automation,
+    platform = allay.platform,
   )
 
   override fun tools() = Tools.all()

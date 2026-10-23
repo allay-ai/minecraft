@@ -15,60 +15,48 @@ import chat.allay.core.tools.ClientTool
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.ChatMode
 import chat.allay.core.Locales
-import chat.allay.spigot.of
+import chat.allay.spigot.audience
 
-/** What tools keep between calls, built once and shared by every run. Limits are read on use, so `/allay reload` applies them. */
+/** What tools keep between calls on Bukkit: the core's, and the world's own stores. */
 class Features(
   val plugin: Plugin,
-  val locales: Locales,
-  val reminders: Reminders,
+  locales: Locales,
+  reminders: Reminders,
   val goals: Goals,
-  val books: Books,
+  books: Books,
   val deaths: Deaths,
-  /** Each player's state and deaths on the backend. */
-  val data: PlayerData,
-  /** Whether a player agreed to the notice on this server: only they appear by name to the model. */
-  val consented: (java.util.UUID) -> Boolean,
-  val zones: TimeZones,
-  val settings: PlayerSettings,
-  val chat: ChatMode,
-  /** Names the server's shared thread of public questions on the backend. */
-  val serverId: String,
-  /** The settings now; `/allay reload` replaces them. */
-  val config: () -> Config,
+  data: PlayerData,
+  consented: (java.util.UUID) -> Boolean,
+  zones: TimeZones,
+  settings: PlayerSettings,
+  chat: ChatMode,
+  serverId: String,
+  config: () -> Config,
   val structureRadius: () -> Int,
   val biomeRadius: () -> Int,
   val villagerRadius: () -> Int,
   /** Automation agents, their picking, jobs, and undo. */
   val automation: chat.allay.spigot.automation.Automation,
-)
+  platform: Platform,
+) : ToolServices(platform, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents)
 
-/**
- * Who asked. Tools see only this sender: the owner decided the agent may learn about the asker alone, and about
- * other players only what the asker's locator bar shows ([Locator]).
- * [buttons] collects what goes under the answer; the handler shows them once the answer is out.
- */
+/** Who asked, on Bukkit: the core's [ToolScope] with the Bukkit sender and the world's stores. */
 class ToolContext(
   val sender: CommandSender,
   val features: Features,
-  val buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
-  /** The automation agent whose wake this is; null in the main chat. */
-  val task: chat.allay.core.tasks.Task? = null,
-  /** Other players' labels for this run. */
-  val others: OtherPlayers = OtherPlayers(),
-) {
-  /** The asker's language, for the summaries under tool lines. */
-  val lang: Lang get() = features.locales.of(sender)
-
+  buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
+  task: chat.allay.core.tasks.Task? = null,
+  others: OtherPlayers = OtherPlayers(),
+) : ToolScope(sender.audience, features, buttons, task, others) {
   val plugin: Plugin get() = features.plugin
   val reminders: Reminders get() = features.reminders
   val structureRadius: Int get() = features.structureRadius()
   val player: Player? get() = sender as? Player
 
-  fun requirePlayer(): Player = player ?: throw chat.allay.core.tools.ToolError("there is no player: the question came from the console")
+  fun requirePlayer(): Player = player ?: throw ToolError("there is no player: the question came from the console")
 
   /** How the model reads [other]: their name when they agreed here, else this run's “Player N”. */
-  fun nameOf(other: Player): String = others.label(other.uniqueId, other.name, features.consented(other.uniqueId))
+  fun nameOf(other: Player): String = nameOf(other.uniqueId, other.name)
 
   /** An online player by this run's label or by name, whom the asker may know about; on the bar or not. */
   fun playerNamed(name: String): Player? {
@@ -76,20 +64,6 @@ class ToolContext(
     others.player(name)?.let { id -> plugin.server.getPlayer(id)?.takeIf { it != viewer && chat.allay.spigot.Vanish.visible(viewer, it) } }?.let { return it }
     return Locator.named(viewer, name)
   }
-
-  /**
-   * The automation agent of this wake, or a [chat.allay.core.tools.ToolError] for the main chat, and for an agent that was
-   * stopped while its wake still ran: nothing more may move for it.
-   */
-  fun requireTask(): chat.allay.core.tasks.Task {
-    val task = task ?: throw chat.allay.core.tools.ToolError("only an automation agent may use this; start one with start_task")
-    if (task.done) throw chat.allay.core.tools.ToolError("this automation is over: it was stopped or finished; end the wake now")
-    return task
-  }
-
-  /** Runs [block] on the server thread from an off-thread tool ([chat.allay.core.tools.ClientTool.offMain]) and waits for it. */
-  fun <T> main(block: () -> T): T =
-    if (plugin.server.isPrimaryThread) block() else plugin.server.scheduler.callSyncMethod(plugin) { block() }.get(10, java.util.concurrent.TimeUnit.SECONDS)
 }
 
 /** A game tool on Bukkit: it reads the world through the [ToolContext]. */
@@ -99,5 +73,5 @@ typealias Tool = ClientTool<ToolContext>
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
     ActionTools.all + MarkTools.all + DraftTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + OperatorTools.all +
-    chat.allay.spigot.automation.TaskTools.all + chat.allay.spigot.automation.Chests.all + chat.allay.spigot.automation.Jobs.all
+    chat.allay.core.tools.TaskTools.all + chat.allay.spigot.automation.PickTools.all + chat.allay.spigot.automation.Chests.all + chat.allay.spigot.automation.Jobs.all
 }
