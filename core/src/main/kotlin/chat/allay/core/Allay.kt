@@ -119,8 +119,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     announcements = Announcements(platform.shared, log)
     // Both outlive /allay reload. Who agreed here, sealed, so a join looks up only them.
     val secret = { config.server.token.ifEmpty { license.read() } }
-    consented = Consented(SealedFile(File(platform.folder, Consented.FILE), secret, "allay consented v1", log), log)
-    ages = Ages(SealedFile(File(platform.folder, Ages.FILE), secret, "allay ages v1", log), log)
+    consented = Consented(SealedFile(File(platform.shared, Consented.FILE), secret, "allay consented v1", log), log)
+    ages = Ages(SealedFile(File(platform.shared, Ages.FILE), secret, "allay ages v1", log), log)
     // Players' state in memory and what waits to be sent; the backend calls go to the service of the moment.
     data = PlayerData(
       backend = object : PlayerData.Backend {
@@ -129,7 +129,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
         override suspend fun death(userId: String, death: chat.allay.core.tools.Death) = service.death(userId, death)
       },
       scope = scope,
-      spool = Spool(File(platform.folder, Spool.FILE), secret, log),
+      spool = Spool(File(platform.shared, Spool.FILE), secret, log),
       log = log,
       // Only players on the list ever reach the backend from here; anyone else does when they use Allay.
       agreed = { consents.listed(it) && (consents.known(it) || consents.check(it) == Consents.State.GIVEN) },
@@ -144,7 +144,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     chat = ChatMode(platform, locales, settings) { handler }
     // Outlives /allay reload, so reminders already set keep their schedule.
     reminders = Reminders(platform, locales, { effects }) { config.tools.maxReminders }
-    quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.folder, log) { runCatching { java.time.ZoneId.of(config.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
+    quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.shared, log) { runCatching { java.time.ZoneId.of(config.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
     game = build(this)
     data.loaded = game::loaded
     game.start()

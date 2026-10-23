@@ -124,12 +124,14 @@ interface Platform {
   /** Allay's own version, like `6.9.0`, or `dev`. */
   val version: String
 
-  /** Where the files about this world's players live: the sealed lists, the spool, the quota book, the server's id. */
+  /** Where the server's id lives, which names its shared thread of public questions: one per world in singleplayer. */
   val folder: File
 
   /**
-   * Where `config.yml`, `lang/`, `license.key`, what operators heard about the subscription, and `geoip/` live: the
-   * same as [folder] on a server, shared by every world of a singleplayer game.
+   * Where everything that goes with the license lives: `config.yml`, `lang/`, `license.key`, what operators heard about
+   * the subscription, `geoip/`, the sealed lists of who agreed and who was too young, the spool, and the quota book.
+   * The same as [folder] on a server, shared by every world of a singleplayer game, as the backend keeps players'
+   * agreements and data by license.
    */
   val shared: File get() = folder
 

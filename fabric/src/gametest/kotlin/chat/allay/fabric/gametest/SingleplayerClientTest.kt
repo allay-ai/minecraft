@@ -8,8 +8,8 @@ import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.world.level.storage.LevelResource
 
 /**
- * A real client in a fresh singleplayer world: Allay starts on the game's own server as `integrated`, keeps what
- * belongs to the world's players inside its save and its settings and license in `config/allay/`, and answers
+ * A real client in a fresh singleplayer world: Allay starts on the game's own server as `integrated`, keeps the
+ * world's server id inside its save and everything that goes with the license in `config/allay/`, and answers
  * `/allay` in chat. `./gradlew :fabric:runClientGameTest` opens a game window.
  */
 class SingleplayerClientTest : FabricClientGameTest {
@@ -27,7 +27,7 @@ class SingleplayerClientTest : FabricClientGameTest {
         )
       }
       check(side == "integrated") { "Allay runs as $side in a singleplayer world, not integrated" }
-      check(inSave) { "the world's players' files aren't inside the world's save" }
+      check(inSave) { "the world's server id isn't inside the world's save" }
       check(shared) { "config.yml and license.key aren't shared in config/allay/" }
       world.server.runCommand("allay status")
       context.waitTicks(20)

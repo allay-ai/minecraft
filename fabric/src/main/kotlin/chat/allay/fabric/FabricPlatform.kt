@@ -160,9 +160,9 @@ class FabricScheduler(private val server: MinecraftServer, private val enabled: 
 }
 
 /**
- * Where Allay keeps its files. `config/allay/` holds the settings, texts, license, and country database for every
- * world; what belongs to a world's players sits beside them on a dedicated server, and in the world's save in
- * singleplayer, so it travels with the world.
+ * Where Allay keeps its files: `config/allay/`, shared by every world, since the backend keeps players' agreements and
+ * data by license. Only the server's id, which names a world's thread of public questions, sits in a singleplayer
+ * world's save.
  */
 object Folders {
   val shared: File get() = FabricLoader.getInstance().configDir.resolve("allay").toFile()
