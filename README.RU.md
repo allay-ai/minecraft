@@ -3,6 +3,7 @@
 <p align="center">
   <a href="https://github.com/allay-ai/minecraft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/allay-ai/minecraft?label=release"></a>
   <img alt="Spigot | Paper 26.3" src="https://img.shields.io/badge/Spigot%20%7C%20Paper-26.3-F7CF0D">
+  <img alt="Fabric 26.3" src="https://img.shields.io/badge/Fabric-26.3-DBD0B4">
   <img alt="Java 25" src="https://img.shields.io/badge/Java-25-E76F00">
   <a href="https://github.com/allay-ai/minecraft/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/allay-ai/minecraft/build.yml?branch=master&label=build"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/allay-ai/minecraft"></a>
@@ -42,6 +43,7 @@ Allay работает на Moonlands — моём хардкорном выжи
 - 🪟 **Кнопки и окна.** Кнопки стоят прямо в ответе: путь куда-то, рецепт, шаги варки, самый дешёвый порядок на наковальне, чары, сделки жителей или сообщение, которое Allay написал за вас. Память и приватность открываются в окнах самой игры.
 - 🌍 **Каждый игрок читает свой язык.** Английский, русский, испанский, португальский и немецкий: по стране или на выбор через `/allay language`.
 - 🔒 **Честно и безопасно.** Allay видит только вещи спросившего, не выдаёт предметы обычным игрокам и уважает приваты и ваниш.
+- 🧱 **Плагин и мод.** Один и тот же Allay работает плагином на Spigot и Paper и модом на Fabric: на выделенном сервере или в вашем одиночном мире, где помогает только вам.
 - 🛡️ **Приватность с самого начала.** Ваш сервер подписывает каждый запрос к бэкенду, а бэкенд держит игроков разных серверов порознь. `/allay privacy` расскажет игроку, что о нём хранится, и сотрёт это по просьбе, а полная приватность скроет его ник от панели администратора бэкенда.
 
 ## Приватность и закон
@@ -55,12 +57,14 @@ Allay соблюдает законы о данных ЕС (GDPR) и США. В�
 - ✋ **Сначала возраст и согласие.** Перед первым вопросом окно спрашивает у игрока из ЕС или США возраст, и он должен быть не меньше возраста согласия в его стране (от 13 до 16 в ЕС, 14 в Испании, 13 в США), а потом каждый игрок соглашается с коротким уведомлением — и снова, когда оно меняется. Если игрок младше, Allay ничего не отвечает и ничего не отправляет. С allay.chat никакая настройка в `config.yml` этого не отключает.
 - 📦 **Игрок распоряжается своими данными.** `/allay privacy` покажет, что хранится, даст ссылку на скачивание на 24 часа и сотрёт всё; `/allay privacy withdraw` отзовёт согласие и сотрёт то, что оно покрывало.
 - 👥 **Другие игроки остаются без имён.** Игрок, который не дал согласия, попадает к ИИ только как «Player 1», «Player 2».
-- 🧹 **Ваш сервер почти ничего не хранит:** данные игрока живут в памяти, пока он играет, а в папке плагина лежат только зашифрованные списки тех, кто согласился, и тех, кто оказался слишком юным.
+- 🧹 **Ваш сервер почти ничего не хранит:** данные игрока живут в памяти, пока он играет, а в папке Allay лежат только зашифрованные списки тех, кто согласился, и тех, кто оказался слишком юным.
 
 ## С чего начать
 
-1. Положите [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) в `plugins/` сервера на Spigot или Paper 26.3 с Java 25 и перезапустите его.
-2. Оператором выполните `/allay link` для подписки или впишите свой ключ OpenRouter в `provider.byok` и выполните `/allay reload`.
+1. Поставьте Allay, на Java 25:
+   - **Spigot или Paper 26.3:** [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) в `plugins/`, затем перезапустите сервер.
+   - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) и [Fabric API](https://modrinth.com/mod/fabric-api) в `mods/` сервера или своей игры. Kotlin уже внутри, больше ничего не нужно.
+2. Оператором выполните `/allay link` для подписки или впишите свой ключ OpenRouter в `provider.byok` и выполните `/allay reload`. В одиночной игре это может хозяин мира, с читами или без.
 3. Напишите `/ask как скрафтить маяк?`. Дальше ведёт страница [Installation](https://github.com/allay-ai/minecraft/wiki/Installation): Docker, свой бэкенд и лимиты.
 
 ## Документация

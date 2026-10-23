@@ -27,7 +27,8 @@
 - 🧹 **A tidy inventory.** “Sword first, food in the last row”, and **[Put back]** undoes it.
 - 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game's own windows.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
-- 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects GriefPrevention claims and vanish. PlaceholderAPI and Plan work too.
+- 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects claims and vanish: GriefPrevention on Spigot and Paper; Flan and the claims mods behind Common Protection API on Fabric. PlaceholderAPI (Text Placeholder API on Fabric), LuckPerms, and Plan work too.
+- 🧱 **A plugin and a mod.** The same Allay runs as a plugin on Spigot and Paper, and as a mod on Fabric: on a dedicated server, or in your own singleplayer world, where it helps just you.
 - 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request, and full privacy hides their name from the backend's admin panel.
 
 ## Privacy and the law
@@ -41,12 +42,14 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 - ✋ **Age and agreement first.** Before the first question a window asks a player from the EU or the US their age, which must reach their country's age of consent (13 to 16 in the EU, 14 in Spain, 13 in the US), and every player agrees to a short notice, again whenever it changes. Below that age, Allay answers nothing and sends nothing. With allay.chat no setting in `config.yml` switches this off.
 - 📦 **Players control their data.** `/allay privacy` shows what's kept, gives a 24-hour download link, and erases it; `/allay privacy withdraw` takes the agreement back and erases what it covered.
 - 👥 **Other players stay unnamed.** A player who didn't agree reaches the AI only as “Player 1”, “Player 2”.
-- 🧹 **Your server keeps almost nothing:** a player's data stays in memory while they play, and the plugin's folder holds only sealed lists of who agreed and who was too young.
+- 🧹 **Your server keeps almost nothing:** a player's data stays in memory while they play, and Allay's folder holds only sealed lists of who agreed and who was too young.
 
 ## Get started
 
-1. Put the jar into `plugins/` of a Spigot or Paper 26.3 server on Java 25, and restart it.
-2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` in `plugins/Allay/config.yml` and run `/allay reload`.
+1. Put Allay in, on Java 25:
+   - **Spigot or Paper 26.3:** the Spigot version's jar into `plugins/`, then restart the server.
+   - **Fabric 26.3:** the Fabric version's jar and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
+2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` in `config.yml` (`plugins/Allay/` on Spigot and Paper, `config/allay/` on Fabric) and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
 3. Type `/ask how do I craft a beacon?`.
 
 Everything else, from your own backend to every config key, lives in the [wiki on GitHub](https://github.com/allay-ai/minecraft/wiki).
