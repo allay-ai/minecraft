@@ -124,8 +124,14 @@ interface Platform {
   /** Allay's own version, like `6.9.0`, or `dev`. */
   val version: String
 
-  /** Where `config.yml`, `lang/`, `license.key`, and the sealed files live. */
+  /** Where the files about this world's players live: the sealed lists, the spool, the quota book, the server's id. */
   val folder: File
+
+  /**
+   * Where `config.yml`, `lang/`, `license.key`, what operators heard about the subscription, and `geoip/` live: the
+   * same as [folder] on a server, shared by every world of a singleplayer game.
+   */
+  val shared: File get() = folder
 
   /** A file the jar ships, like `lang/en.yml`. */
   fun resource(path: String): InputStream?

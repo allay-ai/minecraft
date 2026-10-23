@@ -15,7 +15,7 @@ class Locales(private val platform: Platform) {
   private val countries = ConcurrentHashMap<UUID, String>()
   /** Each online player's language as of their join or their last change of the game's language, for other threads. */
   private val current = ConcurrentHashMap<UUID, String>()
-  val geoIp = GeoIp(File(platform.folder, "geoip"), platform.log)
+  val geoIp = GeoIp(File(platform.shared, "geoip"), platform.log)
   private var geoIpTask: AutoCloseable? = null
 
   @Volatile lateinit var texts: Texts; private set
@@ -29,7 +29,7 @@ class Locales(private val platform: Platform) {
 
   /** Reads the language files and starts the GeoIP refresh; `/allay reload` runs it again. */
   fun load(config: Config) {
-    val folder = File(platform.folder, "lang")
+    val folder = File(platform.shared, "lang")
     Texts.BUNDLED.forEach { code ->
       val file = File(folder, "$code.yml")
       if (!file.exists()) platform.resource("lang/$code.yml")?.use { stream -> folder.mkdirs(); file.outputStream().use(stream::copyTo) }

@@ -115,8 +115,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   fun enable() {
     saveDefaultConfig()
     // Both outlive /allay reload: the license file, and what operators already heard about the subscription.
-    license = License(platform.folder)
-    announcements = Announcements(platform.folder, log)
+    license = License(platform.shared)
+    announcements = Announcements(platform.shared, log)
     // Both outlive /allay reload. Who agreed here, sealed, so a join looks up only them.
     val secret = { config.server.token.ifEmpty { license.read() } }
     consented = Consented(SealedFile(File(platform.folder, Consented.FILE), secret, "allay consented v1", log), log)
@@ -295,16 +295,16 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
 
   /** The bundled `config.yml` in Allay's folder, unless the server has one. */
   private fun saveDefaultConfig() {
-    val file = File(platform.folder, "config.yml")
+    val file = File(platform.shared, "config.yml")
     if (file.exists()) return
-    platform.folder.mkdirs()
+    platform.shared.mkdirs()
     platform.resource("config.yml")?.use { stream -> file.outputStream().use(stream::copyTo) }
   }
 
   /** `config.yml` with the bundled file behind it, read as Bukkit reads it: a file that doesn't parse counts as empty. */
   private fun settingsFile(): YamlConfig {
     val defaults = platform.resource("config.yml")!!.reader(Charsets.UTF_8).use(YamlConfig::parse)
-    val file = File(platform.folder, "config.yml")
+    val file = File(platform.shared, "config.yml")
     val values = runCatching { if (file.exists()) file.reader(Charsets.UTF_8).use(YamlConfig::parse) else emptyMap() }
       .getOrElse {
         log.severe("Can't read config.yml: ${it.message}; using the defaults")

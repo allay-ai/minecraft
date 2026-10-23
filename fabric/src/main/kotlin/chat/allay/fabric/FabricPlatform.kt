@@ -159,10 +159,16 @@ class FabricScheduler(private val server: MinecraftServer, private val enabled: 
   override val onMain: Boolean get() = server.isSameThread
 }
 
-/** Where Allay keeps its files: `config/allay/` on a dedicated server, the world's own folder in singleplayer. */
+/**
+ * Where Allay keeps its files. `config/allay/` holds the settings, texts, license, and country database for every
+ * world; what belongs to a world's players sits beside them on a dedicated server, and in the world's save in
+ * singleplayer, so it travels with the world.
+ */
 object Folders {
+  val shared: File get() = FabricLoader.getInstance().configDir.resolve("allay").toFile()
+
   fun of(server: MinecraftServer): File =
-    if (server.isDedicatedServer) FabricLoader.getInstance().configDir.resolve("allay").toFile()
+    if (server.isDedicatedServer) shared
     else server.getWorldPath(LevelResource.ROOT).resolve("allay").normalize().toFile()
 }
 
@@ -172,6 +178,7 @@ class FabricPlatform(val server: MinecraftServer) : Platform {
   override val log: Logger = julLogger()
   override val version: String = FabricLoader.getInstance().getModContainer("allay").map { it.metadata.version.friendlyString }.orElse("dev")
   override val folder: File = Folders.of(server)
+  override val shared: File = Folders.shared
   override fun resource(path: String) = FabricPlatform::class.java.classLoader.getResourceAsStream(path)
   override val scheduler = FabricScheduler(server) { on }
   override val enabled get() = on
