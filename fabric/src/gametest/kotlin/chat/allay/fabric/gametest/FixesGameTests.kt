@@ -1,0 +1,78 @@
+package chat.allay.fabric.gametest
+
+import chat.allay.core.tasks.Agents
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Task
+import chat.allay.fabric.FabricPlayer
+import chat.allay.fabric.gametest.Players.survivor
+import chat.allay.fabric.tools.ToolContext
+
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import net.fabricmc.fabric.api.gametest.v1.GameTest
+import net.minecraft.core.BlockPos
+import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Blocks
+
+/**
+ * What the audit of the mod against the plugin found: players who respawn or change worlds, the order and the reading
+ * of the game's data, and the edges of the tools. Tests whose players respawn run in an environment of their own,
+ * since a respawned player stands at the world spawn, outside every test's structure.
+ */
+class FixesGameTests {
+  private companion object {
+    const val RESPAWNS = "allay-gametest:respawns"
+  }
+
+  private fun equal(helper: GameTestHelper, actual: Any?, expected: Any?, what: String) =
+    helper.assertTrue(actual == expected, "$what: expected $expected, got $actual")
+
+  private fun carried(player: ServerPlayer, item: Item) = (0 until 41).map { player.inventory.getItem(it) }.filter { it.`is`(item) }.sumOf { it.count }
+
+  /** An automation agent with no wake, as in the automation tests. */
+  private fun agent(player: ServerPlayer, kind: Kind): Task {
+    val automation = Players.features.automation
+    val task = automation.book.start(player.uuid, kind, "test", "a game test", 1, null)
+    task.running = true
+    val field = Agents::class.java.getDeclaredField("agents").apply { isAccessible = true }
+    @Suppress("UNCHECKED_CAST")
+    (field.get(automation.agents) as MutableMap<String, Agents.Agent>)["${task.owner}:${task.id}"] = Agents.Agent(task, FabricPlayer(player).position)
+    return task
+  }
+
+  /** The player respawns as after a death with keepInventory: a new [ServerPlayer] with the same stacks. */
+  private fun respawn(player: ServerPlayer): ServerPlayer = player.level().server.playerList.respawn(player, true, Entity.RemovalReason.KILLED)
+
+  @GameTest(environment = RESPAWNS, maxTicks = 400)
+  fun aFurnaceJobDeliversToThePlayerAfterARespawn(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.FURNACES)
+    val furnace = helper.absolutePos(BlockPos(3, 2, 1))
+    helper.level.setBlockAndUpdate(furnace, Blocks.BLAST_FURNACE.defaultBlockState())
+    player.inventory.setItem(9, ItemStack(Items.RAW_IRON, 1))
+    player.inventory.setItem(10, ItemStack(Items.COAL, 1))
+    Players.run(ToolContext(FabricPlayer(player), Players.features, task = task), "smelt", buildJsonObject {
+      put("action", "start")
+      put("item", "raw_iron")
+      putJsonArray("furnaces") { add(buildJsonObject { put("x", furnace.x); put("y", furnace.y); put("z", furnace.z) }) }
+      put("to", "inventory")
+    })
+    val fresh = respawn(player)
+    helper.succeedWhen {
+      helper.assertTrue(task.inbox.any { "smelting done" in it }, "the job ends by itself: ${task.inbox}")
+      equal(helper, carried(fresh, Items.IRON_INGOT), 1, "the ingot reaches the respawned player")
+      Players.features.automation.end(task, null)
+      fresh.discard()
+    }
+  }
+}

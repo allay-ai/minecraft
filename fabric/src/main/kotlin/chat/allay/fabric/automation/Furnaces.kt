@@ -4,7 +4,9 @@ import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Reservations
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.fabric.audience
 import chat.allay.fabric.mixin.FurnaceAccess
+import chat.allay.fabric.player
 import chat.allay.fabric.tools.BlockAt
 import chat.allay.fabric.tools.InteractTools
 import chat.allay.fabric.tools.Marks
@@ -100,8 +102,13 @@ object Furnaces {
   }
 
   private class Job(
-    override val task: Task, val player: ServerPlayer, val loads: List<Load>, var sources: Sources, var total: Int, val fuel: String, val to: Jobs.Output?,
+    override val task: Task, starter: ServerPlayer, val loads: List<Load>, var sources: Sources, var total: Int, val fuel: String, val to: Jobs.Output?,
   ) : Jobs.BlockJob {
+    private val owner = starter.audience
+
+    /** The player as the game has them now: a respawn makes a new one, and what goes to the old one is lost. */
+    val player: ServerPlayer get() = owner.player
+
     override val blocks get() = loads.map { it.block }
     var smelted = 0
     var reportedFull = false
