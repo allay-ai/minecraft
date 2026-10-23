@@ -5,6 +5,9 @@ import chat.allay.spigot.code
 import chat.allay.spigot.audience
 
 import chat.allay.core.Lang
+import chat.allay.core.tools.DraftBlock
+import chat.allay.core.tools.DraftCell
+import chat.allay.core.tools.Drafting
 import chat.allay.core.tools.ToolError
 import chat.allay.core.Locales
 import chat.allay.spigot.send
@@ -39,24 +42,18 @@ import java.util.UUID
  * block states are written as if the player faced north (north is forward, east is right) and turn with the draft.
  */
 object Drafts : Listener {
-  const val WIDTH = 20
-  const val HEIGHT = 15
-  const val DEPTH = 20
-  /** More ghosts than this at once would weigh on the client; “all” shows every layer only below it. */
-  const val MAX_SHOWN = 800
+  const val WIDTH = Drafting.WIDTH
+  const val HEIGHT = Drafting.HEIGHT
+  const val DEPTH = Drafting.DEPTH
+  const val MAX_SHOWN = Drafting.MAX_SHOWN
 
-  data class Cell(val right: Int, val up: Int, val forward: Int)
-
-  /** What belongs in a cell: a block (states written facing north), or with null [data], nothing at all. */
-  class Planned(val data: BlockData?, val label: String?, val keys: Set<String>)
-
-  class Draft(val owner: UUID, val title: String, val world: World, var corner: Triple<Int, Int, Int>, var facing: BlockFace, val cells: MutableMap<Cell, Planned>) {
+  class Draft(val owner: UUID, val title: String, val world: World, var corner: Triple<Int, Int, Int>, var facing: BlockFace, val cells: MutableMap<DraftCell, DraftBlock<BlockData>>) {
     /** The layer shown, or -1 for all of them at once. */
     var layer = 0
     val layers get() = (cells.keys.maxOfOrNull { it.up } ?: 0) + 1
     val width get() = (cells.keys.maxOfOrNull { it.right } ?: 0) + 1
     val depth get() = (cells.keys.maxOfOrNull { it.forward } ?: 0) + 1
-    internal val drawn = HashMap<Cell, Pair<State, List<Entity>>>()
+    internal val drawn = HashMap<DraftCell, Pair<State, List<Entity>>>()
     internal var bar: BossBar? = null
   }
 
@@ -109,7 +106,7 @@ object Drafts : Listener {
   }
 
   /** The world block of a cell. */
-  fun block(draft: Draft, cell: Cell): Block {
+  fun block(draft: Draft, cell: DraftCell): Block {
     val (fx, fz) = step(draft.facing)
     val (rx, rz) = step(right(draft.facing))
     val (x, y, z) = draft.corner
@@ -117,10 +114,10 @@ object Drafts : Listener {
   }
 
   /** The block a cell asks for, turned the way the draft faces. */
-  fun turned(draft: Draft, planned: Planned): BlockData? = planned.data?.clone()?.also { it.rotate(rotation(draft.facing)) }
+  fun turned(draft: Draft, planned: DraftBlock<BlockData>): BlockData? = planned.data?.clone()?.also { it.rotate(rotation(draft.facing)) }
 
   /** Whether the world already holds what the cell asks for: the same block, with every state the draft spelled out. */
-  fun state(draft: Draft, cell: Cell, planned: Planned): State {
+  fun state(draft: Draft, cell: DraftCell, planned: DraftBlock<BlockData>): State {
     val block = block(draft, cell)
     val expected = turned(draft, planned)
     if (expected == null) return if (open(block)) State.DONE else State.WRONG
@@ -132,7 +129,7 @@ object Drafts : Listener {
   }
 
   /** What's wrong in a cell, for the label over its red box and for `check`. */
-  fun wanted(draft: Draft, planned: Planned): String {
+  fun wanted(draft: Draft, planned: DraftBlock<BlockData>): String {
     val expected = turned(draft, planned) ?: return "air"
     val shown = states(expected).filterKeys { it in planned.keys }
     return expected.material.key.key + if (shown.isEmpty()) "" else shown.entries.joinToString(",", "[", "]") { "${it.key}=${it.value}" }
@@ -185,7 +182,7 @@ object Drafts : Listener {
     undraw(draft)
   }
 
-  private fun draw(draft: Draft, cell: Cell, planned: Planned, state: State, lang: Lang): List<Entity> {
+  private fun draw(draft: Draft, cell: DraftCell, planned: DraftBlock<BlockData>, state: State, lang: Lang): List<Entity> {
     val block = block(draft, cell)
     return when (state) {
       State.DONE -> emptyList()
@@ -209,8 +206,7 @@ object Drafts : Listener {
   private fun open(block: Block) = block.isEmpty || block.isLiquid || Tag.REPLACEABLE.isTagged(block.type)
 
   /** Block states as `key=value`, from the game's own text for the block. */
-  fun states(data: BlockData): Map<String, String> =
-    data.getAsString(false).substringAfter('[', "").substringBefore(']').split(',').filter { '=' in it }.associate { it.substringBefore('=') to it.substringAfter('=') }
+  fun states(data: BlockData): Map<String, String> = Drafting.states(data.getAsString(false))
 
   /** How a draft written facing north turns to face [facing]. */
   fun rotation(facing: BlockFace) = when (facing) {
@@ -241,19 +237,17 @@ object Drafts : Listener {
   }
 
   /** Reads one palette entry: a block id with states, like `repeater[facing=north,delay=2]`, or `air` for a cell that must stay empty. */
-  fun parse(text: String, label: String?): Planned {
-    val clean = text.trim().lowercase().removePrefix("minecraft:")
-    if (clean == "air") return Planned(null, label, emptySet())
+  fun parse(text: String, label: String?): DraftBlock<BlockData> {
+    val clean = Drafting.clean(text)
+    if (clean == "air") return DraftBlock<BlockData>(null, label, emptySet())
     val data = try {
       Bukkit.createBlockData("minecraft:$clean")
     } catch (_: IllegalArgumentException) {
       throw ToolError("$text is not a block the game knows; write ids with states like repeater[facing=north,delay=2]")
     }
-    if (data.material.isAir) return Planned(null, label, emptySet())
+    if (data.material.isAir) return DraftBlock<BlockData>(null, label, emptySet())
     // Dust's connections and power follow what's around it; only the states the draft spells out are checked.
-    val keys = clean.substringAfter('[', "").substringBefore(']').split(',').filter { '=' in it }.map { it.substringBefore('=').trim() }
-      .filterNot { it == "power" }.toSet()
-    return Planned(data, label, keys)
+    return DraftBlock(data, label, Drafting.spelled(clean))
   }
 
 }

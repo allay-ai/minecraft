@@ -4,7 +4,6 @@ import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.spigot.Claims
 
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -19,11 +18,7 @@ import org.bukkit.entity.Player
  * puts more layers or a wing next to what's there, as long as the whole stays within the size limit.
  */
 object DraftTools {
-  /** Labels over every one of a hundred planks would bury the build; they show only for rarer blocks. */
-  private const val LABEL_LIMIT = 6
-  private const val MAX_PALETTE = 40
-  /** How far from the player a draft may start. */
-  private const val REACH = 32
+  private const val REACH = Drafting.REACH
 
   private val draft = object : Tool {
     override val name = "show_draft"
@@ -69,7 +64,7 @@ object DraftTools {
         "rotate" -> {
           val turns = ((args.int("turns") ?: 1) % 4 + 4) % 4
           // Around its middle, so the build turns in place instead of swinging around a corner.
-          val middle = Drafts.block(draft, Drafts.Cell((draft.width - 1) / 2, 0, (draft.depth - 1) / 2))
+          val middle = Drafts.block(draft, DraftCell((draft.width - 1) / 2, 0, (draft.depth - 1) / 2))
           repeat(turns) { draft.facing = Drafts.right(draft.facing) }
           val (fx, fz) = Drafts.step(draft.facing)
           val (rx, rz) = Drafts.step(Drafts.right(draft.facing))
@@ -113,7 +108,7 @@ object DraftTools {
   }
 
   private fun check(context: ToolContext, player: Player, draft: Drafts.Draft): ToolOutput {
-    check(player, Drafts.block(draft, Drafts.Cell(0, 0, 0)))
+    check(player, Drafts.block(draft, DraftCell(0, 0, 0)))
     val problems = buildJsonArray {
       var listed = 0
       draft.cells.entries.sortedWith(compareBy({ it.key.up }, { it.key.forward }, { it.key.right })).forEach { (cell, planned) ->
@@ -154,66 +149,12 @@ object DraftTools {
     put("facing", draft.facing.name.lowercase())
   }
 
-  private fun offset(args: JsonObject, allowNegative: Boolean = false): Triple<Int, Int, Int> {
-    val offset = args["offset"] as? JsonObject
-    val values = Triple(offset?.int("right") ?: 0, offset?.int("up") ?: 0, offset?.int("forward") ?: 0)
-    if (!allowNegative && (values.first < 0 || values.second < 0 || values.third < 0)) throw ToolError("offset can't be negative here; move the draft instead")
-    return values
-  }
+  private fun offset(args: JsonObject, allowNegative: Boolean = false) = Drafting.offset(args, allowNegative)
 
-  private fun limits(cells: Collection<Drafts.Cell>) {
-    val width = cells.maxOf { it.right } + 1
-    val height = cells.maxOf { it.up } + 1
-    val depth = cells.maxOf { it.forward } + 1
-    if (width > Drafts.WIDTH || height > Drafts.HEIGHT || depth > Drafts.DEPTH) {
-      throw ToolError("the draft would be ${width}×${height}×${depth} (width × height × depth); the limit is ${Drafts.WIDTH}×${Drafts.HEIGHT}×${Drafts.DEPTH}. Split the build: show one part, and the player can build another later")
-    }
-  }
+  private fun limits(cells: Collection<DraftCell>) = Drafting.limits(cells)
 
   /** The cells of `layers` over `palette`, shifted by [offset]. */
-  private fun cells(args: JsonObject, offset: Triple<Int, Int, Int>): Map<Drafts.Cell, Drafts.Planned> {
-    // A list of {char, block, label}; a {char: block} object works too.
-    val raw: List<Triple<String, String, String?>> = when (val palette = args["palette"]) {
-      is JsonArray -> palette.map { entry ->
-        val item = entry as? JsonObject ?: throw ToolError("palette entries are {char, block, label?}")
-        Triple(item.string("char") ?: throw ToolError("each palette entry needs char"), item.string("block") ?: throw ToolError("palette entry ${item.string("char")} needs block"), item.string("label")?.take(32))
-      }
-      is JsonObject -> palette.map { (key, value) ->
-        when (value) {
-          is JsonPrimitive -> Triple(key, value.content, null)
-          is JsonObject -> Triple(key, value.string("block") ?: throw ToolError("palette entry $key needs block"), value.string("label")?.take(32))
-          else -> throw ToolError("palette entry $key must be a block id or {block, label}")
-        }
-      }
-      else -> throw ToolError("palette is required: one entry per character, like [{\"char\": \"p\", \"block\": \"oak_planks\"}]")
-    }
-    if (raw.size > MAX_PALETTE) throw ToolError("at most $MAX_PALETTE palette entries")
-    val entries = raw.associate { (key, block, label) ->
-      if (key.length != 1 || key == "." || key == " ") throw ToolError("palette chars are single characters other than . and space; got \"$key\"")
-      key to Drafts.parse(block, label)
-    }
-    val layers = args["layers"] as? JsonArray ?: throw ToolError("layers is required: from the bottom up, each a list of rows from the far one to the near one")
-    val (dr, du, df) = offset
-    val result = HashMap<Drafts.Cell, Pair<Char, Drafts.Planned>>()
-    layers.forEachIndexed { up, layer ->
-      val rows = (layer as? JsonArray)?.map { (it as? JsonPrimitive)?.content ?: throw ToolError("layer ${up + 1}: rows are strings") }
-        ?: throw ToolError("layer ${up + 1} must be a list of rows")
-      rows.forEachIndexed { index, row ->
-        // Rows run from the far one to the near one, as on a map with forward at the top.
-        val forward = rows.size - 1 - index
-        row.forEachIndexed { right, char ->
-          if (char == '.' || char == ' ') return@forEachIndexed
-          val planned = entries[char.toString()] ?: throw ToolError("layer ${up + 1}, row ${index + 1}: \"$char\" isn't in the palette")
-          result[Drafts.Cell(right + dr, up + du, forward + df)] = char to planned
-        }
-      }
-    }
-    val uses = result.values.groupingBy { it.first }.eachCount()
-    return result.mapValues { (_, value) ->
-      val (char, planned) = value
-      if (planned.label != null && uses.getValue(char) > LABEL_LIMIT) Drafts.Planned(planned.data, null, planned.keys) else planned
-    }
-  }
+  private fun cells(args: JsonObject, offset: Triple<Int, Int, Int>) = Drafting.cells(args, offset, Drafts::parse)
 
   val all = listOf(draft)
 }

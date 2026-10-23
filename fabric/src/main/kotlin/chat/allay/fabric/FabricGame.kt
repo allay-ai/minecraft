@@ -4,6 +4,7 @@ import chat.allay.core.*
 import chat.allay.fabric.automation.Automation
 import chat.allay.fabric.menus.Menus
 import chat.allay.fabric.tools.Deaths
+import chat.allay.fabric.tools.Drafts
 import chat.allay.fabric.tools.Features
 import chat.allay.fabric.tools.Goals
 import chat.allay.fabric.tools.Marks
@@ -21,6 +22,8 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
   private val goals = Goals(platform.scheduler, locales, allay.data) { allay.config.tools.maxGoals }
   private val deaths = Deaths(allay.data)
   private val automation = Automation(platform, locales, { allay.config }, { allay.service }, { allay.clicks }, { allay.quota }, allay.scope)
+  private var placeholders: AutoCloseable? = null
+  private var plan: AutoCloseable? = null
 
   val features = Features(
     fabric = platform,
@@ -60,9 +63,11 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
     val player = audience.player
     val trail = Trails.stop(player)
     val marks = Marks.clear(player)
+    val draft = Drafts.clear(player)
     when {
       // Agents say themselves that they stopped.
       automation.cancel(player) -> Handler.Hidden.AGENTS
+      draft -> Handler.Hidden.DRAFT
       marks -> Handler.Hidden.MARKS
       trail -> Handler.Hidden.TRAIL
       else -> Handler.Hidden.NOTHING
@@ -86,16 +91,25 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
   override fun start() {
     chat.allay.fabric.menus.Menu.start()
     Marks.start()
+    Drafts.start(platform.scheduler, locales)
     deaths.start()
     automation.start()
-    goals.start()
+    goals.start(server)
     Hooks.left += { Trails.stop(it) }
+    if (Placeholders.available) placeholders = Placeholders.register(allay.settings, goals, locales) { allay.handler }
+    // Plan starts with the server too; by the first tick it's on.
+    if (Plan.available) platform.scheduler.later(1) {
+      plan = Plan.register(Plan.Sources(allay.settings, goals, allay.reminders, locales, allay.license, { allay.config }) { allay.watch?.status })
+    }
   }
 
   override fun stop() {
+    placeholders?.close()
+    plan?.close()
     automation.stop()
     server.playerList.players.forEach { goals.save(it.uuid) }
     goals.stop()
     Marks.clearAll()
+    Drafts.stop()
   }
 }
