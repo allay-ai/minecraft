@@ -58,7 +58,7 @@ locales:
 
 geoip:
   # The country database: DB-IP's free “IP to Country Lite”, CC BY 4.0, about 4 MB.
-  # The plugin downloads it into geoip/ and refreshes it once it's older than
+  # Allay downloads it into geoip/ and refreshes it once it's older than
   # refresh_days. Lookups happen on your server; no address leaves it. The country
   # also sets how old a player must be to agree to Allay's notice (13 to 16 in the
   # EU, 14 in Spain, 13 in the US; 16 when unknown). With allay.chat the lookup runs
@@ -109,7 +109,8 @@ ui:
   # The author of the books the assistant writes when a player asks for detail.
   book_author: "Allay"
   # Allay sounds like an allay. The game plays these quietly on its own, so a volume
-  # of 1.0 is as loud as the mob. Any of Bukkit's sound names works here.
+  # of 1.0 is as loud as the mob. Any of the game's sounds works here, by its Bukkit
+  # name (ENTITY_ALLAY_ITEM_GIVEN) or its id (entity.allay.item_given).
   sounds:
     enabled: true
     success_sound: "ENTITY_ALLAY_ITEM_GIVEN"            # The answer is in: the allay chortles
@@ -163,7 +164,7 @@ tools:
     # Allay about itself
     get_allay_guide: true         # The commands, chat mode prefixes, and settings this player has, so the assistant can explain them
     allay_settings: true          # Chat mode and its tip on or off when the player asks in words
-    # Goals with a bar at the top of the screen, kept in plugins/Allay/goals
+    # Goals with a bar at the top of the screen
     goals: true                   # Set, list, and cancel goals: “collect 16 diamonds”, “reach level 30”
     # Harmless actions: they give nothing and change nothing in the world
     point_to: true                # Point the compass at a spot or a player on the locator bar and draw a trail there (only the asker sees it)
@@ -223,7 +224,7 @@ tools:
   # The structure search radius in chunks; it runs on the main thread, so keep it small.
   locate_structure_radius: 64
   server:
-    # Plugins get_server leaves out of its list, by name, such as an anti-cheat.
+    # Plugins or mods get_server leaves out of its list, by name or id, such as an anti-cheat.
     hidden_plugins: []
 
 # Automation agents: “sort these chests”, “smelt all my gold ore”, “brew night vision for
