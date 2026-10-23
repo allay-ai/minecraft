@@ -118,6 +118,8 @@ class InfoGameTests {
     equal(helper, seen["container"]!!.jsonObject["items"]!!.jsonObject["diamond"]!!.jsonPrimitive.int, 4, "diamonds inside")
     val detail = run(asker, "inspect_item", buildJsonObject { put("from", "container"); put("slot", 0) }).result.jsonObject
     equal(helper, detail["id"]!!.jsonPrimitive.content, "diamond", "the item in the chest's first slot")
+    // Emptied first: a broken chest drops what it holds, and the diamonds would float under the crosshair.
+    (helper.level.getBlockEntity(open) as net.minecraft.world.Container).clearContent()
     helper.level.removeBlock(open, false)
     val shut = chest(helper, BlockPos(1, 2, 3), ItemStack(Items.EMERALD), loot = true)
     look(asker, shut)
