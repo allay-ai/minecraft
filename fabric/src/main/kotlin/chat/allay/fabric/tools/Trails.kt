@@ -132,6 +132,12 @@ object Trails {
   /** Ends the player's trail; false when none was running. */
   fun stop(player: ServerPlayer): Boolean = running.remove(player.uuid)?.also(AutoCloseable::close) != null
 
+  /** Ends every trail when Allay stops: a singleplayer game keeps this object for the next world. */
+  fun clearAll() {
+    running.values.toList().forEach(AutoCloseable::close)
+    running.clear()
+  }
+
   private fun end(id: UUID, task: AutoCloseable) {
     task.close()
     running.remove(id, task)

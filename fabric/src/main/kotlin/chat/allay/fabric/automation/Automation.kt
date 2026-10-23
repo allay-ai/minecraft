@@ -58,7 +58,11 @@ class Automation(
     Hooks.left += { agents.quit(it.audience) }
   }
 
-  fun stop() = agents.stop()
+  fun stop() {
+    agents.stop()
+    // A singleplayer game keeps the jobs' object for the next world.
+    Jobs.clear()
+  }
 
   fun require(player: ServerPlayer, task: Task, kind: Kind) = agents.require(player.audience, task, kind)
 

@@ -111,5 +111,6 @@ class FabricGame(private val platform: FabricPlatform, private val allay: Allay<
     goals.stop()
     Marks.clearAll()
     Drafts.stop()
+    Trails.clearAll()
   }
 }
