@@ -241,6 +241,9 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
           error.apiError.statusCode in setOf(401, 402, 403, 404, 405) -> Unit
           else -> log.warning("Couldn't register this server with the backend: ${error.apiError.code}")
         }
+      } catch (error: kotlinx.coroutines.CancellationException) {
+        // Allay stopped before the backend answered: nothing went wrong.
+        throw error
       } catch (error: Exception) {
         log.warning("Couldn't register this server with the backend: ${error.javaClass.simpleName}")
       }
