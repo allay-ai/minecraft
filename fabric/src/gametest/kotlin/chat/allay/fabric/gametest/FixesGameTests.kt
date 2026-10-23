@@ -12,6 +12,7 @@ import chat.allay.fabric.tools.Recipes
 import chat.allay.fabric.tools.ToolContext
 import chat.allay.fabric.tools.at
 
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
@@ -23,8 +24,11 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.Registries
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
+import net.minecraft.resources.Identifier
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.LevelBasedPermissionSet
 import net.minecraft.server.players.NameAndId
@@ -38,6 +42,7 @@ import net.minecraft.world.level.GameType
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.portal.TeleportTransition
+import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
@@ -219,6 +224,17 @@ class FixesGameTests {
       server.playerList.deop(NameAndId(asker.gameProfile))
     }
     asker.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun aRespawnPointInAGoneDimensionIsNone(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val gone = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath("allay", "gone"))
+    player.setRespawnPosition(ServerPlayer.RespawnConfig(LevelData.RespawnData.of(gone, BlockPos(0, 64, 0), 0f, 0f), true), false)
+    val result = Players.run(player, "get_locations").result.jsonObject
+    equal(helper, result["respawn_point"], JsonNull, "the respawn point in a dimension that's gone")
+    player.discard()
     helper.succeed()
   }
 }
