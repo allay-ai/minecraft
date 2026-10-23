@@ -189,13 +189,18 @@ class FabricPlatform(val server: MinecraftServer) : Platform {
   override fun player(id: UUID) = server.playerList.getPlayer(id)?.let(::FabricPlayer)
   override fun player(name: String) = server.playerList.getPlayerByName(name)?.let(::FabricPlayer)
 
-  /** Players with a save in this world: the game keeps their file under `playerdata/`, and its cache knows their name. */
+  /**
+   * Players with a save in this world: the game keeps their file under `playerdata/`, and its cache knows their name.
+   * By UUID, one the name cache knows counts too, as Bukkit's `getOfflinePlayer` finds them: an admin can still erase
+   * a player whose file is gone.
+   */
   override fun known(who: String): Pair<UUID, String?>? {
     val cache = server.services().nameToIdCache()
     val saved = server.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile().listFiles().orEmpty()
       .mapNotNull { runCatching { UUID.fromString(it.name.removeSuffix(".dat")) }.getOrNull() }.toSet()
     runCatching { UUID.fromString(who) }.getOrNull()?.let { id ->
-      return (id to cache.get(id).map { it.name() }.orElse(null)).takeIf { id in saved || server.playerList.getPlayer(id) != null }
+      val name = cache.get(id).map { it.name() }.orElse(null)
+      return (id to name).takeIf { id in saved || name != null || server.playerList.getPlayer(id) != null }
     }
     server.playerList.getPlayerByName(who)?.let { return it.uuid to it.gameProfile.name }
     return saved.firstNotNullOfOrNull { id -> cache.get(id).orElse(null)?.takeIf { it.name().equals(who, ignoreCase = true) } }?.let { it.id() to it.name() }

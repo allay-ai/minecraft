@@ -316,4 +316,14 @@ class FixesGameTests {
     player.discard()
     helper.succeed()
   }
+
+  @GameTest
+  fun aPlayerWithoutASaveIsKnownByTheNameCache(helper: GameTestHelper) {
+    val platform = AllayMod.platform!!
+    val id = java.util.UUID.randomUUID()
+    equal(helper, platform.known(id.toString()), null, "a stranger")
+    helper.level.server.services().nameToIdCache().add(NameAndId(id, "al-gone"))
+    equal(helper, platform.known(id.toString()), id to "al-gone", "a player the name cache knows, without a file")
+    helper.succeed()
+  }
 }
