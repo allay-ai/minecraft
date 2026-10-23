@@ -34,6 +34,13 @@ class AllayGameTests {
   }
 
   @GameTest
+  fun theModOffersExactlyTheToolsOfTheProtocol(helper: GameTestHelper) {
+    equal(helper, chat.allay.fabric.tools.Tools.all().map { it.name }.toSet(), chat.allay.core.tools.CLIENT_TOOLS, "the tools")
+    equal(helper, chat.allay.fabric.tools.Tools.all().filter { it.operator }.map { it.name }.toSet(), chat.allay.core.tools.OPERATOR_TOOLS, "the operator tools")
+    helper.succeed()
+  }
+
+  @GameTest
   fun nearbyPlayersAreTheLocatorBarsAndNoMore(helper: GameTestHelper) {
     val asker = survivor(helper)
     val other = survivor(helper, Vec3(1.5, 2.0, 3.5))
