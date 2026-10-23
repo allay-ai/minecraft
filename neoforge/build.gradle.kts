@@ -116,7 +116,8 @@ tasks {
     configurations = listOf(shade)
     listOf("kotlin", "kotlinx", "okhttp3", "okio", "com.maxmind", "org.yaml.snakeyaml").forEach { relocate(it, "chat.allay.libs.$it") }
     mergeServiceFiles()
-    exclude("META-INF/*.kotlin_module", "META-INF/versions/*/module-info.class", "module-info.class")
+    // kotlinx-coroutines' debugger probes sit outside any package and would clash with another copy on NeoForge's module path.
+    exclude("META-INF/*.kotlin_module", "META-INF/versions/*/module-info.class", "module-info.class", "_COROUTINE/**", "DebugProbesKt.bin")
     dependencies { exclude(dependency("org.jetbrains:annotations")) }
   }
 
