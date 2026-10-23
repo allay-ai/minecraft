@@ -2,6 +2,18 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.11.0
+
+Allay comes to Fabric. The plugin for Spigot and Paper works as before.
+
+- 🧱 **A Fabric mod.** `allay-fabric.jar` for Fabric 26.3 with Fabric API, Kotlin inside. It runs on a dedicated server and in a singleplayer world, opened to LAN or not, with every tool, window, button, and automation agent the plugin has, and the same names, arguments, and answers, so Allay answers the same everywhere. The backend hears `fabric` and `server` or `integrated`.
+- 📁 **Where the mod keeps its files.** `config/allay/`: `config.yml`, the texts, `license.key`, and the country database, shared by every singleplayer world, so one license and one setup serve them all. A singleplayer world keeps only its own server id in its save.
+- 🔑 **The owner of a singleplayer world runs Allay there**, cheats or not: they link a license and reload, but get no operator tools without cheats.
+- 🧩 **Integrations on Fabric**, each optional: Flan and the claims mods behind Common Protection API in place of GriefPrevention, Text Placeholder API in place of PlaceholderAPI (`{papi:…}` takes its ids, `%allay:chat_mode%` and the rest), Plan's Fabric build, LuckPerms or any mod behind fabric-permissions-api for permissions (operators get everything without one), and the Vanish mod.
+- 🧪 **Fabric's differences, where the game leaves no choice.** Worlds are named by dimension (`overworld`), not by folder. `get_server` lists mods, and `tools.server.hidden_plugins` hides a mod by its id or name. Chat mode turns `~text` into a plain line sent as the player, since the game signs chat.
+- 🔒 **Brewing stands follow claims** on both platforms: `get_brewing_items` lists only stands the player could open themself.
+- 📦 **Releases carry both jars**, each also without its version: `releases/latest/download/allay-spigot.jar` and `allay-fabric.jar`. On Modrinth the plugin's versions read `X.Y.Z+spigot` and the mod's `X.Y.Z+fabric`.
+
 ## 6.10.0
 
 Ready for the Fabric and NeoForge mods to come. Nothing changes in the game.
