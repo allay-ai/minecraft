@@ -4,9 +4,11 @@ import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.fabric.FabricPlayer
+import chat.allay.fabric.automation.Blocks as AutomationBlocks
 import chat.allay.fabric.automation.Sources
 import chat.allay.fabric.gametest.Players.survivor
 import chat.allay.fabric.tools.ToolContext
+import chat.allay.fabric.tools.at
 
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -17,6 +19,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
@@ -87,6 +90,21 @@ class FixesGameTests {
     equal(helper, taken.sumOf { it.count }, 4, "taken")
     equal(helper, carried(fresh, Items.COBBLESTONE), 6, "cobblestone left with the respawned player")
     fresh.discard()
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun sightGoesThroughWhatBukkitCallsTransparent(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val chest = helper.absolutePos(BlockPos(5, 3, 1))
+    val around = Direction.entries.map { chest.relative(it) }
+    helper.level.setBlockAndUpdate(chest, Blocks.CHEST.defaultBlockState())
+    // A sea lantern renders solid but doesn't occlude on Bukkit; a shulker box is the other way round.
+    around.forEach { helper.level.setBlockAndUpdate(it, Blocks.SEA_LANTERN.defaultBlockState()) }
+    helper.assertTrue(AutomationBlocks.sees(player, helper.level.at(chest)), "a chest behind sea lanterns is in sight")
+    around.forEach { helper.level.setBlockAndUpdate(it, Blocks.SHULKER_BOX.defaultBlockState()) }
+    helper.assertTrue(!AutomationBlocks.sees(player, helper.level.at(chest)), "a chest behind shulker boxes is out of sight")
+    player.discard()
     helper.succeed()
   }
 }
