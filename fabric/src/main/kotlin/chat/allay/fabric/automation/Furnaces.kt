@@ -285,7 +285,7 @@ object Furnaces {
   /** What a plain furnace cooks into [result], the plain forms first: raw_iron before iron_ore. */
   private fun inputs(level: ServerLevel, result: Item): List<Item> {
     val found = linkedSetOf<Item>()
-    Recipes.all(level.server).sortedBy { it.id().identifier().toString() }.forEach { holder ->
+    Recipes.all(level.server).forEach { holder ->
       val recipe = holder.value()
       if (recipe.type == RecipeType.SMELTING && recipe is AbstractCookingRecipe && Recipes.result(recipe)?.item == result) recipe.input().items().forEach { found += it.value() }
     }

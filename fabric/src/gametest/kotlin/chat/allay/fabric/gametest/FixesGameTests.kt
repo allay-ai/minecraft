@@ -7,6 +7,8 @@ import chat.allay.fabric.FabricPlayer
 import chat.allay.fabric.automation.Blocks as AutomationBlocks
 import chat.allay.fabric.automation.Sources
 import chat.allay.fabric.gametest.Players.survivor
+import chat.allay.fabric.mixin.RecipeAccess
+import chat.allay.fabric.tools.Recipes
 import chat.allay.fabric.tools.ToolContext
 import chat.allay.fabric.tools.at
 
@@ -27,6 +29,7 @@ import net.minecraft.world.entity.Entity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.crafting.RecipeType
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.portal.TeleportTransition
@@ -134,6 +137,18 @@ class FixesGameTests {
     fresh.teleport(TeleportTransition(helper.level, Vec3.atCenterOf(spot), Vec3.ZERO, 0f, 0f, TeleportTransition.DO_NOTHING))
     helper.assertTrue(added(player).containsAll(ghosts), "the marks show again back home")
     fresh.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun recipesComeByTypeAsOnBukkit(helper: GameTestHelper) {
+    val server = helper.level.server
+    val types = ((server.recipeManager as RecipeAccess.Manager).`allay$recipes`() as RecipeAccess.Map).`allay$byType`().keySet().toList()
+    val found = Recipes.forItem(server, Items.IRON_INGOT).map { it.value().type }
+    helper.assertTrue(found.toSet().size >= 3, "iron ingots are crafted, smelted, and blasted: $found")
+    // Grouped by type, the groups in the order of the server's types, as Bukkit's recipeIterator walks them.
+    val groups = found.fold(listOf<RecipeType<*>>()) { list, type -> if (list.lastOrNull() == type) list else list + type }
+    equal(helper, groups, groups.distinct().sortedBy(types::indexOf), "the order of the recipe types")
     helper.succeed()
   }
 }
