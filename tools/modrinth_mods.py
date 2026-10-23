@@ -22,9 +22,9 @@ API = "https://api.modrinth.com"
 AGENT = "allay-ai/minecraft (github.com/allay-ai)"
 MODS = {
     # loader: its name on the version, the projects it can't run without, the ones it works with, and where it runs.
-    # Allay runs on the server: a dedicated one, or the one under a singleplayer world. Players joining a server
-    # with Allay need nothing on their side, and Kotlin is inside the jar.
-    "fabric": ("Fabric", ["fabric-api"], ["placeholder-api", "luckperms", "plan"], "server_only"),
+    # Allay runs on either side: on a dedicated server, under a singleplayer world, and on its own on a player's
+    # game. Players joining a server with Allay need nothing on their side, and Kotlin is inside the jar.
+    "fabric": ("Fabric", ["fabric-api"], ["placeholder-api", "luckperms", "plan"], "client_or_server"),
 }
 
 
