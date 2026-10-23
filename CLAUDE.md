@@ -151,6 +151,7 @@ Allay keeps `spigot` where the family says `paper` (the owner decided on 2026-10
 | `Perms.kt`, `Vanish.kt`, `Claims.kt`, `Placeholders.kt`, `Plan.kt` | Permissions through fabric-permissions-api (LuckPerms brings it), else `plugin.yml`'s defaults with operators at level 2, and the singleplayer world's owner as admin; the Vanish mod; claims from Flan and Common Protection API; Text Placeholder API; Plan's Fabric build. Each optional, asked only when its mod is loaded |
 | `tools/` | The client tools on Fabric, one file per Bukkit file with the same tools. `BlockAt` is Bukkit's `Block`, `Worlds` names ids and worlds as the model reads them, `ItemStacks` turns the game's items into `ItemData` as Bukkit's item meta sees them, `Ghosts` draws display entities only one client knows about (marks, drafts, picking), `Recipes` reads the server's recipes |
 | `automation/`, `menus/`, `GameClicks.kt` | Automation, the chest windows, and the buttons that reach into the world, as on Bukkit |
+| `fabric/src/client/` | `AllayClient`: in a player's game on a server without Allay, `/ask`, `/askall`, `/askx`, `/allay` say Allay can't work there (`messages.not_on_this_server`). They exist on the client only while the server's command tree has none of the four (`CommandTreeMixin` reads it before Fabric adds the client's), and never in singleplayer, so a server's own Allay always gets them. Client-only classes live here, never in `main` |
 | `fabric/src/gametest/` | Game tests with real survival players (`Players.survivor`), one class per group, and the singleplayer client test |
 
 Rules on top of the ones above:
@@ -161,6 +162,7 @@ Rules on top of the ones above:
 - The game signs chat: chat mode can't change a line on its way, so `~text` goes out again as a plain line from the player (`ChatMode.say`).
 - A server's files: `config/allay/` (`Platform.shared`) holds everything that goes with the license, shared by every singleplayer world; a singleplayer world's save holds only `allay/server-id`.
 - Without a claims mod nothing is claimed, but an unopened structure chest stays closed; on a dedicated server the game's spawn protection counts for building, as `Claims.mayBuild` says.
+- The mod adds no blocks, items, or registries, so a game with it joins any server and any game joins a server with it. The `client` side (a mod working for a player on a server without Allay) is not built: there it only says it can't work.
 - A singleplayer world's owner may link and reload without cheats (`Perms.owner`), but operator tools still need operator rights.
 
 ## Commits
