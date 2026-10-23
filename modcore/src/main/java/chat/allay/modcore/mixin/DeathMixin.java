@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * A player dies, with their inventory still on them: Fabric's death events come before a totem decides or after the
- * drops are gone. Bukkit's `PlayerDeathEvent` is this. Around the drops, the items the game spawns are counted
+ * drops are gone, so both mods catch it here. Bukkit's `PlayerDeathEvent` is this. Around the drops, the items the game spawns are counted
  * ([DropMixin]), as the event's drops list them: the inventory and whatever the loot table adds.
  */
 @Mixin(ServerPlayer.class)

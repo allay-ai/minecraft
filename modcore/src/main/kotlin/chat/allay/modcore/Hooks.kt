@@ -12,8 +12,9 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * The game's events as Allay's pieces want them, in one place, as Bukkit's listeners had them: Fabric API's events
- * where they exist, the mod's mixins where they don't. A piece adds itself once at start; [clear] drops everyone when
+ * The game's events as Allay's pieces want them, in one place, as Bukkit's listeners had them: the loader's events
+ * where they exist (`fabric`'s and `neoforge`'s `AllayMod` hand them in), modcore's mixins where they don't, the same
+ * on both loaders. A piece adds itself once at start; [clear] drops everyone when
  * the server stops, since a singleplayer game may start another. Everything runs on the server thread.
  */
 object Hooks {

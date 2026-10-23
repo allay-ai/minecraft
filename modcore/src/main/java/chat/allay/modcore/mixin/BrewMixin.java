@@ -10,8 +10,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * A brewing stand finished a step: the bottles changed and the ingredient was used. Fabric has no event for it;
- * Bukkit's `BrewEvent` is this, and automation's brewing jobs put in the next reagent from it.
+ * A brewing stand finished a step: the bottles changed and the ingredient was used. Fabric has no event for it,
+ * so both mods catch it here; Bukkit's `BrewEvent` is this, and automation's brewing jobs put in the next reagent from
+ * it.
  */
 @Mixin(BrewingStandBlockEntity.class)
 abstract class BrewMixin {

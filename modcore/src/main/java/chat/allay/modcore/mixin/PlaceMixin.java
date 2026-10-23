@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * A player placed a block: Fabric has no event for it, Bukkit's `BlockPlaceEvent` is this. The spot is where the block
- * went, from the context the item settled on: scaffolding or a slab may go elsewhere than the clicked block.
+ * A player placed a block: Fabric has no event for it and NeoForge's comes before the block is down, so both mods
+ * catch it here; Bukkit's `BlockPlaceEvent` is this. The spot is where the block went, from the context the item
+ * settled on: scaffolding or a slab may go elsewhere than the clicked block.
  */
 @Mixin(BlockItem.class)
 abstract class PlaceMixin {

@@ -1,0 +1,42 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/allay-ai/minecraft/issues"
+
+[[mods]]
+modId = "allay"
+version = "${version}"
+displayName = "Allay"
+displayURL = "https://allay.chat"
+iconFile = "assets/allay/icon.png"
+authors = "MairwunNx"
+description = '''
+An AI helper in chat, named after the friendly mob: ask about the game with /ask or right in chat mode, with answers grounded in your inventory, surroundings, and this world, in each player's language.
+'''
+
+[[mixins]]
+config = "allay.mixins.json"
+
+[[mixins]]
+config = "allay.client.mixins.json"
+
+[[dependencies.allay]]
+modId = "neoforge"
+type = "required"
+versionRange = "[${neoforge},)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.allay]]
+modId = "minecraft"
+type = "required"
+versionRange = "[${minecraft}]"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.allay]]
+modId = "luckperms"
+type = "optional"
+versionRange = "*"
+ordering = "NONE"
+side = "SERVER"

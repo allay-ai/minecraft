@@ -11,8 +11,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * A furnace, blast furnace, or smoker finished an item: its result is in the output slot and the input shrank. Fabric
- * has no event for it; Bukkit's `FurnaceSmeltEvent` is this, and automation's furnace jobs refill from it.
+ * A furnace, blast furnace, or smoker finished an item: its result is in the output slot and the input shrank. Neither
+ * loader has an event for it; Bukkit's `FurnaceSmeltEvent` is this, and automation's furnace jobs refill from it.
  */
 @Mixin(AbstractFurnaceBlockEntity.class)
 abstract class SmeltMixin {

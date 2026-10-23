@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "chat.allay.neoforge.mixin.client",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["CommandMergeMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

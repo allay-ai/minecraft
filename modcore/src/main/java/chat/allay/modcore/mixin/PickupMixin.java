@@ -11,8 +11,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * A player picked up some of an item from the ground: Fabric has no event for it, Bukkit's `EntityPickupItemEvent` is
- * this. The game empties the stack it moved, so this keeps a copy from before.
+ * A player picked up some of an item from the ground: Fabric has no event for it, so both mods catch it here; Bukkit's
+ * `EntityPickupItemEvent` is this. The game empties the stack it moved, so this keeps a copy from before.
  */
 @Mixin(ItemEntity.class)
 abstract class PickupMixin {
