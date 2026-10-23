@@ -1,6 +1,6 @@
 # Allay for Minecraft: notes for AI agents
 
-The Minecraft plugin of Allay. `/ask` asks the AI helper a question, `/askall` asks in front of everyone, `/askx` turns a request into commands, and chat mode (`/allay chat`) sends whatever a player writes in chat to Allay. The plugin streams the answer from Allay Server (allay-ai/server) over protocol v2, runs the game tools the agent asks for, and shows a live Claude Code style status while it works. README.md is the shop window (what Allay gives, how to start, links), README.RU.md its Russian copy, MODRINTH.md the Modrinth page. The manual for players, server owners, and developers is the GitHub wiki (https://github.com/allay-ai/minecraft/wiki, English only, cloned from `allay-ai/minecraft.wiki.git`); read it first.
+The Minecraft plugin and Fabric mod of Allay. `/ask` asks the AI helper a question, `/askall` asks in front of everyone, `/askx` turns a request into commands, and chat mode (`/allay chat`) sends whatever a player writes in chat to Allay. The plugin streams the answer from Allay Server (allay-ai/server) over protocol v2, runs the game tools the agent asks for, and shows a live Claude Code style status while it works. README.md is the shop window (what Allay gives, how to start, links), README.RU.md its Russian copy, MODRINTH.md the Modrinth page. The manual for players, server owners, and developers is the GitHub wiki (https://github.com/allay-ai/minecraft/wiki, English only, cloned from `allay-ai/minecraft.wiki.git`); read it first.
 
 ## Talking to the owner
 
@@ -9,11 +9,11 @@ The Minecraft plugin of Allay. `/ask` asks the AI helper a question, `/askall` a
 
 ## How it fits together
 
-Two Gradle modules. `core` holds everything that doesn't touch a game platform and never imports `org.bukkit` or `net.minecraft`: the whole flow of a question, the commands, chat mode, billing, memory, privacy, the agents' wakes, and the tools that need no world. `spigot` is the plugin for Spigot, Paper, and their forks, an adapter around `core`: it hands in a `Platform` and a `Game` and forwards Bukkit's events and commands. The Fabric and NeoForge mods will be two more adapters next to `spigot` (`fabric/`, `neoforge/`), not copies of the plugin; the wiki's “Architecture” says what each must bring.
+Three Gradle modules. `core` holds everything that doesn't touch a game platform and never imports `org.bukkit` or `net.minecraft`: the whole flow of a question, the commands, chat mode, billing, memory, privacy, the agents' wakes, and the tools that need no world. `spigot` is the plugin for Spigot, Paper, and their forks, an adapter around `core`: it hands in a `Platform` and a `Game` and forwards Bukkit's events and commands. `fabric` is the mod for Fabric, the same kind of adapter (see “Fabric” below). NeoForge will be one more next to them (`neoforge/`), not a copy; the wiki's “Architecture” says what each must bring.
 
 | Path | What it does |
 |---|---|
-| `core/…/Platform.kt`, `Legacy.kt`, `Allay.kt`, `Commands.kt` | The seam to a game platform: `Platform` (log, folder, resources, `Scheduler`, players, console, commands, vanish, `{papi:…}`), `Audience` and `PlayerAudience` (whoever Allay talks to), `Line` (a chat line of `§` text and buttons), `Effects` (sounds and particles by `Cue`). `Legacy` colors `&` codes as Bukkit does. `Allay` builds every shared piece in one order and takes the platform's `Allay.Game` (tools, tool context, game buttons, windows, what `/allay cancel` hides, `loader` and `side`); `Commands` routes `/ask`, `/askall`, `/askx`, `/allay` and completes them |
+| `core/…/Platform.kt`, `Legacy.kt`, `Allay.kt`, `Commands.kt` | The seam to a game platform: `Platform` (log, `folder` for the server's id and `shared` for everything that goes with the license, resources, `Scheduler`, players, console, commands, vanish, `{papi:…}`), `Audience` and `PlayerAudience` (whoever Allay talks to), `Line` (a chat line of `§` text and buttons), `Effects` (sounds and particles by `Cue`). `Legacy` colors `&` codes as Bukkit does, and `Legacy.runs` splits `§` text into styled stretches for the mods. `Allay` builds every shared piece in one order and takes the platform's `Allay.Game` (tools, tool context, game buttons, windows, what `/allay cancel` hides, `loader` and `side`); `Commands` routes `/ask`, `/askall`, `/askx`, `/allay` and completes them |
 | `core/…/Service.kt`, `Sse.kt`, `Protocol.kt` | Sends a question to `POST /api/v2/chat`, reads the SSE stream, runs the client tools through `Host.onMain`, posts their results back; falls back to v1 when the backend has no v2. `Host` is what a platform gives the backend client: its log, versions, the tools' context, the main thread |
 | `core/…/Asker.kt`, `Run.kt`, `Status.kt` | Who asked, one question in flight, and the live status line: spinner, rotating verbs, elapsed time, tokens read (↑) and written (↓) |
 | `core/…/Handler.kt`, `Animator.kt`, `Executor.kt`, `Clicks.kt` | Runs questions for any `Audience`. A public question (`visibility: "public"`) and its answer go to everyone online; status, tool lines, buttons, and errors stay with the asker. The action bar, sounds, and particles through `Effects`; `/askx` commands as the player, minus `blocked_commands`; buttons in and under answers, with what reaches into the world left to `Clicks.Game` |
@@ -75,14 +75,14 @@ Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcb
 - Never log, print, or put into chat the BYOK key, the license, or `server.token`. Mask them with `Secrets.mask` (first 5 and last 4 characters at most) and pass error texts through `Credentials.scrub`. The payment link goes only to the chat of whoever ran `/allay link`, and the admin panel's setup link only to whoever ran `/allay init`; the console's own output is the exception, since the console asked. `license.key` stays out of `config.yml` and is owner-only; never overwrite one that holds something else.
 - Billing errors read light and never blame the player (“Allay is taking a break on this server…”); operators get the fix under them. Never show dollars: the subscription's limit is a percentage.
 - `core` never imports `org.bukkit` or `net.minecraft`. Where it needs the game, it asks through `Platform`, `Audience`, `Allay.Game`, `Host`, or `ItemData`. Anything that doesn't touch the world goes into `core`, so the mods get it for free; a new Bukkit-only piece needs a reason it can't live there.
-- Every platform reports `loader` (`spigot` here) and `side` (`server` here) through `Allay.Game`; the backend shows them and tells the model, and makes a license from a player's own game Solo (backend 6.12). A Solo license answers one player and refuses the rest with `SOLO_PLAYER_TAKEN`.
+- Every platform reports `loader` (`spigot`, `fabric`) and `side` (`server`; `integrated` for a mod in singleplayer or LAN) through `Allay.Game`; the backend shows them and tells the model, and makes a license from a player's own game Solo (backend 6.12). A Solo license answers one player and refuses the rest with `SOLO_PLAYER_TAKEN`.
 
 ## Building and releasing
 
-- `./gradlew build` runs both modules' tests and builds `spigot/build/libs/allay-spigot-<version>.jar`, shaded; Java 25. Nothing in the repo holds the version: local builds are `dev`, CI builds on `master` and pull requests are `dev-<sha>`.
+- `./gradlew build` runs every module's tests, Fabric's game tests included, and builds `spigot/build/libs/allay-spigot-<version>.jar` and `fabric/build/libs/allay-fabric-<version>.jar`, both shaded; Java 25. Nothing in the repo holds the version: local builds are `dev`, CI builds on `master` and pull requests are `dev-<sha>`.
 - Allay sounds like an allay: `ENTITY_ALLAY_AMBIENT_WITH_ITEM` while thinking, `ENTITY_ALLAY_ITEM_GIVEN` with the answer, `ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM` on errors, each pitch moved by up to `ui.sounds.pitch_variation`. Readers of a public answer hear the answer sound at half volume (`ui.sounds.public_answer`). The game plays these quietly, so 1.0 is the mob's own volume.
 - After a change that reaches what the project ships, add it to CHANGELOG.md in the same push: under the topmost “## X.Y.Z” section while that version isn't released (`gh release view vX.Y.Z` fails), or under a new section with the next version: patch for fixes, minor for features, major for breaking changes. A release then needs only the workflow, and the workflow runs only when the owner asks.
-- Releases are made by hand when the owner asks, or by the autopilot (below). Add a “## X.Y.Z” section to CHANGELOG.md, push, then run `gh workflow run release.yml -R allay-ai/minecraft -f version=X.Y.Z` (its `changelog` field overrides the section; one of the two must be there; `-f modrinth=true -f hangar=true` also publish there once those projects exist). It builds with `-PreleaseVersion`, tags `vX.Y.Z`, and attaches `allay-spigot-X.Y.Z.jar` to a GitHub release. Watch it with `gh run watch`. Never delete or re-tag a published release.
+- Releases are made by hand when the owner asks, or by the autopilot (below). Add a “## X.Y.Z” section to CHANGELOG.md, push, then run `gh workflow run release.yml -R allay-ai/minecraft -f version=X.Y.Z` (its `changelog` field overrides the section; one of the two must be there; `-f modrinth=true -f hangar=true` also publish there once those projects exist). It builds with `-PreleaseVersion`, tags `vX.Y.Z`, and attaches `allay-spigot-X.Y.Z.jar` and `allay-fabric-X.Y.Z.jar` to a GitHub release, each also without its version. Watch it with `gh run watch`. Never delete or re-tag a published release.
 
 ## Checking a change
 
@@ -92,7 +92,12 @@ Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcb
    python3 -I .claude/scripts/paper_smoke.py --game 26.3 --plugin spigot/build/libs/allay-spigot-dev.jar --modrinth placeholderapi --modrinth plan --command "papi list" --expect "registered internal expansion: allay" --expect "Registered extension: Allay" --ignore 'Plan\] Failed to enable geolocation'
    ```
    Pass `--game` the version the project targets, and `--build` to pin a Paper build. The script downloads Paper and Modrinth plugins into `~/.cache/paper-smoke` and keeps the server folder when something fails.
-3. A question needs a backend and a player. After a release reaches Moonlands, the log shows `Allay X.Y.Z is on`, `papi list` lists `allay`, and the owner asks `/ask` once. Plan's server values show up right away; a player's block fills on their next join or leave. Allay builds against the Spigot API, so it runs on Spigot too; the check uses Paper, which Moonlands runs.
+3. The Fabric mod: `./gradlew build` runs its game tests on a real server with real survival players (`fabric/src/gametest`, `./gradlew :fabric:runGameTest` alone). Then the built jar on a clean Fabric server, failing on any error about the mod:
+   ```sh
+   python3 -I .claude/scripts/fabric_smoke.py --game 26.3 --mod fabric/build/libs/allay-fabric-dev.jar --modrinth fabric-api --modrinth placeholder-api --modrinth plan --expect "Allay dev is on" --expect "Registered extension: Allay" --command "allay status"
+   ```
+   It downloads the server and Modrinth mods into `~/.cache/fabric-smoke`; `fabric_smoke.py` is shared by the family like `paper_smoke.py`. Plan's “Failed to enable geolocation” is Plan's own line. A singleplayer world: `./gradlew :fabric:runClientGameTest` opens a game window, creates a world, and checks Allay runs there as `integrated`. What only a player can judge goes to the owner, who runs `./gradlew :fabric:runClient`.
+4. A question needs a backend and a player. After a release reaches Moonlands, the log shows `Allay X.Y.Z is on`, `papi list` lists `allay`, and the owner asks `/ask` once. Plan's server values show up right away; a player's block fills on their next join or leave. Allay builds against the Spigot API, so it runs on Spigot too; the check uses Paper, which Moonlands runs.
 
 ## Screenshots
 
@@ -106,12 +111,13 @@ Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcb
 
 Where the versions live, for `/update-deps` and `/update-minecraft` (both in `.claude/skills/`, the same files in every project of the family):
 
-- The game: `org.spigotmc:spigot-api` (twice) and `gameVersions` (Modrinth) and `platformVersions` (Hangar) in `spigot/build.gradle.kts`, and `api-version` in `spigot/src/main/resources/plugin.yml`. `ToolsTest` and `ProtocolTest` spell out version strings. What Allay knows about the game (`Mechanics`, `Items`, `Facts`, the tools' tables) comes from the game: read the new jar when the version moves.
+- The game: `org.spigotmc:spigot-api` (twice) and `gameVersions` (Modrinth) and `platformVersions` (Hangar) in `spigot/build.gradle.kts`, `api-version` in `spigot/src/main/resources/plugin.yml`, and `minecraft` in `fabric/build.gradle.kts` (`fabric.mod.json` takes it from there, `tools/modrinth_mods.py` too). `ToolsTest` and `ProtocolTest` spell out version strings. What Allay knows about the game (`Mechanics`, `Items`, `Facts`, the tools' tables) comes from the game: read the new jar when the version moves.
 - paper-api: `"paperCompileOnly"("io.papermc.paper:paper-api:…")` in `spigot/build.gradle.kts`, for the `paper` source set only (windows on Paper), from `repo.papermc.io` (root `build.gradle.kts`); keep it on the game version.
 - GriefPrevention: `compileOnly("com.github.GriefPrevention:GriefPrevention:…")` in `spigot/build.gradle.kts`, from JitPack (root `build.gradle.kts`); Moonlands pins its version in `minecraft/extras/plugins.txt`.
 - PlaceholderAPI: `compileOnly("me.clip:placeholderapi:…")` in `spigot/build.gradle.kts`, from `repo.extendedclip.com` (root `build.gradle.kts`).
 - Plan: `compileOnly("com.djrapitops:plan-api:…")` in `spigot/build.gradle.kts`, from `repo.playeranalytics.net`. The API can run ahead of the Plan servers use: `Plan.REQUIRED` lists the capabilities Allay relies on; graphs and statistics need Plan 5.9.
-- Java: `jvmToolchain` in both modules; CI's `setup-java`.
+- Fabric, in `fabric/build.gradle.kts`: `minecraft`, `loader` (Fabric Loader), and `fabricApi` at the top; Loom (`net.fabricmc.fabric-loom`) in the root `build.gradle.kts`. The optional mods are `compileOnly`: `me.lucko:fabric-permissions-api`, `eu.pb4:placeholder-api` (Text Placeholder API, its version carries the game's), `eu.pb4:common-protection-api` (both from `maven.nucleoid.xyz`), `maven.modrinth:flan` (Modrinth's Maven, its version carries the game's), and `com.djrapitops:plan-api` like spigot's. The game tests also run with Text Placeholder API and Common Protection API (`gametestImplementation`). There's no Fabric Language Kotlin: Kotlin is shaded into the jar.
+- Java: `jvmToolchain` in every module; CI's `setup-java`.
 - The wiki names the game and Java versions too (“Installation”, “Building from source”, “Development”): clone `https://github.com/allay-ai/minecraft.wiki.git` and change them with the rest.
 - Gradle in `gradle/wrapper/gradle-wrapper.properties`; Kotlin and the Gradle plugins in the root `build.gradle.kts`; libraries (kotlinx, OkHttp, the MaxMind reader, SnakeYAML) in each module's `dependencies`, relocated by `shadowJar`.
 
@@ -129,11 +135,39 @@ How the family ships a project to more than one platform. A project that builds 
 - **Hangar.** Paper only, numbered `X.Y.Z`.
 - **Moonlands** runs the Paper jar only.
 
+Allay keeps `spigot` where the family says `paper` (the owner decided on 2026-10-23): the module, `allay-spigot-X.Y.Z.jar`, and Modrinth's `X.Y.Z+spigot`. The mod runs on either side, so its Modrinth version says `client_or_server`.
+
+## Fabric
+
+`fabric/` is the mod for Fabric 26.3, built with Loom without remapping (the game ships unobfuscated). It builds the core's `Allay` for each server the game starts, a dedicated one or the one under a singleplayer world, and drops it when that server stops; a singleplayer game may start many. Kotlin and the libraries are shaded and relocated under `chat.allay.libs`, as in the plugin, so a player needs only Fabric API.
+
+| Path | What it does |
+|---|---|
+| `fabric/…/AllayMod.kt` | The entry: starts and stops Allay with each server, registers `/ask`, `/askall`, `/askx`, `/allay` with Brigadier (the words after them go to the core's `Commands`), and forwards joins, quits, and chat mode |
+| `FabricPlatform.kt`, `Asker.kt` | `FabricSender` and `FabricPlayer` (follows the player by UUID: a respawn makes a new `ServerPlayer`), `FabricScheduler` (work at the end of a server tick; `main` on the next tick, as Bukkit's `runTask`), `Folders`, `FabricEffects` (sounds and particles by Bukkit's names or the game's ids) |
+| `FabricGame.kt` | `Allay.Game` on Fabric: the tools, the stores, what `/allay cancel` hides; `loader` `fabric`, `side` `server` or `integrated` |
+| `Hooks.kt`, `mixin/` | The game's events as listener lists, cleared when a server stops. Fabric API's events where they exist, narrow mixins where they don't: placing a block, a death with the inventory still on, picking up, an advancement's criterion, a change of the game's language, a furnace's smelt, a stand's brew. Accessor mixins read what the game keeps private (display entities, recipes' results, furnace and stand state, a spawner's mob) |
+| `Texts.kt`, `Windows.kt`, `Sounds.kt` | `§` text as the game's components and back, `Window` as the game's dialog, a sound only one player hears |
+| `Perms.kt`, `Vanish.kt`, `Claims.kt`, `Placeholders.kt`, `Plan.kt` | Permissions through fabric-permissions-api (LuckPerms brings it), else `plugin.yml`'s defaults with operators at level 2, and the singleplayer world's owner as admin; the Vanish mod; claims from Flan and Common Protection API; Text Placeholder API; Plan's Fabric build. Each optional, asked only when its mod is loaded |
+| `tools/` | The client tools on Fabric, one file per Bukkit file with the same tools. `BlockAt` is Bukkit's `Block`, `Worlds` names ids and worlds as the model reads them, `ItemStacks` turns the game's items into `ItemData` as Bukkit's item meta sees them, `Ghosts` draws display entities only one client knows about (marks, drafts, picking), `Recipes` reads the server's recipes |
+| `automation/`, `menus/`, `GameClicks.kt` | Automation, the chest windows, and the buttons that reach into the world, as on Bukkit |
+| `fabric/src/gametest/` | Game tests with real survival players (`Players.survivor`), one class per group, and the singleplayer client test |
+
+Rules on top of the ones above:
+
+- Every tool keeps its name, arguments, result, errors, and summaries exactly as on Bukkit: the model must not tell where it runs. `CLIENT_TOOLS` in core lists them; `ToolsTest` and the game tests hold both platforms to it. A change to a tool goes into both modules, and pure logic into core.
+- Bukkit's view of the world is the reference: a stack's own components where Bukkit reads item meta, a block's corner where Bukkit reads `block.location`, `level.maxY` inclusive where Bukkit's `maxHeight` is exclusive. Worlds are named by dimension (`overworld`), since Fabric has no world folders.
+- What only the asker may see goes by packet to them alone (`Ghosts`, `Trails.particles`, `Sounds`), never into the world.
+- The game signs chat: chat mode can't change a line on its way, so `~text` goes out again as a plain line from the player (`ChatMode.say`).
+- A server's files: `config/allay/` (`Platform.shared`) holds everything that goes with the license, shared by every singleplayer world; a singleplayer world's save holds only `allay/server-id`.
+- Without a claims mod nothing is claimed, but an unopened structure chest stays closed; on a dedicated server the game's spawn protection counts for building, as `Claims.mayBuild` says.
+- A singleplayer world's owner may link and reload without cheats (`Perms.owner`), but operator tools still need operator rights.
+
 ## Commits
 
 Short one-line imperative English messages, one logical change per commit: “Show tool results as ⎿ lines”.
 
 ## Modrinth and Hangar
 
-`build.gradle.kts` is ready for both, as in Mo’Joins: `./gradlew modrinth` uploads to the Modrinth project `allay-ai` and syncs MODRINTH.md as its description; `./gradlew publishPluginPublicationToHangar` uploads to `MairwunNx/AllayAI`. On both stores the project is called “Allay AI”, so people know which allay it is; in the game it's plain Allay. Both read the version from `-PreleaseVersion` and the notes from `-PchangelogFile`, and need `--no-configuration-cache`. The projects don't exist yet: create them only when the owner asks (see “Publishing the owner's projects” in `~/c/personal/minecraft/CLAUDE.md`). Tokens are the `MODRINTH_TOKEN` and `HANGAR_TOKEN` secrets; never put them in the repo. MODRINTH.md is for server owners: the pitch, “What you get”, “Get started”, a link to the wiki, and “Related projects”; no build, stack, or license, and no Moonlands banner.
+`build.gradle.kts` is ready for both, as in Mo’Joins: `./gradlew :spigot:modrinth` uploads the plugin to the Modrinth project `allay-ai` as `X.Y.Z+spigot` and syncs MODRINTH.md as its description; `tools/modrinth_mods.py` uploads the Fabric mod as `X.Y.Z+fabric` through Modrinth's v3 API, with Fabric API required and the environment Minotaur can't set; `./gradlew publishPluginPublicationToHangar` uploads to `MairwunNx/AllayAI`. On both stores the project is called “Allay AI”, so people know which allay it is; in the game it's plain Allay. Both read the version from `-PreleaseVersion` and the notes from `-PchangelogFile`, and need `--no-configuration-cache`. The projects don't exist yet: create them only when the owner asks (see “Publishing the owner's projects” in `~/c/personal/minecraft/CLAUDE.md`). Tokens are the `MODRINTH_TOKEN` and `HANGAR_TOKEN` secrets; never put them in the repo. MODRINTH.md is for server owners: the pitch, “What you get”, “Get started”, a link to the wiki, and “Related projects”; no build, stack, or license, and no Moonlands banner.
 
