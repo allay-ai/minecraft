@@ -135,8 +135,10 @@ class FabricScheduler(private val server: MinecraftServer, private val enabled: 
     async.shutdownNow()
   }
 
+  /** On the next tick, as Bukkit's `runTask`, even when asked on the server thread: the game runs that at once. */
   override fun main(block: () -> Unit) {
-    if (enabled()) server.execute { if (enabled()) block() }
+    if (!enabled()) return
+    if (onMain) later(1) { if (enabled()) block() } else server.execute { if (enabled()) block() }
   }
 
   override fun later(ticks: Long, block: () -> Unit): AutoCloseable = Task(tick + ticks.coerceAtLeast(1), 0, block).also(tasks::add)
