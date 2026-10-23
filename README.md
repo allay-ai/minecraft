@@ -4,6 +4,7 @@
   <a href="https://github.com/allay-ai/minecraft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/allay-ai/minecraft?label=release"></a>
   <img alt="Spigot | Paper 26.3" src="https://img.shields.io/badge/Spigot%20%7C%20Paper-26.3-F7CF0D">
   <img alt="Fabric 26.3" src="https://img.shields.io/badge/Fabric-26.3-DBD0B4">
+  <img alt="NeoForge 26.3" src="https://img.shields.io/badge/NeoForge-26.3-E68C37">
   <img alt="Java 25" src="https://img.shields.io/badge/Java-25-E76F00">
   <a href="https://github.com/allay-ai/minecraft/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/allay-ai/minecraft/build.yml?branch=master&label=build"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/allay-ai/minecraft"></a>
@@ -43,7 +44,7 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 - 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game's own windows.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
 - 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects claims and vanish.
-- 🧱 **A plugin and a mod.** The same Allay runs as a plugin on Spigot and Paper, and as a mod on Fabric: on a dedicated server, or in your own singleplayer world, where it helps just you.
+- 🧱 **A plugin and a mod.** The same Allay runs as a plugin on Spigot and Paper, and as a mod on Fabric and NeoForge: on a dedicated server, or in your own singleplayer world, where it helps just you.
 - 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request, and full privacy hides their name from the backend's admin panel.
 
 ## Privacy and the law
@@ -64,6 +65,7 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 1. Put Allay in, on Java 25:
    - **Spigot or Paper 26.3:** [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) into `plugins/`, then restart the server.
    - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
+   - **NeoForge 26.3:** [`allay-neoforge.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-neoforge.jar) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
 2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
 3. Type `/ask how do I craft a beacon?`. [Installation](https://github.com/allay-ai/minecraft/wiki/Installation) goes further: Docker, your own backend, and limits.
 

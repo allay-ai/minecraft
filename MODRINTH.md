@@ -27,8 +27,8 @@
 - 🧹 **A tidy inventory.** “Sword first, food in the last row”, and **[Put back]** undoes it.
 - 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game's own windows.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
-- 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects claims and vanish: GriefPrevention on Spigot and Paper; Flan and the claims mods behind Common Protection API on Fabric. PlaceholderAPI (Text Placeholder API on Fabric), LuckPerms, and Plan work too.
-- 🧱 **A plugin and a mod.** The same Allay runs as a plugin on Spigot and Paper, and as a mod on Fabric: on a dedicated server, or in your own singleplayer world, where it helps just you.
+- 🔒 **Fair and safe.** Allay sees only the asker's things, never gives items to regular players, and respects claims and vanish: GriefPrevention on Spigot and Paper; Flan and Open Parties and Claims in the mods, and the claims mods behind Common Protection API on Fabric. PlaceholderAPI (Text Placeholder API in the mods), LuckPerms, and Plan (not on NeoForge) work too.
+- 🧱 **A plugin and a mod.** The same Allay runs as a plugin on Spigot and Paper, and as a mod on Fabric and NeoForge: on a dedicated server, or in your own singleplayer world, where it helps just you.
 - 🛡️ **Private by design.** Your server signs in to the backend, which keeps each server's players apart. `/allay privacy` tells a player what's kept and erases it on request, and full privacy hides their name from the backend's admin panel.
 
 ## Privacy and the law
@@ -49,7 +49,8 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 1. Put Allay in, on Java 25:
    - **Spigot or Paper 26.3:** the Spigot version's jar into `plugins/`, then restart the server.
    - **Fabric 26.3:** the Fabric version's jar and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
-2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` in `config.yml` (`plugins/Allay/` on Spigot and Paper, `config/allay/` on Fabric) and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
+   - **NeoForge 26.3:** the NeoForge version's jar into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
+2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` in `config.yml` (`plugins/Allay/` on Spigot and Paper, `config/allay/` in the mods) and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
 3. Type `/ask how do I craft a beacon?`.
 
 Everything else, from your own backend to every config key, lives in the [wiki on GitHub](https://github.com/allay-ai/minecraft/wiki).
