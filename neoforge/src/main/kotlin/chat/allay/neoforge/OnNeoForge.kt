@@ -35,7 +35,8 @@ object OnNeoForge : Loader {
 
   override fun mods(): List<Loader.ModInfo> = ModList.get().mods
     .filter { it.modId !in BUILT_IN }
-    .map { Loader.ModInfo(it.modId, it.displayName, it.version.toString(), it.description.trim().takeIf(String::isNotEmpty)) }
+    // FML fills a missing description with these words; the model reads none instead.
+    .map { Loader.ModInfo(it.modId, it.displayName, it.version.toString(), it.description.trim().takeIf { text -> text.isNotEmpty() && text != "MISSING DESCRIPTION" }) }
 
   override fun custom(ingredient: Ingredient) = ingredient.isCustom
 

@@ -30,7 +30,7 @@ side = "BOTH"
 [[dependencies.allay]]
 modId = "minecraft"
 type = "required"
-versionRange = "[${minecraft}]"
+versionRange = "[${minecraft},26.4)"
 ordering = "NONE"
 side = "BOTH"
 
