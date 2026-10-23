@@ -103,7 +103,12 @@ object LookTools {
     val eye = player.eyePosition
     val end = eye.add(player.lookAngle.scale(ENTITY_RANGE))
     return player.level().getEntities(player, net.minecraft.world.phys.AABB(eye, end).inflate(1.0)) { Vanish.visible(player, it) }
-      .mapNotNull { entity -> entity.boundingBox.clip(eye, end).orElse(null)?.let { entity to it.distanceToSqr(eye) } }
+      .mapNotNull { entity ->
+        val box = entity.boundingBox
+        // From inside a box, Bukkit's ray hits where it leaves it.
+        val hit = if (box.contains(eye)) box.clip(end, eye) else box.clip(eye, end)
+        hit.orElse(null)?.let { entity to it.distanceToSqr(eye) }
+      }
       .minByOrNull { it.second }?.first
   }
 

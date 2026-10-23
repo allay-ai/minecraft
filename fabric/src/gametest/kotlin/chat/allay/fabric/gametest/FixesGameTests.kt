@@ -34,6 +34,7 @@ import net.minecraft.server.permissions.LevelBasedPermissionSet
 import net.minecraft.server.players.NameAndId
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -262,6 +263,19 @@ class FixesGameTests {
     helper.assertTrue("\"flight\":0" in flight(), "a bare rocket flies for 0, as Bukkit's FireworkMeta reads it: ${flight()}")
     player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack(Items.FIREWORK_ROCKET).apply { set(DataComponents.FIREWORKS, Fireworks(3, listOf())) })
     helper.assertTrue("\"flight\":3" in flight(), "a rocket of flight 3: ${flight()}")
+    player.discard()
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun lookAtSeesTheEntityTheEyeIsIn(helper: GameTestHelper) {
+    val player = survivor(helper, Vec3(1.5, 2.0, 1.5))
+    player.setXRot(0f)
+    val stand = ArmorStand(helper.level, player.x, player.y, player.z)
+    helper.level.addFreshEntity(stand)
+    val seen = Players.run(player, "look_at").result.jsonObject
+    equal(helper, seen["kind"]?.jsonPrimitive?.content, "entity", "what the player looks at from inside an armor stand: $seen")
+    stand.discard()
     player.discard()
     helper.succeed()
   }
