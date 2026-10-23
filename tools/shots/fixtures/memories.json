@@ -1,0 +1,59 @@
+{
+  "about": "What the memory window lists: added by hand before the shot, the first with the player's place. Four, so no button sits at the window's middle, where the game puts the pointer and would light one up.",
+  "memories": {
+    "en": [
+      [
+        "here",
+        "My base by the cherry grove"
+      ],
+      [
+        "add",
+        "Village with a librarian at -212 71 348"
+      ],
+      [
+        "add",
+        "I build in a Japanese style"
+      ],
+      [
+        "add",
+        "My friend Alex lives across the river"
+      ]
+    ],
+    "ru": [
+      [
+        "here",
+        "Моя база у вишнёвой рощи"
+      ],
+      [
+        "add",
+        "Деревня с библиотекарем: -212 71 348"
+      ],
+      [
+        "add",
+        "Я строю в японском стиле"
+      ],
+      [
+        "add",
+        "Мой друг Алекс живёт за рекой"
+      ]
+    ],
+    "es": [
+      [
+        "here",
+        "Mi base junto al bosque de cerezos"
+      ],
+      [
+        "add",
+        "Aldea con bibliotecario en -212 71 348"
+      ],
+      [
+        "add",
+        "Construyo en estilo japonés"
+      ],
+      [
+        "add",
+        "Mi amigo Alex vive al otro lado del río"
+      ]
+    ]
+  }
+}

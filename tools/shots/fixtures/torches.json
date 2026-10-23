@@ -1,0 +1,25 @@
+{
+  "about": "A question that reads the inventory and the recipes, then answers with buttons in the text: the status GIF and the answer shot.",
+  "question": {
+    "en": "how many torches can I make, and where's the nearest village?",
+    "ru": "сколько факелов я могу скрафтить и где ближайшая деревня?",
+    "es": "¿cuántas antorchas puedo hacer y dónde está la aldea más cercana?"
+  },
+  "tools": [
+    {
+      "name": "get_inventory",
+      "args": {}
+    },
+    {
+      "name": "get_recipes",
+      "args": {
+        "item": "torch"
+      }
+    }
+  ],
+  "answer": {
+    "en": "You have &e7 coal&r and &e4 sticks&r: that's &e16 torches&r now, 28 with three more sticks. <button action=\"recipe\" item=\"torch\">Recipe</button>\nThe nearest village is at &b-212 71 348&r, about 400 blocks north-west. <button action=\"point\" x=\"-212\" y=\"71\" z=\"348\">Way</button> <button action=\"copy\" text=\"-212 71 348\">Copy</button> <button action=\"note\" text=\"Village with a librarian\" x=\"-212\" y=\"71\" z=\"348\">Remember</button>\nShall I work out how many you need to light up your base? <button action=\"ask\" question=\"How many torches do I need to light up my base?\">Yes</button>",
+    "ru": "У тебя &e7 угля&r и &e4 палки&r: это &e16 факелов&r сейчас и 28, если добавить ещё три палки. <button action=\"recipe\" item=\"torch\">Рецепт</button>\nБлижайшая деревня — &b-212 71 348&r, примерно 400 блоков на северо-запад. <button action=\"point\" x=\"-212\" y=\"71\" z=\"348\">Путь</button> <button action=\"copy\" text=\"-212 71 348\">Копировать</button> <button action=\"note\" text=\"Деревня с библиотекарем\" x=\"-212\" y=\"71\" z=\"348\">Запомнить</button>\nПосчитать, сколько нужно, чтобы осветить базу? <button action=\"ask\" question=\"Сколько факелов нужно, чтобы осветить мою базу?\">Да</button>",
+    "es": "Tienes &e7 de carbón&r y &e4 palos&r: son &e16 antorchas&r ahora y 28 con tres palos más. <button action=\"recipe\" item=\"torch\">Receta</button>\nLa aldea más cercana está en &b-212 71 348&r, a unos 400 bloques al noroeste. <button action=\"point\" x=\"-212\" y=\"71\" z=\"348\">Camino</button> <button action=\"copy\" text=\"-212 71 348\">Copiar</button> <button action=\"note\" text=\"Aldea con bibliotecario\" x=\"-212\" y=\"71\" z=\"348\">Recordar</button>\n¿Calculo cuántas necesitas para iluminar tu base? <button action=\"ask\" question=\"¿Cuántas antorchas necesito para iluminar mi base?\">Sí</button>"
+  }
+}

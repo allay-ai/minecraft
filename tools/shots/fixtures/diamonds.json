@@ -1,0 +1,19 @@
+{
+  "about": "Allay writes a message for the player to send; the shot shows the answer with Send and the line the button sent.",
+  "question": {
+    "en": "ask politely in chat, like a proper gentleman, to borrow 12 diamonds for me",
+    "ru": "попроси вежливо в чате, как сударь, одолжить мне 12 алмазов",
+    "es": "pide en el chat, muy educadamente, como un caballero, que me presten 12 diamantes"
+  },
+  "tools": [],
+  "say": {
+    "en": "Good sirs and ladies, might one of you lend me 12 diamonds? I shall return them by sundown, upon my honour.",
+    "ru": "Милостивые государи, не одолжит ли кто 12 алмазов? Верну к закату, слово чести.",
+    "es": "Damas y caballeros, ¿alguno tendría la bondad de prestarme 12 diamantes? Los devolveré al anochecer, palabra de honor."
+  },
+  "answer": {
+    "en": "Here's a gentlemanly one: &f“Good sirs and ladies, might one of you lend me 12 diamonds? I shall return them by sundown, upon my honour.”&r <button action=\"say\" text=\"Good sirs and ladies, might one of you lend me 12 diamonds? I shall return them by sundown, upon my honour.\">Send</button> <button action=\"ask\" question=\"Make it shorter and more casual\">Shorter</button>",
+    "ru": "Вот по-сударски: &f«Милостивые государи, не одолжит ли кто 12 алмазов? Верну к закату, слово чести.»&r <button action=\"say\" text=\"Милостивые государи, не одолжит ли кто 12 алмазов? Верну к закату, слово чести.\">Отправить</button> <button action=\"ask\" question=\"Сделай короче и попроще\">Короче</button>",
+    "es": "Aquí tienes una muy caballerosa: &f«Damas y caballeros, ¿alguno tendría la bondad de prestarme 12 diamantes? Los devolveré al anochecer, palabra de honor.»&r <button action=\"say\" text=\"Damas y caballeros, ¿alguno tendría la bondad de prestarme 12 diamantes? Los devolveré al anochecer, palabra de honor.\">Enviar</button> <button action=\"ask\" question=\"Hazlo más corto e informal\">Más corto</button>"
+  }
+}

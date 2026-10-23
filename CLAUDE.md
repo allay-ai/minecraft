@@ -90,6 +90,10 @@ Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcb
    Pass `--game` the version the project targets, and `--build` to pin a Paper build. The script downloads Paper and Modrinth plugins into `~/.cache/paper-smoke` and keeps the server folder when something fails.
 3. A question needs a backend and a player. After a release reaches Moonlands, the log shows `Allay X.Y.Z is on`, `papi list` lists `allay`, and the owner asks `/ask` once. Plan's server values show up right away; a player's block fills on their next join or leave. Allay builds against the Spigot API, so it runs on Spigot too; the check uses Paper, which Moonlands runs.
 
+## Screenshots
+
+`media/screenshots/<lang>/` (en, ru, es) holds what the READMEs, MODRINTH.md, and allay.chat show: the live status as `status.gif` and `status.mp4`, an answer with buttons, a message to send, and the consent, memory, and privacy windows. `python3 -I tools/shots/shoot.py` takes them again on macOS in the real game: a local Paper with the plugin as built, `tools/shots/stub.py` for the backend, whose answers are `tools/shots/fixtures/*.json`, and the launcher's vanilla client. `--keep ru` leaves the game running to try the buttons by hand, `--stop` ends it, and `--remake` crops and encodes again without playing. When a change shows in them (a button, a window, a text), take them again, and copy the stills and the MP4 into allay-ai/site's `public/shots/<lang>/` (1100 wide; sizes in its `src/data/shots.ts`).
+
 ## Autopilot
 
 `.github/workflows/autopilot.yml` runs Claude every Monday at 03:00 UTC: `/update-deps`, then `/update-minecraft`, a fix for whatever they break, a push to `master`, and the “Release” workflow when what the project ships changed. The release's `deploy` job then starts Moonlands' `ship-plugin.yml` with the `FAMILY_ACTIONS_TOKEN` secret, and Claude puts the new version on the server there. The run itself needs the `CLAUDE_CODE_OAUTH_TOKEN` secret. “Autopilot” in `~/c/personal/minecraft/CLAUDE.md` explains the family's runs.
