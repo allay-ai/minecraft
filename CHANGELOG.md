@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.14.0
+
+Other plugins' tools can answer from a database or the web without holding the server. Nothing changes for the backend.
+
+- 🧩 **Expansion API 1.1.** A tool may return `ToolResult.later(stage)`: Allay waits for it off the server thread, up to `http.tool_timeout`, and cancels it after. The asker's name, language, and position are taken when the call starts, so such a tool reads them anywhere. Schemas take nested objects, lists of them, and bounds on numbers and strings. The wiki's “Expansions” shows how.
+
 ## 6.13.0
 
 Looking things up is faster, and several at once. Lists need Allay Server 6.15 (allay.chat runs it); an older backend asks one name at a time as before.
