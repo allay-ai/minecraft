@@ -170,6 +170,12 @@ interface Platform {
   /** Runs [command] (without its `/`) as [who], as if they typed it; true when the platform ran it. */
   fun dispatch(who: Audience, command: String): Boolean
 
+  /**
+   * Whether [command] (without its `/`) would run for [who] now: it exists, they may run it, and, where the platform
+   * can parse it beforehand, its arguments fit. Null where the platform can't tell. Server thread.
+   */
+  fun check(who: Audience, command: String): chat.allay.core.tools.CommandCatalog.Check? = null
+
   /** Whether a vanish plugin or mod hides [player] from the others; false where there's none. */
   fun vanished(player: PlayerAudience): Boolean = false
 

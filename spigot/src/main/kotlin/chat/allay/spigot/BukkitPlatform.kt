@@ -126,6 +126,7 @@ class BukkitPlatform(private val plugin: JavaPlugin) : Platform {
   }
 
   override fun dispatch(who: Audience, command: String) = server.dispatchCommand(who.sender, command)
+  override fun check(who: Audience, command: String) = chat.allay.spigot.tools.CommandTools.check(who.sender, command)
   override fun vanished(player: PlayerAudience) = Vanish.vanished(player.player)
   override fun placeholders(about: Audience?) = Placeholders.about((about as? BukkitSender)?.sender)
   @Suppress("DEPRECATION") override val motd: String get() = server.motd

@@ -221,6 +221,8 @@ class ModPlatform(val server: MinecraftServer) : Platform {
     return true
   }
 
+  override fun check(who: Audience, command: String) = chat.allay.modcore.tools.CommandTools.check(server, (who as ModSender).source, command)
+
   override fun vanished(player: PlayerAudience) = Vanish.vanished(player.player)
   override fun placeholders(about: Audience?) = Placeholders.about(this, (about as? ModPlayer)?.player)
   override val motd: String get() = server.motd.orEmpty()
