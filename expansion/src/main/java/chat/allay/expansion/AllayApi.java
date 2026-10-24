@@ -10,7 +10,7 @@ package chat.allay.expansion;
  */
 public final class AllayApi {
   /** This API's version, {@code major.minor.patch}. */
-  public static final String VERSION = "1.2.0";
+  public static final String VERSION = "1.3.0";
 
   private AllayApi() {}
 

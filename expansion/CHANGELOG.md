@@ -2,6 +2,12 @@
 
 `chat.allay:allay-expansion` on Maven Central. Within a major version the API only grows: an expansion built against an older version runs on every newer Allay of that major. The wiki's “Expansions” says how to use it.
 
+## 1.3.0
+
+Names in the language Allay answers in, with Allay 6.17.0.
+
+- `Asker.language()`: the language Allay talks to the asker in, as a game language like `ru_ru`. It may differ from `locale()`, their game's: a player whose game is in English may read Allay in Russian. Name your items in it, so the model doesn't translate their names itself. It falls back to `locale()` by default.
+
 ## 1.2.0
 
 Tools that suit only some players, with Allay 6.15.0.
