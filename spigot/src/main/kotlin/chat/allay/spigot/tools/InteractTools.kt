@@ -73,8 +73,9 @@ object InteractTools {
       }
       "anvil" -> {
         val slots = (args["slots"] as? JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() }
-        Anvils.plan(player, slots) ?: throw ToolError("nothing in the inventory improves the item in hand; don't offer an anvil button")
-        Button.Anvil(label, slots)
+        val target = args.int("slot")?.takeIf { it in AnvilTargets.ALL }
+        Anvils.plan(player, slots, target ?: player.inventory.heldItemSlot) ?: throw ToolError("nothing in the inventory improves that item; don't offer an anvil button")
+        Button.Anvil(label, slots, target)
       }
       "villagers" -> Button.Villagers(label, args.string("item")?.let { material(it).key.key })
       else -> throw ToolError("unknown button type $type")

@@ -53,7 +53,7 @@ class GameClicks(
       is Button.Recipe -> recipe(bukkit, button.item)
       is Button.Enchants -> enchants(bukkit)
       is Button.Brewing -> brewing(bukkit, button.potion, button.form)
-      is Button.Anvil -> anvil(bukkit, button.slots)
+      is Button.Anvil -> anvil(bukkit, button.slots, button.target)
       is Button.Villagers -> villagers(bukkit, button.item)
       is Button.ReadBook -> features.books.find(bukkit.uniqueId, button.book)?.let { bukkit.openBook(BookItems.item(it, ui.bookAuthor)) }
         ?: lang.send(bukkit, "buttons.book_gone")
@@ -138,10 +138,10 @@ class GameClicks(
     BrewingMenu(player, lang, chain.first, chain.second).open()
   }
 
-  /** The anvil button: the cheapest way to merge what the player has onto the item in hand. */
-  fun anvil(player: Player, slots: List<Int>?) {
+  /** The anvil button: the cheapest way to merge what the player has onto the item in [target], or in hand. */
+  fun anvil(player: Player, slots: List<Int>?, target: Int? = null) {
     val planned = try {
-      Anvils.plan(player, slots)
+      Anvils.plan(player, slots, target ?: player.inventory.heldItemSlot)
     } catch (error: ToolError) {
       return lang(player).send(player, "messages.hold_item")
     } ?: return lang(player).send(player, "messages.anvil_nothing")

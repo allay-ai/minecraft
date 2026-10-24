@@ -50,7 +50,7 @@ class GameClicks(private val features: Features) : Clicks.Game {
       is Button.Recipe -> recipe(game, button.item)
       is Button.Enchants -> enchants(game)
       is Button.Brewing -> brewing(game, button.potion, button.form)
-      is Button.Anvil -> anvil(game, button.slots)
+      is Button.Anvil -> anvil(game, button.slots, button.target)
       is Button.Villagers -> villagers(game, button.item)
       is Button.ReadBook -> features.books.find(game.uuid, button.book)?.let { openBook(game, BookItems.item(it, ui.bookAuthor)) }
         ?: lang.send(player, "buttons.book_gone")
@@ -153,10 +153,10 @@ class GameClicks(private val features: Features) : Clicks.Game {
     BrewingMenu(player, lang, chain.first, chain.second).open()
   }
 
-  /** The anvil button: the cheapest way to merge what the player has onto the item in hand. */
-  fun anvil(player: ServerPlayer, slots: List<Int>?) {
+  /** The anvil button: the cheapest way to merge what the player has onto the item in [target], or in hand. */
+  fun anvil(player: ServerPlayer, slots: List<Int>?, target: Int? = null) {
     val planned = try {
-      Anvils.plan(player, slots)
+      Anvils.plan(player, slots, target ?: player.inventory.selectedSlot)
     } catch (error: ToolError) {
       return lang(player).send(player.audience, "messages.hold_item")
     } ?: return lang(player).send(player.audience, "messages.anvil_nothing")

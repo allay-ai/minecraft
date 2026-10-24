@@ -45,8 +45,10 @@ class AnvilPlanMenu(player: ServerPlayer, private val lang: Lang, private val pl
     if (pieces.size == 1) {
       val source = planned.sources[pieces.single()]
       val where = when (val slot = source.slot) {
-        null -> lang.text("menus.anvil.hand")
+        planned.hand -> lang.text("menus.anvil.hand")
         in 0..8 -> lang.text("menus.anvil.hotbar", "n" to slot + 1)
+        in AnvilTargets.ARMOR -> lang.text("menus.anvil.worn")
+        AnvilTargets.OFFHAND -> lang.text("menus.anvil.offhand")
         else -> lang.text("menus.anvil.inventory", "row" to (slot - 9) / 9 + 1, "column" to (slot - 9) % 9 + 1)
       }
       return source.item.copyWithCount(1).lore(null, listOf(where))
