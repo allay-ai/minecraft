@@ -152,7 +152,7 @@ The owner's server, Moonlands, runs this plugin. When the owner asks to put a ch
 
 How the family ships a project to more than one platform. A project that builds only for Paper keeps its jar's present name until it gains a second platform, so links and Moonlands' `jars.txt` keep working.
 
-- **Modules.** One Gradle module per platform, `paper/`, `fabric/`, `neoforge/`, next to a `core/` module with what they share: the rules as plain Kotlin without game imports, data, and assets. Every module builds from one version, and one release ships them all.
+- **Modules.** One Gradle module per platform, `paper/`, `fabric/`, `neoforge/`, next to a `core/` module with what they share: the rules as plain Kotlin without game imports, data, and assets. A project with both mods adds `modcore/`, the game without a loader, compiled against NeoForm and packed into both mods' jars, so `fabric/` and `neoforge/` stay thin adapters (Allay and Red Bull do; their game tests live in `modcore/src/gametest` and run on both loaders). Every module builds from one version, and one release ships them all.
 - **Jars.** `<name>-paper-X.Y.Z.jar`, `<name>-fabric-X.Y.Z.jar`, and `<name>-neoforge-X.Y.Z.jar`, each attached again without the version, so `releases/latest/download/<name>-<platform>.jar` always fetches the newest.
 - **Modrinth.** One project for every platform. Each platform is its own version, numbered `X.Y.Z+paper`, `X.Y.Z+fabric`, or `X.Y.Z+neoforge`, with its own loaders and dependencies; a mod's version says it runs on the client and the server.
 - **Hangar.** Paper only, numbered `X.Y.Z`.
