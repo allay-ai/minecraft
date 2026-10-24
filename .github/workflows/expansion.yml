@@ -1,0 +1,53 @@
+name: Release the expansion API
+
+# Run by hand: Actions → Release the expansion API → Run workflow, with the library's new version. It publishes
+# chat.allay:allay-expansion to Maven Central at once (no draft to click) and tags expansion-vX.Y.Z. Allay's own
+# releases carry the same classes inside their jars; this is only what other plugins and mods compile against.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version of the library, like 1.0.0; a version goes to Maven Central once and stays"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: expansion-release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$VERSION isn't a version like 1.0.0"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/expansion-v$VERSION" >/dev/null; then
+            echo "::error::expansion-v$VERSION is already released"; exit 1
+          fi
+          # AllayApi.VERSION is what Allay checks expansions against; it has to be the version published.
+          grep -q "VERSION = \"$VERSION\"" expansion/src/main/java/chat/allay/expansion/AllayApi.java || { echo "::error::AllayApi.VERSION isn't $VERSION"; exit 1; }
+          grep -q "^## $VERSION" expansion/CHANGELOG.md || { echo "::error::No “## $VERSION” section in expansion/CHANGELOG.md"; exit 1; }
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build, test, and sign
+        env:
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: ./gradlew :expansion:build :expansion:publishMavenPublicationToStagingRepository -PexpansionVersion="$VERSION"
+      - name: Publish to Maven Central
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: python3 -I tools/central.py expansion/build/staging chat.allay allay-expansion "$VERSION"
+      - name: Tag the release
+        run: |
+          git tag "expansion-v$VERSION" "$GITHUB_SHA"
+          git push origin "expansion-v$VERSION"

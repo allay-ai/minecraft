@@ -5,6 +5,8 @@ plugins {
 
 // Everything that doesn't touch a game platform: no Bukkit here, so another platform is only an adapter.
 dependencies {
+  // The expansion API ships inside every jar as it is, never relocated: other plugins and mods compile against it.
+  api(project(":expansion"))
   api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
   api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
   api("com.squareup.okhttp3:okhttp:5.5.0")
