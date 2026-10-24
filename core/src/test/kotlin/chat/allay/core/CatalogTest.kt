@@ -1,6 +1,10 @@
 package chat.allay.core
 
 import chat.allay.core.tools.Catalog
+import chat.allay.core.tools.CatalogCache
+import chat.allay.core.tools.asked
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.put
 import chat.allay.core.tools.Catalog.Entry
 import chat.allay.core.tools.Catalog.Kind
 import chat.allay.core.tools.GameNames
@@ -95,6 +99,48 @@ class CatalogTest {
     assertTrue((none["matches"] as JsonArray).isEmpty())
     assertTrue("doesn't prove" in none["note"]!!.jsonPrimitive.content)
     assertTrue("close: Ruby (mypack:ruby)" in catalog.missing("rubi", "en_us"))
+  }
+
+  @Test fun `several names are answered at once, each in its place`() {
+    val results = catalog.answers(listOf("алмазный меч", "infestation", "unobtainium"), "ru_ru", 3)["results"] as JsonArray
+    assertEquals(listOf("алмазный меч", "infestation", "unobtainium"), results.map { it.jsonObject["query"]!!.jsonPrimitive.content })
+    assertEquals("diamond_sword", (results[0].jsonObject["matches"] as JsonArray).first().jsonObject["id"]!!.jsonPrimitive.content)
+    assertEquals("infested", (results[1].jsonObject["matches"] as JsonArray).first().jsonObject["id"]!!.jsonPrimitive.content)
+    assertTrue((results[2].jsonObject["matches"] as JsonArray).isEmpty())
+  }
+
+  @Test fun `a lookup takes a list or one name, and no more than it can`() {
+    val list = kotlinx.serialization.json.buildJsonObject { put("queries", JsonArray(listOf(" stone ", "stone", "", "dirt").map(::JsonPrimitive))) }
+    assertEquals(listOf("stone", "dirt"), list.asked("queries", "query", 8))
+    assertEquals(listOf("stone"), kotlinx.serialization.json.buildJsonObject { put("query", "stone") }.asked("queries", "query", 8))
+    assertNull(kotlinx.serialization.json.buildJsonObject {}.asked("queries", "query", 8))
+    assertEquals("ask for at most 1 at once", kotlin.runCatching { list.asked("queries", "query", 1) }.exceptionOrNull()?.message)
+  }
+
+  @Test fun `a thousand entries are searched quickly`() {
+    val many = Catalog((1..3000).map { Entry("thing_$it", Kind.ITEM, names = mapOf("en_us" to "Some Thing Number $it", "ru_ru" to "Штука номер $it")) }, names)
+    many.search("warmup", "ru_ru")
+    val started = System.nanoTime()
+    repeat(20) { many.search("штука номер 1500", "ru_ru"); many.search("infestaton", "en_us") }
+    val each = (System.nanoTime() - started) / 40 / 1_000_000.0
+    assertTrue(each < 50, "a search took $each ms")
+    assertEquals("thing_1500", many.resolve("штука номер 1500", "ru_ru")?.id)
+  }
+
+  @Test fun `the cache keeps one catalog while its key stays`() {
+    var now = 0L
+    var built = 0
+    val cache = CatalogCache(maxAgeMillis = 1000) { now }
+    val build = { built++; catalog }
+    cache.get(listOf(1), build); cache.get(listOf(1), build)
+    assertEquals(1, built)
+    cache.get(listOf(2), build)
+    assertEquals(2, built)
+    now = 1000
+    cache.get(listOf(2), build)
+    assertEquals(3, built)
+    cache.clear(); cache.get(listOf(2), build)
+    assertEquals(4, built)
   }
 
   @Test fun `folding ignores case, color codes, ё, and the game's namespace`() {

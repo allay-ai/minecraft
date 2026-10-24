@@ -18,6 +18,7 @@ import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -85,6 +86,24 @@ class CatalogGameTests {
     equal(helper, luck, listOf("nether_wart", "dirt"), "the pack's brew")
     val server = result(asker, "get_server")
     helper.assertTrue("datapacks" in server && "mods" in server, "the server lists mods and data packs: ${server.keys}")
+    asker.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun severalThingsAreLookedUpAtOnce(helper: GameTestHelper) {
+    val asker = survivor(helper)
+    val found = result(asker, "search_items", buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray(listOf("ruby", "infestation", "unobtainium").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
+    equal(helper, found.map { it["query"]!!.jsonPrimitive.content }, listOf("ruby", "infestation", "unobtainium"), "each name in its place")
+    equal(helper, found[0]["matches"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content, "allay_gametest:ruby", "the pack's item")
+    equal(helper, found[1]["matches"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content, "infested", "the potion")
+    helper.assertTrue(found[2]["matches"]!!.jsonArray.isEmpty() && "note" in found[2], "nothing, with a note: ${found[2]}")
+    val made = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf("Ruby", "Potion of Infestation", "stick").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
+    equal(helper, made[0]["item"]!!.jsonPrimitive.content, "allay_gametest:ruby", "the ruby's recipe")
+    helper.assertTrue(made[1]["error"]!!.jsonPrimitive.content.endsWith("call get_brewing_recipe with infested"), "the potion goes to brewing: ${made[1]}")
+    helper.assertTrue(made[2]["recipes"]!!.jsonArray.size in 1..3, "a stick's recipes, three at most: ${made[2]}")
+    val tooMany = refused { run(asker, "search_items", buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray((1..9).map { JsonPrimitive("stone$it") })) }) }
+    equal(helper, tooMany, "ask for at most 8 at once", "nine names are too many")
     asker.discard()
     helper.succeed()
   }

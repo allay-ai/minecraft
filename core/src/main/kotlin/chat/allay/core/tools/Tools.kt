@@ -19,6 +19,18 @@ fun JsonObject.double(key: String) = (get(key) as? JsonPrimitive)?.doubleOrNull
 fun JsonObject.bool(key: String) = (get(key) as? JsonPrimitive)?.booleanOrNull
 fun JsonObject.string(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.trim()?.ifEmpty { null }
 
+/**
+ * The things a lookup tool was asked about: [many]'s list (since 6.13) or [one]'s single name, each cut to 64
+ * characters, repeats dropped. Null when neither is there; a [ToolError] for more than [max].
+ */
+fun JsonObject.asked(many: String, one: String, max: Int): List<String>? {
+  val list = (get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { element ->
+    (element as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.ifEmpty { null }?.take(64)
+  }?.distinct()
+  if (list != null && list.size > max) throw ToolError("ask for at most $max at once")
+  return list?.ifEmpty { null } ?: string(one)?.take(64)?.let(::listOf)
+}
+
 /** A tool the backend can ask the plugin to run, seeing the run through [C]. Runs on the server thread. */
 interface ClientTool<in C> {
   val name: String

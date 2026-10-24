@@ -32,12 +32,36 @@ object KnowledgeTools {
     override val name = "get_recipes"
 
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
-      val asked = (args["item"] as? JsonPrimitive)?.contentOrNull ?: throw ToolError("say which item")
+      val asked = args.asked("items", "item", MAX_ITEMS) ?: throw ToolError("say which item")
+      val catalog = Catalogs.build(context)
+      val locale = context.player?.locale
+      // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
+      if (args["items"] == null) {
+        val result = recipes(context, catalog, locale, asked.single(), MAX_RECIPES)
+        return ToolOutput(result, summary(context, listOf(result)))
+      }
+      val each = if (asked.size == 1) MAX_RECIPES else MAX_RECIPES_EACH
+      val results = asked.map { name ->
+        try {
+          buildJsonObject { put("query", name); recipes(context, catalog, locale, name, each).forEach { (key, value) -> put(key, value) } }
+        } catch (error: ToolError) {
+          buildJsonObject { put("query", name); put("error", error.message.orEmpty()) }
+        }
+      }
+      return ToolOutput(buildJsonObject { put("results", JsonArray(results)) }, summary(context, results))
+    }
+
+    /** The chat's line: how many recipes came back for everything asked. */
+    private fun summary(context: ToolContext, results: List<JsonObject>): String {
+      val count = results.sumOf { ((it["recipes"] as? JsonArray)?.size ?: 0) + (it.int("more_recipes") ?: 0) }
+      return if (count == 0) context.lang.text("summary.recipes_none") else context.lang.text("summary.recipes", "count" to count)
+    }
+
+    /** How [asked] is made here, up to [most] recipes, or a [ToolError] that says why there's none to show. */
+    private fun recipes(context: ToolContext, catalog: Catalog, locale: String?, asked: String, most: Int): JsonObject {
       val item = Names.normalize(asked)
       // Potions come from the brewing stand: get_brewing_recipe tells its steps.
       if (item in POTIONS) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
-      val catalog = Catalogs.build(context)
-      val locale = context.player?.locale
       // An exact id first, then whatever the catalog makes of a name in any language.
       val exact = Material.matchMaterial(item)?.takeIf { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }
       val entry = exact?.let { catalog.find(it.key.key, Catalog.Kind.ITEM) } ?: catalog.find(item, Catalog.Kind.CUSTOM)
@@ -51,15 +75,14 @@ object KnowledgeTools {
         .filter { Catalogs.id(it.result) == entry.id }.mapNotNull(::describe)
       val described = context.features.expansions?.items().orEmpty().filter { it.second.id() == entry.id }.flatMap { it.second.recipes().mapNotNull(Catalog::describe) }
       val all = own + described
-      val found = all.take(5)
-      val result = buildJsonObject {
+      val found = all.take(most)
+      return buildJsonObject {
         put("item", entry.id)
         catalog.name(entry, locale)?.let { put("name", it) }
         if (entry.source != Catalog.MINECRAFT) put("source", entry.source)
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
       }
-      return ToolOutput(result, if (found.isEmpty()) context.lang.text("summary.recipes_none") else context.lang.text("summary.recipes", "count" to all.size))
     }
 
     /** Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. */
@@ -154,14 +177,29 @@ object KnowledgeTools {
   /** Advancements listed per list at most; the counts cover them all. */
   private const val MAX_ADVANCEMENTS = 40
 
+  /** Items one get_recipes call takes, and recipes shown for one item and for each of several. */
+  private const val MAX_ITEMS = 5
+  private const val MAX_RECIPES = 5
+  private const val MAX_RECIPES_EACH = 3
+
+  /** Names one search_items call takes, and hits for one name (unless limit says otherwise) and for each of several. */
+  private const val MAX_QUERIES = 8
+  private const val MAX_HITS = 8
+  private const val MAX_HITS_EACH = 5
+
   /** Anything this server knows by a name in any language or an id: items, potions, and plugins' own. */
   private val search: Tool = object : Tool {
     override val name = "search_items"
 
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
-      val query = args.string("query") ?: args.string("item") ?: throw ToolError("say what to look for")
-      val answer = Catalogs.build(context).answer(query.take(64), context.player?.locale, args.int("limit") ?: 8)
-      val count = (answer["matches"] as? JsonArray)?.size ?: 0
+      val queries = args.asked("queries", "query", MAX_QUERIES) ?: args.string("item")?.take(64)?.let(::listOf) ?: throw ToolError("say what to look for")
+      val catalog = Catalogs.build(context)
+      val locale = context.player?.locale
+      // One name answers as before 6.13; several (queries) answer each in its place, with fewer hits each.
+      val answer = if (args["queries"] == null) catalog.answer(queries.single(), locale, args.int("limit") ?: MAX_HITS)
+        else catalog.answers(queries, locale, args.int("limit") ?: if (queries.size == 1) MAX_HITS else MAX_HITS_EACH)
+      val results = (answer["results"] as? JsonArray)?.map { it as JsonObject } ?: listOf(answer)
+      val count = results.sumOf { (it["matches"] as? JsonArray)?.size ?: 0 }
       return ToolOutput(answer, if (count == 0) context.lang.text("summary.items_none") else context.lang.text("summary.items_found", "count" to count))
     }
   }
