@@ -37,6 +37,7 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 ## What you get
 
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.
+- 🔎 **It knows this server's things.** Mods' items, data packs' recipes and brews, and plugins' own items count: Allay finds them by name in any language or by id, and never says a thing doesn't exist before it looked.
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar; glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
@@ -75,7 +76,9 @@ The [wiki](https://github.com/allay-ai/minecraft/wiki) holds the manual.
 
 **For players and server owners:** [Installation](https://github.com/allay-ai/minecraft/wiki/Installation) · [Paying for the model](https://github.com/allay-ai/minecraft/wiki/Paying-for-the-model) · [First steps](https://github.com/allay-ai/minecraft/wiki/First-steps) · [Asking Allay](https://github.com/allay-ai/minecraft/wiki/Asking-Allay) · [What Allay can do](https://github.com/allay-ai/minecraft/wiki/What-Allay-can-do) · [Automation agents](https://github.com/allay-ai/minecraft/wiki/Automation-agents) · [Commands and permissions](https://github.com/allay-ai/minecraft/wiki/Commands-and-permissions) · [Configuration](https://github.com/allay-ai/minecraft/wiki/Configuration) · [Languages](https://github.com/allay-ai/minecraft/wiki/Languages) · [Integrations](https://github.com/allay-ai/minecraft/wiki/Integrations) · [Coming from MCBuddy](https://github.com/allay-ai/minecraft/wiki/Coming-from-MCBuddy) · [FAQ](https://github.com/allay-ai/minecraft/wiki/FAQ)
 
-**For developers:** [Building from source](https://github.com/allay-ai/minecraft/wiki/Building-from-source) · [Architecture](https://github.com/allay-ai/minecraft/wiki/Architecture) · [Releasing](https://github.com/allay-ai/minecraft/wiki/Releasing) · [Development](https://github.com/allay-ai/minecraft/wiki/Development)
+**For developers:** [Building from source](https://github.com/allay-ai/minecraft/wiki/Building-from-source) · [Architecture](https://github.com/allay-ai/minecraft/wiki/Architecture) · [Releasing](https://github.com/allay-ai/minecraft/wiki/Releasing) · [Development](https://github.com/allay-ai/minecraft/wiki/Development) · [Expansions](https://github.com/allay-ai/minecraft/wiki/Expansions)
+
+**Extend Allay from your plugin or mod.** With `chat.allay:allay-expansion` from Maven Central, one class gives Allay tools that call your code, your items and recipes, and a few lines of advice for the model, on Paper, Spigot, Fabric, and NeoForge alike. [Expansions](https://github.com/allay-ai/minecraft/wiki/Expansions) shows how, with an example for each platform.
 
 ## Related projects
 

@@ -21,6 +21,7 @@
 ## What you get
 
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.
+- 🔎 **It knows this server's things.** Mods' items, data packs' recipes and brews, and plugins' own items count: Allay finds them by name in any language or by id, and never says a thing doesn't exist before it looked.
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar; glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
@@ -53,7 +54,7 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` in `config.yml` (`plugins/Allay/` on Spigot and Paper, `config/allay/` in the mods) and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
 3. Type `/ask how do I craft a beacon?`.
 
-Everything else, from your own backend to every config key, lives in the [wiki on GitHub](https://github.com/allay-ai/minecraft/wiki).
+Everything else, from your own backend to every config key, lives in the [wiki on GitHub](https://github.com/allay-ai/minecraft/wiki). Plugin and mod authors can extend Allay with their own tools, items, and advice: see [Expansions](https://github.com/allay-ai/minecraft/wiki/Expansions).
 
 ## Related projects
 

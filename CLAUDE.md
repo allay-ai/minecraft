@@ -9,7 +9,7 @@ The Minecraft plugin and the Fabric and NeoForge mods of Allay. `/ask` asks the 
 
 ## How it fits together
 
-Five Gradle modules. `core` holds everything that doesn't touch a game platform and never imports `org.bukkit` or `net.minecraft`: the whole flow of a question, the commands, chat mode, billing, memory, privacy, the agents' wakes, and the tools that need no world. `spigot` is the plugin for Spigot, Paper, and their forks, an adapter around `core`: it hands in a `Platform` and a `Game` and forwards Bukkit's events and commands. `modcore` is what both mods share, the game without a loader, and `fabric` and `neoforge` are the mods, thin adapters around it (see “Mods” below). The wiki's “Architecture” says what a new platform must bring.
+Six Gradle modules. `expansion` is the expansion API other plugins and mods build against (see “The expansion API” below). `core` holds everything that doesn't touch a game platform and never imports `org.bukkit` or `net.minecraft`: the whole flow of a question, the commands, chat mode, billing, memory, privacy, the agents' wakes, and the tools that need no world. `spigot` is the plugin for Spigot, Paper, and their forks, an adapter around `core`: it hands in a `Platform` and a `Game` and forwards Bukkit's events and commands. `modcore` is what both mods share, the game without a loader, and `fabric` and `neoforge` are the mods, thin adapters around it (see “Mods” below). The wiki's “Architecture” says what a new platform must bring.
 
 | Path | What it does |
 |---|---|
@@ -33,12 +33,26 @@ Five Gradle modules. `core` holds everything that doesn't touch a game platform 
 | `spigot/…/Windows.kt` | Windows (`Window` in core) as dialogs: Paper's API on Paper, Spigot's elsewhere. Chat gets only links and errors |
 | `spigot/…/tools/` | The client tools on Bukkit. They run on the server thread and see only the asking player and the world around them; other players appear only as a count, or as the asker's locator bar shows them (`Locator`, `get_nearby_players`, and `point_to` with `player`). Each can be switched off in `config.yml`. `ItemStacks.kt` turns Bukkit items into `ItemData`. `ActionTools` change nothing that matters (compass, sorting, a ping, reminders); `LookTools` (`look_at`) reads whatever is under the crosshair, `InspectTools` searches and inspects items and containers, `CareTools` gear, XP, food; `GoalTools` and `Goals.kt` the goals' boss bars and events; `OperatorTools` change the game and are operator-only |
 | `core/…/tasks/Tasks.kt`, `core/…/tools/Storage.kt`, `Pins.kt`, `Workshop.kt` | Automation agents as data (`Task`, `TaskBook` with the per-player limit and depth 2, `Reservations`), and the planners with tests: chest layouts (sort, group by category with overflow, move), pinned inventory slots, fuel and furnace shares, and crafting with parts |
+| `core/…/tools/Catalog.kt`, `GameNames.kt`, each platform's `tools/Catalogs.kt` | What the server has, as the model names it: items, potions, and custom items (a plugin's or data pack's item built on the game's own, by its `item_model`), with where each comes from and how it's made, built for each call from the registries, the recipes, and the expansions. `search_items`, `get_recipes`, and brewing resolve names through it. `GameNames` holds the game's names by translation key in every language: the platform's own files, and the game's other languages downloaded once per game version from Mojang into `cache/lang/` |
+| `core/…/tools/AnvilTargets.kt` | Which item an anvil plan works on: slots 0–40 as the game numbers them, the pick when the player names none, and matching a name to the player's items |
+| `core/…/Expansions.kt`, `spigot/…/Expansions.kt`, `modcore/…/Expansions.kt` | Other plugins' and mods' expansions: checked once when they register, their tools offered as `x_<id>_<tool>` under Allay's rules and run on the server thread, their items in the catalog, their prompt lines sent with each question. The platforms find them through `META-INF/services` (Bukkit: each plugin as it's enabled; the mods: once per game) |
 | `core/…/Quota.kt`, `core/…/QuotaGate.kt` | Spending limits by tier (`QuotaSettings`, `QuotaBook` in `quota.json`, `Quotas.check`) and models by tier (`ModelTiers`); the gate in front of every question and wake, and the admin's note on join when the quota config is wrong. Tiers are weights over the players active this month, the budget opens by day |
 | `core/…/tasks/Agents.kt`, `core/…/tools/TaskTools.kt`, `AllayTools.kt`, `ToolScope.kt` | The agents' wakes (mode "task"), pauses, time limits, retries, and stops on any platform, with `Agents.World` for picking and jobs; start_task, message_task, cancel_task, say, wait, finish; `get_allay_guide` and `allay_settings`; `ToolScope` and `ToolServices`, what every platform's tools see of a run |
 | `spigot/…/automation/` | Automation's work on Bukkit: `Automation` wraps the core's `Agents` with `Picking` (left-click picking, `PickTools`'s pick_blocks), `Undo`, and `Jobs` (the furnace and brewing jobs the game drives); `Blocks` and `Sources` what may be used and where ingredients come from; `Chests`, `Furnaces`, `Stands`, `Crafting` the tools |
 | `spigot/…/GameClicks.kt`, `menus/` | The buttons that reach into the world (the model writes `<button action=…>` tags, `core/…/tools/InlineButtons.kt` parses them, `InteractTools.fromTag` checks them; since 6.9): the way, books, agents' replies, picking, undo; the recipe, brewing, anvil plan, enchanting, and villager windows, opened from buttons, and the settings window of `/allay`, which holds settings only |
 
 The contract with the backend is `docs/protocol-v2.md` in allay-ai/server. Change both sides together.
+
+## The expansion API
+
+`expansion/` is `chat.allay:allay-expansion`, the library other plugins and mods build against, on Maven Central since 1.0.0 (Allay 6.12). The owner settled its design on 2026-10-24; the wiki's “Expansions” is its manual for authors.
+
+- **Plain Java, no dependencies, Java 21 bytecode**, so any plugin or mod can use it and Allay's Kotlin stays private. Every Allay jar carries its classes unrelocated through `core`'s `api(project(":expansion"))`; never relocate `chat.allay.expansion`, and authors use `compileOnly`.
+- **Its own version.** `AllayApi.VERSION` is the library's version and what `requiresApi()` returns; `expansion/CHANGELOG.md` its notes. Within a major the API only grows: a new interface method comes with a default, and nothing is removed or changes meaning. Allay refuses an expansion that needs a newer minor or another major, with a line in the log.
+- **Releasing** is its own workflow, `gh workflow run expansion.yml -R allay-ai/minecraft -f version=X.Y.Z`, after `AllayApi.VERSION` and `expansion/CHANGELOG.md` say that version. It signs with the `MAVEN_SIGNING_*` secrets, uploads through `tools/central.py` with `publishingType=AUTOMATIC` (no draft to click), waits for `PUBLISHED` and repo1.maven.org, and tags `expansion-vX.Y.Z`. A version goes to Central once and stays. The key and the token live in `secrets.toml` in MairwunNx/infrastructure (`[publishing]`) and reach this repository through its `github.toml`.
+- **Security.** An expansion's tool runs only in a run that offered it (`Run.expansionTools`, set on the server thread in `Handler.ask`, after the consent gate), never for the console or an automation agent; `OPERATOR` tools are offered to operators only and checked again in `Expansions.run`; only `READ` tools in `/askx`; `inPublic` decides public questions; the author's `permission()` is asked with `can(permission, byDefault = true)`. Results are cut at 8000 characters, descriptions at 1000, schemas at 4000, prompts at 2000. The backend frames descriptions and prompt lines as the plugin's and keeps Allay's rules above them; keep both sides doing so.
+- **Protocol.** `expansion_tools` and `expansions` in the chat request (backend 6.14, `docs/protocol-v2.md` “Expansions”); a call comes back as a plain `tool_call` with the tool's name.
+- Red Bull (MairwunNx/minecraft-redbull) is the example: `core/…/Allay.kt` and each platform's `Allay.kt`. The game tests' `CatalogGameTests` register an expansion of their own.
 
 ## Coming from MCBuddy
 
@@ -64,6 +78,7 @@ Allay was MCBuddy until 4.0.0. Since 6.7 the plugin no longer moves `plugins/mcb
 - One deliberate exception: `[Взять книгу]` gives anyone the written book with the assistant's own long answer, once per book. The owner allowed it: a book of text is no gear. Don't extend it to other items.
 - Windows (`menus/`) only show pictures. `MenuListener` cancels every click, drag, and hopper move on a `Menu`; keep it that way, or the windows become a dupe.
 - Buttons run `/allay do <id>`. Ids belong to the player who got them (`ButtonStore`) and expire after an hour, so a typed command can't trigger an action nobody offered.
+- Never let the model's memory settle whether a thing exists: `search_items`, `get_recipes`, and brewing read the server (`Catalog`). A refusal never says “doesn't exist”; it names what this server has under close names, so the model can look again.
 - Keep tool results compact: they cost tokens on every call. Spots are absolute `x`, `y`, `z` with `distance` and `direction` (`Facts.place`); dimensions are the game's ids through `Dimensions`.
 - Kotlin, kotlinx, OkHttp, Okio, the MaxMind reader, and SnakeYAML are shaded and relocated under `chat.allay.libs`.
 - Every request to the backend signs in (server 6.0): keep `Credentials` on the client as a network interceptor, so nothing goes to another host, redirects included. A new backend call goes through that client. A player's data is the backend's per server; the plugin never sends one player's id for another.
@@ -194,6 +209,10 @@ Rules on top of the ones above:
 - The mods add no blocks, items, or registries, so a game with one joins any server and any game joins a server with one. The `client` side (a mod working for a player on a server without Allay) is not built: there it only says it can't work.
 - A singleplayer world's owner may link and reload without cheats (`Perms.owner`), but operator tools still need operator rights.
 - A new event goes through `Hooks`, fed by both loaders' `AllayMod` or by a mixin in modcore, so both mods see the same moment. A loader-only difference goes into `Loader`, never into modcore's code as an `if`.
+
+## Expansions in checks
+
+A smoke run with an expansion's jar beside Allay's must log `Expansion <Name> <version> is on: …`; Red Bull's: `--plugin …/redbull-paper-dev.jar --expect "Expansion Red Bull dev is on: 1 tool, 2 items, a prompt"`, and the same with `--mod` on Fabric (with `--modrinth fabric-language-kotlin`) and NeoForge. Red Bull pulls the library from Maven Central; to try an unreleased API, `./gradlew :expansion:publishToMavenLocal` and add `mavenLocal()` to its repositories for that build only.
 
 ## Commits
 

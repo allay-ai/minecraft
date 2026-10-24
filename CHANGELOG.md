@@ -2,6 +2,16 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.12.0
+
+Allay answers from what the server really has, finds the anvil's item wherever it lies, and other plugins and mods can extend it. Search and expansions need Allay Server 6.14 (allay.chat runs it); an older backend answers as before.
+
+- 🔎 **This server's things, by any name.** The new `search_items` finds items and potions by their name in any language the game has, or by id: the game's, mods', data packs' items built on the game's own (by their item model), plugins' (Red Bull's cans), and expansions'. `get_recipes` and `get_brewing_recipe` take the same names, so “Potion of Infestation”, `infestation`, and «зелье заражения» all brew `infested`; before, the model asked for `infestation`, found no such id, and said the potion didn't exist. A miss names what this server has under close names. Allay downloads the game's names in Russian, German, Spanish, and Portuguese once per game version from Mojang, as the launcher does (`catalog.languages`, `catalog.download`).
+- 🧪 **The server's brews and recipes.** Brewing comes from the server's recipes: mods' and data packs' brews count on Fabric and NeoForge, and on Spigot and Paper the world's data packs' brewing files and Paper plugins' potion mixes made of items. Recipes for a plugin's item show its own id (`redbull:original`), and a water bottle in a recipe reads as `potion water`, not `potion`.
+- ⚒️ **The anvil finds the item.** `get_anvil_plan` works on any item the player has, in the inventory, worn, or in the offhand: by `slot`, by `item` (an id, a part like `sword`, or a name like «меч»), or, with neither, the one in hand if the books improve it, else the only item they improve; several, and the model asks which with buttons. The anvil button takes `slot`, and the window says when a piece is worn or in the offhand. Data packs' enchantments count (`mypack:frost`).
+- 📦 **Data packs and mods.** `get_server` lists the data packs the world runs and the game's experiments turned on; the mods list mods as mods.
+- 🧩 **Expansions.** Other plugins and mods extend Allay through `chat.allay:allay-expansion` 1.0.0 on Maven Central: tools the model calls as `x_<id>_<tool>`, items and recipes, and up to 2000 characters for the model's prompt. One class runs on Spigot, Paper, Fabric, and NeoForge; Allay finds it through `META-INF/services` or `AllayExpansions.register`. Their tools follow Allay's rules: only after a player agreed to the notice, operator ones for operators, reading ones only in `/askx`, none for automation agents or the console, each behind its own permission. A tool line reads “Asking Red Bull”. `expansions.enabled` and `expansions.disabled` switch them off. The wiki's “Expansions” shows how to write one.
+
 ## 6.11.0
 
 Allay comes to Fabric and NeoForge. The plugin for Spigot and Paper works as before.

@@ -37,6 +37,7 @@ Allay работает на Moonlands — моём хардкорном выжи
 ## Что вы получаете
 
 - 💬 **Ответы из настоящей игры.** «Какой меч лучше?» или «куда я дел редстоун?» — Allay заглядывает в инвентарь, в блок под прицелом и в сундуки вокруг, а не гадает.
+- 🔎 **Знает, что есть на этом сервере.** Предметы модов, рецепты и варка из датапаков, собственные предметы плагинов: Allay находит их по названию на любом языке или по id и не говорит «такого нет», пока не проверит.
 - 🗨️ **Режим чата.** `/allay chat` отправляет Allay всё, что пишет игрок, а `/askall` спрашивает при всех.
 - 🧭 **Он показывает и подсвечивает.** След из частиц к месту смерти, деревне или другу на локаторе; светящиеся метки на сундуках, где лежит нужное.
 - 🤖 **Агенты автоматизации берут рутину.** Они сортируют сундуки, плавят поровну, варят зелья в несколько заходов и крафтят на настоящем верстаке, пока вы играете.
@@ -75,7 +76,9 @@ Allay соблюдает законы о данных ЕС (GDPR) и США. В�
 
 **Игрокам и владельцам серверов:** [Installation](https://github.com/allay-ai/minecraft/wiki/Installation) · [Paying for the model](https://github.com/allay-ai/minecraft/wiki/Paying-for-the-model) · [First steps](https://github.com/allay-ai/minecraft/wiki/First-steps) · [Asking Allay](https://github.com/allay-ai/minecraft/wiki/Asking-Allay) · [What Allay can do](https://github.com/allay-ai/minecraft/wiki/What-Allay-can-do) · [Automation agents](https://github.com/allay-ai/minecraft/wiki/Automation-agents) · [Commands and permissions](https://github.com/allay-ai/minecraft/wiki/Commands-and-permissions) · [Configuration](https://github.com/allay-ai/minecraft/wiki/Configuration) · [Languages](https://github.com/allay-ai/minecraft/wiki/Languages) · [Integrations](https://github.com/allay-ai/minecraft/wiki/Integrations) · [Coming from MCBuddy](https://github.com/allay-ai/minecraft/wiki/Coming-from-MCBuddy) · [FAQ](https://github.com/allay-ai/minecraft/wiki/FAQ)
 
-**Разработчикам:** [Building from source](https://github.com/allay-ai/minecraft/wiki/Building-from-source) · [Architecture](https://github.com/allay-ai/minecraft/wiki/Architecture) · [Releasing](https://github.com/allay-ai/minecraft/wiki/Releasing) · [Development](https://github.com/allay-ai/minecraft/wiki/Development)
+**Разработчикам:** [Building from source](https://github.com/allay-ai/minecraft/wiki/Building-from-source) · [Architecture](https://github.com/allay-ai/minecraft/wiki/Architecture) · [Releasing](https://github.com/allay-ai/minecraft/wiki/Releasing) · [Development](https://github.com/allay-ai/minecraft/wiki/Development) · [Expansions](https://github.com/allay-ai/minecraft/wiki/Expansions)
+
+**Расширьте Allay из своего плагина или мода.** Библиотека `chat.allay:allay-expansion` с Maven Central: один класс даёт Allay инструменты, которые вызывают ваш код, ваши предметы и рецепты и несколько строк совета для модели — на Paper, Spigot, Fabric и NeoForge одинаково. Как это сделать, с примером для каждой платформы, — на странице [Expansions](https://github.com/allay-ai/minecraft/wiki/Expansions).
 
 ## Связанные проекты
 
