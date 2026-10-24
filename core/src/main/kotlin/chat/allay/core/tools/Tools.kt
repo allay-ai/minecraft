@@ -82,8 +82,15 @@ class ToolRegistry<C>(tools: List<ClientTool<C>>, private val enabled: (String) 
 
 /** Chat labels for tools from `tools.<name>` in the reader's language, with `{arg}` placeholders filled from the call's arguments. */
 object ToolLabels {
+  private val LISTS = mapOf("items" to "item", "queries" to "query")
+
   fun label(lang: Lang, name: String, args: JsonObject?): String {
-    val values = args.orEmpty().mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.take(60)?.let { key to it } }
+    val plain = args.orEmpty().mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.take(60)?.let { key to it } }
+    // A lookup of several names (since 6.13) shows them all where the label names one: “beacon, anvil”.
+    val listed = LISTS.mapNotNull { (many, one) ->
+      (args?.get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.ifEmpty { null }?.let { one to it.joinToString().take(60) }
+    }
+    val values = plain.filter { (key, _) -> listed.none { it.first == key } } + listed
     // Tools with an action (reminders, goals) take a label per action, list when the call names none: tools.reminders.add.
     val action = values.toMap()["action"]?.lowercase() ?: "list"
     val key = listOf("tools.$name.$action", "tools.$name").firstOrNull(lang::has)

@@ -111,6 +111,8 @@ class ToolsTest {
     // Server tools may come with arrays; a placeholder that isn't a plain value just stays empty.
     assertEquals("Считаю точно", ToolLabels.label(lang, "exact_calculations", buildJsonObject { put("expressions", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("2+2")))) }))
     assertEquals("Ищу рецепт: ", ToolLabels.label(lang, "get_recipes", buildJsonObject { put("item", kotlinx.serialization.json.JsonArray(emptyList())) }))
+    // Several names show together where the label names one.
+    assertEquals("Ищу рецепт: beacon, anvil", ToolLabels.label(lang, "get_recipes", buildJsonObject { put("item", "beacon"); put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("beacon"), JsonPrimitive("anvil")))) }))
     // Tools with an action label each action, and list when the call names none.
     assertEquals("Ставлю напоминание", ToolLabels.label(lang, "reminders", buildJsonObject { put("action", "add") }))
     assertEquals("Смотрю напоминания", ToolLabels.label(lang, "reminders", null))
