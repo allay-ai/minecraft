@@ -2,6 +2,11 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.17.0
+
+- 🏷️ **Names in the language Allay answers in.** `search_items`, `get_recipes`, and the anvil plan name things in the language Allay talks to the player in, the one they chose or Allay picked by their country, and no longer in their game's: a player whose game is in English and who reads Allay in Russian got English names, and the model translated plugins' items itself (Red Bull's taurine became «таврин»). A plugin's own language files count, so its items come with their names in Russian too, when its jar has them. On Spigot, Paper, Fabric, and NeoForge.
+- 🧩 **Expansion API 1.3.** `Asker.language()` tells an expansion's tool that language as a game language, like `ru_ru`, beside `locale()`, the game's own; name your items in it.
+
 ## 6.16.1
 
 - 🔘 **Recipe buttons for plugins' items.** A recipe button for an item a plugin or data pack builds on the game's own, such as a Red Bull can (`redbull:ice`), showed as plain text: the button looked the name up among the game's items only, while `get_recipes` and other plugins' tools name such an item by its own id. It now opens the recipe window with that item's own recipes, and clicking such an ingredient there (taurine in a can) opens its recipe. A game item's window no longer lists the plugins' items built on it: the potion's showed Red Bull's cans. On Spigot, Paper, Fabric, and NeoForge.
