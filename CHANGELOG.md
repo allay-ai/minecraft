@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.13.0
+
+Looking things up is faster, and several at once. Lists need Allay Server 6.15 (allay.chat runs it); an older backend asks one name at a time as before.
+
+- 🔎 **Several names in one call.** `search_items` takes `queries` (up to 8 names) and `get_recipes` takes `items` (up to 5), and each answers every name in its place, a miss or a potion among them; with several, 5 matches and 3 recipes each. The chat shows one tool line for all of them.
+- ⚡ **A catalog that stays.** Allay builds what the server has, its items, potions, recipes, and names, once instead of on every lookup, and builds it again when something changes: a plugin comes or goes, data packs reload (`/minecraft:reload` on Paper, `/reload` in the mods), an expansion registers, or names download. On Spigot it also builds again every 5 minutes, since a plugin may add a recipe without telling anyone. Each name it searches by is prepared once, so a search over every item in five languages takes about a sixth of the time it did, and the mods find an item's recipes without walking all of them.
+
 ## 6.12.0
 
 Allay answers from what the server really has, finds the anvil's item wherever it lies, and other plugins and mods can extend it. Search and expansions need Allay Server 6.14 (allay.chat runs it); an older backend answers as before.
