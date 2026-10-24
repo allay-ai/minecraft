@@ -40,6 +40,18 @@ object OnNeoForge : Loader {
 
   override fun custom(ingredient: Ingredient) = ingredient.isCustom
 
+  private val owners = HashMap<String, String?>()
+
+  /** The first mod of the mod file whose jar holds the class: FML knows each file's contents. */
+  override fun owner(type: Class<*>): String? {
+    // A lambda's class is its host's with $$Lambda after it; the host is what a jar holds.
+    val host = type.name.substringBefore("$$")
+    if (host in owners) return owners[host]
+    val path = host.replace('.', '/') + ".class"
+    val file = ModList.get().modFiles.firstOrNull { file -> runCatching { file.file.contents.containsFile(path) }.getOrDefault(false) }
+    return file?.mods?.firstOrNull()?.modId.also { owners[host] = it }
+  }
+
   /**
    * NeoForge's PermissionAPI answers only for nodes named before the server starts: every permission Allay knows, and
    * the tiers `config.yml` names then. A tier added later counts once the server starts again; until then it has its

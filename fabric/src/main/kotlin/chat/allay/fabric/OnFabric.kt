@@ -27,6 +27,20 @@ object OnFabric : Loader {
 
   override fun custom(ingredient: Ingredient) = (ingredient as FabricIngredient).customIngredient != null
 
+  private val owners = HashMap<String, String?>()
+
+  /** The mod whose root paths hold the class; a module of Fabric API counts as Fabric API, the mod that carries it. */
+  override fun owner(type: Class<*>): String? {
+    // A lambda's class is its host's with $$Lambda after it; the host is what a jar holds.
+    val host = type.name.substringBefore("$$")
+    if (host in owners) return owners[host]
+    val path = host.replace('.', '/') + ".class"
+    val mod = FabricLoader.getInstance().allMods.firstOrNull { mod -> mod.rootPaths.any { root -> runCatching { java.nio.file.Files.exists(root.resolve(path)) }.getOrDefault(false) } }
+    var top = mod
+    while (top != null && top.containingMod.isPresent) top = top.containingMod.get()
+    return top?.metadata?.id.also { owners[host] = it }
+  }
+
   // fabric-permissions-api comes with LuckPerms; its classes are touched only when it's loaded.
   private val permissions by lazy { loaded("fabric-permissions-api-v0") }
 

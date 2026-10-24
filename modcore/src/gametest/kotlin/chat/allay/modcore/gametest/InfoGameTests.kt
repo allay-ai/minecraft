@@ -9,6 +9,8 @@ import chat.allay.modcore.tools.WorldTools
 
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -226,6 +228,34 @@ class InfoGameTests {
     val structure = refused { run(asker, "locate_structure", buildJsonObject { put("structure", "moonbase") }) }
     equal(helper, structure, "no structure called moonbase", "an unknown structure")
     helper.assertTrue("found" in result(asker, "locate_biome", buildJsonObject { put("biome", "plains") }), "a biome search answers")
+    asker.discard()
+    helper.succeed()
+  }
+
+  @GameTest
+  fun commandsShowOnlyWhatThePlayerMayRun(helper: GameTestHelper) {
+    val asker = survivor(helper)
+    fun commands(args: JsonObject) = result(asker, "search_commands", args)["results"]!!.jsonArray.map { it.jsonObject }
+    val found = commands(buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray(listOf("help", "teleport", "ask").map(::JsonPrimitive))) })
+    equal(helper, found.map { it["query"]!!.jsonPrimitive.content }, listOf("help", "teleport", "ask"), "one answer per query, in order")
+    val help = found[0]["commands"]!!.jsonArray.first().jsonObject
+    equal(helper, help["name"]!!.jsonPrimitive.content, "help", "help is found")
+    equal(helper, help["source"]!!.jsonPrimitive.content, "minecraft", "the game's own command")
+    helper.assertTrue(help["usage"]!!.jsonPrimitive.content.startsWith("/help"), "usage as /help shows it: $help")
+    helper.assertTrue(help["may_run"]!!.jsonPrimitive.boolean && help["aliases"]!!.jsonArray.isEmpty(), "help: $help")
+    helper.assertTrue(found[1]["commands"]!!.jsonArray.none { it.jsonObject["name"]!!.jsonPrimitive.content == "teleport" }, "an operator's command stays out: ${found[1]}")
+    val ask = found[2]["commands"]!!.jsonArray.first().jsonObject
+    equal(helper, ask["name"]!!.jsonPrimitive.content, "ask", "Allay's own command is found")
+    // modcore's classes sit in Allay's jar, but beside the mod in a dev run, where Fabric can't tell whose they are.
+    helper.assertTrue(ask["source"].let { it is kotlinx.serialization.json.JsonNull || it!!.jsonPrimitive.content == "allay" }, "Allay's command is Allay's: $ask")
+    equal(helper, chat.allay.modcore.Mod.loader.owner(chat.allay.modcore.Mod.loader.javaClass), "allay", "the loader names the mod whose jar holds a class")
+    equal(helper, chat.allay.modcore.Mod.loader.owner(net.minecraft.server.MinecraftServer::class.java), "minecraft", "the game's classes are the game's")
+    val checks = result(asker, "search_commands", buildJsonObject { put("check", kotlinx.serialization.json.JsonArray(listOf("/help", "tp @s 0 64 0", "nosuchcommand", "me", "random value abc").map(::JsonPrimitive))) })["checks"]!!.jsonArray.map { it.jsonObject }
+    equal(helper, checks.map { it["ok"]!!.jsonPrimitive.boolean }, listOf(true, false, false, false, false), "the checks: $checks")
+    helper.assertTrue(checks[1]["error"]!!.jsonPrimitive.content.contains("may not run"), "not the player's: ${checks[1]}")
+    helper.assertTrue(checks[2]["error"]!!.jsonPrimitive.content.startsWith("no command /nosuchcommand"), "unknown: ${checks[2]}")
+    helper.assertTrue(checks[3]["error"]!!.jsonPrimitive.content.contains("incomplete"), "a command without its arguments: ${checks[3]}")
+    helper.assertTrue(checks[4]["error"]!!.jsonPrimitive.content.contains("doesn't parse"), "arguments the game can't parse: ${checks[4]}")
     asker.discard()
     helper.succeed()
   }

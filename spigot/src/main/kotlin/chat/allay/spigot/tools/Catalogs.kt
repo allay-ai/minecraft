@@ -52,11 +52,20 @@ object Catalogs {
   /** Builds the catalog again on its next use. */
   fun clear() = cache.clear()
 
-  /** What tells the catalog the server changed, beside Paper's data pack reloads ([PaperCatalog.reloads]). */
+  /** Builds the catalog and the commands ([CommandTools]) again on their next use: Paper reloaded, which takes both. */
+  fun reloaded() {
+    clear()
+    CommandTools.clear()
+  }
+
+  /**
+   * What tells the catalog and the commands the server changed, beside Paper's data pack reloads
+   * ([PaperCatalog.reloads]): a plugin brings or takes its commands along with its recipes.
+   */
   object Changes : Listener {
-    @EventHandler fun enabled(event: PluginEnableEvent) = clear()
-    @EventHandler fun disabled(event: PluginDisableEvent) = clear()
-    @EventHandler fun loaded(event: ServerLoadEvent) = clear()
+    @EventHandler fun enabled(event: PluginEnableEvent) = reloaded()
+    @EventHandler fun disabled(event: PluginDisableEvent) = reloaded()
+    @EventHandler fun loaded(event: ServerLoadEvent) = reloaded()
   }
 
   private fun make(expansions: Expansions?, names: GameNames?): Catalog {

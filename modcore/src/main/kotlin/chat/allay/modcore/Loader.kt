@@ -40,6 +40,12 @@ interface Loader {
   /** A permissions mod's answer for a player, or [fallback] without one. */
   fun permission(player: ServerPlayer, permission: String, fallback: Boolean): Boolean
 
+  /**
+   * The id of the mod whose jar holds [type], or null where the loader can't tell: whose a command is, from the class
+   * its code lives in, since Brigadier keeps no owner. Server thread.
+   */
+  fun owner(type: Class<*>): String? = null
+
   /** What only this loader integrates, started with Allay on a server and closed when it stops. */
   fun integrations(game: ModGame): List<AutoCloseable> = emptyList()
 }
