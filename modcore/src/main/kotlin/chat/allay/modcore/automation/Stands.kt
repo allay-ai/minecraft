@@ -30,13 +30,8 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
-import net.minecraft.world.item.alchemy.PotionContents
-import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.level.block.Blocks as GameBlocks
-import net.minecraft.world.level.block.LayeredCauldronBlock
-import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
 
 /**
  * `brew`: brews potions for the player in stands near them, step by step from the game's own recipes. A stand that
@@ -53,9 +48,6 @@ object Stands {
 
   /** The most potions one start brews, in all. */
   private const val MAX_BOTTLES = 64
-
-  /** How far water and cauldrons may be for filling bottles. */
-  private const val WATER_REACH = 8
 
   private const val INGREDIENT = 3
   private const val FUEL = 4
@@ -222,43 +214,16 @@ object Stands {
     (0..2).mapNotNull { index -> slot(block, index)?.copy()?.also { set(block, index, null) } }
   }
 
-  /** Plants that always stand in a water source. */
-  private val UNDERWATER = setOf(GameBlocks.KELP, GameBlocks.KELP_PLANT, GameBlocks.SEAGRASS, GameBlocks.TALL_SEAGRASS, GameBlocks.BUBBLE_COLUMN)
-
-  /** A water source a glass bottle fills at, as the game's bottle sees it: flowing water doesn't count. */
-  private fun source(block: BlockAt): Boolean {
-    val state = block.state
-    return (state.`is`(GameBlocks.WATER) && state.getValue(LiquidBlock.LEVEL) == 0) || state.block in UNDERWATER ||
-      (state.hasProperty(BlockStateProperties.WATERLOGGED) && state.getValue(BlockStateProperties.WATERLOGGED))
-  }
-
-  /** Water the player could fill bottles at near them: null for none, [Int.MAX_VALUE] for water itself, else the cauldrons' levels. */
-  private fun water(player: ServerPlayer): Pair<Int, List<BlockAt>>? {
-    val origin = player.blockPosition()
-    val level = player.level()
-    val cauldrons = mutableListOf<BlockAt>()
-    var levels = 0
-    for (dx in -WATER_REACH..WATER_REACH) for (dy in -WATER_REACH..WATER_REACH) for (dz in -WATER_REACH..WATER_REACH) {
-      val block = level.at(origin.offset(dx, dy, dz))
-      if (source(block)) return Int.MAX_VALUE to emptyList()
-      if (block.state.`is`(GameBlocks.WATER_CAULDRON)) {
-        cauldrons += block
-        levels += block.state.getValue(LayeredCauldronBlock.LEVEL)
-      }
-    }
-    return if (levels > 0) levels to cauldrons else null
-  }
-
   /**
    * Fills up to [count] of the player's glass bottles with water, as clicking water does: from water near (endless) or
    * cauldrons, a level a bottle. Each water bottle goes back where its glass bottle was, else to the inventory. Returns
    * how many it filled and how many of those fell at the player's feet for want of room.
    */
   private fun fill(player: ServerPlayer, sources: Sources, count: Int, holds: chat.allay.core.tasks.Reservations, task: Task): Pair<Int, Int> {
-    val (levels, cauldrons) = water(player) ?: return 0 to 0
-    val n = minOf(count, levels, sources.free(plain(Items.GLASS_BOTTLE), "glass_bottle", holds, task.id))
+    val near = Water.near(player) ?: return 0 to 0
+    val n = minOf(count, near.first, sources.free(plain(Items.GLASS_BOTTLE), "glass_bottle", holds, task.id))
     if (n <= 0) return 0 to 0
-    val bottle = PotionContents.createItemStack(Items.POTION, Potions.WATER)
+    val bottle = Water.bottle()
     var left = n
     var dropped = 0
     for (source in sources.list) {
@@ -270,15 +235,7 @@ object Stands {
       dropped += give(player, List(got) { bottle.copy() }, source)
     }
     val filled = n - left
-    var lower = if (levels == Int.MAX_VALUE) 0 else filled
-    for (cauldron in cauldrons) {
-      if (lower <= 0) break
-      val state = cauldron.state.takeIf { it.`is`(GameBlocks.WATER_CAULDRON) } ?: continue
-      val now = state.getValue(LayeredCauldronBlock.LEVEL)
-      val take = minOf(lower, now)
-      lower -= take
-      cauldron.level.setBlockAndUpdate(cauldron.pos, if (now - take <= 0) GameBlocks.CAULDRON.defaultBlockState() else state.setValue(LayeredCauldronBlock.LEVEL, now - take))
-    }
+    Water.drain(near, filled)
     return filled to dropped
   }
 
@@ -348,7 +305,7 @@ object Stands {
               put("blaze_rod", sources.count(plain(Items.BLAZE_ROD)))
               chain?.map { it.reagent }?.distinct()?.forEach { id -> InteractTools.known(id)?.let { put(id, sources.count(plain(it))) } }
             }
-            put("water_near", water(player) != null)
+            put("water_near", Water.near(player) != null)
             chain?.let { steps -> putJsonArray("steps") { steps.forEach { add("${it.from.potion} + ${it.reagent} → ${it.to.item} ${it.to.potion}") } } }
             Jobs.saved(player, Kind.BREWING, context.features.settings)?.let { put("player_output", it) }
           }
@@ -429,6 +386,50 @@ object Stands {
     return null
   }
 
+  /**
+   * Fills [count] of the player's glass bottles at the water near them and hands the water bottles to [to], the
+   * inventory without it: what a start of plain water bottles asks for. Glass bottles it lacks are a crafting agent's,
+   * from glass.
+   */
+  private fun water(context: ToolContext, player: ServerPlayer, task: Task, count: Int, to: Jobs.Output?): ToolOutput {
+    val settings = context.features.automation.settings()
+    val holds = context.features.automation.reservations
+    val n = count.coerceIn(1, MAX_BOTTLES)
+    val sources = Sources.around(player, settings.radius)
+    val glass = plain(Items.GLASS_BOTTLE)
+    val have = sources.free(glass, "glass_bottle", holds, task.id)
+    val near = Water.near(player)
+    val short = when {
+      have < n -> "${n - have} glass bottles short (the player has $have); a crafting agent makes them from glass, 3 from 3"
+      near == null -> "no water source or filled cauldron within ${Water.REACH} blocks to fill glass bottles at"
+      near.first < n -> "the cauldrons near hold only ${near.first} levels of water, a bottle each"
+      else -> null
+    }
+    if (short != null) return ToolOutput(buildJsonObject {
+      put("started", false)
+      if (have < n) putJsonObject("missing") { put("glass_bottle", n - have) }
+      put("water", short)
+      put("note", "tell the player what's missing and where it comes from; nothing was taken")
+    }, context.lang.text("summary.brewing_missing", "count" to 1))
+    if (!sources.reserve(glass, "glass_bottle", n, holds, task.id)) throw ToolError("someone took the glass bottles meanwhile")
+    val (taken, changed) = sources.takeReserved(glass, "glass_bottle", n, holds, task.id)
+    if (changed != null) {
+      give(player, taken)
+      holds.release(task.id)
+      throw ToolError("the glass bottles changed meanwhile")
+    }
+    val filled = taken.sumOf { it.count }
+    Water.drain(near!!, filled)
+    val output = to ?: Jobs.Output.Inventory
+    Jobs.deliver(player, List(filled) { Water.bottle() }, output)
+    task.report("filled $filled glass bottles with water into ${Jobs.describe(output)}")
+    return ToolOutput(buildJsonObject {
+      put("filled_water_bottles", filled)
+      put("output", Jobs.describe(output))
+      put("note", "done: water bottles need no stand, so nothing brews and there's nothing to wait for")
+    }, context.lang.text("summary.bottles_filled", "count" to filled))
+  }
+
   private fun start(context: ToolContext, player: ServerPlayer, task: Task, args: JsonObject, filled: Int = 0, dropped: Int = 0): ToolOutput {
     val automation = context.features.automation
     val settings = automation.settings()
@@ -437,6 +438,9 @@ object Stands {
     val requests = requests(args)
     val chains = requests.map { it.first }
     val to = Jobs.target(player, args["to"], Kind.BREWING, context.features.settings, args.bool("remember") == true)
+    // A water bottle brews from nothing: it's a glass bottle filled at water, so no stand takes part.
+    if (chains.all { it.isEmpty() }) return water(context, player, task, requests.sumOf { it.third ?: Brewing.STAND_BOTTLES }, to)
+    if (chains.any { it.isEmpty() }) throw ToolError("water bottles fill without a stand: start them alone, then the potions")
     val named = Blocks.list(player, args["stands"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
     val skipped = mutableListOf<String>()
     val fitting = named.ifEmpty { Blocks.near(player, settings.radius, ::isStand) }
@@ -523,7 +527,7 @@ object Stands {
     var fillable = 0
     var water: String? = null
     missing["water_bottle"]?.let { short ->
-      val near = water(player)
+      val near = Water.near(player)
       val glass = sources.free(plain(Items.GLASS_BOTTLE), "glass_bottle", holds, task.id)
       fillable = if (near == null || filled > 0) 0 else minOf(short, near.first, glass)
       if (fillable == short && missing.size == 1) {
@@ -534,7 +538,7 @@ object Stands {
       water = when {
         fillable == short -> null
         dropped > 0 -> "$dropped filled water bottles fell at the player's feet: the inventory is full; they pick them up or make room"
-        near == null -> "no water source or filled cauldron within $WATER_REACH blocks to fill glass bottles at; the player has $glass glass bottles"
+        near == null -> "no water source or filled cauldron within ${Water.REACH} blocks to fill glass bottles at; the player has $glass glass bottles"
         glass < short -> "${short - glass} glass bottles short to fill at the water near"
         else -> "the cauldrons near hold only ${near.first} levels of water"
       }

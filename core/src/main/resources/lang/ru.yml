@@ -200,6 +200,7 @@ summary:
   brewing_status: "варится"
   brewing_started: "варю в {count} {count|стойке|стойках|стойках}"
   brewing_missing: "не хватает: {count}"
+  bottles_filled: "наполнил водой {count} {count|бутылку|бутылки|бутылок}"
   collected: "забрал {count}"
   craft_plan: "план готов"
   craft_missing: "не хватает: {count}"

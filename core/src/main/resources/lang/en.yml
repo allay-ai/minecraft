@@ -200,6 +200,7 @@ summary:
   brewing_status: "brewing"
   brewing_started: "brewing in {count} {count|stand|stands}"
   brewing_missing: "{count} {count|thing|things} missing"
+  bottles_filled: "filled {count} {count|bottle|bottles} with water"
   collected: "collected {count}"
   craft_plan: "planned"
   craft_missing: "{count} {count|thing|things} missing"

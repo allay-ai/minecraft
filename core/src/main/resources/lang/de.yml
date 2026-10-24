@@ -200,6 +200,7 @@ summary:
   brewing_status: "braut"
   brewing_started: "braue in {count} {count|Braustand|Brauständen}"
   brewing_missing: "{count} {count|Teil fehlt|Teile fehlen}"
+  bottles_filled: "{count} {count|Flasche|Flaschen} mit Wasser gefüllt"
   collected: "{count} eingesammelt"
   craft_plan: "geplant"
   craft_missing: "{count} {count|Teil fehlt|Teile fehlen}"

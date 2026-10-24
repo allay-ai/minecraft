@@ -200,6 +200,7 @@ summary:
   brewing_status: "preparando"
   brewing_started: "preparando em {count} {count|suporte|suportes}"
   brewing_missing: "faltam {count}"
+  bottles_filled: "enchidas {count} {count|garrafa|garrafas} de água"
   collected: "recolhidos {count}"
   craft_plan: "planejado"
   craft_missing: "faltam {count}"
