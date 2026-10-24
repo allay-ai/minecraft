@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.15.0
+
+- 🧩 **Expansion API 1.2.** A tool can decide who gets it: `offeredTo(asker)` is asked when a question starts and again before each call, so a tool for one world or one item reaches the model only where it fits. A tool whose check throws stays out, with a line in the log.
+
 ## 6.14.0
 
 Other plugins' tools can answer from a database or the web without holding the server. Nothing changes for the backend.

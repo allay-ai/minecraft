@@ -2,6 +2,12 @@
 
 `chat.allay:allay-expansion` on Maven Central. Within a major version the API only grows: an expansion built against an older version runs on every newer Allay of that major. The wiki's “Expansions” says how to use it.
 
+## 1.2.0
+
+Tools that suit only some players, with Allay 6.15.0.
+
+- `AllayTool.offeredTo(asker)`: whether to offer the tool to this asker in this question, beyond its access and permission, like only in your worlds or while they hold your item. Allay asks on the server thread when a question starts and again before each call; an exception counts as no. True by default.
+
 ## 1.1.0
 
 Tools that wait on the network or a database no longer hold the server, with Allay 6.14.0.
