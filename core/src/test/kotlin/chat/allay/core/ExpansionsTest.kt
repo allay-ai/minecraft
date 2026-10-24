@@ -57,14 +57,22 @@ class ExpansionsTest {
     override fun promptExpansion() = prompt
   }
 
-  private fun asker(operator: Boolean = false, granted: Set<String> = emptySet()) = object : Audience {
+  private fun asker(operator: Boolean = false, granted: Set<String> = emptySet(), dimension: String = "overworld") = object : PlayerAudience {
     override val name = "Steve"
-    override val uuid: UUID? = UUID.randomUUID()
+    override val uuid: UUID = UUID.randomUUID()
     override val operator = operator
+    override val online = true
+    override val locale = "en_us"
+    override val address: java.net.InetAddress? = null
+    override val position = Protocol.Position(0, 64, 0, dimension)
     override fun can(permission: String) = permission in granted
     override fun can(permission: String, byDefault: Boolean) = permission in granted || byDefault
     override fun send(text: String) {}
     override fun send(line: Line) {}
+    override fun actionBar(text: String) {}
+    override fun show(window: Window) {}
+    override fun closeWindow() {}
+    override fun chat(text: String) {}
   }
 
   @Test fun `tools reach the model by access, mode, and audience`() {
@@ -167,5 +175,20 @@ class ExpansionsTest {
 
     val twice = java.util.concurrent.CompletableFuture.completedFuture(ToolResult.later(java.util.concurrent.CompletableFuture()))
     assertEquals("x_redbull_twice answered later twice", kotlin.runCatching { expansions.finish(Expansions.Started("x_redbull_twice", null, twice), 1) }.exceptionOrNull()?.message)
+  }
+
+  @Test fun `a tool offers itself only to the askers it says, and a throw is a no`() {
+    fun conditional(name: String, offered: (chat.allay.expansion.Asker) -> Boolean) = object : AllayTool by tool(name) {
+      override fun offeredTo(asker: chat.allay.expansion.Asker) = offered(asker)
+    }
+    expansions.register(expansion("redbull", tools = listOf(
+      conditional("nether_only") { it.dimension() == "the_nether" },
+      conditional("broken") { error("boom") },
+      tool("always"),
+    )))
+    fun names(dimension: String) = expansions.offered(asker(dimension = dimension), Run.Mode.ASK, false, false).map { it.name }
+    assertEquals(listOf("x_redbull_always"), names("overworld"))
+    assertEquals(listOf("x_redbull_nether_only", "x_redbull_always"), names("the_nether"))
+    assertTrue(lines.any { "x_redbull_broken failed in offeredTo" in it })
   }
 }

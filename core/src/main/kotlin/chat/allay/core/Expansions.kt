@@ -102,8 +102,9 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
    * each behind its own permission.
    */
   fun offered(asker: Audience, mode: Run.Mode, public: Boolean, task: Boolean): List<Protocol.ExpansionTool> {
-    if (task || mode == Run.Mode.TASK || asker.uuid == null) return emptyList()
-    return active().flatMap { it.tools.values }.filter { allowed(it, asker, mode, public) }.take(MAX_OFFERED).map {
+    if (task || mode == Run.Mode.TASK || asker !is PlayerAudience) return emptyList()
+    val player = Player(asker)
+    return active().flatMap { it.tools.values }.filter { allowed(it, asker, mode, public) && offeredTo(it, player) }.take(MAX_OFFERED).map {
       Protocol.ExpansionTool(it.wire, it.description, it.schema, it.access.name.lowercase(), it.expansion)
     }
   }
@@ -127,6 +128,13 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     else -> tool.tool.permission()?.let { asker.can(it, byDefault = true) } ?: true
   }
 
+  /** The tool's own say on this asker (API 1.2); someone else's code, so a throw is a no and a line in the log. */
+  private fun offeredTo(tool: Tool, asker: chat.allay.expansion.Asker): Boolean =
+    runCatching { tool.tool.offeredTo(asker) }.getOrElse {
+      log.warning("❌ Expansion tool ${tool.wire} failed in offeredTo: $it")
+      false
+    }
+
   fun isExpansionTool(name: String) = name.startsWith(PREFIX)
 
   /**
@@ -140,7 +148,9 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     if (scope.task != null) throw ToolError("automation agents don't use other plugins' tools")
     if (tool.access == AllayTool.Access.OPERATOR && !asker.operator) throw ToolError(chat.allay.core.tools.NOT_OPERATOR)
     if (!allowed(tool, asker, mode, public)) throw ToolError("the asker may not use $name here")
-    val call = Call(asker, Args(plain(args) as Map<String, Any?>), if (mode == Run.Mode.ASKX) ToolCall.Mode.ASKX else ToolCall.Mode.ASK, public, scope)
+    val player = Player(asker)
+    if (!offeredTo(tool, player)) throw ToolError("$name isn't for the asker right now")
+    val call = Call(player, Args(plain(args) as Map<String, Any?>), if (mode == Run.Mode.ASKX) ToolCall.Mode.ASKX else ToolCall.Mode.ASK, public, scope)
     val result: ToolResult = try {
       tool.tool.run(call) ?: throw ToolError("$name returned nothing")
     } catch (error: ToolException) {
@@ -184,21 +194,21 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     }
 
   /** What an expansion's tool sees of the call; made on the server thread, so the asker is read there. */
-  private inner class Call(private val asker: PlayerAudience, private val args: Args, private val mode: ToolCall.Mode, private val public: Boolean, private val scope: ToolScope) : ToolCall {
-    private val player = Player(asker)
-    override fun asker(): chat.allay.expansion.Asker = player
+  private inner class Call(private val asker: Player, private val args: Args, private val mode: ToolCall.Mode, private val public: Boolean, private val scope: ToolScope) : ToolCall {
+    override fun asker(): chat.allay.expansion.Asker = asker
     override fun args() = args
     override fun mode() = mode
     override fun isPublic() = public
     override fun nameOf(player: UUID, name: String) = scope.nameOf(player, name)
     override fun canSee(player: UUID): Boolean {
       val other = platform()?.player(player) ?: return false
-      return platform()?.visible(asker, other) == true
+      return platform()?.visible(asker.audience, other) == true
     }
   }
 
   /** The asker as the call started: what a tool that answers later may still read on its own thread. */
   private class Player(private val player: PlayerAudience) : chat.allay.expansion.Asker {
+    val audience get() = player
     private val at = player.position
     private val uuid = player.uuid
     private val name = player.name

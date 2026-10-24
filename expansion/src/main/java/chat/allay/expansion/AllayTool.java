@@ -47,6 +47,16 @@ public interface AllayTool {
   }
 
   /**
+   * Whether to offer the tool to this asker in this question, beyond {@link #access()} and {@link #permission()}: only
+   * in your plugin's worlds, only while they hold a can, only once they've joined your guild. Allay asks on the server
+   * thread when a question starts and again before each call, so keep it quick and never block; an exception counts as
+   * no. True by default. Since API 1.2.
+   */
+  default boolean offeredTo(Asker asker) {
+    return true;
+  }
+
+  /**
    * Whether the tool may run in a question everyone online reads ({@code /askall}). Leave it false when the result is
    * about the asker alone.
    */
