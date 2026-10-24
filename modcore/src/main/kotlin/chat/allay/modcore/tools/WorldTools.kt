@@ -3,8 +3,10 @@ package chat.allay.modcore.tools
 import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.modcore.ModSender
+import chat.allay.modcore.Texts
 import chat.allay.modcore.Vanish
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -15,6 +17,7 @@ import kotlinx.serialization.json.putJsonObject
 import chat.allay.modcore.Loader
 import chat.allay.modcore.Mod
 import net.minecraft.SharedConstants
+import net.minecraft.server.packs.repository.PackSource
 import net.minecraft.core.HolderSet
 import net.minecraft.core.registries.Registries
 import net.minecraft.server.level.ServerLevel
@@ -87,8 +90,8 @@ object WorldTools {
         put("online", online)
         put("max_players", server.playerList.maxPlayers)
         put("plugin_version", context.features.mod.version)
-        // Mods stand where Bukkit lists plugins: the model reads the same keys on both.
-        put("plugins", buildJsonArray {
+        // A mod server lists mods where Bukkit lists plugins.
+        put("mods", buildJsonArray {
           mods(context.features.config().tools.hiddenPlugins).forEach { mod ->
             add(buildJsonObject {
               put("name", mod.name)
@@ -97,9 +100,30 @@ object WorldTools {
             })
           }
         })
+        datapacks(server, context.features.config().tools.hiddenPlugins).let { (packs, features) ->
+          put("datapacks", JsonArray(packs))
+          if (features.isNotEmpty()) put("experiments", JsonArray(features.map(::JsonPrimitive)))
+        }
       }
       return ToolOutput(result, context.lang.text("summary.server_info", "software" to SOFTWARE, "version" to version, "online" to online))
     }
+  }
+
+  /**
+   * The data packs the world runs, a server owner's or the world's own (not the game's or a mod's), and the game's
+   * experiments turned on: what adds recipes, items' looks, structures, and rules a model can't know.
+   */
+  fun datapacks(server: net.minecraft.server.MinecraftServer, hidden: Set<String>): Pair<List<JsonObject>, List<String>> {
+    val selected = server.packRepository.selectedPacks
+    val packs = selected.filter { it.packSource == PackSource.WORLD || it.packSource == PackSource.SERVER }.mapNotNull { pack ->
+      val name = pack.id.removePrefix("file/")
+      if (name.lowercase() in hidden) return@mapNotNull null
+      buildJsonObject {
+        put("name", name)
+        Texts.legacyOf(pack.description).let(Legacy::strip).let(Facts::shortDescription)?.takeIf { it.isNotBlank() }?.let { put("description", it) }
+      }
+    }
+    return packs to selected.filter { it.packSource == PackSource.FEATURE }.map { it.id }
   }
 
   /** What the server runs, where Bukkit says CraftBukkit or Paper. */

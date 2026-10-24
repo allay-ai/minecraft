@@ -30,7 +30,9 @@ class Features(
   val villagerRadius: () -> Int,
   /** Automation agents, their picking, jobs, and undo. */
   val automation: Automation,
-) : ToolServices(mod, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents) {
+  expansions: Expansions? = null,
+  names: () -> GameNames? = { null },
+) : ToolServices(mod, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names) {
   val server: MinecraftServer get() = mod.server
   val scheduler: Scheduler get() = mod.scheduler
 }

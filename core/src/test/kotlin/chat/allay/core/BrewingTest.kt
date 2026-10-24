@@ -114,4 +114,31 @@ class BrewingTest {
     assertEquals(listOf(listOf(1), listOf(2)), Brewing.rounds(listOf(1, 2), 4))
     assertEquals(emptyList(), Brewing.rounds(listOf(1), 0))
   }
+
+  @Test fun `the 1-21 potions go by the names the game shows`() {
+    val made = listOf(
+      recipe("potion", "water", "nether_wart", "potion", "awkward"),
+      recipe("potion", "awkward", "stone", "potion", "infested"),
+      recipe("potion", "awkward", "breeze_rod", "potion", "wind_charged"),
+    ).flatMap(Brewing::parse)
+    assertEquals("infested", Brewing.find(made, "infestation"))
+    assertEquals("infested", Brewing.find(made, "Potion of Infestation"))
+    assertEquals("infested", Brewing.find(made, "minecraft:infested"))
+    assertEquals("wind_charged", Brewing.find(made, "potion of wind charging"))
+    assertEquals(listOf("nether_wart", "stone"), Brewing.chain(made, Bottle("potion", "infested"))!!.map { it.reagent })
+    // A name the brews don't hold goes to the catalog, which knows every language.
+    assertEquals("infested", Brewing.find(made, "зелье заражения") { if (it == "зелье заражения") "infested" else null })
+    assertNull(Brewing.find(made, "зелье полёта") { "levitation" })
+  }
+
+  @Test fun `a plugin's bottle is its id alone`() {
+    val bile = Brewing.Brew(Bottle("potion", "water"), "redbull:bull_bile", Bottle("redbull:crude_taurine", "redbull:crude_taurine"))
+    assertEquals("redbull:crude_taurine", bile.to.label)
+    assertEquals("potion water", bile.from.label)
+    assertEquals(Bottle("potion", "water"), Brewing.bottleOf("potion water"))
+    assertEquals(Bottle("splash_potion", "healing"), Brewing.bottleOf("splash_potion minecraft:healing"))
+    assertEquals(Bottle("redbull:bile", "redbull:bile"), Brewing.bottleOf("redbull:bile"))
+    assertEquals(listOf(bile), Brewing.chain(listOf(bile), bile.to))
+    assertEquals("redbull:crude_taurine", Brewing.find(listOf(bile), "redbull:crude_taurine"))
+  }
 }

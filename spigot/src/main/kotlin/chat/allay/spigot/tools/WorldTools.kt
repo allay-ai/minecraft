@@ -83,9 +83,26 @@ object WorldTools {
             })
           }
         })
+        datapacks(hidden).let { (packs, features) ->
+          put("datapacks", buildJsonArray { packs.forEach { (name, description) -> add(buildJsonObject { put("name", name); description?.let(Facts::shortDescription)?.let { put("description", it) } }) } })
+          if (features.isNotEmpty()) put("experiments", buildJsonArray { features.forEach { add(JsonPrimitive(it)) } })
+        }
       }
       return ToolOutput(result, context.lang.text("summary.server_info", "software" to server.name, "version" to version, "online" to online))
     }
+  }
+
+  /**
+   * The data packs the worlds run, a server owner's or the world's own (not the game's or a plugin's), and the game's
+   * experiments turned on: what adds recipes, items' looks, structures, and rules a model can't know.
+   */
+  fun datapacks(hidden: Set<String>): Pair<List<Pair<String, String?>>, List<String>> {
+    val (packs, features) = if (Catalogs.paper) runCatching { chat.allay.spigot.paper.PaperCatalog.datapacks() }.getOrDefault(emptyList<Pair<String, String?>>() to emptyList()) else runCatching {
+      val all = Bukkit.getDataPackManager().getEnabledDataPacks(Bukkit.getWorlds().first())
+      all.filter { it.source == org.bukkit.packs.DataPack.Source.WORLD || it.source == org.bukkit.packs.DataPack.Source.SERVER }.map { it.key.key.removePrefix("file/") to Legacy.strip(it.description).ifBlank { null } } to
+        all.filter { it.source == org.bukkit.packs.DataPack.Source.FEATURE }.map { it.key.key }
+    }.getOrDefault(emptyList<Pair<String, String?>>() to emptyList())
+    return packs.filter { it.first.lowercase() !in hidden } to features
   }
 
   private val locate = object : Tool {

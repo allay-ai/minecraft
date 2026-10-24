@@ -147,6 +147,21 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val undoMinutes = config.int("automation.chests.undo_minutes", 5).coerceIn(1, 60)
   }
 
+  /** Other plugins' and mods' expansions (`chat.allay.expansion`): their tools, items, and prompt lines. */
+  val expansions = Expansions() ; inner class Expansions {
+    val enabled = config.boolean("expansions.enabled", true)
+    /** Expansions left out by id, like `redbull`. */
+    val disabled = config.strings("expansions.disabled").map(String::lowercase).toSet()
+  }
+
+  /** What `search_items` and the recipe tools find things by. */
+  val catalog = Catalog() ; inner class Catalog {
+    /** The game's languages whose names Allay downloads once per game version from Mojang, beside English. */
+    val languages = config.strings("catalog.languages").map(chat.allay.core.tools.GameNames::code).ifEmpty { DEFAULT_LANGUAGES }
+    /** false: no downloads; names in other languages come only from mods, plugins, and expansions. */
+    val download = config.boolean("catalog.download", true)
+  }
+
   /** Spending limits for the server and its players, whoever pays; see [QuotaSettings]. */
   val quota = QuotaSettings.parse(config)
 
@@ -199,6 +214,8 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     const val HOSTED = "hosted"
     const val BYOK = "byok"
     const val POLICY_URL = "https://allay.chat/privacy/"
+    /** The game's languages of the players Allay speaks to in its own: Russian, German, Spanish, Portuguese. */
+    val DEFAULT_LANGUAGES = listOf("ru_ru", "de_de", "es_es", "es_mx", "pt_br", "pt_pt")
 
     private val DEFAULT_COUNTRIES = mapOf(
       "ru" to listOf("RU", "BY", "KZ", "KG", "TJ", "UZ", "AM", "AZ", "MD", "GE", "TM"),

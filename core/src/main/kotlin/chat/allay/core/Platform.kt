@@ -56,6 +56,15 @@ interface Audience {
 
   fun can(permission: String): Boolean
 
+  /**
+   * Whether they have a permission nobody declared to Allay, like an expansion's own; [byDefault] answers where no
+   * permissions plugin or mod does. Operators have it either way.
+   */
+  fun can(permission: String, byDefault: Boolean): Boolean = can(permission)
+
+  /** The platform's own sender or player, for an expansion's tool; null when it isn't of [type]. */
+  fun <T> unwrap(type: Class<T>): T? = null
+
   fun send(text: String)
 
   fun send(line: Line)

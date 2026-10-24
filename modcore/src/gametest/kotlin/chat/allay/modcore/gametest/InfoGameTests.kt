@@ -210,7 +210,7 @@ class InfoGameTests {
     equal(helper, server["software"]!!.jsonPrimitive.content, WorldTools.SOFTWARE, "software")
     equal(helper, server["version"]!!.jsonPrimitive.content, "26.3", "game version")
     helper.assertTrue(server["online"]!!.jsonPrimitive.int >= 1, "the asker is online")
-    val mods = server["plugins"]!!.jsonArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }
+    val mods = server["mods"]!!.jsonArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }
     helper.assertTrue("Allay" in mods, "Allay lists itself: $mods")
     helper.assertTrue(mods.none { it == "Minecraft" || it == "Java HotSpot(TM) 64-Bit Server VM" || it == "Fabric Loader" || it == "NeoForge" }, "no built-ins: $mods")
     val table = result(asker, "get_recipes", buildJsonObject { put("item", "crafting_table") })

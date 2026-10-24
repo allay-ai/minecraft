@@ -36,6 +36,10 @@ open class ToolServices(
   val config: () -> Config,
   /** Automation agents, where the platform runs them. */
   val agents: Agents?,
+  /** Other plugins' and mods' expansions: their items and recipes join the catalog. */
+  val expansions: chat.allay.core.Expansions? = null,
+  /** The game's names in every language, once Allay has started. */
+  val names: () -> GameNames? = { null },
 )
 
 /**

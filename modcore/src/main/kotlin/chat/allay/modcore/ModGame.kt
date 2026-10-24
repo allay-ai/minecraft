@@ -43,6 +43,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     biomeRadius = { allay.config.tools.biomeRadius },
     villagerRadius = { allay.config.tools.villagerRadius },
     automation = automation,
+    expansions = allay.expansions,
+    names = { allay.namesOrNull },
   )
 
   override fun tools() = Tools.all()
@@ -76,6 +78,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
 
   override fun loaded(player: UUID, state: PlayerState) = goals.loaded(player, state)
 
+  override fun names(locale: String) = chat.allay.modcore.tools.Catalogs.names(locale)
+
   /** On the server thread, where boss bars live. */
   override fun forget(player: UUID) {
     deaths.forget(player)
@@ -89,6 +93,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   override fun languages(player: PlayerAudience): Unit = Menus.languages(player, allay) { settings(player) }
 
   override fun start() {
+    chat.allay.modcore.tools.BrewingRecipes.bind(features)
+    Expansions.discover(platform.log)
     chat.allay.modcore.menus.Menu.start()
     Marks.start()
     Drafts.start(platform.scheduler, locales)
@@ -101,6 +107,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   }
 
   override fun stop() {
+    chat.allay.modcore.tools.BrewingRecipes.bind(null)
     placeholders?.close()
     integrations.forEach { it.close() }
     automation.stop()

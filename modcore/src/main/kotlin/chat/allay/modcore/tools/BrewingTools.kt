@@ -22,9 +22,9 @@ object BrewingTools {
         put("steps", buildJsonArray {
           chain.forEach { brew ->
             add(buildJsonObject {
-              put("bottle", "${brew.from.item} ${brew.from.potion}")
+              put("bottle", brew.from.label)
               put("add", brew.reagent)
-              put("makes", "${brew.to.item} ${brew.to.potion}")
+              put("makes", brew.to.label)
             })
           }
         })

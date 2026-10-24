@@ -40,6 +40,8 @@ open class ModSender(open val source: CommandSourceStack) : Audience {
   override val uuid: UUID? get() = null
   override val operator: Boolean get() = source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)
   override fun can(permission: String) = Perms.check(source, permission)
+  override fun can(permission: String, byDefault: Boolean) = Mod.loader.permission(source, permission, byDefault || operator)
+  override fun <T> unwrap(type: Class<T>): T? = type.takeIf { it.isInstance(source) }?.cast(source)
   override fun send(text: String) = source.sendSystemMessage(Texts.legacy(text))
   override fun send(line: Line) {
     if (!line.empty) source.sendSystemMessage(Texts.line(line))
@@ -63,6 +65,8 @@ class ModPlayer(private val last: ServerPlayer) : ModSender(last.createCommandSo
   override val name: String get() = player.gameProfile.name
   override val operator: Boolean get() = player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)
   override fun can(permission: String) = Perms.check(player, permission)
+  override fun can(permission: String, byDefault: Boolean) = Mod.loader.permission(player, permission, byDefault || operator)
+  override fun <T> unwrap(type: Class<T>): T? = type.takeIf { it.isInstance(player) }?.cast(player)
   override fun send(text: String) = player.sendSystemMessage(Texts.legacy(text))
   override fun send(line: Line) {
     if (!line.empty) player.sendSystemMessage(Texts.line(line))

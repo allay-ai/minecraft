@@ -38,7 +38,16 @@ object Protocol {
      * with mode "task": the waking agent's own running sub-agents.
      */
     val tasks: List<TaskBrief>? = null,
+    /** Since 6.12, for backend 6.14: tools other plugins and mods add through expansions, as the model may call them. */
+    val expansion_tools: List<ExpansionTool>? = null,
+    /** Since 6.12: the expansions on this server, with the lines each adds to the prompt. */
+    val expansions: List<ExpansionInfo>? = null,
   )
+
+  /** [name] is `x_<expansion>_<tool>`; [parameters] a JSON Schema object; [access] `read`, `own`, or `operator`. */
+  @Serializable data class ExpansionTool(val name: String, val description: String, val parameters: JsonObject, val access: String, val expansion: String)
+
+  @Serializable data class ExpansionInfo(val id: String, val name: String, val version: String? = null, val prompt: String? = null)
 
   @Serializable data class TaskInfo(val id: String, val name: String, val depth: Int, val kind: String)
 

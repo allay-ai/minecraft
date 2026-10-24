@@ -137,10 +137,11 @@ tools:
     get_world: true               # Time, day, moon, weather, difficulty, the game rules that matter
     get_statistics: true          # Play time, deaths, kills, distances
     get_advancements: true        # Advancements done and to go
-    get_recipes: true             # This server's recipes
+    get_recipes: true             # This server's recipes: crafting, cooking, and brewing, mods', data packs', and plugins' too
+    search_items: true            # Find an item or potion by its name in any language or by id, with where it comes from and how it's made
     locate_structure: true        # The nearest village, stronghold, and so on (the search loads the server)
     locate_biome: true            # The nearest biome of a kind (the search loads the server)
-    get_server: true              # Server version, players online, and the plugins with their versions
+    get_server: true              # Server version, players online, the plugins or mods with their versions, and the data packs
     get_locations: true           # Respawn point, world spawn, and the last death
     get_nearby_players: true      # Other players as the asker's locator bar shows them: name, distance, direction
     get_death_info: true          # Where the player last died, what dropped, and how long it will lie there; Allay's backend keeps earlier deaths
@@ -151,7 +152,7 @@ tools:
     get_item_durability: true     # Wear on tools and armor, what needs repair
     get_xp_info: true             # Level, points, how far to a level
     get_food_options: true        # Food in the inventory: hunger, saturation, side effects
-    get_anvil_plan: true          # The cheapest order of books on the anvil for the item in hand
+    get_anvil_plan: true          # The cheapest order of books on the anvil for an item in hand or in the inventory
     get_light_spawn_check: true   # Dark spots around where hostile mobs can spawn
     inspect_redstone: true        # A machine's parts and the faults the game's rules make certain; only where the player may build
     get_brewing_items: true       # Everything for brewing in the inventory and brewing stands nearby
@@ -226,6 +227,22 @@ tools:
   server:
     # Plugins or mods get_server leaves out of its list, by name or id, such as an anti-cheat.
     hidden_plugins: []
+
+# Other plugins and mods can add tools, items, recipes, and a few lines of advice for the
+# assistant through Allay's expansion API (see the wiki's “Expansions”). Their tools follow
+# the same rules as Allay's: operator ones only for operators, none for automation agents,
+# and nothing before a player agrees to the notice.
+expansions:
+  enabled: true               # false: Allay takes no expansions at all
+  disabled: []                # Expansions to leave out, by id, like redbull
+
+# Finding items by name: the assistant looks things up on this server instead of trusting
+# its memory, mods', data packs', and plugins' things included. The game's names in English
+# ship with the server; the other languages download once per game version from Mojang,
+# as the game's launcher fetches them, into cache/lang/.
+catalog:
+  download: true              # false: names in other languages only from mods, plugins, and expansions
+  languages: [ru_ru, de_de, es_es, es_mx, pt_br, pt_pt]
 
 # Automation agents: “sort these chests”, “smelt all my gold ore”, “brew night vision for
 # me”, “craft me a set of tools”. The chat hands the job to an agent that works in the

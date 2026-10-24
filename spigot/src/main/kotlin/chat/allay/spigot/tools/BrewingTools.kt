@@ -16,8 +16,9 @@ import org.bukkit.inventory.meta.PotionMeta
 import java.net.JarURLConnection
 
 /**
- * The brewing stand's recipes, read once from the game's data inside the server jar: 26.3 keeps them as files, and
- * Spigot's `BrewingRecipe` tells only what comes out. A datapack's own brews aren't seen.
+ * The brewing stand's recipes: the game's own, read once from its data inside the server jar (26.3 keeps them as
+ * files, and Spigot's `BrewingRecipe` tells only what comes out); on Paper also data packs' and plugins' mixes; and the
+ * brews expansions describe.
  */
 object BrewingRecipes {
   private const val FOLDER = "data/minecraft/recipe/brewing/"
@@ -25,9 +26,20 @@ object BrewingRecipes {
   private const val PROBE = FOLDER + "potion_awkward_golden_carrot.json"
 
   @Volatile private var cached: List<Brewing.Brew>? = null
+  @Volatile private var features: Features? = null
 
-  /** Every brew, or none on a game that keeps brewing in code. */
-  fun all(server: Server): List<Brewing.Brew> = cached ?: load(server).also { cached = it }
+  /** The plugin's features while it runs, for the expansions' brews and the catalog's names; null when it stops. */
+  fun bind(features: Features?) {
+    this.features = features
+  }
+
+  /** Every brew, or none on a game that keeps brewing in code. Server thread. */
+  fun all(server: Server): List<Brewing.Brew> {
+    val game = cached ?: load(server).also { cached = it }
+    if (game.isEmpty()) return game
+    val expansions = features?.expansions?.items().orEmpty().flatMap { (_, item) -> item.recipes().mapNotNull { Catalog.brew(item.id(), it) } }
+    return game + Catalogs.extraBrews() + expansions
+  }
 
   private fun load(server: Server): List<Brewing.Brew> = runCatching {
     val url = server.javaClass.classLoader.getResource(PROBE) ?: return emptyList()
@@ -42,11 +54,17 @@ object BrewingRecipes {
   /** What the model or a player named: the potion's id and the bottle's form, or a [ToolError] saying what's wrong. */
   fun target(server: Server, potion: String, form: String?): Pair<List<Brewing.Brew>, Brewing.Bottle> {
     val brews = all(server).ifEmpty { throw ToolError("this server's game keeps brewing out of reach; answer from what you know") }
-    val id = Brewing.find(brews, potion) ?: throw ToolError("no potion called $potion; the stand makes ${Brewing.potions(brews).joinToString()}")
+    val catalog by lazy { Catalogs.build(features?.expansions, features?.names?.invoke()) }
+    // Names in any language, “Potion of Infestation” and «зелье заражения» alike, through the catalog.
+    val named = { name: String -> catalog.resolve(name, null, setOf(Catalog.Kind.POTION, Catalog.Kind.CUSTOM))?.id }
+    val id = Brewing.find(brews, potion, named) ?: Brewing.find(brews, Brewing.split(potion).first, named)
+      ?: throw ToolError(catalog.missing(potion, null, setOf(Catalog.Kind.POTION, Catalog.Kind.CUSTOM)).replace("no item called", "no potion called"))
     // “splash healing” names its form itself; form wins when both are there.
     val bottle = form?.trim()?.ifEmpty { null }?.let { name ->
       Brewing.form(name) ?: throw ToolError("form must be potion, splash_potion, or lingering_potion")
     } ?: Brewing.split(potion).second ?: "potion"
+    // A plugin's own bottle has no forms.
+    if (brews.any { it.to == Brewing.Bottle(id, id) }) return brews to Brewing.Bottle(id, id)
     return brews to Brewing.Bottle(bottle, id)
   }
 
@@ -74,9 +92,9 @@ object BrewingTools {
         put("steps", buildJsonArray {
           chain.forEach { brew ->
             add(buildJsonObject {
-              put("bottle", "${brew.from.item} ${brew.from.potion}")
+              put("bottle", brew.from.label)
               put("add", brew.reagent)
-              put("makes", "${brew.to.item} ${brew.to.potion}")
+              put("makes", brew.to.label)
             })
           }
         })

@@ -65,6 +65,8 @@ class Service<C>(
   private val identity: Identity? = null,
   /** Whether a player has full privacy on, so each question tells the backend to keep them out of its admin panel. */
   private val fullPrivacy: (java.util.UUID) -> Boolean = { false },
+  /** Other plugins' and mods' expansions: their prompt lines go with every question, their tools with the runs that offer them. */
+  private val expansions: Expansions? = null,
 ) : Consents.Backend, PlayerData.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
@@ -188,6 +190,8 @@ class Service<C>(
         Run.Mode.TASK -> tasks(run)
         else -> null
       },
+      expansion_tools = run.expansionTools.ifEmpty { null },
+      expansions = expansions?.prompts(run.mode)?.ifEmpty { null },
     )
   }
 
@@ -210,7 +214,9 @@ class Service<C>(
   private fun answerTool(run: Run, call: Protocol.ToolCall, listener: Listener) {
     val tool = tools.find(call.name)
     val context = host.context(run)
-    val result = if (tool == null) {
+    val result = if (expansions != null && expansions.isExpansionTool(call.name)) {
+      expansionTool(run, call, context, listener)
+    } else if (tool == null) {
       Protocol.ToolResult(ok = false, error = "the tool ${call.name} is switched off on this server")
     } else if (tool.operator && (!isOperator(run.asker) || run.task != null)) {
       listener.toolFinished(call.call_id, NOT_OPERATOR, failed = true)
@@ -242,6 +248,30 @@ class Service<C>(
           .build(),
       ).execute().close()
     }.onFailure { host.log.warning("❌ Couldn't send the result of ${call.name}: $it") }
+  }
+
+  /** An expansion's tool, only one this run offered, on the server thread like any other. */
+  private fun expansionTool(run: Run, call: Protocol.ToolCall, context: C, listener: Listener): Protocol.ToolResult {
+    val scope = context as? chat.allay.core.tools.ToolScope
+    if (scope == null || run.expansionTools.none { it.name == call.name }) {
+      listener.toolFinished(call.call_id, "off", failed = true)
+      return Protocol.ToolResult(ok = false, error = "the tool ${call.name} isn't offered in this run")
+    }
+    return try {
+      val output = host.onMain(config.http.toolTimeout) { expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
+      listener.toolFinished(call.call_id, output.summary, failed = false)
+      Protocol.ToolResult(ok = true, result = output.result)
+    } catch (error: Exception) {
+      val cause = generateSequence<Throwable>(error) { it.cause }.firstOrNull { it is ToolError } ?: generateSequence<Throwable>(error) { it.cause }.last()
+      val reason = when (cause) {
+        is ToolError -> cause.message ?: "failed"
+        is TimeoutException -> "the server took too long"
+        // Someone else's code: its own trouble goes to the log under its name, the model hears only that it failed.
+        else -> "failed".also { host.log.warning("❌ Expansion tool ${call.name} failed: $cause") }
+      }
+      listener.toolFinished(call.call_id, reason, failed = true)
+      Protocol.ToolResult(ok = false, error = reason.take(2000))
+    }
   }
 
   /** A remembered fact; since backend 6.9 one may have a [place], as notes once did. */

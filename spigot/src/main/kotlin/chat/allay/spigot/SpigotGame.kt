@@ -49,9 +49,13 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     villagerRadius = { allay.config.tools.villagerRadius },
     automation = automation,
     platform = allay.platform,
+    expansions = allay.expansions,
+    names = { allay.namesOrNull },
   )
 
   override fun tools() = Tools.all()
+
+  override fun names(locale: String) = chat.allay.spigot.tools.Catalogs.names(locale)
   override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task, run.others)
   override val buttons = GameClicks(plugin, features)
   override fun effects(config: Config): Effects = BukkitEffects(plugin, config)
@@ -103,7 +107,9 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun languages(player: PlayerAudience): Unit = LanguageMenu(player.player, locales, allay.languages) { settings(player) }.open()
 
   override fun start() {
-    listOf(goals, deaths, menus, Marks, Drafts, automation, automation.picking, Jobs, Events(allay)).forEach { server.pluginManager.registerEvents(it, plugin) }
+    chat.allay.spigot.tools.BrewingRecipes.bind(features)
+    val expansions = Expansions(plugin, plugin.logger)
+    listOf(goals, deaths, menus, Marks, Drafts, automation, automation.picking, Jobs, Events(allay), expansions).forEach { server.pluginManager.registerEvents(it, plugin) }
     Drafts.start(plugin, locales)
     Jobs.automation = automation
     automation.start()
@@ -112,10 +118,12 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     server.scheduler.runTask(plugin, Runnable {
       if (Placeholders.available) placeholders = Placeholders.register(plugin, allay.settings, goals, locales) { allay.handler }
       if (Plan.available) plan = Plan.register(plugin, Plan.Sources(allay.settings, goals, allay.reminders, locales, allay.license, { allay.config }) { allay.watch?.status })
+      expansions.scanAll()
     })
   }
 
   override fun stop() {
+    chat.allay.spigot.tools.BrewingRecipes.bind(null)
     placeholders?.close()
     plan?.close()
     automation.stop()

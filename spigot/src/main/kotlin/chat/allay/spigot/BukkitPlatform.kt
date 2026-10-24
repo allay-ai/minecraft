@@ -24,6 +24,10 @@ open class BukkitSender(open val sender: CommandSender) : Audience {
   override val uuid: UUID? get() = null
   override val operator: Boolean get() = sender.isOp
   override fun can(permission: String) = sender.hasPermission(permission)
+  // Bukkit gives a permission nobody declared to operators only; an expansion's own goes to everyone unless set.
+  override fun can(permission: String, byDefault: Boolean) =
+    if (sender.isPermissionSet(permission) || org.bukkit.Bukkit.getPluginManager().getPermission(permission) != null) sender.hasPermission(permission) else byDefault || sender.isOp
+  override fun <T> unwrap(type: Class<T>): T? = type.takeIf { it.isInstance(sender) }?.cast(sender)
   override fun send(text: String) = sender.sendMessage(text)
   override fun send(line: Line) {
     if (!line.empty) sender.spigot().sendMessage(*components(line))

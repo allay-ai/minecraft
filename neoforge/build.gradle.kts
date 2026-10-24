@@ -29,6 +29,8 @@ val client: SourceSet = sourceSets.create("client") {
 val gametest: SourceSet = sourceSets.create("gametest") {
   compileClasspath += sourceSets.main.get().output + client.output + modcoreMain.output
   runtimeClasspath += sourceSets.main.get().output + client.output + modcoreMain.output
+  // The tests' data pack (an item and a brew of its own) is modcore's, shared with Fabric.
+  resources.srcDir(modcore.file("src/gametest/resources"))
 }
 kotlin.sourceSets.named("gametest") {
   kotlin.srcDir(modcore.file("src/gametest/kotlin"))

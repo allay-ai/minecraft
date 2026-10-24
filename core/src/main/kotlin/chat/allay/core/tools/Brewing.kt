@@ -13,8 +13,20 @@ import kotlinx.serialization.json.jsonObject
  * this turns them into the steps from a water bottle to any potion.
  */
 object Brewing {
-  /** A bottle: its item (`potion`, `splash_potion`, `lingering_potion`) and the potion inside, as the game's ids. */
-  data class Bottle(val item: String, val potion: String)
+  /**
+   * A bottle: its item (`potion`, `splash_potion`, `lingering_potion`) and the potion inside, as the game's ids. A
+   * plugin's or expansion's own bottle (Red Bull's crude taurine) is its id twice.
+   */
+  data class Bottle(val item: String, val potion: String) {
+    /** As tools write it: `potion night_vision`, or a plugin's bottle by its id alone. */
+    val label: String get() = if (item == potion) item else "$item $potion"
+  }
+
+  /** A bottle as [Bottle.label] or an expansion's ingredient writes it: `potion water`, `splash_potion healing`, `redbull:bile`. */
+  fun bottleOf(text: String): Bottle {
+    val parts = text.trim().removePrefix("minecraft:").split(' ', limit = 2)
+    return if (parts.size == 2 && parts[0] in FORMS) Bottle(parts[0], parts[1].removePrefix("minecraft:")) else Bottle(parts[0], parts[0])
+  }
 
   /** One use of the brewing stand. */
   data class Brew(val from: Bottle, val reagent: String, val to: Bottle)
@@ -143,9 +155,10 @@ object Brewing {
 
   /**
    * The potion the model or a player named: an exact id, or a part of one (“night vision” finds `night_vision`
-   * before `long_night_vision`). Null when nothing matches.
+   * before `long_night_vision`), else what [named] makes of it: the catalog's names in any language. Null when
+   * nothing matches.
    */
-  fun find(brews: List<Brew>, name: String): String? {
+  fun find(brews: List<Brew>, name: String, named: (String) -> String? = { null }): String? {
     var wanted = split(name).first
     // “healing ii” and “healing 2” are strong_healing, “extended swiftness” long_swiftness.
     Regex("_(ii|2)$").find(wanted)?.let { wanted = "strong_" + wanted.removeRange(it.range) }
@@ -153,7 +166,9 @@ object Brewing {
     val prefix = listOf("strong_", "long_").firstOrNull { wanted.startsWith(it) }.orEmpty()
     wanted = prefix + wanted.removePrefix(prefix).let { WORDS[it] ?: it }
     val known = potions(brews)
-    return known.firstOrNull { it == wanted } ?: known.filter { wanted in it }.minByOrNull { it.length }
+    val raw = name.trim().lowercase().removePrefix("minecraft:")
+    return known.firstOrNull { it == wanted || it == raw } ?: known.filter { wanted in it }.minByOrNull { it.length }
+      ?: named(name)?.takeIf { it in known }
   }
 
   /** What players call potions whose ids say it otherwise. */
@@ -161,6 +176,8 @@ object Brewing {
     "speed" to "swiftness", "jump" to "leaping", "jump_boost" to "leaping", "instant_health" to "healing", "health" to "healing",
     "heal" to "healing", "instant_damage" to "harming", "damage" to "harming", "regen" to "regeneration", "fire_res" to "fire_resistance",
     "night" to "night_vision", "invisible" to "invisibility", "breathing" to "water_breathing", "slow_fall" to "slow_falling",
+    // The names the game shows for the 1.21 potions differ from their ids.
+    "infestation" to "infested", "wind_charging" to "wind_charged", "turtle" to "turtle_master",
   )
 
   /** A form as the model may write it: `splash`, `splash_potion`, `lingering`, `drinkable`; null when it's none of them. */

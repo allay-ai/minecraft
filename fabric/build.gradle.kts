@@ -41,6 +41,10 @@ fabricApi {
 kotlin.sourceSets.named("gametest") {
   kotlin.srcDir(project(":modcore").file("src/gametest/kotlin"))
 }
+// The tests' data pack (an item and a brew of its own) is modcore's too.
+sourceSets.named("gametest") {
+  resources.srcDir(project(":modcore").file("src/gametest/resources"))
+}
 
 // What goes into the jar besides the mod's own classes: modcore, core, and core's libraries, relocated as on Bukkit.
 val shade: Configuration by configurations.creating

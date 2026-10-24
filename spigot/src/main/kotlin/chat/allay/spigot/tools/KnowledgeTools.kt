@@ -26,6 +26,7 @@ import org.bukkit.inventory.StonecuttingRecipe
 /** What this server knows that the model might not: its exact recipes, and the asker's advancements. */
 object KnowledgeTools {
   private val POTIONS = setOf("potion", "splash_potion", "lingering_potion")
+  private val POTION_ITEMS = setOf(Material.POTION, Material.SPLASH_POTION, Material.LINGERING_POTION)
 
   private val recipes = object : Tool {
     override val name = "get_recipes"
@@ -33,13 +34,28 @@ object KnowledgeTools {
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
       val asked = (args["item"] as? JsonPrimitive)?.contentOrNull ?: throw ToolError("say which item")
       val item = Names.normalize(asked)
-      // Potions come from the brewing stand, which Spigot's recipes don't describe.
-      if (item in POTIONS || "potion" in item) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
-      val material = InteractTools.material(asked)
-      val all = Bukkit.getRecipesFor(ItemStack(material)).mapNotNull(::describe)
+      // Potions come from the brewing stand: get_brewing_recipe tells its steps.
+      if (item in POTIONS) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
+      val catalog = Catalogs.build(context)
+      val locale = context.player?.locale
+      // An exact id first, then whatever the catalog makes of a name in any language.
+      val exact = Material.matchMaterial(item)?.takeIf { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }
+      val entry = exact?.let { catalog.find(it.key.key, Catalog.Kind.ITEM) } ?: catalog.find(item, Catalog.Kind.CUSTOM)
+        ?: catalog.resolve(asked, locale)
+        ?: throw ToolError(if ("potion" in item) "potions are brewed: call get_brewing_recipe with the potion, like night_vision" else catalog.missing(asked, locale))
+      if (entry.kind == Catalog.Kind.POTION) throw ToolError("potions are brewed: call get_brewing_recipe with ${entry.id}")
+      if (entry.made == setOf("brewing")) throw ToolError("potions are brewed: ${entry.id} comes from a brewing stand; call get_brewing_recipe with ${entry.id}")
+      val base = Material.matchMaterial(if (entry.kind == Catalog.Kind.CUSTOM) entry.base ?: "air" else entry.id)
+      // Recipes by what comes out: a plugin's can is a potion underneath, but no potion's recipe makes it, nor it a potion.
+      val own = base?.takeUnless { it.isAir }?.let { Bukkit.getRecipesFor(ItemStack(it)) }.orEmpty()
+        .filter { Catalogs.id(it.result) == entry.id }.mapNotNull(::describe)
+      val described = context.features.expansions?.items().orEmpty().filter { it.second.id() == entry.id }.flatMap { it.second.recipes().mapNotNull(Catalog::describe) }
+      val all = own + described
       val found = all.take(5)
       val result = buildJsonObject {
-        put("item", material.key.key)
+        put("item", entry.id)
+        catalog.name(entry, locale)?.let { put("name", it) }
+        if (entry.source != Catalog.MINECRAFT) put("source", entry.source)
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
       }
@@ -55,7 +71,8 @@ object KnowledgeTools {
       is RecipeChoice.MaterialChoice -> choice.choices.toSet().let { kinds ->
         tags[kinds].takeIf { kinds.size > 1 }?.let { "#$it (any of ${kinds.size})" } ?: alternatives(kinds.map { it.key.key })
       }
-      is RecipeChoice.ExactChoice -> alternatives(choice.choices.map { it.type.key.key }.distinct())
+      // A bottle reads as its potion (`potion water`), a plugin's item by its own id.
+      is RecipeChoice.ExactChoice -> alternatives(choice.choices.map { stack -> if (stack.type in POTION_ITEMS) Catalogs.bottle(stack).label else Catalogs.id(stack) }.distinct())
       null -> ""
       else -> choice.itemStack.type.key.key
     }
@@ -137,5 +154,17 @@ object KnowledgeTools {
   /** Advancements listed per list at most; the counts cover them all. */
   private const val MAX_ADVANCEMENTS = 40
 
-  val all = listOf(recipes, advancements)
+  /** Anything this server knows by a name in any language or an id: items, potions, and plugins' own. */
+  private val search: Tool = object : Tool {
+    override val name = "search_items"
+
+    override fun run(context: ToolContext, args: JsonObject): ToolOutput {
+      val query = args.string("query") ?: args.string("item") ?: throw ToolError("say what to look for")
+      val answer = Catalogs.build(context).answer(query.take(64), context.player?.locale, args.int("limit") ?: 8)
+      val count = (answer["matches"] as? JsonArray)?.size ?: 0
+      return ToolOutput(answer, if (count == 0) context.lang.text("summary.items_none") else context.lang.text("summary.items_found", "count" to count))
+    }
+  }
+
+  val all: List<Tool> = listOf(recipes, advancements, search)
 }

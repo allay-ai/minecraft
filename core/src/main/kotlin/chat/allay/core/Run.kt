@@ -39,6 +39,12 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   /** Buttons the tools asked for; they go under the answer. */
   val buttons: MutableList<chat.allay.core.tools.Button> = java.util.Collections.synchronizedList(mutableListOf())
 
+  /** The expansions' tools this run offers, decided on the server thread when it starts: the backend may call only these. */
+  @Volatile var expansionTools: List<Protocol.ExpansionTool> = emptyList()
+
+  /** Who each of those tools belongs to, by name, for the `⏺` line: “Asking Red Bull”. */
+  @Volatile var expansionNames: Map<String, String> = emptyMap()
+
   /** Calls whose `⏺` line is already in chat, so a `tool_status` and its `tool_call` don't print twice. */
   val announced: MutableSet<String> = ConcurrentHashMap.newKeySet()
 

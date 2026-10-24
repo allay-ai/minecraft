@@ -58,7 +58,10 @@ class Animator(private val platform: Platform, config: Config, private val effec
   }
 
   fun toolStarted(run: Run, to: Audience, name: String, args: JsonObject?) {
-    if (ui.toolLines) run.lang.send(to, "tool_lines.started", "label" to ToolLabels.label(run.lang, name, args))
+    if (!ui.toolLines) return
+    // Another plugin's tool says whose it is; its own words are for the model.
+    val label = run.expansionNames[name]?.let { run.lang.text("tool_lines.expansion", "name" to it) } ?: ToolLabels.label(run.lang, name, args)
+    run.lang.send(to, "tool_lines.started", "label" to label)
   }
 
   /** A failed tool shows its reason only where the language's `tool_lines.failed` asks for `{reason}`: the reasons are written for the model. */

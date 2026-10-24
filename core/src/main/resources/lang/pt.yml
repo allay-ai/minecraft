@@ -41,6 +41,8 @@ tool_lines:
   # O motivo ({reason}) é escrito para o assistente, em inglês, por isso não aparece aqui.
   failed: "&c  ⎿ não deu"
   unknown: "Usando {name}"
+  # Another plugin's or mod's tool, by its name.
+  expansion: "Consultando {name}"
 
 # O rótulo de cada ferramenta no chat; {argumento} vem da chamada.
 tools:
@@ -65,6 +67,7 @@ tools:
   get_xp_info: "Contando a experiência"
   get_food_options: "Vendo o que dá para comer"
   get_anvil_plan: "Planejando a ordem na bigorna"
+  search_items: "Procurando {query}"
   get_light_spawn_check: "Procurando cantos escuros"
   get_brewing_items: "Conferindo o material de poções"
   get_brewing_recipe: "Vendo os passos da poção"
@@ -152,6 +155,9 @@ summary:
   anvil: "{levels} {levels|nível|níveis} em {steps} {steps|passo|passos}"
   anvil_too_expensive: "caro demais"
   anvil_nothing: "nada para combinar"
+  anvil_choose: "{count} para escolher"
+  items_found: "{count} {count|resultado|resultados}"
+  items_none: "nada encontrado"
   brewing_steps: "{count} {count|passo|passos}"
   recipes: "{count} {count|receita|receitas}"
   recipes_none: "nenhuma receita"
@@ -264,7 +270,7 @@ messages:
   unknown_item: "&cEsse item não existe: {item}"
   no_recipe: "&7Esse item não tem receita: você minera, encontra ou troca."
   hold_item: "&7Segure o item que você quer encantar."
-  anvil_nothing: "&7Nada no seu inventário melhora o item na sua mão."
+  anvil_nothing: "&7Nada no seu inventário melhora esse item."
   no_brewing: "&cNão sei como preparar “{potion}”."
   no_enchants: "&7Esse item não pode ser encantado."
   no_villagers: "&7Não tem aldeões por perto."
@@ -482,6 +488,8 @@ menus:
     hotbar: "&7Barra rápida, espaço {n}"
     inventory: "&7Inventário, linha {row}, espaço {column}"
     made: "&7Feito num passo anterior"
+    worn: "&7Equipado"
+    offhand: "&7Na sua mão secundária"
   recipe:
     title: "Receita"
     page: "&7Receita {n} de {total}"

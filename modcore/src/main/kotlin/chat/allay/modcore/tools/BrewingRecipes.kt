@@ -6,44 +6,44 @@ import chat.allay.core.tools.*
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.Identifier
-import net.minecraft.server.MinecraftServer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.alchemy.PotionContents
-import java.net.JarURLConnection
 
 /**
- * The brewing stand's recipes, read once from the game's data inside its jar: 26.3 keeps them as files, read here as
- * on Bukkit, so both tell the same. A datapack's own brews aren't seen.
+ * The brewing stand's recipes on this server: since 26.3 brewing is a recipe like any other, so the server's recipes
+ * hold the game's brews, data packs', and mods' alike, and expansions add the ones a mod handles in code. Read on the
+ * server thread from the features [bind] hands in.
  */
 object BrewingRecipes {
-  private const val FOLDER = "data/minecraft/recipe/brewing/"
-  // Any file of the folder finds the jar; the folder's own entry may be missing from it.
-  private const val PROBE = FOLDER + "potion_awkward_golden_carrot.json"
+  @Volatile private var features: Features? = null
 
-  @Volatile private var cached: List<Brewing.Brew>? = null
+  /** The server's features while it runs; null when it stops. */
+  fun bind(features: Features?) {
+    this.features = features
+  }
 
-  /** Every brew, or none on a game that keeps brewing in code. */
-  fun all(): List<Brewing.Brew> = cached ?: load().also { cached = it }
-
-  private fun load(): List<Brewing.Brew> = runCatching {
-    val url = MinecraftServer::class.java.classLoader.getResource(PROBE) ?: return emptyList()
-    val connection = url.openConnection() as? JarURLConnection ?: return emptyList()
-    connection.useCaches = false
-    connection.jarFile.use { jar ->
-      jar.entries().asSequence().filter { it.name.startsWith(FOLDER) && it.name.endsWith(".json") }
-        .flatMap { entry -> jar.getInputStream(entry).use { Brewing.parse(it.readBytes().decodeToString()) } }.toList()
-    }
-  }.getOrDefault(emptyList())
+  /** Every brew, or none before a server runs. */
+  fun all(): List<Brewing.Brew> {
+    val features = features ?: return emptyList()
+    return Catalogs.brews(features.server, features.expansions)
+  }
 
   /** What the model or a player named: the potion's id and the bottle's form, or a [ToolError] saying what's wrong. */
   fun target(potion: String, form: String?): Pair<List<Brewing.Brew>, Brewing.Bottle> {
     val brews = all().ifEmpty { throw ToolError("this server's game keeps brewing out of reach; answer from what you know") }
-    val id = Brewing.find(brews, potion) ?: throw ToolError("no potion called $potion; the stand makes ${Brewing.potions(brews).joinToString()}")
+    val catalog by lazy { features?.let { Catalogs.build(it.server, it.expansions, it.names()) } }
+    // Names in any language, “Potion of Infestation” and «зелье заражения» alike, through the catalog.
+    val named = { name: String -> catalog?.resolve(name, null, setOf(Catalog.Kind.POTION, Catalog.Kind.CUSTOM))?.id }
+    val id = Brewing.find(brews, potion, named) ?: Brewing.find(brews, Brewing.split(potion).first, named)
+      ?: throw ToolError(catalog?.missing(potion, null, setOf(Catalog.Kind.POTION, Catalog.Kind.CUSTOM))?.replace("no item called", "no potion called")
+        ?: "no potion called $potion on this server")
     // “splash healing” names its form itself; form wins when both are there.
     val bottle = form?.trim()?.ifEmpty { null }?.let { name ->
       Brewing.form(name) ?: throw ToolError("form must be potion, splash_potion, or lingering_potion")
     } ?: Brewing.split(potion).second ?: "potion"
+    // A plugin's or mod's own bottle has no forms.
+    if (brews.any { it.to == Brewing.Bottle(id, id) }) return brews to Brewing.Bottle(id, id)
     return brews to Brewing.Bottle(bottle, id)
   }
 

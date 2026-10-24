@@ -41,6 +41,8 @@ tool_lines:
   # Причина ({reason}) написана для ассистента по-английски, поэтому здесь её нет.
   failed: "&c  ⎿ не вышло"
   unknown: "Пользуюсь {name}"
+  # Another plugin's or mod's tool, by its name.
+  expansion: "Спрашиваю {name}"
 
 # Подпись каждого инструмента в чате; {аргумент} берётся из вызова.
 tools:
@@ -65,6 +67,7 @@ tools:
   get_xp_info: "Считаю опыт"
   get_food_options: "Смотрю, что можно съесть"
   get_anvil_plan: "Прикидываю порядок на наковальне"
+  search_items: "Ищу {query}"
   get_light_spawn_check: "Ищу тёмные места"
   get_brewing_items: "Проверяю запасы для зелий"
   get_brewing_recipe: "Смотрю, как сварить зелье"
@@ -152,6 +155,9 @@ summary:
   anvil: "{levels} {levels|уровень|уровня|уровней} за {steps} {steps|шаг|шага|шагов}"
   anvil_too_expensive: "слишком дорого"
   anvil_nothing: "нечего соединять"
+  anvil_choose: "на выбор: {count}"
+  items_found: "{count} {count|совпадение|совпадения|совпадений}"
+  items_none: "ничего не нашлось"
   brewing_steps: "{count} {count|шаг|шага|шагов}"
   recipes: "{count} {count|рецепт|рецепта|рецептов}"
   recipes_none: "рецептов нет"
@@ -264,7 +270,7 @@ messages:
   unknown_item: "&cНет такого предмета: {item}"
   no_recipe: "&7У этого предмета нет рецепта: его добывают, находят или выменивают."
   hold_item: "&7Возьми в руку предмет, который хочешь зачаровать."
-  anvil_nothing: "&7В инвентаре нет ничего, что улучшит предмет в руке."
+  anvil_nothing: "&7В инвентаре нет ничего, что улучшит этот предмет."
   no_brewing: "&cНе знаю, как сварить «{potion}»."
   no_enchants: "&7На этот предмет нельзя наложить чары."
   no_villagers: "&7Рядом нет жителей."
@@ -482,6 +488,8 @@ menus:
     hotbar: "&7Хотбар, ячейка {n}"
     inventory: "&7Инвентарь, ряд {row}, ячейка {column}"
     made: "&7Получено на прошлом шаге"
+    worn: "&7Надето"
+    offhand: "&7Во второй руке"
   recipe:
     title: "Рецепт"
     page: "&7Рецепт {n} из {total}"

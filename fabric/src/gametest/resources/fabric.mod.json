@@ -7,7 +7,7 @@
   "entrypoints": {
     "fabric-gametest": [
       "chat.allay.modcore.gametest.AllayGameTests", "chat.allay.modcore.gametest.AutomationGameTests", "chat.allay.modcore.gametest.GoalsGameTests",
-      "chat.allay.modcore.gametest.InfoGameTests", "chat.allay.modcore.gametest.MenusGameTests", "chat.allay.modcore.gametest.FixesGameTests"
+      "chat.allay.modcore.gametest.InfoGameTests", "chat.allay.modcore.gametest.CatalogGameTests", "chat.allay.modcore.gametest.MenusGameTests", "chat.allay.modcore.gametest.FixesGameTests"
     ],
     "fabric-client-gametest": ["chat.allay.fabric.gametest.SingleplayerClientTest"]
   },

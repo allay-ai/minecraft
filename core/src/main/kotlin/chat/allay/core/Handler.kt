@@ -31,6 +31,8 @@ class Handler(
   private val privacy: () -> PrivacyCommands,
   /** What `/allay cancel` takes away when no question runs: the game's ways, marks, drafts, and agents. */
   private val shown: Shown,
+  /** Other plugins' and mods' expansions, whose tools a run may offer. */
+  private val expansions: Expansions? = null,
 ) {
   /** What a platform shows for a player outside a question, which `/allay cancel` hides. */
   fun interface Shown {
@@ -118,6 +120,9 @@ class Handler(
     val run = Run(platform.asker(sender, player?.let(locales::code)), mode, lang, configuration.ui.verbSeconds, public)
     run.tip = tip
     run.model = quota.model(sender)
+    // Rights are read here, on the server thread; the request goes out from another.
+    run.expansionTools = expansions?.offered(sender, mode, public, task = false).orEmpty()
+    run.expansionNames = expansions?.names(run.expansionTools).orEmpty()
     runs[key(sender)] = run
     animator.start(run)
 

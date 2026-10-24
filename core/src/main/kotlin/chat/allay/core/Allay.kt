@@ -2,6 +2,8 @@ package chat.allay.core
 
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.Books
+import chat.allay.core.tools.GameNames
+import chat.allay.expansion.AllayExpansions
 import chat.allay.core.tools.ButtonStore
 import chat.allay.core.tools.ClientTool
 import chat.allay.core.tools.Reminders
@@ -72,12 +74,24 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     /** After the shared pieces and before the first load; [stop] at shutdown. */
     fun start() {}
     fun stop() {}
+
+    /**
+     * The game's names in [locale] the platform has on hand, by translation key: the game's English, and every mod's
+     * and plugin's language files. The game's other languages come from [GameNames]' downloads.
+     */
+    fun names(locale: String): Map<String, String> = emptyMap()
   }
 
   val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
   val buttons = ButtonStore()
   val books = Books()
   val locales = Locales(platform)
+  /** Other plugins' and mods' expansions; they outlive `/allay reload`, which reads each one again. */
+  val expansions = Expansions(platform.log, { config }, { platform })
+  /** The game's names in every language, for finding things by what players call them. */
+  lateinit var names: GameNames; private set
+  /** [names] once Allay has started; the tools ask through this. */
+  val namesOrNull: GameNames? get() = if (::names.isInitialized) names else null
 
   lateinit var game: Game<C>; private set
   lateinit var license: License; private set
@@ -146,9 +160,12 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     reminders = Reminders(platform, locales, { effects }) { config.tools.maxReminders }
     quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.shared, log) { runCatching { java.time.ZoneId.of(config.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
     game = build(this)
+    names = GameNames(platform.shared, game.gameVersion, log, game::names)
     data.loaded = game::loaded
     game.start()
     load()
+    // Expansions registered before Allay started join now; the platform finds the rest in plugins and mods.
+    AllayExpansions.bind(expansions)
     data.start()
     // After a reload of the plugin, players already online get their state too.
     platform.players.forEach { data.join(it.uuid) }
@@ -168,7 +185,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     val tools = ToolRegistry(game.tools(), config.tools::enabled)
     val licenses = Billing(client, config, license, game.loader, game.side)
     val identity = Identity(licenses, config, { platform.motd }, log)
-    service = Service(config, client, tools, zones, serverId, host, scope, credentials, game.tasks, identity) { settings.of(it).full_privacy }
+    service = Service(config, client, tools, zones, serverId, host, scope, credentials, game.tasks, identity, { settings.of(it).full_privacy }, expansions)
     quota.report()
     billing = BillingCommands(platform, config, locales, licenses, AdminSetup(client, config), credentials, zones, scope)
     watch?.stop()
@@ -176,7 +193,13 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     reportProvider()
     executor = Executor(platform, config, locales, animator)
     consents = Consents(service, ::notice, consented, asksAge = { AgeGate.asks(locales.country(it)) })
-    handler = Handler(platform, config, locales, service, animator, executor, scope, { billing }, { clicks }, quota, consents, { privacy }, game.shown)
+    handler = Handler(platform, config, locales, service, animator, executor, scope, { billing }, { clicks }, quota, consents, { privacy }, game.shown, expansions)
+    if (::names.isInitialized) {
+      names.forget()
+      expansions.reload()
+      val catalog = config.catalog
+      if (catalog.download) scope.launch(Dispatchers.IO) { names.fetch(catalog.languages) }
+    }
     clicks = Clicks(platform, config, locales, books, chat, buttons, game.buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(platform, locales, service, scope, buttons)
     privacy = PrivacyCommands(platform, config, locales, service, consents, settings, data, game::forget, ages, scope) { game.stopAgents(it) }
@@ -196,6 +219,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   }
 
   fun disable() {
+    AllayExpansions.bind(null)
     if (::handler.isInitialized) handler.cancelAll()
     if (::game.isInitialized) game.stop()
     if (::reminders.isInitialized) reminders.cancelAll()

@@ -41,6 +41,8 @@ tool_lines:
   # Den Grund ({reason}) schreibt das Plugin für den Assistenten auf Englisch, darum fehlt er hier.
   failed: "&c  ⎿ hat nicht geklappt"
   unknown: "Nutze {name}"
+  # Another plugin's or mod's tool, by its name.
+  expansion: "Frage {name}"
 
 # Die Beschriftung jedes Werkzeugs im Chat; {argument} kommt aus dem Aufruf.
 tools:
@@ -65,6 +67,7 @@ tools:
   get_xp_info: "Zähle Erfahrung"
   get_food_options: "Schaue, was du essen kannst"
   get_anvil_plan: "Plane die Reihenfolge am Amboss"
+  search_items: "Suche {query}"
   get_light_spawn_check: "Suche dunkle Stellen"
   get_brewing_items: "Prüfe Brauzutaten"
   get_brewing_recipe: "Schlage die Brauschritte nach"
@@ -152,6 +155,9 @@ summary:
   anvil: "{levels} {levels|Stufe|Stufen} in {steps} {steps|Schritt|Schritten}"
   anvil_too_expensive: "zu teuer"
   anvil_nothing: "nichts zu kombinieren"
+  anvil_choose: "{count} zur Auswahl"
+  items_found: "{count} {count|Treffer|Treffer}"
+  items_none: "nichts gefunden"
   brewing_steps: "{count} {count|Schritt|Schritte}"
   recipes: "{count} {count|Rezept|Rezepte}"
   recipes_none: "keine Rezepte"
@@ -264,7 +270,7 @@ messages:
   unknown_item: "&cDiesen Gegenstand gibt es nicht: {item}"
   no_recipe: "&7Für diesen Gegenstand gibt es kein Rezept: Du baust ihn ab, findest ihn oder ertauschst ihn."
   hold_item: "&7Nimm den Gegenstand in die Hand, den du verzaubern willst."
-  anvil_nothing: "&7In deinem Inventar ist nichts, was den Gegenstand in deiner Hand verbessert."
+  anvil_nothing: "&7In deinem Inventar ist nichts, was diesen Gegenstand verbessert."
   no_brewing: "&cIch weiß nicht, wie man „{potion}“ braut."
   no_enchants: "&7Diesen Gegenstand kann man nicht verzaubern."
   no_villagers: "&7Hier sind keine Dorfbewohner in der Nähe."
@@ -482,6 +488,8 @@ menus:
     hotbar: "&7Schnellleiste, Platz {n}"
     inventory: "&7Inventar, Reihe {row}, Platz {column}"
     made: "&7Aus einem früheren Schritt"
+    worn: "&7Angelegt"
+    offhand: "&7In deiner Nebenhand"
   recipe:
     title: "Rezept"
     page: "&7Rezept {n} von {total}"

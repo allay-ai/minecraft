@@ -40,9 +40,12 @@ object Names {
     throw ToolError(missing(name, all()))
   }
 
-  /** An enchantment's id as the model may write it: “Sharpness V”, `unbreaking_3`, `minecraft:silk touch`. */
+  /**
+   * An enchantment's id as the model may write it: “Sharpness V”, `unbreaking_3`, `minecraft:silk touch`. A data
+   * pack's keeps its namespace: `mypack:frost`.
+   */
   fun enchantment(name: String): String =
-    normalize(name).replace(Regex("_(\\d+|i{1,3}|iv|v)$"), "").replace(Regex("[^a-z0-9_]"), "").let { ENCHANTMENTS[it] ?: it }
+    normalize(name).replace(Regex("_(\\d+|i{1,3}|iv|v)$"), "").replace(Regex("[^a-z0-9_:./]"), "").let { ENCHANTMENTS[it] ?: it }
 
   private val ENCHANTMENTS = mapOf("silk" to "silk_touch", "prot" to "protection", "loot" to "looting")
 
