@@ -9,6 +9,7 @@ import chat.allay.core.tools.Catalog.Entry
 import chat.allay.core.tools.Catalog.Kind
 import chat.allay.core.tools.GameNames
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.nio.file.Files
@@ -31,6 +32,7 @@ class CatalogTest {
         "item.minecraft.stone" to "Stone",
         "item.minecraft.diamond_sword" to "Diamond Sword",
         "item.redbull.original" to "Red Bull Original",
+        "item.redbull.taurine" to "Taurine",
         "item.mymod.copper_wrench" to "Copper Wrench",
       )
       "ru_ru" -> mapOf(
@@ -38,6 +40,8 @@ class CatalogTest {
         "item.minecraft.potion.effect.swiftness" to "Зелье стремительности",
         "item.minecraft.stone" to "Камень",
         "item.minecraft.diamond_sword" to "Алмазный меч",
+        // A plugin's own language file, as Red Bull's jar carries it.
+        "item.redbull.taurine" to "Таурин",
       )
       else -> emptyMap()
     }
@@ -52,6 +56,7 @@ class CatalogTest {
       Entry("long_swiftness", Kind.POTION, forms.map { "item.minecraft.$it.effect.swiftness" }, made = setOf("brewing")),
       Entry("mymod:copper_wrench", Kind.ITEM, listOf("item.mymod.copper_wrench"), source = "My Mod"),
       Entry("redbull:original", Kind.CUSTOM, listOf("item.redbull.original"), source = "RedBull", base = "potion", made = setOf("crafting")),
+      Entry("redbull:taurine", Kind.CUSTOM, listOf("item.redbull.taurine"), source = "RedBull", base = "potion", made = setOf("smelting")),
       Entry("mypack:ruby", Kind.CUSTOM, names = mapOf("en_us" to "Ruby"), source = "data pack mypack", base = "emerald"),
     ),
     names,
@@ -148,6 +153,22 @@ class CatalogTest {
     assertEquals("diamond sword", Catalog.fold("minecraft:Diamond_Sword"))
     assertEquals(Catalog.EXACT, Catalog.score("stone", "stone"))
     assertEquals(0, Catalog.score("stone", "dirt"))
+  }
+
+  @Test fun `a player reads names in Allay's language, not their game's`() {
+    assertEquals("ru_ru", GameNames.locale("ru", "en_us"))
+    assertEquals("es_mx", GameNames.locale("es", "es_mx"))
+    assertEquals("en_us", GameNames.locale("en", "ru_ru"))
+    assertEquals("pt_br", GameNames.locale("pt", null))
+    assertEquals("pt_pt", GameNames.locale("pt_pt", "pt_br"))
+    assertEquals("de_de", GameNames.locale("de", "en_gb"))
+    // The owner's game is in English and Allay answers him in Russian: a plugin's item comes with its Russian name.
+    val locale = GameNames.locale("ru", "en_us")
+    val taurine = catalog.answer("redbull:taurine", locale, 5)["matches"]!!.jsonArray.first().jsonObject
+    assertEquals("Таурин", taurine["name"]!!.jsonPrimitive.content)
+    assertEquals("Taurine", taurine["name_en"]!!.jsonPrimitive.content)
+    assertEquals("Таурин", catalog.name(catalog.find("redbull:taurine", Kind.CUSTOM)!!, locale))
+    assertEquals("redbull:taurine", catalog.resolve("таурин", locale)?.id)
   }
 }
 

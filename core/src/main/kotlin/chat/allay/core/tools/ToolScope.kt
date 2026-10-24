@@ -59,6 +59,9 @@ open class ToolScope(
   /** The asker's language, for the summaries under tool lines. */
   val lang: Lang get() = services.locales.of(asker)
 
+  /** The game language the asker reads things' names in ([Locales.names]); null for the console. */
+  val nameLocale: String? get() = (asker as? PlayerAudience)?.let(services.locales::names)
+
   fun requireAsker(): PlayerAudience = asker as? PlayerAudience ?: throw ToolError("there is no player: the question came from the console")
 
   /** How the model reads another player: their name when they agreed here, else this run's “Player N”. */

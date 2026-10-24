@@ -131,6 +131,25 @@ class GameNames(
     /** A game language code as the game writes it: `ru_ru`. */
     fun code(locale: String): String = locale.trim().lowercase().replace('-', '_')
 
+    /**
+     * Allay's [language] for a player (`ru`, `pt_br`) as the game language whose names they read: their game's own
+     * [client] when it's that language (`es_mx` for Spanish), else the language's main one (`ru_ru`, `en_us`).
+     */
+    fun locale(language: String, client: String?): String {
+      val wanted = code(language)
+      val game = client?.let(::code)
+      if (game != null && (game == wanted || game.substringBefore('_') == wanted)) return game
+      if ('_' in wanted) return wanted
+      return REGIONS[wanted] ?: "${wanted}_$wanted"
+    }
+
+    /** Languages whose main game language isn't `<code>_<code>`. */
+    private val REGIONS = mapOf(
+      "en" to "en_us", "pt" to "pt_br", "uk" to "uk_ua", "zh" to "zh_cn", "ja" to "ja_jp", "ko" to "ko_kr", "cs" to "cs_cz",
+      "sv" to "sv_se", "da" to "da_dk", "el" to "el_gr", "he" to "he_il", "vi" to "vi_vn", "be" to "be_by", "kk" to "kk_kz",
+      "ar" to "ar_sa", "fa" to "fa_ir", "et" to "et_ee", "ca" to "ca_es", "sl" to "sl_si", "nb" to "nb_no", "no" to "nb_no",
+    )
+
     /** A language file's strings; anything that isn't a flat object of strings is skipped. */
     fun parse(text: String): Map<String, String> = runCatching {
       Json.parseToJsonElement(text).jsonObject.mapNotNull { (key, value) -> (value as? JsonPrimitive)?.takeIf { it.isString }?.let { key to it.content } }.toMap()

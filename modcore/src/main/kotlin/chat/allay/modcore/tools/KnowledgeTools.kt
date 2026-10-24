@@ -35,7 +35,7 @@ object KnowledgeTools {
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
       val asked = args.asked("items", "item", MAX_ITEMS) ?: throw ToolError("say which item")
       val catalog = Catalogs.build(context)
-      val locale = (context.asker as? PlayerAudience)?.locale
+      val locale = context.nameLocale
       read(context)
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
       if (args["items"] == null) {
@@ -222,7 +222,7 @@ object KnowledgeTools {
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
       val queries = args.asked("queries", "query", MAX_QUERIES) ?: args.string("item")?.take(64)?.let(::listOf) ?: throw ToolError("say what to look for")
       val catalog = Catalogs.build(context)
-      val locale = (context.asker as? PlayerAudience)?.locale
+      val locale = context.nameLocale
       // One name answers as before 6.13; several (queries) answer each in its place, with fewer hits each.
       val answer = if (args["queries"] == null) catalog.answer(queries.single(), locale, args.int("limit") ?: MAX_HITS)
         else catalog.answers(queries, locale, args.int("limit") ?: if (queries.size == 1) MAX_HITS else MAX_HITS_EACH)

@@ -125,7 +125,7 @@ object CareTools {
     if (wanted != null && (wanted.isEmpty() || wanted.size > 10)) throw ToolError("give 1–10 enchantments")
     // The item may lie anywhere: named, in a slot, or the one the books improve; the hand only when nothing says otherwise.
     // A name in any language finds the player's item through the catalog («мой меч»).
-    val locale = (context.asker as? PlayerAudience)?.locale
+    val locale = context.nameLocale
     val named = { name: String -> Catalogs.build(context).search(name, locale, 20, setOf(Catalog.Kind.ITEM)).map { it.entry.id }.toSet() }
     val pick = if (wanted == null) Anvils.target(player, args.string("item"), args.int("slot"), slots, named) else idealTarget(player, args.string("item"), args.int("slot"), wanted, named)
     val target = when (pick) {

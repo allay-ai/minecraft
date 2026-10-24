@@ -38,7 +38,13 @@ import java.util.logging.Logger
  * lines. An expansion is checked once when it registers; a broken one stays out with a line in the log, and never
  * breaks a question.
  */
-class Expansions(private val log: Logger, private val config: () -> Config, private val platform: () -> Platform?) : AllayExpansions.Host {
+class Expansions(
+  private val log: Logger,
+  private val config: () -> Config,
+  private val platform: () -> Platform?,
+  /** The game language a player reads Allay in ([Locales.names]), for [chat.allay.expansion.Asker.language]. */
+  private val language: (PlayerAudience) -> String = { it.locale },
+) : AllayExpansions.Host {
   /** A registered expansion, read when it came and again on `/allay reload`. */
   class Loaded(val expansion: AllayExpansion, val id: String, val name: String, val version: String, val tools: Map<String, Tool>, val items: List<ItemInfo>, val prompt: String?)
 
@@ -103,7 +109,7 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
    */
   fun offered(asker: Audience, mode: Run.Mode, public: Boolean, task: Boolean): List<Protocol.ExpansionTool> {
     if (task || mode == Run.Mode.TASK || asker !is PlayerAudience) return emptyList()
-    val player = Player(asker)
+    val player = Player(asker, language(asker))
     return active().flatMap { it.tools.values }.filter { allowed(it, asker, mode, public) && offeredTo(it, player) }.take(MAX_OFFERED).map {
       Protocol.ExpansionTool(it.wire, it.description, it.schema, it.access.name.lowercase(), it.expansion)
     }
@@ -148,7 +154,7 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     if (scope.task != null) throw ToolError("automation agents don't use other plugins' tools")
     if (tool.access == AllayTool.Access.OPERATOR && !asker.operator) throw ToolError(chat.allay.core.tools.NOT_OPERATOR)
     if (!allowed(tool, asker, mode, public)) throw ToolError("the asker may not use $name here")
-    val player = Player(asker)
+    val player = Player(asker, language(asker))
     if (!offeredTo(tool, player)) throw ToolError("$name isn't for the asker right now")
     val call = Call(player, Args(plain(args) as Map<String, Any?>), if (mode == Run.Mode.ASKX) ToolCall.Mode.ASKX else ToolCall.Mode.ASK, public, scope)
     val result: ToolResult = try {
@@ -207,7 +213,7 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
   }
 
   /** The asker as the call started: what a tool that answers later may still read on its own thread. */
-  private class Player(private val player: PlayerAudience) : chat.allay.expansion.Asker {
+  private class Player(private val player: PlayerAudience, private val language: String) : chat.allay.expansion.Asker {
     val audience get() = player
     private val at = player.position
     private val uuid = player.uuid
@@ -217,6 +223,7 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     override fun uuid(): UUID = uuid
     override fun name(): String = name
     override fun locale(): String = locale
+    override fun language(): String = language
     override fun isOperator() = operator
     override fun hasPermission(permission: String, byDefault: Boolean) = player.can(permission, byDefault)
     override fun dimension(): String = at.dimension

@@ -87,7 +87,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   val books = Books()
   val locales = Locales(platform)
   /** Other plugins' and mods' expansions; they outlive `/allay reload`, which reads each one again. */
-  val expansions = Expansions(platform.log, { config }, { platform })
+  val expansions = Expansions(platform.log, { config }, { platform }, locales::names)
   /** The game's names in every language, for finding things by what players call them. */
   lateinit var names: GameNames; private set
   /** [names] once Allay has started; the tools ask through this. */

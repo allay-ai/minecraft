@@ -80,6 +80,12 @@ class Locales(private val platform: Platform) {
 
   fun code(player: PlayerAudience): String = choice(player.uuid) ?: picked(player.uuid, player.locale)
 
+  /**
+   * The game language whose names [player] reads in Allay's answers, like `ru_ru`: their Allay language, which beats
+   * their game's, so tools name things as the answer will.
+   */
+  fun names(player: PlayerAudience): String = chat.allay.core.tools.GameNames.locale(code(player), player.locale)
+
   /** The languages there are, by code. */
   val codes: Set<String> get() = texts.codes
 

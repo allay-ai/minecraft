@@ -156,7 +156,7 @@ class CatalogGameTests {
         override fun run(call: ToolCall): ToolResult {
           val player = call.asker().unwrap(ServerPlayer::class.java) ?: throw ToolException("no player")
           if (call.args().string("can") == "bad") throw ToolException("no such can")
-          return ToolResult.of(mapOf("player" to player.gameProfile.name, "level" to 64, "locale" to call.asker().locale())).summary("caffeine 64")
+          return ToolResult.of(mapOf("player" to player.gameProfile.name, "level" to 64, "locale" to call.asker().locale(), "language" to call.asker().language())).summary("caffeine 64")
         }
       },
       object : AllayTool {
@@ -196,6 +196,16 @@ class CatalogGameTests {
       equal(helper, drink["source"]!!.jsonPrimitive.content, "Game Test", "from the expansion")
       val brew = result(asker, "get_brewing_recipe", buildJsonObject { put("potion", "Energy Drink") })
       equal(helper, brew["steps"]!!.jsonArray.map { it.jsonObject["add"]!!.jsonPrimitive.content }, listOf("nether_wart", "sugar_cane"), "the expansion's brew")
+      // A game in English, Allay in Russian: names come in Russian, to tools and to expansions alike.
+      Players.features.settings.update(asker.uuid) { it.copy(language = "ru") }
+      Players.features.locales.chose(audience)
+      val russian = result(asker, "search_items", buildJsonObject { put("query", "gametest:energy") })["matches"]!!.jsonArray.first().jsonObject
+      equal(helper, russian["name"]!!.jsonPrimitive.content, "Энергетик", "the name in the language Allay answers in")
+      val heard = expansions.run("x_gametest_caffeine", Players.context(asker), Run.Mode.ASK, false, buildJsonObject {}).now!!.result.jsonObject
+      equal(helper, heard["locale"]!!.jsonPrimitive.content, "en_us", "the game's language")
+      equal(helper, heard["language"]!!.jsonPrimitive.content, "ru_ru", "Allay's language as a game language")
+      Players.features.settings.update(asker.uuid) { it.copy(language = null) }
+      Players.features.locales.chose(audience)
       asker.discard()
     } finally {
       AllayExpansions.unregister("gametest")

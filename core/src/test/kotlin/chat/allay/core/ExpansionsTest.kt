@@ -35,7 +35,7 @@ class ExpansionsTest {
     })
   }
   private var yaml = mapOf<String, Any?>()
-  private val expansions = Expansions(log, { Config(YamlConfig(yaml, emptyMap()), "test") }, { null })
+  private val expansions = Expansions(log, { Config(YamlConfig(yaml, emptyMap()), "test") }, { null }) { if (it.name == "Pavel") "ru_ru" else it.locale }
 
   private fun tool(name: String, access: AllayTool.Access = AllayTool.Access.READ, public: Boolean = false, permission: String? = null) = object : AllayTool {
     override fun name() = name
@@ -57,8 +57,8 @@ class ExpansionsTest {
     override fun promptExpansion() = prompt
   }
 
-  private fun asker(operator: Boolean = false, granted: Set<String> = emptySet(), dimension: String = "overworld") = object : PlayerAudience {
-    override val name = "Steve"
+  private fun asker(operator: Boolean = false, granted: Set<String> = emptySet(), dimension: String = "overworld", name: String = "Steve") = object : PlayerAudience {
+    override val name = name
     override val uuid: UUID = UUID.randomUUID()
     override val operator = operator
     override val online = true
@@ -190,5 +190,15 @@ class ExpansionsTest {
     assertEquals(listOf("x_redbull_always"), names("overworld"))
     assertEquals(listOf("x_redbull_nether_only", "x_redbull_always"), names("the_nether"))
     assertTrue(lines.any { "x_redbull_broken failed in offeredTo" in it })
+  }
+
+  @Test fun `a tool hears the language Allay answers in beside the game's`() {
+    val heard = mutableListOf<String>()
+    expansions.register(expansion("redbull", tools = listOf(object : AllayTool by tool("recipes") {
+      override fun offeredTo(asker: chat.allay.expansion.Asker) = true.also { heard += asker.locale() + " " + asker.language() }
+    })))
+    expansions.offered(asker(name = "Pavel"), Run.Mode.ASK, false, false)
+    expansions.offered(asker(), Run.Mode.ASK, false, false)
+    assertEquals(listOf("en_us ru_ru", "en_us en_us"), heard)
   }
 }
