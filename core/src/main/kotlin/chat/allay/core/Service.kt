@@ -250,7 +250,7 @@ class Service<C>(
     }.onFailure { host.log.warning("❌ Couldn't send the result of ${call.name}: $it") }
   }
 
-  /** An expansion's tool, only one this run offered, on the server thread like any other. */
+  /** An expansion's tool, only one this run offered, on the server thread like any other; one that answers later is awaited here, off it. */
   private fun expansionTool(run: Run, call: Protocol.ToolCall, context: C, listener: Listener): Protocol.ToolResult {
     val scope = context as? chat.allay.core.tools.ToolScope
     if (scope == null || run.expansionTools.none { it.name == call.name }) {
@@ -258,7 +258,8 @@ class Service<C>(
       return Protocol.ToolResult(ok = false, error = "the tool ${call.name} isn't offered in this run")
     }
     return try {
-      val output = host.onMain(config.http.toolTimeout) { expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
+      val started = host.onMain(config.http.toolTimeout) { expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
+      val output = expansions!!.finish(started, config.http.toolTimeout)
       listener.toolFinished(call.call_id, output.summary, failed = false)
       Protocol.ToolResult(ok = true, result = output.result)
     } catch (error: Exception) {

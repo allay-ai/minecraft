@@ -1,7 +1,8 @@
 package chat.allay.expansion;
 
 /**
- * One tool the model may call. It runs on the server thread, for the player who asked, and returns data the model reads.
+ * One tool the model may call. It runs on the server thread, for the player who asked, and returns data the model reads;
+ * a tool that waits on the network or a database hands its work elsewhere and returns {@link ToolResult#later}.
  * Allay checks {@link #access()} and {@link #permission()} before every call, and calls it only in a run the backend
  * offered it to.
  */
@@ -54,8 +55,9 @@ public interface AllayTool {
   }
 
   /**
-   * Runs the call. Throw {@link ToolException} with a short English reason the model can act on (“the player holds no
-   * can”); any other exception reaches the model only as “failed”.
+   * Runs the call on the server thread. Throw {@link ToolException} with a short English reason the model can act on
+   * (“the player holds no can”); any other exception reaches the model only as “failed”. Never block here on the
+   * network, a file, or a database: read the game now, then return {@link ToolResult#later} and finish elsewhere.
    */
   ToolResult run(ToolCall call) throws ToolException;
 }

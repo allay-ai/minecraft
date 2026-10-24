@@ -2,7 +2,10 @@ package chat.allay.expansion;
 
 import java.util.UUID;
 
-/** One call of a tool: who asked, with what arguments, and how. */
+/**
+ * One call of a tool: who asked, with what arguments, and how. {@link #nameOf} and {@link #canSee} read the game, so call
+ * them on the server thread; the rest is safe anywhere.
+ */
 public interface ToolCall {
   /** How the player asked. */
   enum Mode {

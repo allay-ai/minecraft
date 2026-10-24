@@ -183,7 +183,7 @@ class CatalogGameTests {
       equal(helper, expansions.offered(audience, Run.Mode.ASK, false, false).map { it.name }, listOf("x_gametest_caffeine"), "a survivor gets the reading tool only")
       equal(helper, expansions.offered(audience, Run.Mode.TASK, false, false), emptyList<Any>(), "an agent gets none")
       equal(helper, expansions.prompts(Run.Mode.ASK).single().prompt, "Energy drinks come from sugar cane.", "the prompt")
-      val output = expansions.run("x_gametest_caffeine", Players.context(asker), Run.Mode.ASK, false, buildJsonObject {})
+      val output = expansions.run("x_gametest_caffeine", Players.context(asker), Run.Mode.ASK, false, buildJsonObject {}).now!!
       equal(helper, output.result.jsonObject["level"]!!.jsonPrimitive.int, 64, "the tool ran")
       equal(helper, output.result.jsonObject["player"]!!.jsonPrimitive.content, asker.gameProfile.name, "for the asker, as the game's player")
       equal(helper, output.summary, "caffeine 64", "its line")

@@ -2,7 +2,12 @@ package chat.allay.expansion;
 
 import java.util.UUID;
 
-/** The player who asked, as every platform describes them. Read it on the server thread, where the tool runs. */
+/**
+ * The player who asked, as every platform describes them. {@link #uuid}, {@link #name}, {@link #locale},
+ * {@link #isOperator}, {@link #dimension}, and the coordinates are taken when the call starts and safe on any thread;
+ * {@link #hasPermission} and {@link #unwrap} only on the server thread, before a {@link ToolResult#later} hands work
+ * elsewhere.
+ */
 public interface Asker {
   UUID uuid();
 

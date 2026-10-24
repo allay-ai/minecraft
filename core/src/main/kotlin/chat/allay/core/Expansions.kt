@@ -24,7 +24,12 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.logging.Logger
 
 /**
@@ -36,6 +41,9 @@ import java.util.logging.Logger
 class Expansions(private val log: Logger, private val config: () -> Config, private val platform: () -> Platform?) : AllayExpansions.Host {
   /** A registered expansion, read when it came and again on `/allay reload`. */
   class Loaded(val expansion: AllayExpansion, val id: String, val name: String, val version: String, val tools: Map<String, Tool>, val items: List<ItemInfo>, val prompt: String?)
+
+  /** What a tool gave on the server thread: its output, or since API 1.1 a stage that brings it later, off that thread. */
+  class Started(val name: String, val now: ToolOutput?, val later: CompletionStage<ToolResult>?)
 
   /** One of its tools: the name the model sees and the schema it fills. */
   class Tool(val wire: String, val expansion: String, val tool: AllayTool, val description: String, val schema: JsonObject, val access: AllayTool.Access)
@@ -123,9 +131,10 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
 
   /**
    * Runs [name] for the asker of [scope], on the server thread, after checking again what [offered] checked: the
-   * backend may only call a tool this run offered, and rights can change while it runs.
+   * backend may only call a tool this run offered, and rights can change while it runs. A tool that answers
+   * [ToolResult.later] comes back unfinished; [finish] waits for it elsewhere.
    */
-  fun run(name: String, scope: ToolScope, mode: Run.Mode, public: Boolean, args: JsonObject): ToolOutput {
+  fun run(name: String, scope: ToolScope, mode: Run.Mode, public: Boolean, args: JsonObject): Started {
     val tool = active().firstNotNullOfOrNull { it.tools[name] } ?: throw ToolError("the tool $name isn't on this server")
     val asker = scope.requireAsker()
     if (scope.task != null) throw ToolError("automation agents don't use other plugins' tools")
@@ -137,15 +146,47 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     } catch (error: ToolException) {
       throw ToolError(error.message?.take(500) ?: "failed")
     }
+    return result.pending()?.let { Started(name, null, it) } ?: Started(name, output(result), null)
+  }
+
+  /**
+   * The output of a call [run] started, off the server thread: at once, or once its stage completes, within [seconds].
+   * A stage that takes longer is cancelled and the wait ends with a [TimeoutException], as for any slow tool.
+   */
+  fun finish(started: Started, seconds: Long): ToolOutput {
+    started.now?.let { return it }
+    val future = future(started.later!!)
+    val result = try {
+      future.get(seconds, TimeUnit.SECONDS)
+    } catch (timeout: TimeoutException) {
+      future.cancel(true)
+      throw timeout
+    } catch (failed: ExecutionException) {
+      val cause = failed.cause
+      if (cause is ToolException) throw ToolError(cause.message?.take(500) ?: "failed")
+      throw cause ?: failed
+    } ?: throw ToolError("${started.name} returned nothing")
+    if (result.pending() != null) throw ToolError("${started.name} answered later twice")
+    return output(result)
+  }
+
+  private fun output(result: ToolResult): ToolOutput {
     val data = json(result.data())
     val text = data.toString()
     val output = if (text.length <= MAX_RESULT) data else JsonObject(mapOf("truncated" to JsonPrimitive(true), "json" to JsonPrimitive(text.take(MAX_RESULT) + "…")))
     return ToolOutput(output, result.summary()?.let(Catalog::plain)?.take(60).orEmpty())
   }
 
-  /** What an expansion's tool sees of the call. */
+  /** A stage as a future to wait on and cancel; some stages refuse to be one, and get a future that follows them. */
+  private fun future(stage: CompletionStage<ToolResult>): CompletableFuture<ToolResult> =
+    runCatching { stage.toCompletableFuture() }.getOrElse {
+      CompletableFuture<ToolResult>().also { future -> stage.whenComplete { result, error -> if (error != null) future.completeExceptionally(error) else future.complete(result) } }
+    }
+
+  /** What an expansion's tool sees of the call; made on the server thread, so the asker is read there. */
   private inner class Call(private val asker: PlayerAudience, private val args: Args, private val mode: ToolCall.Mode, private val public: Boolean, private val scope: ToolScope) : ToolCall {
-    override fun asker(): chat.allay.expansion.Asker = Player(asker)
+    private val player = Player(asker)
+    override fun asker(): chat.allay.expansion.Asker = player
     override fun args() = args
     override fun mode() = mode
     override fun isPublic() = public
@@ -156,12 +197,17 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
     }
   }
 
+  /** The asker as the call started: what a tool that answers later may still read on its own thread. */
   private class Player(private val player: PlayerAudience) : chat.allay.expansion.Asker {
     private val at = player.position
-    override fun uuid(): UUID = player.uuid
-    override fun name(): String = player.name
-    override fun locale(): String = player.locale
-    override fun isOperator() = player.operator
+    private val uuid = player.uuid
+    private val name = player.name
+    private val locale = player.locale
+    private val operator = player.operator
+    override fun uuid(): UUID = uuid
+    override fun name(): String = name
+    override fun locale(): String = locale
+    override fun isOperator() = operator
     override fun hasPermission(permission: String, byDefault: Boolean) = player.can(permission, byDefault)
     override fun dimension(): String = at.dimension
     override fun x() = at.x

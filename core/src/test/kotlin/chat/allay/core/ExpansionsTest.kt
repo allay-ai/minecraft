@@ -146,4 +146,26 @@ class ExpansionsTest {
     assertEquals("""{"list":[1,"a",null],"uuid":"00000000-0000-0000-0000-000000000000","other":"x"}""", back.toString())
     assertEquals(JsonPrimitive(true), Expansions.json(true))
   }
+
+  @Test fun `a result that comes later is awaited off the server thread, refused, or given up on`() {
+    val now = expansions.finish(Expansions.Started("x_redbull_now", chat.allay.core.tools.ToolOutput(JsonPrimitive(1), ""), null), 1)
+    assertEquals(JsonPrimitive(1), now.result)
+
+    val stage = java.util.concurrent.CompletableFuture<ToolResult>()
+    Thread { Thread.sleep(50); stage.complete(ToolResult.of(mapOf("caffeine" to 64)).summary("caffeine 64")) }.start()
+    val later = expansions.finish(Expansions.Started("x_redbull_caffeine", null, stage), 5)
+    assertEquals("64", (later.result as kotlinx.serialization.json.JsonObject)["caffeine"]!!.jsonPrimitive.content)
+    assertEquals("caffeine 64", later.summary)
+
+    val refused = java.util.concurrent.CompletableFuture<ToolResult>().apply { completeExceptionally(chat.allay.expansion.ToolException("no can in hand")) }
+    val error = kotlin.runCatching { expansions.finish(Expansions.Started("x_redbull_caffeine", null, refused), 1) }.exceptionOrNull()
+    assertEquals("no can in hand", error?.message)
+
+    val slow = java.util.concurrent.CompletableFuture<ToolResult>()
+    assertTrue(kotlin.runCatching { expansions.finish(Expansions.Started("x_redbull_slow", null, slow), 0) }.exceptionOrNull() is java.util.concurrent.TimeoutException)
+    assertTrue(slow.isCancelled)
+
+    val twice = java.util.concurrent.CompletableFuture.completedFuture(ToolResult.later(java.util.concurrent.CompletableFuture()))
+    assertEquals("x_redbull_twice answered later twice", kotlin.runCatching { expansions.finish(Expansions.Started("x_redbull_twice", null, twice), 1) }.exceptionOrNull()?.message)
+  }
 }
