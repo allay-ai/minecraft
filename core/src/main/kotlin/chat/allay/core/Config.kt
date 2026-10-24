@@ -108,7 +108,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val marksMaxSeconds = config.int("tools.show_marks.max_seconds", 600).coerceIn(10, 3600)
     val marksSeconds = config.int("tools.show_marks.default_seconds", 30).coerceIn(1, marksMaxSeconds)
     val villagerRadius = config.int("tools.villager_radius", 32).coerceIn(8, 64)
-    /** Plugins `get_server` leaves out of its list, by name, in any case. */
+    /** Plugins `get_server` and `search_commands` leave out, by name, in any case. */
     val hiddenPlugins = config.strings("tools.server.hidden_plugins").map(String::lowercase).toSet()
 
     /**

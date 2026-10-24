@@ -142,6 +142,7 @@ tools:
     locate_structure: true        # The nearest village, stronghold, and so on (the search loads the server)
     locate_biome: true            # The nearest biome of a kind (the search loads the server)
     get_server: true              # Server version, players online, the plugins or mods with their versions, and the data packs
+    search_commands: true         # The server's commands this player may run, with the plugin or mod each comes from and its usage
     get_locations: true           # Respawn point, world spawn, and the last death
     get_nearby_players: true      # Other players as the asker's locator bar shows them: name, distance, direction
     get_death_info: true          # Where the player last died, what dropped, and how long it will lie there; Allay's backend keeps earlier deaths
@@ -225,7 +226,7 @@ tools:
   # The structure search radius in chunks; it runs on the main thread, so keep it small.
   locate_structure_radius: 64
   server:
-    # Plugins or mods get_server leaves out of its list, by name or id, such as an anti-cheat.
+    # Plugins or mods get_server and search_commands leave out, by name or id, such as an anti-cheat.
     hidden_plugins: []
 
 # Other plugins and mods can add tools, items, recipes, and a few lines of advice for the

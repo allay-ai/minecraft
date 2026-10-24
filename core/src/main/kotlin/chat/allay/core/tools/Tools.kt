@@ -92,8 +92,10 @@ object ToolLabels {
     }
     val values = plain.filter { (key, _) -> listed.none { it.first == key } } + listed
     // Tools with an action (reminders, goals) take a label per action, list when the call names none: tools.reminders.add.
-    val action = values.toMap()["action"]?.lowercase() ?: "list"
-    val key = listOf("tools.$name.$action", "tools.$name").firstOrNull(lang::has)
+    // A tool may also label what a call names (search_commands' by_plugin), before the label for none.
+    val action = values.toMap()["action"]?.lowercase()
+    val keys = listOfNotNull(action?.let { "tools.$name.$it" }) + args.orEmpty().keys.map { "tools.$name.by_$it" } + listOf("tools.$name.${action ?: "list"}", "tools.$name")
+    val key = keys.firstOrNull(lang::has)
     val text = if (key != null) lang.text(key, *values.toTypedArray()) else lang.text("tool_lines.unknown", "name" to name)
     // An argument the call didn't pass, or one that isn't a plain value, leaves no trace.
     return Regex("\\{\\w+}").replace(text, "")
