@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.18.0
+
+Allay Server 6.18.3 tells the model about both; allay.chat runs it.
+
+- 🥫 **Plugins' items craft.** The crafting agent makes a plugin's or data pack's item by the id `search_items` and `get_recipes` give it, from that plugin's own recipes: Red Bull's empty can (`redbull:empty_can`) from iron and copper nuggets, the nuggets broken off ingots on the way, or a whole can from taurine, a dye, sugar, an empty can, and a water bottle. Its own items count as ingredients where its recipe asks for them. Before, `craft` knew the game's items only and answered “no item called redbull:empty_can”. A data pack's item built on a game item no longer stands in for that item: an emerald's recipes don't make the pack's ruby. On Spigot, Paper, Fabric, and NeoForge.
+- 💧 **Water bottles.** `craft` fills glass bottles at water or a cauldron within 8 blocks, a level a bottle as in the game, and crafts the glass bottles from glass in the inventory or the chests around first, also for a recipe that needs a water bottle. `brew` with only water bottles fills them at once without a stand; it failed with `IndexOutOfBoundsException` before. On Spigot, Paper, Fabric, and NeoForge.
+
 ## 6.17.0
 
 - 🏷️ **Names in the language Allay answers in.** `search_items`, `get_recipes`, and the anvil plan name things in the language Allay talks to the player in, the one they chose or Allay picked by their country, and no longer in their game's: a player whose game is in English and who reads Allay in Russian got English names, and the model translated plugins' items itself (Red Bull's taurine became «таврин»). A plugin's own language files count, so its items come with their names in Russian too, when its jar has them. On Spigot, Paper, Fabric, and NeoForge.
