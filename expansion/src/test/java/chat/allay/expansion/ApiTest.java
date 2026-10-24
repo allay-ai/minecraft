@@ -36,6 +36,37 @@ class ApiTest {
   }
 
   @Test
+  void schemaNestsObjectsAndBounds() {
+    String json = Schema.arguments()
+      .string("name", null, true, 32)
+      .number("strength", null, false, 0.5, 2)
+      .object("at", null, false, Schema.arguments().integer("x", null, true).integer("z", null, true))
+      .objects("cans", "Several cans", false, 8, Schema.arguments().string("can", null, true))
+      .toJson();
+    assertEquals(
+      "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"maxLength\":32},"
+        + "\"strength\":{\"type\":\"number\",\"minimum\":0.5,\"maximum\":2.0},"
+        + "\"at\":{\"type\":\"object\",\"properties\":{\"x\":{\"type\":\"integer\"},\"z\":{\"type\":\"integer\"}},\"required\":[\"x\",\"z\"]},"
+        + "\"cans\":{\"type\":\"array\",\"description\":\"Several cans\",\"items\":{\"type\":\"object\",\"properties\":{\"can\":{\"type\":\"string\"}},\"required\":[\"can\"]},\"maxItems\":8}},"
+        + "\"required\":[\"name\"]}",
+      json);
+    assertThrows(IllegalArgumentException.class, () -> Schema.arguments().object("at", null, false, Schema.json("{\"type\":\"object\"}")));
+    assertThrows(IllegalArgumentException.class, () -> Schema.arguments().objects("cans", null, false, 4, Schema.none()));
+    Args args = new Args(Map.of("cans", List.of(Map.of("can", "redbull:original"), "junk")));
+    assertEquals(1, args.objects("cans").size());
+    assertEquals("redbull:original", args.objects("cans").get(0).string("can"));
+  }
+
+  @Test
+  void laterResultsCarryTheirStage() {
+    java.util.concurrent.CompletableFuture<ToolResult> stage = new java.util.concurrent.CompletableFuture<>();
+    ToolResult later = ToolResult.later(stage);
+    assertSame(stage, later.pending());
+    assertNull(ToolResult.text("now").pending());
+    assertThrows(IllegalStateException.class, () -> later.summary("no"));
+  }
+
+  @Test
   void itemsCheckTheirIds() {
     assertThrows(IllegalArgumentException.class, () -> ItemInfo.of("original"));
     assertThrows(IllegalArgumentException.class, () -> ItemInfo.of("minecraft:sugar"));

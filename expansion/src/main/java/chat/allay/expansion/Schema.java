@@ -14,6 +14,9 @@ import java.util.Map;
  *   .string("can", "The can's id, like redbull:original", true)
  *   .integer("count", "How many, 1 to 64", false, 1, 64)
  *   .choice("form", "Where to look", false, "hand", "inventory")
+ *   .objects("cans", "Several cans at once", false, 8, Schema.arguments()
+ *     .string("can", "The can's id", true)
+ *     .integer("count", "How many", false, 1, 64))
  * }</pre>
  */
 public final class Schema {
@@ -59,8 +62,23 @@ public final class Schema {
     return property(name, property, required);
   }
 
+  /** A string of at most {@code maxLength} characters. Since API 1.1. */
+  public Schema string(String name, String description, boolean required, int maxLength) {
+    Map<String, Object> property = describe("string", description);
+    property.put("maxLength", maxLength);
+    return property(name, property, required);
+  }
+
   public Schema number(String name, String description, boolean required) {
     return property(name, describe("number", description), required);
+  }
+
+  /** A number from {@code min} to {@code max}. Since API 1.1. */
+  public Schema number(String name, String description, boolean required, double min, double max) {
+    Map<String, Object> property = describe("number", description);
+    property.put("minimum", min);
+    property.put("maximum", max);
+    return property(name, property, required);
   }
 
   public Schema bool(String name, String description, boolean required) {
@@ -82,6 +100,27 @@ public final class Schema {
     return property(name, property, required);
   }
 
+  /** One object with arguments of its own, built with {@link #arguments()}. Since API 1.1. */
+  public Schema object(String name, String description, boolean required, Schema fields) {
+    Map<String, Object> property = nested(fields);
+    if (description != null && !description.isBlank()) property.put("description", description);
+    return property(name, property, required);
+  }
+
+  /** A list of objects, each with the arguments of {@code fields}, at most {@code maxItems} of them. Since API 1.1. */
+  public Schema objects(String name, String description, boolean required, int maxItems, Schema fields) {
+    Map<String, Object> property = describe("array", description);
+    property.put("items", nested(fields));
+    property.put("maxItems", maxItems);
+    return property(name, property, required);
+  }
+
+  private static Map<String, Object> nested(Schema fields) {
+    if (fields == null || fields.raw != null) throw new IllegalArgumentException("a nested object is built with Schema.arguments()");
+    if (fields.properties.isEmpty()) throw new IllegalArgumentException("a nested object needs at least one argument");
+    return fields.toMap();
+  }
+
   private static Map<String, Object> describe(String type, String description) {
     Map<String, Object> property = new LinkedHashMap<>();
     property.put("type", type);
@@ -99,12 +138,15 @@ public final class Schema {
 
   /** The schema as JSON. */
   public String toJson() {
-    if (raw != null) return raw;
+    return raw != null ? raw : Json.write(toMap());
+  }
+
+  private Map<String, Object> toMap() {
     Map<String, Object> schema = new LinkedHashMap<>();
     schema.put("type", "object");
     schema.put("properties", properties);
     if (!required.isEmpty()) schema.put("required", required);
-    return Json.write(schema);
+    return schema;
   }
 
   @Override

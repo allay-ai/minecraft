@@ -1,5 +1,6 @@
 package chat.allay.expansion;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,6 +59,21 @@ public final class Args {
     Map<String, Object> nested = new LinkedHashMap<>();
     map.forEach((k, v) -> nested.put(String.valueOf(k), v));
     return new Args(nested);
+  }
+
+  /** A list of objects, each as its own arguments, as {@link Schema#objects} asks for; entries that aren't objects are left out. Since API 1.1. */
+  public List<Args> objects(String key) {
+    List<Object> list = list(key);
+    if (list == null) return null;
+    List<Args> out = new ArrayList<>();
+    for (Object item : list) {
+      if (item instanceof Map<?, ?> map) {
+        Map<String, Object> nested = new LinkedHashMap<>();
+        map.forEach((k, v) -> nested.put(String.valueOf(k), v));
+        out.add(new Args(nested));
+      }
+    }
+    return out;
   }
 
   /** Every argument as it came. */
