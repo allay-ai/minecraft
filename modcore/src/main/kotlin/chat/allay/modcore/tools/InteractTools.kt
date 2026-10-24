@@ -63,9 +63,9 @@ object InteractTools {
         Button.Note(label, args.string("text")?.take(200) ?: throw ToolError("note needs the text to save"), x, y, z, args.string("dimension")?.let(Dimensions::parse))
       }
       "recipe" -> {
-        val item = item(args.string("item") ?: throw ToolError("recipe needs the item"))
-        if (RecipeMenu.recipesFor(player, item).isEmpty()) throw ToolError("${Recipes.id(item)} has no recipe on this server; don't offer a recipe button")
-        Button.Recipe(label, Recipes.id(item))
+        val item = recipeTarget(Catalogs.build(context), args.string("item") ?: throw ToolError("recipe needs the item"))
+        if (RecipeMenu.recipesFor(player, item).isEmpty()) throw ToolError("${item.id} has no recipe on this server; don't offer a recipe button")
+        Button.Recipe(label, item.id)
       }
       "copy" -> Button.Copy(label, args.string("text")?.take(200)?.ifBlank { null } ?: throw ToolError("copy needs the text to copy"))
       "enchants" -> Button.Enchants(label)
@@ -83,6 +83,16 @@ object InteractTools {
       "villagers" -> Button.Villagers(label, args.string("item")?.let { Recipes.id(item(it)) })
       else -> throw ToolError("unknown button type $type")
     }
+  }
+
+  /**
+   * The item a recipe button names: a data pack's or plugin's own item by the id tools give it (`mypack:ruby`, which
+   * the registry doesn't hold), else the game's item [name] means.
+   */
+  fun recipeTarget(catalog: Catalog, name: String): RecipeMenu.Target {
+    val custom = catalog.find(name.trim().lowercase(), Catalog.Kind.CUSTOM)
+    custom?.base?.let(::known)?.let { return RecipeMenu.Target(custom.id, it) }
+    return RecipeMenu.Target.of(item(name))
   }
 
   /** The item [name] means, forgiving plurals, spaces, `minecraft:`, and `#`; the error names close ids. */

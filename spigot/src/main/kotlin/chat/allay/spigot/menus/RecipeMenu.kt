@@ -20,22 +20,24 @@ import org.bukkit.inventory.SmokingRecipe
 import org.bukkit.inventory.StonecuttingRecipe
 import chat.allay.core.Lang
 import chat.allay.spigot.menus.Menu.Companion.lore
+import chat.allay.spigot.tools.Catalogs
 
 /**
  * This server's recipes as the crafting screen draws them. Clicking an ingredient opens its recipe in the same
  * window, and “Back” walks the way back. Ingredients that accept several items (any planks) cycle once a second.
+ * A plugin's own item (`redbull:ice`) shows its own recipes, not those of the game's item it's built on.
  */
-class RecipeMenu(player: Player, private val lang: Lang, first: Material) : Menu(player, 54, lang.text("menus.recipe.title")) {
-  private val history = ArrayDeque<Material>()
+class RecipeMenu(player: Player, private val lang: Lang, first: Target) : Menu(player, 54, lang.text("menus.recipe.title")) {
+  private val history = ArrayDeque<Target>()
   private var item = first
   private var recipes = recipesFor(first)
   private var page = 0
   private var tick = 0
 
   /** Whether an item has a recipe, asked once per item: the lookup walks every recipe on the server. */
-  private val craftable = HashMap<Material, Boolean>()
+  private val craftable = HashMap<Target, Boolean>()
 
-  private fun craftable(material: Material) = craftable.getOrPut(material) { recipesFor(material).isNotEmpty() }
+  private fun craftable(target: Target) = craftable.getOrPut(target) { recipesFor(target).isNotEmpty() }
 
   /** What each slot shows: one or more items, cycled while the window is open. */
   private val slots = HashMap<Int, List<ItemStack>>()
@@ -72,7 +74,7 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Material) : Menu
   private fun paint() {
     for ((slot, options) in slots) {
       val shown = options[tick % options.size].clone()
-      val hint = if (craftable(shown.type)) lang.text("menus.recipe.open") else lang.text("menus.recipe.none")
+      val hint = if (craftable(Target.of(shown))) lang.text("menus.recipe.open") else lang.text("menus.recipe.none")
       set(slot, shown.lore(null, listOfNotNull(hint, lang.text("menus.recipe.options").takeIf { options.size > 1 })))
     }
   }
@@ -91,16 +93,16 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Material) : Menu
       NEXT -> if (recipes.size > 1) { page = (page + 1) % recipes.size; draw() }
       in slots.keys -> {
         val options = slots[slot]!!
-        val wanted = options[tick % options.size].type
+        val wanted = Target.of(options[tick % options.size])
         if (!craftable(wanted)) player.playSound(player.location, Sound.BLOCK_NOTE_BLOCK_BASS, 0.6f, 0.8f) else show(wanted, remember = true)
       }
     }
   }
 
-  private fun show(material: Material, remember: Boolean) {
+  private fun show(target: Target, remember: Boolean) {
     if (remember) history.addLast(item)
-    item = material
-    recipes = recipesFor(material)
+    item = target
+    recipes = recipesFor(target)
     page = 0
     player.playSound(player.location, Sound.ITEM_BOOK_PAGE_TURN, 0.7f, 1f)
     draw()
@@ -124,6 +126,14 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Material) : Menu
 
   private fun trim(value: Double) = if (value % 1.0 == 0.0) value.toLong().toString() else "%.1f".format(value)
 
+  /** An item as tools name it ([Catalogs.id]: the game's id, or a plugin's own like `redbull:ice`), and the game's item it's built on. */
+  data class Target(val id: String, val base: Material) {
+    companion object {
+      fun of(stack: ItemStack) = Target(Catalogs.id(stack), stack.type)
+      fun of(material: Material) = Target(material.key.key, material)
+    }
+  }
+
   companion object {
     private val GRID = intArrayOf(10, 11, 12, 19, 20, 21, 28, 29, 30)
     private const val STATION = 23
@@ -134,10 +144,13 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Material) : Menu
     private const val NEXT = 50
     private const val CLOSE = 53
 
-    /** The recipes this window can draw; special ones (map cloning, dyeing armor) have no fixed grid. */
-    fun recipesFor(material: Material): List<Recipe> = if (!material.isItem || material.isAir) emptyList() else
-      Bukkit.getRecipesFor(ItemStack(material)).filter {
-        it is ShapedRecipe || it is ShapelessRecipe || it is CookingRecipe<*> || it is StonecuttingRecipe || it is SmithingTransformRecipe
+    /**
+     * The recipes this window can draw for [target]; special ones (map cloning, dyeing armor) have no fixed grid. Bukkit
+     * finds recipes by the game's item, so a plugin's can and a potion share theirs: only those that make [target] stay.
+     */
+    fun recipesFor(target: Target): List<Recipe> = if (!target.base.isItem || target.base.isAir) emptyList() else
+      Bukkit.getRecipesFor(ItemStack(target.base)).filter {
+        (it is ShapedRecipe || it is ShapelessRecipe || it is CookingRecipe<*> || it is StonecuttingRecipe || it is SmithingTransformRecipe) && Catalogs.id(it.result) == target.id
       }.distinctBy { it.javaClass to (it as? org.bukkit.Keyed)?.key }
 
     private fun items(choice: RecipeChoice): List<ItemStack> = when (choice) {

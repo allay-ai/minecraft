@@ -10,6 +10,7 @@ import chat.allay.modcore.menus.VillagerMenu
 import chat.allay.modcore.tools.Anvils
 import chat.allay.modcore.tools.BookItems
 import chat.allay.modcore.tools.BrewingRecipes
+import chat.allay.modcore.tools.Catalogs
 import chat.allay.modcore.tools.Features
 import chat.allay.modcore.tools.InteractTools
 import chat.allay.modcore.tools.Locator
@@ -121,7 +122,7 @@ class GameClicks(private val features: Features) : Clicks.Game {
   /** The recipe button. */
   fun recipe(player: ServerPlayer, item: String) {
     val found = try {
-      InteractTools.item(item)
+      InteractTools.recipeTarget(Catalogs.build(player.level().server, features.expansions, features.names()), item)
     } catch (_: ToolError) {
       lang(player).send(player.audience, "messages.unknown_item", "item" to item)
       return

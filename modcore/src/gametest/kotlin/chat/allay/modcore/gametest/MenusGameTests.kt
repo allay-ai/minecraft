@@ -23,6 +23,8 @@ import chat.allay.modcore.menus.SettingsMenu
 import chat.allay.modcore.menus.VillagerMenu
 import chat.allay.modcore.of
 import chat.allay.modcore.tools.Anvils
+import chat.allay.modcore.tools.Catalogs
+import chat.allay.modcore.tools.Recipes
 import chat.allay.modcore.tools.Trails
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
@@ -291,6 +293,22 @@ class MenusGameTests {
       tag("action" to "give", "item" to "diamond"),
     ).map { runCatching { check(player, it) }.exceptionOrNull() }
     helper.assertTrue(refused.all { it is ToolError }, "a tag that can't work stays a label: $refused")
+    done(helper, player)
+  }
+
+  @GameTest
+  fun aDataPacksItemGetsARecipeButtonOfItsOwn(helper: GameTestHelper) {
+    val player = survivor(helper)
+    // get_recipes names the pack's ruby by its model, and so does the model's button: the registry has no such item.
+    equal(helper, check(player, tag("action" to "recipe", "item" to "allay_gametest:ruby")), Button.Recipe("Go", "allay_gametest:ruby"), "the ruby's button")
+    pressStored(player, Button.Recipe("Go", "allay_gametest:ruby"))
+    val view = view(player)
+    helper.assertTrue(view?.menu is RecipeMenu, "the ruby's recipe window opens: ${view?.menu}")
+    equal(helper, Catalogs.id(view!!.getSlot(25).item), "allay_gametest:ruby", "the window makes the ruby")
+    player.closeContainer()
+    // The emerald underneath keeps its own recipes, without the ruby's.
+    val emerald = RecipeMenu.recipesFor(player, RecipeMenu.Target.of(Items.EMERALD)).map { Recipes.result(it.value())?.let(Catalogs::id) }
+    helper.assertTrue(emerald.isNotEmpty() && emerald.all { it == "emerald" }, "the emerald's recipes make emeralds: $emerald")
     done(helper, player)
   }
 

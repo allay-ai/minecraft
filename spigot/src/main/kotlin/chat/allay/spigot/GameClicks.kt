@@ -13,6 +13,7 @@ import chat.allay.spigot.menus.AnvilPlanMenu
 import chat.allay.spigot.menus.BrewingMenu
 import chat.allay.spigot.menus.EnchantMenu
 import chat.allay.spigot.tools.Anvils
+import chat.allay.spigot.tools.Catalogs
 import chat.allay.spigot.tools.BrewingRecipes
 import chat.allay.spigot.menus.RecipeMenu
 import chat.allay.spigot.menus.VillagerMenu
@@ -105,17 +106,17 @@ class GameClicks(
 
   /** The recipe button. */
   fun recipe(player: Player, item: String) {
-    val material = try {
-      InteractTools.material(item)
+    val target = try {
+      InteractTools.recipeTarget(Catalogs.build(features.expansions, features.names()), item)
     } catch (_: ToolError) {
       lang(player).send(player, "messages.unknown_item", "item" to item)
       return
     }
-    if (RecipeMenu.recipesFor(material).isEmpty()) {
+    if (RecipeMenu.recipesFor(target).isEmpty()) {
       lang(player).send(player, "messages.no_recipe")
       return
     }
-    RecipeMenu(player, lang(player), material).open()
+    RecipeMenu(player, lang(player), target).open()
   }
 
   /** The enchanting button: the window for whatever is in hand right now. */
