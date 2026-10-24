@@ -29,6 +29,12 @@ object Recipes {
    * Every recipe in the order Bukkit's `recipeIterator` walks them: grouped by type, the types in the order the game
    * first met them. Only the first few recipes for an item reach the model, so the order matters.
    */
+  /**
+   * What the recipes are now: the game's recipe map, which every `/reload` and data pack change replaces, together with
+   * the server it belongs to. Equal while nothing changed, so what's built from the recipes may be kept that long.
+   */
+  fun generation(server: MinecraftServer): List<Any> = listOf(server, (server.recipeManager as RecipeAccess.Manager).`allay$recipes`())
+
   fun all(server: MinecraftServer): Collection<RecipeHolder<*>> =
     ((server.recipeManager as RecipeAccess.Manager).`allay$recipes`() as RecipeAccess.Map).`allay$byType`().values()
 

@@ -108,6 +108,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
 
   override fun stop() {
     chat.allay.modcore.tools.BrewingRecipes.bind(null)
+    // The catalog holds this server's recipes; a singleplayer game starts the next world's server with its own.
+    chat.allay.modcore.tools.Catalogs.clear()
     placeholders?.close()
     integrations.forEach { it.close() }
     automation.stop()

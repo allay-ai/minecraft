@@ -59,33 +59,64 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     return entry.keys.firstNotNullOfOrNull { table[it] }?.let(::plain)
   }
 
+  /** A name as [search] compares it: folded once, with its words and its letters without spaces. */
+  class Folded(val text: String) {
+    val compact: String = text.replace(" ", "")
+    val words: List<String> = text.split(' ')
+  }
+
+  /** Every name each entry goes by in [languages], folded once, in the order of [entries]. */
+  private class Index(val languages: Set<String>, val forms: List<Array<Folded>>)
+
+  @Volatile private var index: Index? = null
+
+  /**
+   * The names to search by: the id, the names an expansion or the item gives, and every translation key in every
+   * language Allay has, the reader's included. Built once, and again only when Allay learns a language: a player may
+   * name a thing in another language than their game's, and a tool may not know whose game it is.
+   */
+  private fun index(code: String?): Index {
+    val languages = names?.known().orEmpty() + GameNames.ENGLISH + listOfNotNull(code)
+    index?.takeIf { it.languages.containsAll(languages) }?.let { return it }
+    val tables = languages.mapNotNull { names?.table(it) }
+    val forms = entries.map { entry ->
+      val all = LinkedHashSet<String>()
+      all += fold(entry.id); all += fold(entry.id.substringAfter(':'))
+      entry.names.values.forEach { all += fold(it) }
+      for (table in tables) entry.keys.forEach { key -> table[key]?.let { all += fold(it) } }
+      all.filter { it.isNotEmpty() }.map(::Folded).toTypedArray()
+    }
+    return Index(languages, forms).also { index = it }
+  }
+
   /**
    * What fits [query], an id or a name in any language the game has, best first: the exact id or name, then names that
    * start with it or hold its words, then near spellings (“infestation” finds `infested`, the Potion of Infestation).
    */
   fun search(query: String, locale: String?, limit: Int = 10, kinds: Set<Kind> = Kind.entries.toSet()): List<Match> {
-    val wanted = fold(query)
-    if (wanted.isEmpty()) return emptyList()
+    val wanted = Folded(fold(query))
+    if (wanted.text.isEmpty()) return emptyList()
     val code = locale?.let(GameNames::code)
+    val forms = index(code).forms
+    val hits = ArrayList<Pair<Entry, Int>>()
+    entries.forEachIndexed { at, entry ->
+      if (entry.kind !in kinds) return@forEachIndexed
+      var best = 0
+      for (form in forms[at]) {
+        best = maxOf(best, score(wanted, form))
+        if (best == EXACT) break
+      }
+      if (best > 0) hits += entry to best
+    }
     val local = code?.let { names?.table(it) }.orEmpty()
     val english = names?.table(GameNames.ENGLISH).orEmpty()
-    // A player may name a thing in another language than their game's, and a tool may not know whose game it is.
-    val others = names?.known().orEmpty().filter { it != code && it != GameNames.ENGLISH }.map { names!!.table(it) }
-    return entries.asSequence().filter { it.kind in kinds }.mapNotNull { entry ->
-      val localName = code?.let { entry.names[it] ?: entry.keys.firstNotNullOfOrNull(local::get) }
-      val englishName = entry.names[GameNames.ENGLISH] ?: entry.keys.firstNotNullOfOrNull(english::get)
-      // Every name it goes by: the id, its names in the reader's language and in English, and the other forms' names.
-      val candidates = buildList {
-        add(entry.id); add(entry.id.substringAfter(':'))
-        localName?.let(::add); englishName?.let(::add)
-        entry.keys.drop(1).forEach { key -> local[key]?.let(::add); english[key]?.let(::add) }
-        others.forEach { table -> entry.keys.firstNotNullOfOrNull(table::get)?.let(::add) }
-        addAll(entry.names.values)
+    return hits.sortedWith(compareByDescending<Pair<Entry, Int>> { it.second }.thenBy { if (it.first.source == MINECRAFT) 0 else 1 }.thenBy { it.first.id.length }.thenBy { it.first.id })
+      .take(limit).map { (entry, score) ->
+        // Names only for what's shown: the reader's language, else English.
+        val localName = code?.let { entry.names[it] ?: entry.keys.firstNotNullOfOrNull(local::get) }
+        val englishName = entry.names[GameNames.ENGLISH] ?: entry.keys.firstNotNullOfOrNull(english::get)
+        Match(entry, localName?.let(::plain) ?: englishName?.let(::plain), englishName?.let(::plain), score)
       }
-      val score = candidates.maxOf { score(wanted, fold(it)) }
-      if (score <= 0) null else Match(entry, localName?.let(::plain) ?: englishName?.let(::plain), englishName?.let(::plain), score)
-    }.sortedWith(compareByDescending<Match> { it.score }.thenBy { if (it.entry.source == MINECRAFT) 0 else 1 }.thenBy { it.entry.id.length }.thenBy { it.entry.id })
-      .take(limit).toList()
   }
 
   /**
@@ -108,23 +139,25 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     val hits = search(query, locale, limit.coerceIn(1, 20))
     return buildJsonObject {
       put("query", query)
-      put("matches", buildJsonArray {
-        hits.forEach { hit ->
-          add(buildJsonObject {
-            put("id", hit.entry.id)
-            put("kind", hit.entry.kind.wire)
-            hit.name?.let { put("name", it) }
-            if (hit.english != null && hit.english != hit.name) put("name_en", hit.english)
-            put("source", hit.entry.source)
-            hit.entry.base?.let { put("base", it) }
-            hit.entry.description?.let { put("description", it.take(300)) }
-            if (hit.entry.made.isNotEmpty()) put("made", JsonArray(hit.entry.made.sorted().map(::JsonPrimitive)))
-            if (hit.score >= EXACT) put("exact", true)
-          })
-        }
-      })
+      put("matches", buildJsonArray { hits.forEach { add(json(it)) } })
       if (hits.isEmpty()) put("note", "nothing on this server matches; that doesn't prove it doesn't exist elsewhere: try another name, the English name, or an id")
     }
+  }
+
+  /** `search_items` for several names at once (since 6.13): each one's [answer], in the order asked. */
+  fun answers(queries: List<String>, locale: String?, limit: Int): JsonObject =
+    buildJsonObject { put("results", JsonArray(queries.map { answer(it, locale, limit) })) }
+
+  private fun json(hit: Match): JsonObject = buildJsonObject {
+    put("id", hit.entry.id)
+    put("kind", hit.entry.kind.wire)
+    hit.name?.let { put("name", it) }
+    if (hit.english != null && hit.english != hit.name) put("name_en", hit.english)
+    put("source", hit.entry.source)
+    hit.entry.base?.let { put("base", it) }
+    hit.entry.description?.let { put("description", it.take(300)) }
+    if (hit.entry.made.isNotEmpty()) put("made", JsonArray(hit.entry.made.sorted().map(::JsonPrimitive)))
+    if (hit.score >= EXACT) put("exact", true)
   }
 
   /** “no item called X”, with what this server has under close names, for a tool that looked for one thing. */
@@ -142,7 +175,7 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
       val byId = LinkedHashMap<String, Entry>()
       base.forEach { byId.putIfAbsent(it.id + "|" + it.kind.takeIf { kind -> kind == Kind.POTION }, it) }
       for (entry in extra) {
-        val key = byId.keys.firstOrNull { it == entry.id + "|null" } ?: (entry.id + "|null")
+        val key = entry.id + "|null"
         val known = byId[key]
         byId[key] = known?.copy(
           names = known.names + entry.names,
@@ -167,36 +200,58 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     fun plain(text: String): String = text.replace(Regex("§."), "").trim()
 
     /** How well a folded [candidate] fits a folded [wanted]: 0 for not at all. */
-    fun score(wanted: String, candidate: String): Int {
-      if (candidate.isEmpty()) return 0
-      if (candidate == wanted) return EXACT
-      if (candidate.replace(" ", "") == wanted.replace(" ", "")) return 95
-      if (candidate.startsWith(wanted)) return 85
-      val words = candidate.split(' ')
-      val asked = wanted.split(' ')
+    fun score(wanted: String, candidate: String): Int = score(Folded(wanted), Folded(candidate))
+
+    /** [score] on names folded beforehand: [search] runs it for every name of every entry. */
+    fun score(wanted: Folded, candidate: Folded): Int {
+      val text = candidate.text
+      if (text.isEmpty()) return 0
+      if (text == wanted.text) return EXACT
+      if (candidate.compact == wanted.compact) return 95
+      if (text.startsWith(wanted.text)) return 85
+      val words = candidate.words
+      val asked = wanted.words
       if (asked.all { word -> words.any { it.startsWith(word) } }) return 75
-      if (wanted.length >= 3 && wanted in candidate) return 65
+      if (wanted.text.length >= 3 && wanted.text in text) return 65
       // Near spellings, and words that share a long start (infestation, infested), one word of the query at a time.
       var best = 0
-      for (word in asked.filter { it.length >= 4 }) {
+      for (word in asked) {
+        if (word.length < 4) continue
+        val most = maxOf(1, word.length / 4)
         for (other in words) {
-          val distance = distance(word, other)
-          if (distance <= maxOf(1, word.length / 4)) best = maxOf(best, 55 - distance * 5)
-          val shared = word.commonPrefixWith(other).length
-          if (shared >= 5 && shared * 3 >= maxOf(word.length, other.length) * 2) best = maxOf(best, 45)
+          if (best < 55 && kotlin.math.abs(word.length - other.length) <= minOf(most, 3)) {
+            val distance = distance(word, other, most)
+            if (distance <= most) best = maxOf(best, 55 - distance * 5)
+          }
+          if (best < 45 && word.length >= 5 && other.length >= 5) {
+            val shared = shared(word, other)
+            if (shared >= 5 && shared * 3 >= maxOf(word.length, other.length) * 2) best = 45
+          }
         }
       }
       return if (asked.size > 1 && best > 0) best - 10 else best
     }
 
-    private fun distance(a: String, b: String): Int {
-      if (kotlin.math.abs(a.length - b.length) > 3) return 99
+    private fun shared(a: String, b: String): Int {
+      val most = minOf(a.length, b.length)
+      var at = 0
+      while (at < most && a[at] == b[at]) at++
+      return at
+    }
+
+    /** The edit distance between [a] and [b], or anything above [most] once it can't come back under it. */
+    private fun distance(a: String, b: String, most: Int): Int {
       var previous = IntArray(b.length + 1) { it }
+      var row = IntArray(b.length + 1)
       for (i in 1..a.length) {
-        val row = IntArray(b.length + 1)
         row[0] = i
-        for (j in 1..b.length) row[j] = minOf(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
-        previous = row
+        var least = i
+        for (j in 1..b.length) {
+          row[j] = minOf(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
+          if (row[j] < least) least = row[j]
+        }
+        if (least > most) return most + 1
+        val swap = previous; previous = row; row = swap
       }
       return previous[b.length]
     }

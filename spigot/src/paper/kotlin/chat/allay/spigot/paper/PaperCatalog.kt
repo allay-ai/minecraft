@@ -14,6 +14,14 @@ import org.bukkit.inventory.RecipeChoice
  * what comes out), an item name's translation key, and the data packs. Loaded only on Paper.
  */
 object PaperCatalog {
+  /** Calls [changed] whenever Paper reloads the data packs, recipes and all: `/minecraft:reload`, a pack switched on. */
+  fun reloads(changed: () -> Unit): org.bukkit.event.Listener = Reloads(changed)
+
+  class Reloads(private val changed: () -> Unit) : org.bukkit.event.Listener {
+    @org.bukkit.event.EventHandler
+    fun reloaded(event: io.papermc.paper.event.server.ServerResourcesReloadedEvent) = changed()
+  }
+
   /** A brew as Paper describes it: the bottle below, the reagent on top, and what comes out. */
   class Brew(val key: String, val input: RecipeChoice, val reagent: RecipeChoice, val result: ItemStack)
 

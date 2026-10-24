@@ -109,7 +109,8 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun start() {
     chat.allay.spigot.tools.BrewingRecipes.bind(features)
     val expansions = Expansions(plugin, plugin.logger)
-    listOf(goals, deaths, menus, Marks, Drafts, automation, automation.picking, Jobs, Events(allay), expansions).forEach { server.pluginManager.registerEvents(it, plugin) }
+    listOf(goals, deaths, menus, Marks, Drafts, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
+    if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::clear), plugin)
     Drafts.start(plugin, locales)
     Jobs.automation = automation
     automation.start()
@@ -124,6 +125,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
 
   override fun stop() {
     chat.allay.spigot.tools.BrewingRecipes.bind(null)
+    chat.allay.spigot.tools.Catalogs.clear()
     placeholders?.close()
     plan?.close()
     automation.stop()

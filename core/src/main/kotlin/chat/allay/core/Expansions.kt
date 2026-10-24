@@ -41,6 +41,10 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
   class Tool(val wire: String, val expansion: String, val tool: AllayTool, val description: String, val schema: JsonObject, val access: AllayTool.Access)
 
   private val loaded = ConcurrentHashMap<String, Loaded>()
+  private val changes = java.util.concurrent.atomic.AtomicInteger()
+
+  /** Goes up whenever an expansion comes, goes, or is read again: a cached catalog builds again then. */
+  val revision: Int get() = changes.get()
 
   override fun apiVersion(): String = AllayApi.VERSION
 
@@ -50,17 +54,23 @@ class Expansions(private val log: Logger, private val config: () -> Config, priv
       return
     }
     loaded[read.id] = read
+    changes.incrementAndGet()
     fun count(n: Int, word: String) = "$n $word${if (n == 1) "" else "s"}"
     log.info("Expansion ${read.name}${read.version.ifEmpty { null }?.let { " $it" }.orEmpty()} is on: ${count(read.tools.size, "tool")}, ${count(read.items.size, "item")}${if (read.prompt != null) ", a prompt" else ""}")
   }
 
   override fun unregister(id: String) {
-    loaded.remove(id)?.let { log.info("Expansion ${it.name} is off") }
+    loaded.remove(id)?.let {
+      changes.incrementAndGet()
+      log.info("Expansion ${it.name} is off")
+    }
   }
 
   /** Reads every expansion again, on `/allay reload`: their tools and items may change with their own config. */
   fun reload() {
     loaded.values.toList().forEach { register(it.expansion) }
+    // The config may switch expansions on or off without any of them changing.
+    changes.incrementAndGet()
   }
 
   /** The expansions the server didn't switch off. */

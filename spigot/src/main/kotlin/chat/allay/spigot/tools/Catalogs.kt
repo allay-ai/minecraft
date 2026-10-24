@@ -3,6 +3,7 @@ package chat.allay.spigot.tools
 import chat.allay.core.Expansions
 import chat.allay.core.tools.Brewing
 import chat.allay.core.tools.Catalog
+import chat.allay.core.tools.CatalogCache
 import chat.allay.core.tools.GameNames
 import chat.allay.spigot.paper.PaperCatalog
 
@@ -10,6 +11,11 @@ import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.Registry
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.server.PluginDisableEvent
+import org.bukkit.event.server.PluginEnableEvent
+import org.bukkit.event.server.ServerLoadEvent
 import org.bukkit.inventory.BrewingRecipe
 import org.bukkit.inventory.CookingRecipe
 import org.bukkit.inventory.ItemStack
@@ -25,7 +31,9 @@ import org.bukkit.inventory.meta.PotionMeta
 /**
  * The [Catalog] on Bukkit, from the server as it runs: every item and potion in the registries, the items plugins and
  * data packs build on the game's own (a model of their own, like Red Bull's cans), what expansions describe, and how
- * each is made. Built for each call on the server thread: plugins and data packs change it, and it's quick.
+ * each is made. Built on the server thread and kept until something it's made of changes: a plugin comes or goes, the
+ * server loads or reloads its data packs (Paper), an expansion or the names change. A plugin may add a recipe
+ * whenever it likes, and Spigot tells nobody, so the catalog also builds again after [MAX_AGE_MILLIS].
  */
 object Catalogs {
   private val FORMS = listOf("potion", "splash_potion", "lingering_potion", "tipped_arrow")
@@ -33,9 +41,25 @@ object Catalogs {
   /** Paper's API shows a brew's ingredients and an item name's key; Spigot's doesn't. */
   val paper = runCatching { Class.forName("io.papermc.paper.datacomponent.DataComponentTypes") }.isSuccess
 
+  private const val MAX_AGE_MILLIS = 5 * 60_000L
+  private val cache = CatalogCache(MAX_AGE_MILLIS)
+
   fun build(context: ToolContext): Catalog = build(context.features.expansions, context.features.names())
 
-  fun build(expansions: Expansions?, names: GameNames?): Catalog {
+  fun build(expansions: Expansions?, names: GameNames?): Catalog =
+    cache.get(listOf(expansions, expansions?.revision, names, names?.revision)) { make(expansions, names) }
+
+  /** Builds the catalog again on its next use. */
+  fun clear() = cache.clear()
+
+  /** What tells the catalog the server changed, beside Paper's data pack reloads ([PaperCatalog.reloads]). */
+  object Changes : Listener {
+    @EventHandler fun enabled(event: PluginEnableEvent) = clear()
+    @EventHandler fun disabled(event: PluginDisableEvent) = clear()
+    @EventHandler fun loaded(event: ServerLoadEvent) = clear()
+  }
+
+  private fun make(expansions: Expansions?, names: GameNames?): Catalog {
     val made = HashMap<String, MutableSet<String>>()
     val custom = LinkedHashMap<String, Catalog.Entry>()
     Bukkit.recipeIterator().forEach { recipe ->
@@ -56,8 +80,9 @@ object Catalogs {
       val base = id.removePrefix("long_").removePrefix("strong_")
       Catalog.Entry(id, Catalog.Kind.POTION, FORMS.map { "item.minecraft.$it.effect.$base" }, source = source(type.key.namespace), made = if (id in brewed) setOf("brewing") else emptySet())
     }
+    val described = expansions?.items().orEmpty().associate { it.second.id() to it.second.recipes().orEmpty() }
     val extra = expansions?.entries().orEmpty().map { entry ->
-      val recipes = expansions!!.items().firstOrNull { it.second.id() == entry.id }?.second?.recipes().orEmpty()
+      val recipes = described[entry.id].orEmpty()
       entry.copy(made = recipes.map { if (it.type() == chat.allay.expansion.Recipe.Type.BREWING) "brewing" else kindOf(it.type()) }.toSet() + made[entry.id].orEmpty())
     }
     return Catalog(Catalog.merge(items + potions + custom.values, extra), names)

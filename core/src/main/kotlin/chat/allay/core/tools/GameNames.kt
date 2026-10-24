@@ -34,6 +34,11 @@ class GameNames(
   private val tables = ConcurrentHashMap<String, Map<String, String>>()
   private val fetching = ConcurrentHashMap.newKeySet<String>()
   private val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(15)).build()
+  private val changes = java.util.concurrent.atomic.AtomicInteger()
+  @Volatile private var downloaded: Set<String>? = null
+
+  /** Goes up whenever names already read may have changed: a download, [forget]. A cached catalog builds again then. */
+  val revision: Int get() = changes.get()
 
   /** Every name in [locale]: the downloaded game file under what the platform has, so a mod's own names win. */
   fun table(locale: String): Map<String, String> = tables.getOrPut(code(locale)) {
@@ -42,9 +47,12 @@ class GameNames(
     downloaded + runCatching { local(code) }.getOrDefault(emptyMap())
   }
 
-  /** Every language Allay has names in: the downloaded ones and any read so far. */
-  fun known(): Set<String> =
-    (folder.resolve("cache/lang/$gameVersion").listFiles { file -> file.name.endsWith(".json") }.orEmpty().map { it.name.removeSuffix(".json") } + tables.keys).toSet()
+  /** Every language Allay has names in: the downloaded ones and any read so far. The folder is listed once per change. */
+  fun known(): Set<String> {
+    val files = downloaded ?: folder.resolve("cache/lang/$gameVersion").listFiles { file -> file.name.endsWith(".json") }.orEmpty()
+      .map { it.name.removeSuffix(".json") }.toSet().also { downloaded = it }
+    return files + tables.keys
+  }
 
   /** The game's own names in [locale] are on disk, or there's no file to fetch: English ships with every server. */
   fun has(locale: String): Boolean = code(locale) == ENGLISH || file(code(locale)).isFile
@@ -66,7 +74,7 @@ class GameNames(
           continue
         }
         runCatching { save(locale, get("$RESOURCES/${hash.take(2)}/$hash")) }
-          .onSuccess { tables.remove(locale); saved += locale }
+          .onSuccess { tables.remove(locale); downloaded = null; changes.incrementAndGet(); saved += locale }
           .onFailure { log.warning("Couldn't download the game's names in $locale: ${it.message}") }
       }
       if (saved.isNotEmpty()) log.info("The game's names in ${saved.joinToString()} are downloaded: players find things by them")
@@ -78,7 +86,11 @@ class GameNames(
   }
 
   /** Drops what's in memory, so the next search reads the platform's files again: a data pack or mod list changed. */
-  fun forget() = tables.clear()
+  fun forget() {
+    tables.clear()
+    downloaded = null
+    changes.incrementAndGet()
+  }
 
   private fun assetIndex(): JsonObject {
     val versions = Json.parseToJsonElement(get(MANIFEST)).jsonObject["versions"] as? kotlinx.serialization.json.JsonArray ?: throw IOException("no versions in the manifest")

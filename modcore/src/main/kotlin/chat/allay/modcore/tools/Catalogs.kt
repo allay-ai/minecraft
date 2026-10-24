@@ -3,6 +3,7 @@ package chat.allay.modcore.tools
 import chat.allay.core.Expansions
 import chat.allay.core.tools.Brewing
 import chat.allay.core.tools.Catalog
+import chat.allay.core.tools.CatalogCache
 import chat.allay.core.tools.GameNames
 import chat.allay.modcore.Mod
 
@@ -24,14 +25,23 @@ import net.minecraft.world.item.crafting.StonecutterRecipe
 /**
  * The [Catalog] in the mods, from the server as it runs: every item and potion in the registries (mods' included), the
  * items data packs build on the game's own (a model of their own), what expansions describe, and how each is made.
- * Built for each call on the server thread: data packs and `/reload` change it, and it takes a few milliseconds.
+ * Built on the server thread and kept while the recipes (a `/reload` makes new ones), the expansions, and the names stay
+ * the same.
  */
 object Catalogs {
   private val FORMS = listOf("potion", "splash_potion", "lingering_potion", "tipped_arrow")
 
+  private val cache = CatalogCache()
+
   fun build(context: ToolContext): Catalog = build(context.server, context.features.expansions, context.features.names())
 
-  fun build(server: MinecraftServer, expansions: Expansions?, names: GameNames?): Catalog {
+  fun build(server: MinecraftServer, expansions: Expansions?, names: GameNames?): Catalog =
+    cache.get(listOf(Recipes.generation(server), expansions, expansions?.revision, names, names?.revision)) { make(server, expansions, names) }
+
+  /** Lets go of the catalog and the server it was built from. */
+  fun clear() = cache.clear()
+
+  private fun make(server: MinecraftServer, expansions: Expansions?, names: GameNames?): Catalog {
     val mods = Mod.loader.mods().associate { it.id to it.name }
     fun source(namespace: String) = when (namespace) {
       Catalog.MINECRAFT -> Catalog.MINECRAFT
@@ -57,8 +67,9 @@ object Catalogs {
       val id = Worlds.key(key.identifier())
       Catalog.Entry(id, Catalog.Kind.POTION, FORMS.map { "item.minecraft.$it.effect.${potion.name()}" }, source = source(key.identifier().namespace), made = if (id in brewed) setOf("brewing") else emptySet())
     }
+    val described = expansions?.items().orEmpty().associate { it.second.id() to it.second.recipes().orEmpty() }
     val extra = expansions?.entries().orEmpty().map { entry ->
-      val recipes = expansions!!.items().firstOrNull { it.second.id() == entry.id }?.second?.recipes().orEmpty()
+      val recipes = described[entry.id].orEmpty()
       entry.copy(made = recipes.map { if (it.type() == chat.allay.expansion.Recipe.Type.BREWING) "brewing" else kindOf(it.type()) }.toSet() + made[entry.id].orEmpty())
     }
     return Catalog(Catalog.merge(items + potions + custom.values, extra), names)
