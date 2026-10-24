@@ -150,7 +150,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   /** Other plugins' and mods' expansions (`chat.allay.expansion`): their tools, items, and prompt lines. */
   val expansions = Expansions() ; inner class Expansions {
     val enabled = config.boolean("expansions.enabled", true)
-    /** Expansions left out by id, like `redbull`. */
+    /** Expansions left out by id, like `mana`. */
     val disabled = config.strings("expansions.disabled").map(String::lowercase).toSet()
   }
 

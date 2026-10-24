@@ -234,7 +234,7 @@ tools:
 # and nothing before a player agrees to the notice.
 expansions:
   enabled: true               # false: Allay takes no expansions at all
-  disabled: []                # Expansions to leave out, by id, like redbull
+  disabled: []                # Expansions to leave out, by id, like mana
 
 # Finding items by name: the assistant looks things up on this server instead of trusting
 # its memory, mods', data packs', and plugins' things included. The game's names in English

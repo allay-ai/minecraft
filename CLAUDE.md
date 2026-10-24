@@ -52,7 +52,7 @@ The contract with the backend is `docs/protocol-v2.md` in allay-ai/server. Chang
 - **Releasing** is its own workflow, `gh workflow run expansion.yml -R allay-ai/minecraft -f version=X.Y.Z`, after `AllayApi.VERSION` and `expansion/CHANGELOG.md` say that version. It signs with the `MAVEN_SIGNING_*` secrets, uploads through `tools/central.py` with `publishingType=AUTOMATIC` (no draft to click), waits for `PUBLISHED` and repo1.maven.org, and tags `expansion-vX.Y.Z`. A version goes to Central once and stays. The key and the token live in `secrets.toml` in MairwunNx/infrastructure (`[publishing]`) and reach this repository through its `github.toml`.
 - **Security.** An expansion's tool runs only in a run that offered it (`Run.expansionTools`, set on the server thread in `Handler.ask`, after the consent gate), never for the console or an automation agent; `OPERATOR` tools are offered to operators only and checked again in `Expansions.run`; only `READ` tools in `/askx`; `inPublic` decides public questions; the author's `permission()` is asked with `can(permission, byDefault = true)`. Results are cut at 8000 characters, descriptions at 1000, schemas at 4000, prompts at 2000. The backend frames descriptions and prompt lines as the plugin's and keeps Allay's rules above them; keep both sides doing so.
 - **Protocol.** `expansion_tools` and `expansions` in the chat request (backend 6.14, `docs/protocol-v2.md` “Expansions”); a call comes back as a plain `tool_call` with the tool's name.
-- Red Bull (MairwunNx/minecraft-redbull) is the example: `core/…/Allay.kt` and each platform's `Allay.kt`. The game tests' `CatalogGameTests` register an expansion of their own.
+- Nothing needs an expansion to be found: mods' items and recipes, data packs' recipes and brews, and plugins' items built on the game's own with a model of their own come from the server itself (`Catalog`). An expansion is for tools, prompt lines, and what the server can't show (a Paper potion mix that matches by code). The game tests' `CatalogGameTests` register an expansion of their own, and the wiki's “Expansions” has one for each platform.
 
 ## Coming from MCBuddy
 
@@ -212,7 +212,7 @@ Rules on top of the ones above:
 
 ## Expansions in checks
 
-A smoke run with an expansion's jar beside Allay's must log `Expansion <Name> <version> is on: …`; Red Bull's: `--plugin …/redbull-paper-dev.jar --expect "Expansion Red Bull dev is on: 1 tool, 2 items, a prompt"`, and the same with `--mod` on Fabric (with `--modrinth fabric-language-kotlin`) and NeoForge. Red Bull pulls the library from Maven Central; to try an unreleased API, `./gradlew :expansion:publishToMavenLocal` and add `mavenLocal()` to its repositories for that build only.
+A smoke run with an expansion's jar beside Allay's (`--plugin` on Paper, `--mod` on Fabric and NeoForge) must log `Expansion <Name> <version> is on: …`, with its tools, items, and prompt counted. To try an unreleased API in an expansion, `./gradlew :expansion:publishToMavenLocal` and add `mavenLocal()` to its repositories for that build only.
 
 ## Commits
 
