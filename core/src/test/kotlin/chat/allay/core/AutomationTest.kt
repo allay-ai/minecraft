@@ -296,6 +296,26 @@ class AutomationTest {
     assertEquals(mapOf("diamond_pickaxe" to 1, "oak_planks" to 2, "stick" to 2), plan.makes)
   }
 
+  @Test fun `water bottles fill from glass bottles crafted from glass for a plugin's can`() {
+    val book: (String) -> List<Workshop.Recipe> = { id ->
+      when (id) {
+        "redbull:original" -> listOf(Workshop.Recipe(id, 1, listOf(setOf("redbull:taurine"), setOf("blue_dye"), setOf("redbull:taurine"), setOf("sugar"), setOf("redbull:empty_can"), setOf("sugar"), setOf("sugar"), setOf(Workshop.WATER_BOTTLE), setOf("sugar"))))
+        "redbull:empty_can" -> listOf(Workshop.Recipe(id, 1, listOf(setOf("iron_nugget"), setOf("iron_nugget"), setOf("iron_nugget"), setOf("iron_nugget"), setOf("copper_nugget"))))
+        "copper_nugget" -> listOf(Workshop.Recipe(id, 9, listOf(setOf("copper_ingot")), small = true))
+        Workshop.WATER_BOTTLE -> listOf(Workshop.FILL)
+        "glass_bottle" -> listOf(Workshop.Recipe(id, 3, listOf(setOf("glass"), setOf("glass"), setOf("glass"))))
+        else -> emptyList()
+      }
+    }
+    val have = mapOf("redbull:taurine" to 2, "blue_dye" to 1, "sugar" to 4, "iron_nugget" to 4, "copper_ingot" to 1, "glass" to 3)
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("redbull:original", 1, have, book))
+    assertEquals(listOf("copper_nugget", "redbull:empty_can", "glass_bottle", Workshop.WATER_BOTTLE, "redbull:original"), plan.steps.map { it.recipe.result })
+    assertEquals(1, plan.fills)
+    assertEquals(mapOf("redbull:original" to 1, "copper_nugget" to 8, "glass_bottle" to 2), plan.makes)
+    assertTrue(Workshop.water("potion:water") && Workshop.water("Water Bottle") && Workshop.water("minecraft:water_bottle"))
+    assertFalse(Workshop.water("water_bucket"))
+  }
+
   @Test fun `crafting says what's missing`() {
     val missing = assertIs<Workshop.Missing>(Workshop.plan("diamond_pickaxe", 1, mapOf("diamond" to 2, "stick" to 2), recipes))
     assertEquals(mapOf("diamond" to 1), missing.items)

@@ -91,8 +91,19 @@ object Workshop {
     return parts.toList()
   }
 
-  /** Where a recipe is made. */
-  enum class Station { INVENTORY, TABLE, STONECUTTER, SMITHING }
+  /** Where a recipe is made; [WATER] is a glass bottle filled at water or a cauldron near, a level a bottle. */
+  enum class Station { INVENTORY, TABLE, STONECUTTER, SMITHING, WATER }
+
+  /** What crafting calls a water bottle, as [Brewing.Bottle.label] writes potions. */
+  val WATER_BOTTLE = Brewing.WATER.label
+
+  /** Filling a glass bottle at water, as a recipe the planner can use when water is near. */
+  val FILL = Recipe(WATER_BOTTLE, 1, listOf(setOf("glass_bottle")), Station.WATER)
+
+  /** Whether [name] means a water bottle, as the model and players write it: `water_bottle`, `potion:water`, `potion water`. */
+  fun water(name: String): Boolean = name.trim().lowercase().removePrefix("minecraft:").replace(Regex("[ :]+"), "_") in WATER_NAMES
+
+  private val WATER_NAMES = setOf("water_bottle", "potion_water", "water_potion", "bottle_of_water", "water")
 
   /**
    * A recipe as data: [slots] holds the choices for each ingredient slot, empty slots left out. A crafting recipe
@@ -112,6 +123,9 @@ object Workshop {
 
     /** Whether some step needs a 3×3 grid, so a crafting table. */
     val needsTable get() = Station.TABLE in stations
+
+    /** How many glass bottles its steps fill at water. */
+    val fills get() = steps.filter { it.recipe.station == Station.WATER }.sumOf { it.times }
   }
 
   /** Why nothing could be planned: the items missing for the cheapest way the planner saw. */

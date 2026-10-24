@@ -383,6 +383,73 @@ class AutomationGameTests {
     helper.succeed()
   }
 
+  private fun water(player: ServerPlayer) = (0 until 36).map { player.inventory.getItem(it) }.filter { it.`is`(Items.POTION) && it.get(DataComponents.POTION_CONTENTS)?.`is`(Potions.WATER) == true }.sumOf { it.count }
+
+  @GameTest(padding = 48)
+  fun craftingFillsWaterBottlesFromGlassInAChestAtACauldron(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 1)), Blocks.CRAFTING_TABLE.defaultBlockState())
+    val glass = chest(helper, BlockPos(1, 2, 3), ItemStack(Items.GLASS, 3))
+    val cauldron = helper.absolutePos(BlockPos(4, 2, 3))
+    helper.level.setBlockAndUpdate(cauldron, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 2))
+    val three = buildJsonObject { put("item", "potion:water"); put("count", 3) }
+    // Three glass give three bottles, but two levels fill only two.
+    val short = refused { run(player, task, "craft", three) }
+    helper.assertTrue(short?.contains("only 2 levels") == true, "a cauldron fills a bottle a level: $short")
+    equal(helper, count(contents(helper, glass), Items.GLASS), 3, "nothing was taken")
+    helper.level.setBlockAndUpdate(cauldron, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3))
+    val crafted = run(player, task, "craft", three).result.jsonObject
+    equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "crafted: $crafted")
+    equal(helper, water(player), 3, "three water bottles")
+    equal(helper, carried(player, Items.GLASS_BOTTLE), 0, "every glass bottle was filled")
+    equal(helper, count(contents(helper, glass), Items.GLASS), 0, "the glass came from the chest")
+    helper.assertTrue(helper.level.getBlockState(cauldron).`is`(Blocks.CAULDRON), "three bottles took the cauldron's three levels")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun craftingMakesADataPacksItemByItsId(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    player.inventory.setItem(9, ItemStack(Items.EMERALD, 2))
+    player.inventory.setItem(10, ItemStack(Items.REDSTONE, 2))
+    val crafted = run(player, task, "craft", buildJsonObject { put("item", "allay_gametest:ruby") }).result.jsonObject
+    equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "crafted: $crafted")
+    val rubies = (0 until 36).map { player.inventory.getItem(it) }.filter { it.get(DataComponents.ITEM_MODEL)?.toString() == "allay_gametest:ruby" }
+    equal(helper, rubies.sumOf { it.count }, 1, "the pack's ruby, with its model")
+    equal(helper, carried(player, Items.REDSTONE), 1, "the redstone it took")
+    // A plain emerald is no ruby: the pack's recipe never makes one.
+    val emerald = run(player, task, "craft", buildJsonObject { put("item", "emerald"); put("dry_run", true) }).result.jsonObject
+    helper.assertTrue("redstone" !in emerald.toString(), "an emerald isn't the ruby's recipe: $emerald")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun brewingWaterBottlesFillsThemWithoutAStand(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.BREWING)
+    player.inventory.setItem(9, ItemStack(Items.GLASS_BOTTLE, 2))
+    val none = run(player, task, "brew", buildJsonObject { put("action", "start"); put("potion", "water"); put("bottles", 2) }).result.jsonObject
+    helper.assertTrue(none["water"]?.jsonPrimitive?.content?.contains("no water source") == true, "no water near: $none")
+    val cauldron = helper.absolutePos(BlockPos(4, 2, 3))
+    helper.level.setBlockAndUpdate(cauldron, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3))
+    val filled = run(player, task, "brew", buildJsonObject { put("action", "start"); put("potion", "water"); put("bottles", 2); put("to", "inventory") }).result.jsonObject
+    equal(helper, filled["filled_water_bottles"]?.jsonPrimitive?.int, 2, "filled: $filled")
+    equal(helper, water(player), 2, "two water bottles")
+    equal(helper, helper.level.getBlockState(cauldron).getValue(LayeredCauldronBlock.LEVEL), 1, "a level a bottle")
+    // Water itself never runs dry.
+    helper.level.setBlockAndUpdate(cauldron, Blocks.WATER.defaultBlockState())
+    player.inventory.setItem(10, ItemStack(Items.GLASS_BOTTLE, 5))
+    val pond = run(player, task, "brew", buildJsonObject { put("action", "start"); put("potion", "water"); put("bottles", 5) }).result.jsonObject
+    equal(helper, pond["filled_water_bottles"]?.jsonPrimitive?.int, 5, "at water: $pond")
+    equal(helper, water(player), 7, "seven water bottles")
+    done(player, task)
+    helper.succeed()
+  }
+
   @GameTest(padding = 48)
   fun craftingNeverTakesFromShulkerBoxes(helper: GameTestHelper) {
     val player = survivor(helper)

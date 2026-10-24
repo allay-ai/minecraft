@@ -2,6 +2,7 @@ package chat.allay.spigot.automation
 
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.spigot.tools.Catalogs
 import chat.allay.spigot.tools.InteractTools
 import chat.allay.spigot.tools.Marks
 import chat.allay.spigot.tools.Tool
@@ -16,6 +17,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Material
 import org.bukkit.Server
+import org.bukkit.Tag
 import org.bukkit.block.Block
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -25,18 +27,47 @@ import org.bukkit.inventory.ShapelessRecipe
 import org.bukkit.inventory.SmithingTransformRecipe
 import org.bukkit.inventory.StonecuttingRecipe
 import org.bukkit.inventory.meta.Damageable
+import org.bukkit.inventory.meta.PotionMeta
 
 /**
  * `craft`: crafts from this server's recipes, with plain ingredients from the inventory, bundles, the ender chest when
  * one is near, and chests near the player may open. Parts it lacks (sticks, planks) it crafts first, three levels down
  * at most. 2×2 recipes, the crafting table itself among them, need no table; 3×3 ones need a real crafting table the
  * player can see. With a stonecutter in sight, what it cuts comes from it first. Netherite gear comes from a smithing
- * table: the diamond piece keeps its enchantments, name, and wear, also when the player wears it.
+ * table: the diamond piece keeps its enchantments, name, and wear, also when the player wears it. Plugins' and data
+ * packs' items craft by their ids from their own recipes, their items in the slots as they ask; water bottles fill from
+ * glass bottles at water or a cauldron near, a level a bottle, as clicking does.
  */
 object Crafting {
-  /** The server's recipes as data, by result id, stonecutting ones with [stonecutter]; recipes that want an exact item (a named one) are left out. */
-  fun recipes(server: Server, stonecutter: Boolean = false): Map<String, List<Workshop.Recipe>> {
+  /**
+   * What crafting calls a stack it may use up: the game's id for a plain item, `potion water` for a plain potion of its
+   * kind, and a plugin's or data pack's item by its id (`redbull:empty_can`). Null for anything of the player's own: a
+   * named or enchanted game item, a shulker box, a bundle.
+   */
+  fun key(stack: ItemStack): String? {
+    if (Sources.plain(stack)) return stack.type.key.key
+    if (Tag.SHULKER_BOXES.isTagged(stack.type) || stack.type == Material.BUNDLE || stack.type.name.endsWith("_BUNDLE")) return null
+    val id = Catalogs.id(stack)
+    if (id != stack.type.key.key) return id
+    val meta = stack.itemMeta as? PotionMeta ?: return null
+    if (meta.hasCustomEffects() || meta.hasDisplayName() || meta.hasLore() || meta.basePotionType == null) return null
+    return if (stack.isSimilar(ItemStack(stack.type).apply { itemMeta = (itemMeta as PotionMeta).apply { basePotionType = meta.basePotionType } })) Catalogs.bottle(stack).label else null
+  }
+
+  /** What a recipe makes, by the id tools give it: a plugin's item by its own id, a potion as `potion water`. */
+  private fun made(stack: ItemStack): String = if (stack.itemMeta is PotionMeta && Catalogs.id(stack) == stack.type.key.key) Catalogs.bottle(stack).label else Catalogs.id(stack)
+
+  /** The server's recipes as data, by result id, with a stack of each result to hand out. */
+  class Book(val recipes: Map<String, List<Workshop.Recipe>>, val results: Map<String, ItemStack>)
+
+  /**
+   * The server's recipes as data: crafting ones, stonecutting ones with [stonecutter], and filling a glass bottle when
+   * [water] is near. A slot that wants an exact item (a plugin's taurine, a water bottle) takes it by its [key]; one that
+   * wants something [key] can't name is left out.
+   */
+  fun book(server: Server, stonecutter: Boolean = false, water: Boolean = false): Book {
     val found = mutableMapOf<String, MutableList<Workshop.Recipe>>()
+    val results = mutableMapOf<String, ItemStack>()
     val iterator = server.recipeIterator()
     while (iterator.hasNext()) {
       val recipe = iterator.next()
@@ -53,13 +84,23 @@ object Crafting {
       }
       val choices = slots.filterNotNull().map(::ids)
       if (choices.isEmpty() || choices.any { it.isEmpty() }) continue
-      val result = recipe.result
-      found.getOrPut(result.type.key.key) { mutableListOf() } += Workshop.Recipe(result.type.key.key, result.amount, choices, station)
+      val result = recipe.result.takeUnless { it.type.isAir } ?: continue
+      val id = made(result)
+      found.getOrPut(id) { mutableListOf() } += Workshop.Recipe(id, result.amount, choices, station)
+      results.putIfAbsent(id, result.clone().apply { amount = 1 })
     }
-    return found
+    if (water) {
+      found.getOrPut(Workshop.WATER_BOTTLE) { mutableListOf() } += Workshop.FILL
+      results.putIfAbsent(Workshop.WATER_BOTTLE, Water.bottle())
+    }
+    return Book(found, results)
   }
 
-  private fun ids(choice: RecipeChoice?): Set<String> = (choice as? RecipeChoice.MaterialChoice)?.choices?.map { it.key.key }?.toSet() ?: emptySet()
+  private fun ids(choice: RecipeChoice?): Set<String> = when (choice) {
+    is RecipeChoice.MaterialChoice -> choice.choices.map { it.key.key }.toSet()
+    is RecipeChoice.ExactChoice -> choice.choices.mapNotNull(::key).toSet()
+    else -> emptySet()
+  }
 
   /** The smithing recipe that makes [item], like a netherite chestplate from a diamond one; null for anything else. */
   private fun smithing(server: Server, item: Material): SmithingTransformRecipe? {
@@ -97,6 +138,17 @@ object Crafting {
     put("note", "tell the player what's missing; nothing was taken")
   }, lang.text("summary.craft_missing", "count" to items.size))
 
+  /**
+   * The item [name] means, as crafting calls it: a water bottle, a plugin's or data pack's item by its id
+   * (`redbull:empty_can`), else the game's item, with its [Material] for smithing.
+   */
+  private fun target(context: ToolContext, name: String): Pair<String, Material?> {
+    if (Workshop.water(name)) return Workshop.WATER_BOTTLE to null
+    val custom = Catalogs.build(context).find(name.trim().lowercase(), chat.allay.core.tools.Catalog.Kind.CUSTOM)
+    if (custom != null) return custom.id to null
+    return InteractTools.material(name).let { it.key.key to it }
+  }
+
   val tool = object : Tool {
     override val name = "craft"
 
@@ -107,23 +159,28 @@ object Crafting {
       val settings = automation.settings()
       val holds = automation.reservations
       automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
-      val item = InteractTools.material(args.string("item") ?: throw ToolError("item is required"))
+      val (itemId, item) = target(context, args.string("item") ?: throw ToolError("item is required"))
       val count = (args.int("count") ?: 1).coerceIn(1, 64)
       val lang = context.lang
       val find = { type: Material -> station(player, settings.radius, settings.lineOfSight) { it == type } }
       val cutter = find(Material.STONECUTTER)
-      val recipes = recipes(player.server, stonecutter = cutter != null)
-      val smithing = smithing(player.server, item)
-      if (smithing == null && recipes[item.key.key].isNullOrEmpty()) throw ToolError("${item.key.key} has no crafting${if (cutter == null) "" else " or stonecutter"} recipe on this server")
+      val water = Water.near(player)
+      val book = book(player.server, stonecutter = cutter != null, water = water != null)
+      val recipes = book.recipes
+      val smithing = item?.let { smithing(player.server, it) }
+      if (smithing == null && recipes[itemId].isNullOrEmpty()) throw ToolError(
+        if (itemId == Workshop.WATER_BOTTLE) "no water source or filled cauldron within ${Water.REACH} blocks of the player to fill glass bottles at"
+        else "$itemId has no crafting${if (cutter == null) "" else " or stonecutter"} recipe on this server",
+      )
       val sources = Sources.around(player, settings.radius)
-      val have = sources.list.flatMap { it.slots() }.filterNotNull().filter(Sources::plain).map { it.type }.distinct()
-        .associate { type -> type.key.key to sources.free({ it.type == type && Sources.plain(it) }, type.key.key, holds, task.id) }
+      val have = sources.list.flatMap { it.slots() }.filterNotNull().mapNotNull(::key).distinct()
+        .associateWith { id -> sources.free({ key(it) == id }, id, holds, task.id) }
         .filterValues { it > 0 }
 
       // Smithing: the template and the ingot come through the planner, which crafts an ingot from scrap and gold; the
       // diamond piece is the player's own, enchanted or not.
-      val smithy = smithing?.let { find(Material.SMITHING_TABLE) ?: throw ToolError("${item.key.key} is made on a smithing table, and there's none near the player in plain sight") }
-      val upgrade = smithing?.let { Workshop.Recipe("smithing:${item.key.key}", 1, listOf(ids(it.template), ids(it.addition)), Workshop.Station.SMITHING) }
+      val smithy = smithing?.let { find(Material.SMITHING_TABLE) ?: throw ToolError("$itemId is made on a smithing table, and there's none near the player in plain sight") }
+      val upgrade = smithing?.let { Workshop.Recipe("smithing:$itemId", 1, listOf(ids(it.template), ids(it.addition)), Workshop.Station.SMITHING) }
       val bases = smithing?.let { recipe ->
         val kinds = ids(recipe.base)
         // The richest pieces first: most enchantment levels, then the least worn. Slots 36–39 are what they wear.
@@ -133,7 +190,7 @@ object Crafting {
       }
       if (smithing != null && bases!!.size < count) return missing(lang, mapOf(ids(smithing.base).first() to count - bases.size))
 
-      val target = upgrade?.result ?: item.key.key
+      val target = upgrade?.result ?: itemId
       val plan = when (val planned = Workshop.plan(target, count, have, { if (it == upgrade?.result) listOf(upgrade) else recipes[it].orEmpty() })) {
         is Workshop.Missing -> return missing(lang, planned.items)
         is Workshop.Plan -> planned
@@ -141,15 +198,18 @@ object Crafting {
       }
       val table = if (!plan.needsTable) null else find(Material.CRAFTING_TABLE)
         ?: throw ToolError("no crafting table near the player in plain sight; 3×3 recipes need a real one")
+      // A cauldron gives a bottle a level; water itself never runs dry.
+      if (plan.fills > 0 && water!!.first < plan.fills) throw ToolError("${plan.fills} glass bottles to fill, but the cauldrons near hold only ${water.first} levels of water, a bottle each")
       val extra = plan.makes.filterKeys { it != upgrade?.result }
       val described = buildJsonObject {
         putJsonObject("takes") { plan.takes.forEach { (id, n) -> put(id, n) } }
-        putJsonObject("makes") { extra.forEach { (id, n) -> put(id, n) }; if (upgrade != null) put(item.key.key, count) }
+        putJsonObject("makes") { extra.forEach { (id, n) -> put(id, n) }; if (upgrade != null) put(itemId, count) }
         put("steps", buildJsonArray {
           plan.steps.forEach { step ->
             add(when {
-              step.recipe == upgrade -> "${step.times} × ${item.key.key} on the smithing table"
+              step.recipe == upgrade -> "${step.times} × $itemId on the smithing table"
               step.recipe.station == Workshop.Station.STONECUTTER -> "${step.times} × ${step.recipe.result} on the stonecutter"
+              step.recipe.station == Workshop.Station.WATER -> "${step.times} × glass_bottle filled with water${if (water!!.first == Int.MAX_VALUE) "" else " at a cauldron, a level each"}"
               else -> "${step.times} × ${step.recipe.result}"
             })
           }
@@ -164,22 +224,23 @@ object Crafting {
       if (args.bool("dry_run") == true) return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(false))), lang.text("summary.craft_plan"))
 
       takeAll(player, task, sources, holds, plan.takes)
+      if (plan.fills > 0) Water.drain(water!!, plan.fills)
       // Buckets and bottles that crafting hands back, like the game does: a cake leaves three empty buckets.
       val remains = plan.takes.mapNotNull { (id, n) -> Material.matchMaterial(id)?.craftingRemainingItem?.let { ItemStack(it, n) } }
       val made = extra.flatMap { (id, n) ->
-        val type = Material.matchMaterial(id) ?: return@flatMap emptyList()
-        val max = type.maxStackSize
-        (0 until (n + max - 1) / max).map { ItemStack(type, minOf(max, n - it * max)) }
+        val stack = book.results[id] ?: Material.matchMaterial(id)?.let(::ItemStack) ?: return@flatMap emptyList()
+        val max = stack.maxStackSize
+        (0 until (n + max - 1) / max).map { stack.clone().apply { amount = minOf(max, n - it * max) } }
       }
       // The upgraded piece stays where the diamond one was, on the player too, with its enchantments, name, and wear.
       @Suppress("DEPRECATION")
-      bases?.forEach { (slot, base) -> player.inventory.setItem(slot, base.clone().apply { type = item }) }
+      bases?.forEach { (slot, base) -> player.inventory.setItem(slot, base.clone().apply { type = item!! }) }
       give(player, made + remains)
-      task.report("crafted $count × ${item.key.key} into the player's inventory (at their feet when it was full)")
-      val label = "$count × ${item.key.key.replace('_', ' ')}"
+      task.report("crafted $count × $itemId into the player's inventory (at their feet when it was full)")
+      val label = "$count × ${itemId.substringAfter(':').replace('_', ' ')}"
       val used = listOfNotNull(table, cutter?.takeIf { Workshop.Station.STONECUTTER in plan.stations }, smithy)
       if (used.isNotEmpty()) Marks.show(context.plugin, player, used.map { Marks.Mark(it, null, label, Marks.Hue.GREEN) }, 10)
-      return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(true))), lang.text("summary.crafted", "count" to count, "item" to item.key.key))
+      return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(true))), lang.text("summary.crafted", "count" to count, "item" to itemId))
     }
   }
 
@@ -198,8 +259,7 @@ object Crafting {
   private fun takeAll(player: Player, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>) {
     val taken = mutableListOf<ItemStack>()
     for ((id, n) in takes) {
-      val type = Material.matchMaterial(id)!!
-      val match = { stack: ItemStack -> stack.type == type && Sources.plain(stack) }
+      val match = { stack: ItemStack -> key(stack) == id }
       if (!sources.reserve(match, id, n, holds, task.id)) {
         give(player, taken)
         holds.release(task.id)
