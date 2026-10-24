@@ -21,7 +21,7 @@
 ## What you get
 
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.
-- 🔎 **It knows this server's things.** Mods' items, data packs' recipes and brews, and plugins' own items count: Allay finds them by name in any language or by id, and never says a thing doesn't exist before it looked.
+- 🔎 **It knows this server's things.** Mods' items, data packs' recipes and brews, and plugins' own items count: Allay finds them by name in any language or by id, and never says a thing doesn't exist before it looked. It knows the commands you may run here too, and whose each is, so `/askx` writes a plugin's command the way the plugin wants it.
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar; glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.

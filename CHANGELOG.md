@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.16.0
+
+Allay knows this server's commands, and `/askx` checks its commands before it runs any. The new tool needs Allay Server 6.18 (allay.chat runs it); an older backend doesn't offer it, and nothing else changes.
+
+- ⌨️ **The server's commands.** `search_commands` lists the commands the asking player may run, the game's, plugins', and mods' alike: each with its aliases, the plugin or mod it comes from, its description, and its usage, found by name or by the words of its description, or all of one plugin's. On Spigot and Paper it reads the command map, Paper plugins' Brigadier commands included; in the mods the command tree, with each command's mod worked out from the namespace it's registered under or from the mod's jar that holds its code. Commands the player can't run never show, nor any of a plugin in `tools.server.hidden_plugins`, and `blocked_commands` never count as runnable. The list is built once and again when plugins come or go, the server reloads, or the commands change. `tools.enabled.search_commands` switches it off.
+- 🛡️ **`/askx` runs all or nothing.** Before it runs anything, Allay checks that every command exists here and is the player's to run, and in the mods that its arguments parse; otherwise nothing runs and the player hears which command and why. With Allay Server 6.18 the model gets the same check before it answers, and fixes what won't run.
+
 ## 6.15.0
 
 - 🧩 **Expansion API 1.2.** A tool can decide who gets it: `offeredTo(asker)` is asked when a question starts and again before each call, so a tool for one world or one item reaches the model only where it fits. A tool whose check throws stays out, with a line in the log.
