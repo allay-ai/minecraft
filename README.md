@@ -1,8 +1,8 @@
 # Allay
 
 <p align="center">
-  <a href="https://www.curseforge.com/projects/1766142"><img alt="CurseForge plugin" src="https://img.shields.io/curseforge/dt/1766142?logo=curseforge&label=CurseForge%20plugin&color=F16436"></a>
-  <a href="https://www.curseforge.com/projects/1766195"><img alt="CurseForge mod" src="https://img.shields.io/curseforge/dt/1766195?logo=curseforge&label=CurseForge%20mod&color=F16436"></a>
+  <a href="https://www.curseforge.com/projects/1766142"><img alt="CurseForge for Paper" src="https://img.shields.io/curseforge/dt/1766142?logo=curseforge&label=CurseForge%20for%20Paper&color=F16436"></a>
+  <a href="https://www.curseforge.com/projects/1766195"><img alt="CurseForge for Fabric &amp; NeoForge" src="https://img.shields.io/curseforge/dt/1766195?logo=curseforge&label=CurseForge%20for%20Fabric%20%26%20NeoForge&color=F16436"></a>
   <a href="https://github.com/allay-ai/minecraft/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/allay-ai/minecraft?label=release"></a>
   <img alt="Spigot | Paper 26.3" src="https://img.shields.io/badge/Spigot%20%7C%20Paper-26.3-F7CF0D">
   <img alt="Fabric 26.3" src="https://img.shields.io/badge/Fabric-26.3-DBD0B4">
