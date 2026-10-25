@@ -41,6 +41,6 @@ jobs:
 
             1. Run /update-deps.
             2. Run /update-minecraft.
-            3. If either pushed a change that reaches what the project ships, release it. The version is the topmost “## X.Y.Z” section of CHANGELOG.md. Run `gh workflow run release.yml -f version=X.Y.Z`, watch it with `gh run watch`, and check every place it publishes to, as CLAUDE.md says. Its `deploy` job then ships the release to Moonlands by itself.
+            3. If either pushed a change that reaches what the project ships, release it. The version is the topmost “## X.Y.Z” section of CHANGELOG.md. Run `gh workflow run release.yml -f version=X.Y.Z -f modrinth=true -f hangar=true -f curseforge=true`, watch it with `gh run watch`, and check every place it publishes to, as CLAUDE.md says. Its `deploy` job then ships the release to Moonlands by itself.
 
             If nothing was behind, stop without a commit or a release. Never print a secret. End with the reports the skills describe.
