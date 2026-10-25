@@ -2,6 +2,14 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.18.1
+
+Nothing changes in the game: this is the same Allay, now on Modrinth.
+
+- 📦 **On Modrinth.** Allay ships as one Modrinth project, [Allay AI](https://modrinth.com/project/allay-ai): the plugin as `6.18.1+spigot` for Spigot, Paper, and Purpur, the mods as `6.18.1+fabric` and `6.18.1+neoforge`, all from the same build as the GitHub release.
+- 💳 **Safer payments on allay.chat.** Allay Server 6.18.4 books every payment Telegram charges, sells one monthly subscription at a time, stops renewal when someone else takes your server over in the bot, and never charges for a license that's gone. Nothing to update on your side.
+- 👤 **Solo plans for the mods.** In your own singleplayer or LAN world, `/allay link` gives a Solo license with smaller plans for one player: 50 ⭐ a week, 150 ⭐ a month, 3000 ⭐ a year.
+
 ## 6.18.0
 
 Allay Server 6.18.3 tells the model about both; allay.chat runs it.
