@@ -67,6 +67,8 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
    - **Spigot or Paper 26.3:** [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) into `plugins/`, then restart the server.
    - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
    - **NeoForge 26.3:** [`allay-neoforge.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-neoforge.jar) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
+
+   The plugin is on [Hangar](https://hangar.papermc.io/MairwunNx/AllayAI) too, and the plugin and both mods on Modrinth once its review there ends.
 2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` and run `/allay reload`. In singleplayer the world's owner can do it, cheats or not.
 3. Type `/ask how do I craft a beacon?`. [Installation](https://github.com/allay-ai/minecraft/wiki/Installation) goes further: Docker, your own backend, and limits.
 

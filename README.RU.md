@@ -67,6 +67,8 @@ Allay соблюдает законы о данных ЕС (GDPR) и США. В�
    - **Spigot или Paper 26.3:** [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) в `plugins/`, затем перезапустите сервер.
    - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) и [Fabric API](https://modrinth.com/mod/fabric-api) в `mods/` сервера или своей игры. Kotlin уже внутри, больше ничего не нужно.
    - **NeoForge 26.3:** [`allay-neoforge.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-neoforge.jar) в `mods/` сервера или своей игры. Kotlin уже внутри, больше ничего не нужно.
+
+   Плагин есть и на [Hangar](https://hangar.papermc.io/MairwunNx/AllayAI), а плагин и оба мода появятся на Modrinth, когда там закончится проверка.
 2. Оператором выполните `/allay link` для подписки или впишите свой ключ OpenRouter в `provider.byok` и выполните `/allay reload`. В одиночной игре это может хозяин мира, с читами или без.
 3. Напишите `/ask как скрафтить маяк?`. Дальше ведёт страница [Installation](https://github.com/allay-ai/minecraft/wiki/Installation): Docker, свой бэкенд и лимиты.
 
