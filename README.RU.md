@@ -83,7 +83,7 @@ Allay соблюдает законы о данных ЕС (GDPR) и США. В�
 ## Связанные проекты
 
 - **[Moonlands](https://minecraft.mairwunnx.com)** — хардкорный сервер выживания, где всё это работает.
-- **[WorldAPI](https://github.com/MairwunNx/minecraft-worldapi)** — REST и WebSocket API к миру, игрокам и статистике сервера на Paper.
+- **[WorldAPI](https://github.com/MairwunNx/minecraft-worldapi)** — REST и WebSocket API к миру, игрокам и статистике сервера на Paper, Fabric или NeoForge.
 - **[Minecraft MCP](https://github.com/MairwunNx/minecraft-mcp)** — даёт AI-клиенту читать сервер и управлять им через WorldAPI.
 - **[Allay Server](https://github.com/allay-ai/server)** — бэкенд Allay.
 - **[Mo’Joins](https://github.com/MairwunNx/mojoins)** — сообщения о входе и выходе на языке каждого игрока.
