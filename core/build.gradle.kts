@@ -8,8 +8,8 @@ dependencies {
   // The expansion API ships inside every jar as it is, never relocated: other plugins and mods compile against it.
   api(project(":expansion"))
   api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
-  api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
-  api("com.squareup.okhttp3:okhttp:5.5.0")
+  api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
+  api("com.squareup.okhttp3:okhttp:5.5.1")
   implementation("com.maxmind.db:maxmind-db:4.2.0")
   implementation("org.yaml:snakeyaml:2.7")
 
