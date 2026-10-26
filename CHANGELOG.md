@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.18.2
+
+Nothing changes in the game.
+
+- 🔧 **Fresher libraries.** kotlinx-serialization 1.12.0 and OkHttp 5.5.1 inside every jar; built against Paper API 26.3 build 223 and NeoForge 26.3.0.99, with Gradle 9.8.2.
+
 ## 6.18.1
 
 Nothing changes in the game: this is the same Allay, now on Modrinth.
