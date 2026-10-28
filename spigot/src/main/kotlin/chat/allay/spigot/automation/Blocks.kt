@@ -55,35 +55,47 @@ object Blocks {
   fun root(block: Block): Block = halves(block).first()
 
   /**
-   * Whether the player could see [block] from where they stand: only a full opaque block (stone, planks, a wall) in
-   * between hides it. Glass, leaves, slabs, fences, stands, and water let the view through, and a ray to any point of
-   * the block counts, so a thin brewing stand or a chest behind a pane is seen. With [required] off
-   * (`automation.line_of_sight: false`) every block counts as seen.
+   * Whether the player could see [block] from where they stand or after a step aside: only a full opaque block (stone,
+   * planks, a wall) in between hides it. Glass, leaves, slabs, fences, stands, and water let the view through, and a ray
+   * to any point of the block counts, so a thin brewing stand or a chest behind a pane is seen. A pillar or a post in a
+   * room hides nothing the player could walk around: the view also counts from [ASIDE] blocks to each side, wherever
+   * the way there is open, but never through a wall. With [required] off (`automation.line_of_sight: false`) every
+   * block counts as seen.
    */
   fun sees(player: Player, block: Block, required: Boolean = true): Boolean {
     if (!required) return true
     val eyes = player.eyeLocation
     if (eyes.world != block.world) return false
     val from = eyes.toVector()
-    return SIGHT_POINTS.any { (x, y, z) -> clear(block, from, block.location.toVector().add(org.bukkit.util.Vector(x, y, z))) }
+    val views = listOf(from) + STEPS.map { (x, z) -> from.clone().add(org.bukkit.util.Vector(x * ASIDE, 0.0, z * ASIDE)) }
+      .filter { view -> clear(null, block.world, from, view) && !block.world.getBlockAt(view.blockX, view.blockY - 1, view.blockZ).type.isOccluding }
+    return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.world, view, block.location.toVector().add(org.bukkit.util.Vector(x, y, z))) } }
   }
 
-  /** Walks the line from [from] to [to] in small steps; true when it reaches [target] before any opaque full block. */
-  private fun clear(target: Block, from: org.bukkit.util.Vector, to: org.bukkit.util.Vector): Boolean {
+  /**
+   * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
+   * any opaque full block.
+   */
+  private fun clear(target: Block?, world: org.bukkit.World, from: org.bukkit.util.Vector, to: org.bukkit.util.Vector): Boolean {
     val line = to.clone().subtract(from)
     val steps = (line.length() / SIGHT_STEP).toInt().coerceAtLeast(1)
-    val world = target.world
     var last: Triple<Int, Int, Int>? = null
     for (i in 0..steps) {
       val at = from.clone().add(line.clone().multiply(i.toDouble() / steps))
       val cell = Triple(at.blockX, at.blockY, at.blockZ)
       if (cell == last) continue
       last = cell
-      if (cell.first == target.x && cell.second == target.y && cell.third == target.z) return true
+      if (target != null && cell.first == target.x && cell.second == target.y && cell.third == target.z) return true
       if (world.getBlockAt(cell.first, cell.second, cell.third).type.isOccluding) return false
     }
     return true
   }
+
+  /** How far a step aside goes, in blocks: around a pillar two blocks wide. */
+  private const val ASIDE = 2.0
+
+  /** The eight ways a step aside goes, as x and z. */
+  private val STEPS = listOf(1.0 to 0.0, -1.0 to 0.0, 0.0 to 1.0, 0.0 to -1.0, 0.7 to 0.7, 0.7 to -0.7, -0.7 to 0.7, -0.7 to -0.7)
 
   private const val SIGHT_STEP = 0.1
 

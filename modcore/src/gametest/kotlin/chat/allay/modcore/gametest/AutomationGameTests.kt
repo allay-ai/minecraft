@@ -25,6 +25,8 @@ import kotlinx.serialization.json.putJsonArray
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.Registries
+import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
 import net.minecraft.server.level.ServerPlayer
@@ -380,6 +382,107 @@ class AutomationGameTests {
     equal(helper, carried(player, Items.CHEST), 1, "the chest")
     equal(helper, carried(player, Items.OAK_PLANKS), 0, "the planks it took")
     done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun aPillarHidesNoTableThePlayerCouldWalkAround(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    player.inventory.setItem(9, ItemStack(Items.OAK_PLANKS, 8))
+    // A post right between them, as in a house: a step aside shows the table.
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(1, 2, 5)), Blocks.CRAFTING_TABLE.defaultBlockState())
+    for (y in 1..4) helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(1, y, 3)), Blocks.OAK_LOG.defaultBlockState())
+    val crafted = run(player, task, "craft", buildJsonObject { put("item", "chest") }).result.jsonObject
+    equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "the table behind a post counts: $crafted")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun craftingCraftsWhatTheFurnaceNeedsAndAsksForTheSmeltFirst(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 1)), Blocks.CRAFTING_TABLE.defaultBlockState())
+    player.inventory.setItem(9, ItemStack(Items.RAW_IRON_BLOCK, 1))
+    val first = run(player, task, "craft", buildJsonObject { put("item", "iron_chestplate") }).result.jsonObject
+    equal(helper, first["crafted"]!!.jsonPrimitive.boolean, false, "smelting comes first: $first")
+    equal(helper, first["smelt"]?.jsonObject?.get("raw_iron")?.jsonPrimitive?.int, 8, "eight raw iron for the ingots: $first")
+    equal(helper, carried(player, Items.RAW_IRON), 9, "the block broke into raw iron for the furnace")
+    equal(helper, carried(player, Items.RAW_IRON_BLOCK), 0, "the block it broke")
+    // What the furnaces agent brings back.
+    player.inventory.setItem(10, ItemStack(Items.IRON_INGOT, 8))
+    val crafted = run(player, task, "craft", buildJsonObject { put("item", "iron_chestplate") }).result.jsonObject
+    equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "crafted from the ingots: $crafted")
+    equal(helper, carried(player, Items.IRON_CHESTPLATE), 1, "the chestplate")
+    equal(helper, carried(player, Items.RAW_IRON), 9, "the raw iron stays")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun netheriteCraftsTheDiamondPieceOnTheWay(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 1)), Blocks.CRAFTING_TABLE.defaultBlockState())
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 2)), Blocks.SMITHING_TABLE.defaultBlockState())
+    player.inventory.setItem(9, ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, 1))
+    player.inventory.setItem(10, ItemStack(Items.NETHERITE_INGOT, 1))
+    val chestplate = buildJsonObject { put("item", "netherite_chestplate") }
+    val short = run(player, task, "craft", chestplate).result.jsonObject
+    equal(helper, short["missing"]?.jsonObject?.get("diamond")?.jsonPrimitive?.int, 8, "the diamonds for the piece: $short")
+    equal(helper, short["missing_for"]?.jsonObject?.get("diamond")?.jsonPrimitive?.content, "diamond_chestplate", "what they're for: $short")
+    player.inventory.setItem(11, ItemStack(Items.DIAMOND, 8))
+    val crafted = run(player, task, "craft", chestplate).result.jsonObject
+    equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "crafted: $crafted")
+    equal(helper, carried(player, Items.NETHERITE_CHESTPLATE), 1, "the netherite chestplate")
+    equal(helper, carried(player, Items.DIAMOND) + carried(player, Items.DIAMOND_CHESTPLATE) + carried(player, Items.NETHERITE_INGOT), 0, "everything it took")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun aGrindstoneTakesEnchantmentsOffAndJoinsTwoPieces(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    val grindstone = helper.absolutePos(BlockPos(3, 2, 1))
+    helper.level.setBlockAndUpdate(grindstone, Blocks.GRINDSTONE.defaultBlockState())
+    val enchantments = helper.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+    val sword = ItemStack(Items.DIAMOND_SWORD).apply {
+      enchant(enchantments.getOrThrow(Enchantments.SHARPNESS), 5)
+      enchant(enchantments.getOrThrow(Enchantments.VANISHING_CURSE), 1)
+    }
+    player.inventory.setItem(0, sword)
+    player.inventory.selectedSlot = 0
+    val plan = run(player, task, "grindstone", buildJsonObject { put("action", "plan") }).result.jsonObject
+    equal(helper, plan["takes_off"]!!.jsonObject["sharpness"]!!.jsonPrimitive.int, 5, "sharpness comes off: $plan")
+    equal(helper, plan["experience"]!!.jsonPrimitive.content, "23–45", "what it pays back: $plan")
+    equal(helper, plan["curses_stay"]!!.jsonObject["vanishing_curse"]!!.jsonPrimitive.int, 1, "a curse stays: $plan")
+    run(player, task, "grindstone", buildJsonObject { put("action", "apply") })
+    val ground = player.inventory.getItem(0)
+    equal(helper, ground.get(DataComponents.ENCHANTMENTS)?.size(), 1, "only the curse is left: $ground")
+    helper.assertTrue(helper.level.getEntitiesOfClass(ExperienceOrb::class.java, net.minecraft.world.phys.AABB(grindstone).inflate(2.0)).isNotEmpty(), "experience drops at the grindstone")
+    // Two worn pickaxes become one with both durabilities and 5% more; the one in a chest comes along.
+    val worn = ItemStack(Items.IRON_PICKAXE).apply { damageValue = 200 }
+    player.inventory.setItem(1, worn)
+    player.inventory.selectedSlot = 1
+    chest(helper, BlockPos(1, 2, 3), ItemStack(Items.IRON_PICKAXE).apply { damageValue = 150 })
+    val joined = run(player, task, "grindstone", buildJsonObject { put("action", "apply"); put("combine", true) }).result.jsonObject
+    val max = Items.IRON_PICKAXE.components().get(DataComponents.MAX_DAMAGE)!!
+    equal(helper, joined["durability"]!!.jsonObject["after"]!!.jsonPrimitive.int, minOf(max, (max - 200) + (max - 150) + max * 5 / 100), "joined: $joined")
+    equal(helper, carried(player, Items.IRON_PICKAXE), 1, "one pickaxe now")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest
+  fun enchantmentCostsMatchTheGame(helper: GameTestHelper) {
+    // The plugin reads these from a table; the mods read the game itself. Both must agree.
+    helper.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements().forEach { holder ->
+      val key = holder.key().identifier().path
+      for (level in 1..holder.value().maxLevel) equal(helper, chat.allay.core.tools.Mechanics.minCost(key, level), holder.value().getMinCost(level), "$key $level")
+      equal(helper, key in chat.allay.core.tools.Mechanics.CURSES, holder.`is`(net.minecraft.tags.EnchantmentTags.CURSE), "$key is a curse")
+    }
     helper.succeed()
   }
 

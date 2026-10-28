@@ -96,6 +96,7 @@ tools:
   brew: "Working the brewing stands"
   craft: "Crafting {item}"
   anvil: "Working the anvil"
+  grindstone: "Working the grindstone"
   reminders:
     add: "Setting a reminder"
     list: "Checking reminders"
@@ -207,6 +208,8 @@ summary:
   crafted: "crafted {count} {item}"
   anvil_plan: "planned for {levels} {levels|level|levels}"
   anvil_done: "done for {levels} {levels|level|levels}"
+  grindstone_plan: "{count} {count|enchantment|enchantments} to take off"
+  grindstone_done: "done, {points} experience"
   reminder_set: "in {minutes} {minutes|minute|minutes}"
   reminders: "{count} {count|reminder|reminders}"
   reminders_none: "no reminders"

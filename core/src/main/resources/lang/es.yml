@@ -96,6 +96,7 @@ tools:
   brew: "Preparando pociones"
   craft: "Fabricando {item}"
   anvil: "Trabajando en el yunque"
+  grindstone: "Trabajando en la piedra de afilar"
   reminders:
     add: "Poniendo un recordatorio"
     list: "Revisando los recordatorios"
@@ -207,6 +208,8 @@ summary:
   crafted: "fabricados {count} {item}"
   anvil_plan: "planeado por {levels} {levels|nivel|niveles}"
   anvil_done: "hecho por {levels} {levels|nivel|niveles}"
+  grindstone_plan: "{count} {count|encantamiento|encantamientos} por quitar"
+  grindstone_done: "hecho, {points} de experiencia"
   reminder_set: "en {minutes} {minutes|minuto|minutos}"
   reminders: "{count} {count|recordatorio|recordatorios}"
   reminders_none: "no hay recordatorios"

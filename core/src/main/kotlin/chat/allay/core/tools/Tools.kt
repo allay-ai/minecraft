@@ -63,7 +63,7 @@ val CLIENT_TOOLS = setOf(
   "get_item_durability", "get_xp_info", "get_food_options", "ping_me",
   "locate_biome", "get_death_info", "find_villagers", "get_anvil_plan", "write_book", "set_timezone", "goals", "inspect_item",
   "get_allay_guide", "allay_settings",
-  "start_task", "message_task", "cancel_task", "say", "wait", "finish", "pick_blocks", "chests", "smelt", "brew", "craft", "anvil",
+  "start_task", "message_task", "cancel_task", "say", "wait", "finish", "pick_blocks", "chests", "smelt", "brew", "craft", "anvil", "grindstone",
   "give_item", "teleport", "set_gamemode", "heal", "apply_effect", "set_time", "set_weather",
 )
 

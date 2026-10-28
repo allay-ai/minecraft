@@ -82,20 +82,27 @@ object Blocks {
   fun root(block: BlockAt): BlockAt = halves(block).first()
 
   /**
-   * Whether the player could see [block] from where they stand: only a full opaque block (stone, planks, a wall) in
-   * between hides it. Glass, leaves, slabs, fences, stands, and water let the view through, and a ray to any point of
-   * the block counts, so a thin brewing stand or a chest behind a pane is seen. With [required] off
-   * (`automation.line_of_sight: false`) every block counts as seen.
+   * Whether the player could see [block] from where they stand or after a step aside: only a full opaque block (stone,
+   * planks, a wall) in between hides it. Glass, leaves, slabs, fences, stands, and water let the view through, and a ray
+   * to any point of the block counts, so a thin brewing stand or a chest behind a pane is seen. A pillar or a post in a
+   * room hides nothing the player could walk around: the view also counts from [ASIDE] blocks to each side, wherever
+   * the way there is open, but never through a wall. With [required] off (`automation.line_of_sight: false`) every
+   * block counts as seen.
    */
   fun sees(player: ServerPlayer, block: BlockAt, required: Boolean = true): Boolean {
     if (!required) return true
     if (player.level() != block.level) return false
     val from = player.eyePosition
-    return SIGHT_POINTS.any { (x, y, z) -> clear(block, from, Vec3(block.x + x, block.y + y, block.z + z)) }
+    val views = listOf(from) + STEPS.map { (x, z) -> from.add(x * ASIDE, 0.0, z * ASIDE) }
+      .filter { view -> clear(null, block.level, from, view) && !occluding(block.level.getBlockState(BlockPos.containing(view).below())) }
+    return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.level, view, Vec3(block.x + x, block.y + y, block.z + z)) } }
   }
 
-  /** Walks the line from [from] to [to] in small steps; true when it reaches [target] before any opaque full block. */
-  private fun clear(target: BlockAt, from: Vec3, to: Vec3): Boolean {
+  /**
+   * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
+   * any opaque full block.
+   */
+  private fun clear(target: BlockAt?, level: net.minecraft.world.level.Level, from: Vec3, to: Vec3): Boolean {
     val line = to.subtract(from)
     val steps = (line.length() / SIGHT_STEP).toInt().coerceAtLeast(1)
     var last: BlockPos? = null
@@ -103,11 +110,17 @@ object Blocks {
       val cell = BlockPos.containing(from.add(line.scale(i.toDouble() / steps)))
       if (cell == last) continue
       last = cell
-      if (cell == target.pos) return true
-      if (occluding(target.level.getBlockState(cell))) return false
+      if (target != null && cell == target.pos) return true
+      if (occluding(level.getBlockState(cell))) return false
     }
     return true
   }
+
+  /** How far a step aside goes, in blocks: around a pillar two blocks wide. */
+  private const val ASIDE = 2.0
+
+  /** The eight ways a step aside goes, as x and z. */
+  private val STEPS = listOf(1.0 to 0.0, -1.0 to 0.0, 0.0 to 1.0, 0.0 to -1.0, 0.7 to 0.7, 0.7 to -0.7, -0.7 to 0.7, -0.7 to -0.7)
 
   /**
    * Bukkit's `Material.isOccluding`: by the block's type, whether it conducts redstone as a full block does. A sea

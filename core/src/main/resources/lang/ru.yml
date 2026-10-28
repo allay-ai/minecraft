@@ -96,6 +96,7 @@ tools:
   brew: "Занимаюсь зельями"
   craft: "Мастерю: {item}"
   anvil: "Работаю на наковальне"
+  grindstone: "Работаю на точиле"
   reminders:
     add: "Ставлю напоминание"
     list: "Смотрю напоминания"
@@ -207,6 +208,8 @@ summary:
   crafted: "скрафтил {count} {item}"
   anvil_plan: "план на {levels} {levels|уровень|уровня|уровней}"
   anvil_done: "готово за {levels} {levels|уровень|уровня|уровней}"
+  grindstone_plan: "снять чары: {count}"
+  grindstone_done: "готово, {points} опыта"
   reminder_set: "через {minutes} {minutes|минуту|минуты|минут}"
   reminders: "{count} {count|напоминание|напоминания|напоминаний}"
   reminders_none: "напоминаний нет"

@@ -185,5 +185,5 @@ object Jobs {
     give(player, left)
   }
 
-  val all: List<Tool> = listOf(Furnaces.tool, Stands.tool, Crafting.tool, AnvilWork.tool)
+  val all: List<Tool> = listOf(Furnaces.tool, Stands.tool, Crafting.tool, AnvilWork.tool, GrindstoneWork.tool)
 }

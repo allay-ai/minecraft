@@ -188,6 +188,7 @@ tools:
     brew: true                    # Brew a potion in brewing stands, step by step
     craft: true                   # Craft from what the player has around: 2×2 by hand, a table, a stonecutter, a smithing table
     anvil: true                   # Put books on an item and rename it on an anvil, for the player's levels
+    grindstone: true              # Take enchantments off an item, or join two worn ones, on a grindstone
   # Tools that change the game for the asker: items, teleports, and the like. The
   # assistant gets them only when the player is an operator, and the plugin checks
   # again before running one. A regular player can't talk it into a sword.

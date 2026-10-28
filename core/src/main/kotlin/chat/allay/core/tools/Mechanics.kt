@@ -251,6 +251,51 @@ object Mechanics {
   private const val KEEP = 24
 
   /**
+   * Each enchantment's lowest enchanting cost as the game's data has it (26.3): the cost at level 1 and its rise per
+   * level. A grindstone pays back from these; an enchantment a data pack or mod adds counts as 1 here, and the mods read
+   * the game's own value instead.
+   */
+  private val MIN_COSTS: Map<String, Pair<Int, Int>> = mapOf(
+    "aqua_affinity" to (1 to 0), "bane_of_arthropods" to (5 to 8), "binding_curse" to (25 to 0), "blast_protection" to (5 to 8), "breach" to (15 to 9),
+    "channeling" to (25 to 0), "density" to (5 to 8), "depth_strider" to (10 to 10), "efficiency" to (1 to 10), "feather_falling" to (5 to 6),
+    "fire_aspect" to (10 to 20), "fire_protection" to (10 to 8), "flame" to (20 to 0), "fortune" to (15 to 9), "frost_walker" to (10 to 10),
+    "impaling" to (1 to 8), "infinity" to (20 to 0), "knockback" to (5 to 20), "looting" to (15 to 9), "loyalty" to (12 to 7),
+    "luck_of_the_sea" to (15 to 9), "lunge" to (5 to 8), "lure" to (15 to 9), "mending" to (25 to 25), "multishot" to (20 to 0), "piercing" to (1 to 10),
+    "power" to (1 to 10), "projectile_protection" to (3 to 6), "protection" to (1 to 11), "punch" to (12 to 20), "quick_charge" to (12 to 20),
+    "respiration" to (10 to 10), "riptide" to (17 to 7), "sharpness" to (1 to 11), "silk_touch" to (15 to 0), "smite" to (5 to 8), "soul_speed" to (10 to 10),
+    "sweeping_edge" to (5 to 9), "swift_sneak" to (25 to 25), "thorns" to (10 to 20), "unbreaking" to (5 to 8), "vanishing_curse" to (25 to 0),
+    "wind_burst" to (15 to 9),
+  )
+
+  /** The game's curses, which a grindstone leaves on (the `#curse` tag). */
+  val CURSES = setOf("binding_curse", "vanishing_curse")
+
+  /** An enchantment's lowest enchanting cost at [level], as `Enchantment.getMinCost` gives it. */
+  fun minCost(enchantment: String, level: Int): Int = MIN_COSTS[enchantment]?.let { (base, perLevel) -> base + perLevel * (level - 1) } ?: 1
+
+  /**
+   * The experience a grindstone drops for enchantments whose lowest costs add up to [costs]: half of it rounded up,
+   * and as much again at most by chance ([chance] gives 0 until its bound), as `GrindstoneMenu` pays.
+   */
+  fun grindstoneExperience(costs: Int, chance: (Int) -> Int): Int {
+    if (costs <= 0) return 0
+    val half = ceil(costs / 2.0).toInt()
+    return half + chance(half)
+  }
+
+  /** The range [grindstoneExperience] falls in, for a plan to say. */
+  fun grindstoneExperienceRange(costs: Int): IntRange = if (costs <= 0) 0..0 else ceil(costs / 2.0).toInt().let { it..(it * 2 - 1) }
+
+  /** The prior work penalty a grindstone leaves: as if each enchantment left (only curses) took one more anvil use. */
+  fun grindstoneRepairCost(left: Int): Int = (0 until left).fold(0) { cost, _ -> cost * 2 + 1 }
+
+  /**
+   * The damage of two pieces of one item merged on a grindstone: what both have left, plus 5% of [max], as the game
+   * repairs it; never below none.
+   */
+  fun grindstoneDamage(max: Int, first: Int, second: Int): Int = max(max - ((max - first) + (max - second) + max * 5 / 100), 0)
+
+  /**
    * How much of a potion's duration an item gives, as its tooltip shows it: a tipped arrow an eighth,
    * a lingering potion a quarter. Read from the item type: Paper's API has no duration scale to ask.
    */

@@ -296,6 +296,45 @@ class AutomationTest {
     assertEquals(mapOf("diamond_pickaxe" to 1, "oak_planks" to 2, "stick" to 2), plan.makes)
   }
 
+  @Test fun `crafting goes four levels down`() {
+    // A chain of parts, each made of the one before: d from c, c from b, b from a.
+    val chain: (String) -> List<Workshop.Recipe> = { id ->
+      mapOf("d" to "c", "c" to "b", "b" to "a", "a" to "log")[id]?.let { listOf(Workshop.Recipe(id, 1, listOf(setOf(it)))) }.orEmpty()
+    }
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("d", 1, mapOf("log" to 1), chain))
+    assertEquals(listOf("a", "b", "c", "d"), plan.steps.map { it.recipe.result })
+    // Three levels stop at a, and name it as missing.
+    assertEquals(mapOf("a" to 1), assertIs<Workshop.Missing>(Workshop.plan("d", 1, mapOf("log" to 1), chain, depth = 3)).items)
+  }
+
+  @Test fun `what's missing never goes through a block of the item`() {
+    val blocks: (String) -> List<Workshop.Recipe> = { id ->
+      when (id) {
+        "diamond" -> listOf(Workshop.Recipe(id, 9, listOf(setOf("diamond_block"))))
+        "diamond_block" -> listOf(Workshop.Recipe(id, 1, List(9) { setOf("diamond") }))
+        else -> recipes(id)
+      }
+    }
+    assertEquals(mapOf("diamond" to 1), assertIs<Workshop.Missing>(Workshop.plan("diamond_pickaxe", 1, mapOf("diamond" to 2, "stick" to 2), blocks)).items)
+    // A block the player has still breaks into diamonds.
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("diamond_pickaxe", 1, mapOf("diamond_block" to 1, "stick" to 2), blocks))
+    assertEquals(mapOf("diamond_block" to 1, "stick" to 2), plan.takes)
+  }
+
+  @Test fun `what's missing counts what the player has once`() {
+    val iron: (String) -> List<Workshop.Recipe> = { id ->
+      when (id) {
+        "hopper" -> listOf(Workshop.Recipe(id, 1, List(5) { setOf("iron_ingot") }))
+        "iron_ingot" -> listOf(Workshop.Recipe(id, 1, listOf(setOf("raw_iron")), Workshop.Station.FURNACE))
+        else -> emptyList()
+      }
+    }
+    // Ten hoppers take fifty ingots; seven raw iron leave forty-three short.
+    assertEquals(mapOf("raw_iron" to 43), assertIs<Workshop.Missing>(Workshop.plan("hopper", 10, mapOf("raw_iron" to 7), iron)).items)
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("hopper", 1, mapOf("raw_iron" to 7), iron))
+    assertEquals(mapOf("raw_iron" to 5), plan.smelts)
+  }
+
   @Test fun `water bottles fill from glass bottles crafted from glass for a plugin's can`() {
     val book: (String) -> List<Workshop.Recipe> = { id ->
       when (id) {

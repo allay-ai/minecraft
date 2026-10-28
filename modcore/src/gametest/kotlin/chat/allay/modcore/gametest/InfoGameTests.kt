@@ -221,6 +221,22 @@ class InfoGameTests {
     helper.assertTrue(shaped["key"]!!.jsonObject["a"]!!.jsonPrimitive.content.startsWith("#planks"), "any planks read as a tag: $shaped")
     val potion = refused { run(asker, "get_recipes", buildJsonObject { put("item", "potion") }) }
     helper.assertTrue(potion?.contains("get_brewing_recipe") == true, "potions point to brewing: $potion")
+    // A plan takes the parts on the way from what the player has, and takes nothing.
+    asker.inventory.setItem(9, ItemStack(Items.DIAMOND, 3))
+    asker.inventory.setItem(10, ItemStack(Items.OAK_LOG, 1))
+    val pickaxe = result(asker, "get_recipes", buildJsonObject { put("item", "diamond_pickaxe"); put("plan", true) })["plan"]!!.jsonObject
+    equal(helper, pickaxe["takes"]!!.jsonObject["oak_log"]!!.jsonPrimitive.int, 1, "planks and sticks from the log: $pickaxe")
+    equal(helper, pickaxe["needs"]!!.jsonArray.map { it.jsonPrimitive.content }, listOf("crafting_table"), "no table near: $pickaxe")
+    equal(helper, asker.inventory.getItem(9).count, 3, "a plan takes nothing")
+    val two = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("diamond_pickaxe")))); put("plan", true); put("count", 2) })
+    val short = two["results"]!!.jsonArray[0].jsonObject["plan"]!!.jsonObject
+    equal(helper, short["missing"]?.jsonObject?.get("diamond")?.jsonPrimitive?.int, 3, "two pickaxes need three more diamonds: $short")
+    // A set shares what the player has: eight ingots make the helmet, and the boots then lack one.
+    asker.inventory.setItem(9, ItemStack(Items.IRON_INGOT, 8))
+    val set = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true) })
+    val (helmet, boots) = set["results"]!!.jsonArray.map { it.jsonObject["plan"]!!.jsonObject }
+    equal(helper, helmet["takes"]?.jsonObject?.get("iron_ingot")?.jsonPrimitive?.int, 5, "the helmet's ingots: $helmet")
+    helper.assertTrue("missing" in boots, "the boots get what's left: $boots")
     val advancements = result(asker, "get_advancements", buildJsonObject { put("filter", "all") })
     val todo = advancements["todo"]!!.jsonArray.map { it.jsonObject }
     helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 40, "the list is capped, the count isn't: $advancements")

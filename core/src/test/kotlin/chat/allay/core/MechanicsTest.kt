@@ -145,4 +145,21 @@ class MechanicsTest {
     assertEquals(listOf(1, 2) to 0, Mechanics.capped(listOf(1, 2), 27))
     assertEquals(emptyList<Int>() to 0, Mechanics.capped(emptyList<Int>(), 27))
   }
+
+  @Test fun `a grindstone pays back as the game does`() {
+    // Sharpness V: 1 + 11 × 4 = 45, so 23 and up to 22 more.
+    assertEquals(45, Mechanics.minCost("sharpness", 5))
+    assertEquals(23, Mechanics.grindstoneExperience(45) { 0 })
+    assertEquals(45, Mechanics.grindstoneExperience(45) { it - 1 })
+    assertEquals(23..45, Mechanics.grindstoneExperienceRange(45))
+    assertEquals(0, Mechanics.grindstoneExperience(0) { error("no chance without enchantments") })
+    assertEquals(1, Mechanics.minCost("some_pack:glow", 3))
+  }
+
+  @Test fun `a grindstone joins durability with 5 percent more`() {
+    // A diamond pickaxe (1561) with 100 and 200 left: 300 + 78.
+    assertEquals(1561 - 378, Mechanics.grindstoneDamage(1561, 1461, 1361))
+    assertEquals(0, Mechanics.grindstoneDamage(1561, 100, 50))
+    assertEquals(listOf(0, 1, 3), (0..2).map(Mechanics::grindstoneRepairCost))
+  }
 }

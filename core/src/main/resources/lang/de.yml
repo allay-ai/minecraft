@@ -96,6 +96,7 @@ tools:
   brew: "Ich kümmere mich um die Braustände"
   craft: "Ich stelle {item} her"
   anvil: "Arbeite am Amboss"
+  grindstone: "Arbeite am Schleifstein"
   reminders:
     add: "Stelle eine Erinnerung"
     list: "Schaue Erinnerungen durch"
@@ -207,6 +208,8 @@ summary:
   crafted: "{count} {item} hergestellt"
   anvil_plan: "geplant für {levels} {levels|Level|Level}"
   anvil_done: "fertig für {levels} {levels|Level|Level}"
+  grindstone_plan: "{count} {count|Verzauberung|Verzauberungen} zu entfernen"
+  grindstone_done: "fertig, {points} Erfahrung"
   reminder_set: "in {minutes} {minutes|Minute|Minuten}"
   reminders: "{count} {count|Erinnerung|Erinnerungen}"
   reminders_none: "keine Erinnerungen"

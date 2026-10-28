@@ -36,16 +36,20 @@ object KnowledgeTools {
       val asked = args.asked("items", "item", MAX_ITEMS) ?: throw ToolError("say which item")
       val catalog = Catalogs.build(context)
       val locale = context.nameLocale
+      // With plan, each item also comes with what crafting it would take from the player's things, parts on the way.
+      // Items in one call share the player's things: a set of armor counts the same ingots once.
+      val plan = if (args.bool("plan") == true) (args.int("count") ?: 1).coerceIn(1, 64) else null
+      val spent = mutableMapOf<String, Int>()
       read(context)
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
       if (args["items"] == null) {
-        val result = recipes(context, catalog, locale, asked.single(), MAX_RECIPES)
+        val result = recipes(context, catalog, locale, asked.single(), MAX_RECIPES, plan, spent)
         return ToolOutput(result, summary(context, listOf(result)))
       }
       val each = if (asked.size == 1) MAX_RECIPES else MAX_RECIPES_EACH
       val results = asked.map { name ->
         try {
-          buildJsonObject { put("query", name); recipes(context, catalog, locale, name, each).forEach { (key, value) -> put(key, value) } }
+          buildJsonObject { put("query", name); recipes(context, catalog, locale, name, each, plan, spent).forEach { (key, value) -> put(key, value) } }
         } catch (error: ToolError) {
           buildJsonObject { put("query", name); put("error", error.message.orEmpty()) }
         }
@@ -59,8 +63,11 @@ object KnowledgeTools {
       return if (count == 0) context.lang.text("summary.recipes_none") else context.lang.text("summary.recipes", "count" to count)
     }
 
-    /** How [asked] is made here, up to [most] recipes, or a [ToolError] that says why there's none to show. */
-    private fun recipes(context: ToolContext, catalog: Catalog, locale: String?, asked: String, most: Int): JsonObject {
+    /**
+     * How [asked] is made here, up to [most] recipes, or a [ToolError] that says why there's none to show. With [plan],
+     * what crafting that many would take after what [spent] holds, or why it can't be planned.
+     */
+    private fun recipes(context: ToolContext, catalog: Catalog, locale: String?, asked: String, most: Int, plan: Int? = null, spent: MutableMap<String, Int> = mutableMapOf()): JsonObject {
       val item = Names.normalize(asked)
       // Potions come from the brewing stand: get_brewing_recipe tells its steps.
       if (item in POTIONS) throw ToolError("potions are brewed: call get_brewing_recipe with the potion, like night_vision")
@@ -80,6 +87,7 @@ object KnowledgeTools {
         if (entry.source != Catalog.MINECRAFT) put("source", entry.source)
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
+        if (plan != null) put("plan", try { chat.allay.modcore.automation.Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
       }
     }
 
