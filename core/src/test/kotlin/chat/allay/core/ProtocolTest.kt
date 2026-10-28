@@ -31,6 +31,17 @@ class ProtocolTest {
     )
   }
 
+  @Test fun `what the operator wrote about the server goes as server about, block text and all`() {
+    val config = Config(YamlConfig(YamlConfig.parse("server:\n  about: |\n    Moonlands: hard survival.\n    Claims with a golden shovel.\n")), "test")
+    assertEquals("Moonlands: hard survival.\nClaims with a golden shovel.", config.server.about)
+    assertEquals("", Config(YamlConfig(YamlConfig.parse("server:\n  url: x\n")), "test").server.about)
+    val server = Protocol.ServerInfo(software = "Paper", version = "26.3", plugin_version = "6.20.0", about = config.server.about)
+    assertEquals(
+      """{"software":"Paper","version":"26.3","plugin_version":"6.20.0","about":"Moonlands: hard survival.\nClaims with a golden shovel."}""",
+      Protocol.json.encodeToString(Protocol.ServerInfo.serializer(), server),
+    )
+  }
+
   @Test fun `full privacy goes with the player only when it's on`() {
     val off = Protocol.PlayerInfo("Steve", "u", op = false)
     val on = off.copy(private = true)

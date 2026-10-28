@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.20.0
+
+Needs Allay Server 6.20.0 for Allay to use it; older backends ignore it.
+
+- 🏰 **Tell Allay about your server.** Write what your server is in `server.about` in `config.yml`: its rules and places, your site and map, and how you'd like Allay to talk with players. Allay uses it to answer questions; its own rules still come first. Every question sends it to the model, so the log warns past 2,000 characters, and the backend reads at most 10,000. On Spigot, Paper, Fabric, and NeoForge.
+
 ## 6.19.0
 
 Allay Server 6.19.0 tells the model about it.

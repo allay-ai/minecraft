@@ -179,7 +179,9 @@ class Service<C>(
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
       player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null, position = asker.position) },
-      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port, host.loader, host.side),
+      server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port, host.loader, host.side,
+        // Only questions use it, so actions and automation agents don't carry it.
+        about = config.server.about.takeIf { it.isNotEmpty() && run.mode == Run.Mode.ASK }),
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
       provider = credentials.block(run.model),

@@ -24,6 +24,10 @@ private val SERVER_NAME = Regex("[\\p{L}\\p{N} ._'-]{2,32}")
 /** How long a shutdown waits to send players' changes before sealing the rest into the spool. */
 private const val SHUTDOWN_MS = 3_000L
 
+/** server.about's length past which the log advises a shorter one, and the most the backend reads (6.20). */
+private const val ABOUT_ADVISED = 2_000
+private const val MAX_ABOUT = 10_000
+
 /**
  * Allay on any platform: everything around the questions, built in the same order everywhere. A platform hands in its
  * [Platform] and, once the shared pieces exist, its [Game]: the tools, the buttons that reach into the world, its
@@ -274,12 +278,20 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     }
   }
 
+  /** Every question carries server.about to the model, so a long one costs on each; past the backend's limit it's cut. */
+  private fun reportAbout(length: Int) = when {
+    length > MAX_ABOUT -> log.warning("server.about has $length characters; the backend reads only the first $MAX_ABOUT. Keep it under $ABOUT_ADVISED: every question pays for it")
+    length > ABOUT_ADVISED -> log.warning("server.about has $length characters; under $ABOUT_ADVISED is advised, since every question pays for it. Keep it if you need it")
+    else -> Unit
+  }
+
   /** One line at start and on reload about who pays for the model; the key and the license show masked, if at all. */
   private fun reportProvider() {
     val provider = config.provider
     // allay.chat answers only players who agreed, at an age the law allows: these switches are for a backend of your own.
     if (config.server.token.isEmpty() && !config.privacy.consent) log.warning("privacy.consent: false works only with a backend of your own (server.token); allay.chat's players still get the notice")
     if (config.server.token.isEmpty() && !config.geoIp.enabled) log.warning("geoip.enabled: false works only with a backend of your own (server.token); for allay.chat the country still sets the age a player must be to agree")
+    reportAbout(config.server.about.length)
     if (config.server.token.isNotEmpty()) log.info("Signing in to the backend with server.token ${Secrets.mask(config.server.token)}")
     when {
       provider.byok && provider.apiKey.isEmpty() ->

@@ -17,6 +17,8 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val address = config.string("server.address", "").trim()
     /** The server's name in the backend's admin panel, like `Moonlands` (since 6.5); unique on the backend. Empty: its random id. */
     val name = config.string("server.name", "").trim()
+    /** What the operator wrote about the server for the model (since 6.20); empty sends nothing. */
+    val about = config.string("server.about", "").trim()
   }
 
   /** Who pays for the model: the backend's key with a subscription (hosted), or the server's own key (byok). */

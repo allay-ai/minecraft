@@ -22,6 +22,15 @@ server:
   # Where players join, like "mc.example.com". The backend's admin panel shows it next to
   # your server, with the game port. Empty: the game's server-ip, if set.
   address: ""
+  # A few lines about your server for Allay: what it is, its rules and places, your site
+  # and map, and how you'd like Allay to talk with players. Allay uses it to answer
+  # questions; its own rules still come first. Every question sends it to the model,
+  # so keep it short: past 2,000 characters the log warns, and the backend reads at
+  # most 10,000. English costs the fewest tokens; Allay answers in each player's language.
+  about: ""
+  # about: |
+  #   Moonlands is a hard survival server for friends. Claims with a golden shovel,
+  #   two at most. The map: https://example.com/map/
 
 # Who pays for the AI model. Two ways:
 #   hosted: the backend's key and models, paid with a subscription in Telegram Stars.
