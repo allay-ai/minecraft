@@ -2,6 +2,19 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.19.0
+
+Allay Server 6.19.0 tells the model about it.
+
+- 🧾 **“What am I missing for a beacon?”** `get_recipes` with `plan` says what crafting an item takes from your inventory, the ender chest, and the chests around, the parts on the way included, and what's short, without taking anything. It's the crafting agent's own planner, so the answer in chat and a real craft agree. On Spigot, Paper, Fabric, and NeoForge.
+- 🪜 **Four levels of parts.** The crafting agent and the plan make parts four levels deep instead of three.
+- 💎 **Clearer shortfalls.** Three diamonds short reads as three diamonds, not as a diamond block to break or diamond ore to smelt, and `missing_for` says what each part was for: the diamonds for the chestplate a netherite one is upgraded from. A shortfall no longer counts what you have twice: 64 hoppers from 7 raw iron lacked 306, now 313.
+- ⛏️ **Smelting on the way.** Iron armor from raw iron, or from raw iron blocks, works end to end: the crafting agent breaks the blocks into raw iron, a furnaces agent smelts it, and the crafting agent makes the armor. A plan names what goes into a furnace first (`smelt`). Tools and armor are never melted down for nuggets.
+- 🛡️ **Netherite from scratch.** Without a diamond piece, the crafting agent crafts one from diamonds and upgrades it. Your own pieces, enchanted or worn, still go first.
+- 🧮 **Sets share.** `get_recipes` with `plan` and several items counts what you have once, in the order asked: a helmet and boots from 8 ingots no longer both say “enough”.
+- 🪨 **The grindstone.** The crafting agent takes enchantments off an item on a grindstone near you (curses stay, the experience drops there, as in the game), or joins two worn pieces of one item into one with both durabilities and 5% more. Asked to join two items with an anvil and a grindstone both near, it asks which you want: the anvil keeps the enchantments, the grindstone takes them off for free. New tool `grindstone`, on by default (`tools.enabled.grindstone`). On Spigot, Paper, Fabric, and NeoForge.
+- 🏛️ **Pillars don't hide tables.** Furnaces, stands, and tables count as in sight when a step aside, up to 2 blocks, shows them, so a post in a house no longer hides one. A wall still does. Chests never needed to be in sight.
+
 ## 6.18.2
 
 Nothing changes in the game.
