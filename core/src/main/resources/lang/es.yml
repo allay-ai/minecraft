@@ -8,6 +8,10 @@ status:
   # La línea en vivo sobre la barra rápida mientras el asistente trabaja, como en Claude Code:
   # spinner, un verbo que va cambiando, segundos, tokens leídos (↑) y escritos (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|token|tokens})"
+  # Mientras hay un rastro: una flecha que gira con tu vista y los bloques que faltan.
+  trail: "&b{arrow} &f{blocks} &7{blocks|bloque|bloques}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|bloque|bloques}"
+  trail_hidden: "&7{name} no está en tu barra localizadora"
   answering: "Escribiendo la respuesta"
   verbs:
     - "Hojeando el libro de recetas"
@@ -38,6 +42,7 @@ tool_lines:
   # Una línea en el chat cuando el asistente usa una herramienta, y el resultado debajo.
   started: "&7⏺ {label}"
   finished: "&8  ⎿ {summary}"
+  refused: "&c  ⎿ {summary}"
   # El motivo ({reason}) está escrito en inglés para el asistente, así que aquí no aparece.
   failed: "&c  ⎿ no salió"
   unknown: "Usando {name}"
@@ -73,10 +78,8 @@ tools:
     by_queries: "Buscando comandos: {query}"
     by_plugin: "Revisando los comandos de {plugin}"
     by_check: "Comprobando los comandos"
-  get_light_spawn_check: "Buscando zonas oscuras"
   get_brewing_items: "Revisando lo que tienes para pociones"
   get_brewing_recipe: "Buscando los pasos de la poción"
-  scan_farm: "Inspeccionando la granja"
   point_to: "Mostrando el camino"
   get_nearby_players: "Buscando jugadores cerca"
   show_marks: "Marcando bloques"
@@ -149,10 +152,7 @@ summary:
   find: "{total} en {places} {places|sitio|sitios}"
   find_none: "no encontrado"
   item: "{id}"
-  dark: "{count} {count|zona oscura|zonas oscuras}"
-  dark_none: "no hay zonas oscuras"
   brewing: "{stacks} {stacks|pila|pilas} para pociones, {stands} {stands|soporte|soportes} para pociones"
-  farm: "{plants} {plants|planta|plantas}, {animals} {animals|animal|animales}"
   wear_fine: "{count} {count|objeto|objetos}, todo bien"
   wear_low: "{low} de {count} casi rotos"
   xp: "nivel {level}, {points} {points|punto|puntos}"
@@ -266,8 +266,12 @@ messages:
   cancelled: "&7Parado."
   nothing_to_cancel: "&7Ahora mismo no estoy haciendo nada."
   arrived: "&aYa has llegado."
+  arrived_above: "&aYa has llegado, el lugar está &f{blocks} {blocks|bloque|bloques}&a más arriba."
+  arrived_below: "&aYa has llegado, el lugar está &f{blocks} {blocks|bloque|bloques}&a más abajo."
   found: "&f{name} &aestá justo aquí."
   trail_lost: "&7{name} ya no está en tu barra localizadora, el rastro se apagó."
+  trail_ended: "&7El rastro se apagó a &f{blocks} {blocks|bloque|bloques}&7 del destino. Pídemelo otra vez y te muestro el resto."
+  trail_other_world: "&7Saliste de la dimensión del rastro, así que se apagó. Cuando vuelvas, pídelo de nuevo."
   trail_stopped: "&7He quitado el rastro."
   marks_cleared: "&7Marcas ocultas."
   draft_cleared: "&7Boceto quitado."
@@ -418,6 +422,7 @@ automation:
   cancelled: "cancelado."
   interfered: "tú u otro jugador estorbó la automatización: {reason}."
   timed_out: "se acabó el tiempo ({minutes} min)."
+  silent: "se quedó callado sin terminar. Pídelo otra vez, quizá con otras palabras."
   too_many_steps: "hicieron falta demasiados pasos. Pídelo otra vez por partes."
   quota: "se acabó la cuota de Allay."
   gone: "&7Esta automatización ya terminó."

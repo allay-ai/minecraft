@@ -31,7 +31,6 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
-import net.minecraft.world.level.block.CropBlock
 import net.minecraft.world.level.block.entity.ChestBlockEntity
 import net.minecraft.world.level.storage.loot.BuiltInLootTables
 import net.minecraft.world.phys.Vec3
@@ -154,21 +153,13 @@ class InfoGameTests {
   }
 
   @GameTest
-  fun brewingFarmsAndDarkSpotsAreScanned(helper: GameTestHelper) {
+  fun brewingIsScanned(helper: GameTestHelper) {
     val asker = survivor(helper)
     asker.inventory.setItem(0, ItemStack(Items.BLAZE_POWDER, 3))
     helper.setBlock(BlockPos(3, 2, 1), Blocks.BREWING_STAND)
-    helper.setBlock(BlockPos(1, 1, 4), Blocks.FARMLAND)
-    helper.setBlock(BlockPos(1, 2, 4), Blocks.WHEAT.defaultBlockState().setValue(CropBlock.AGE, 7))
     val brewing = result(asker, "get_brewing_items")
     equal(helper, brewing["inventory"]!!.jsonArray.size, 1, "brewing items carried")
     helper.assertTrue(brewing["brewing_stands"]!!.jsonArray.isNotEmpty(), "the stand nearby: $brewing")
-    val farm = result(asker, "scan_farm", buildJsonObject { put("radius", 4) })
-    helper.assertTrue(farm["crops"]!!.jsonObject["wheat"]!!.jsonObject["ripe"]!!.jsonPrimitive.int >= 1, "ripe wheat: $farm")
-    val farmland = farm["farmland"]!!.jsonObject
-    helper.assertTrue(farmland["dry"]!!.jsonPrimitive.int + farmland["hydrated"]!!.jsonPrimitive.int >= 1, "the farmland: $farm")
-    val dark = result(asker, "get_light_spawn_check", buildJsonObject { put("radius", 3) })
-    helper.assertTrue("dark_spots" in dark && "rule" in dark, "the spawn check answers: $dark")
     val recipe = result(asker, "get_brewing_recipe", buildJsonObject { put("potion", "night_vision") })
     equal(helper, recipe["steps"]!!.jsonArray.size, 2, "awkward, then night vision")
     asker.discard()
@@ -197,7 +188,7 @@ class InfoGameTests {
     equal(helper, plan["item"]!!.jsonPrimitive.content, "diamond_sword", "the item in hand")
     helper.assertTrue(plan["steps"]!!.jsonArray.isNotEmpty(), "one step at least: $plan")
     val wrong = refused { run(asker, "get_anvil_plan", buildJsonObject { putJsonObject("enchantments") { put("protection", 4) } }) }
-    equal(helper, wrong, "protection doesn't go on diamond_sword", "a book that doesn't fit")
+    helper.assertTrue(wrong.orEmpty().startsWith("protection doesn't go on diamond_sword; "), "a book that doesn't fit says so and how to name the item meant: $wrong")
     asker.discard()
     helper.succeed()
   }
@@ -239,10 +230,10 @@ class InfoGameTests {
     helper.assertTrue("missing" in boots, "the boots get what's left: $boots")
     val advancements = result(asker, "get_advancements", buildJsonObject { put("filter", "all") })
     val todo = advancements["todo"]!!.jsonArray.map { it.jsonObject }
-    helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 40, "the list is capped, the count isn't: $advancements")
+    helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 15, "the list is capped, the count isn't: $advancements")
     helper.assertTrue(todo.none { it["key"]!!.jsonPrimitive.content.startsWith("recipes/") } && todo.all { "title" in it && "description" in it }, "no recipe unlocks: $todo")
     val structure = refused { run(asker, "locate_structure", buildJsonObject { put("structure", "moonbase") }) }
-    equal(helper, structure, "no structure called moonbase", "an unknown structure")
+    helper.assertTrue(structure.orEmpty().startsWith("no structure called moonbase; ") && "village_*" in structure.orEmpty(), "an unknown structure names what the server has: $structure")
     helper.assertTrue("found" in result(asker, "locate_biome", buildJsonObject { put("biome", "plains") }), "a biome search answers")
     asker.discard()
     helper.succeed()

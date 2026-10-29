@@ -174,6 +174,8 @@ object Chests {
     class Read(
       val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val assign: Map<String, Storage.Assign>, val targets: Set<String>, val outside: Boolean,
       val inventory: List<ItemStack?>?, val held: Int, val boxes: Set<String>,
+      /** Chests around that a take passed over, with why, and how far it looked: “none” is never “none anywhere”. */
+      val skipped: List<Pair<Block, Blocks.Unfit>> = emptyList(), val radius: Int = 0,
     )
     // A move may also take from the player's inventory and from every chest around, with no picking.
     val from = (args["from"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.lowercase() }?.toSet().orEmpty()
@@ -183,9 +185,16 @@ object Chests {
     val read = context.main {
       val player = context.requirePlayer()
       val settings = automation.settings()
+      val taking = mode == "take"
+      val skipped = mutableListOf<Pair<Block, Blocks.Unfit>>()
       val nearby = { adding: Boolean, skip: Collection<Block>, room: Int ->
         Blocks.near(player.location, settings.radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct()
-          .filter { it !in skip && Blocks.unsuitable(player, it, adding) == null && (adding || !automation.reservations.heldAt(Blocks.place(it), except = task.id)) }
+          .filter { block ->
+            val unfit = Blocks.unsuitable(player, block, adding, taking)
+            // Someone's claim stays unnamed, as everywhere: only chests the player could open count as passed over.
+            if (unfit != null && unfit != Blocks.Unfit.TYPE && unfit != Blocks.Unfit.CLAIM && block !in skip) skipped += block to unfit
+            block !in skip && unfit == null && (adding || !automation.reservations.heldAt(Blocks.place(block), except = task.id))
+          }
           .sortedBy { it.location.distanceSquared(player.location) }
           .take(room.coerceAtLeast(0))
       }
@@ -212,7 +221,7 @@ object Chests {
       }
       blocks.forEach { block ->
         val adding = block in targets && mode != "sort" && mode != "group"
-        Blocks.unsuitable(player, block, adding)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+        Blocks.unsuitable(player, block, adding, taking)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
         // Another automation counts on what lies here; taking it would make that one stop. Putting things in is fine.
         if (!adding && automation.reservations.heldAt(Blocks.place(block), except = task.id)) throw ToolError("another automation of the player counts on what's in the chest at ${block.x} ${block.y} ${block.z}; leave it out or wait for that one to finish")
       }
@@ -228,7 +237,7 @@ object Chests {
       }
       val inventory = if ("inventory" in from || mode == "take" || mode == "stash") pack(player) else null
       Read(blocks, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) },
-        inventory, player.inventory.heldItemSlot, blocks.filter(Blocks::box).map(Blocks::place).toSet())
+        inventory, player.inventory.heldItemSlot, blocks.filter(Blocks::box).map(Blocks::place).toSet(), skipped, settings.radius)
     }
     if (read.blocks.isEmpty()) throw ToolError(if (mode == "take" || mode == "stash") "no usable chest around the player" else "no chests: pick them with pick_blocks, or pass chests")
     val chests = read.blocks.map { Storage.Chest(Blocks.place(it), read.before[Blocks.place(it)]!!, read.assign[Blocks.place(it)]) }
@@ -309,7 +318,10 @@ object Chests {
             val homeless = loose.mapNotNull { after[it]?.type?.key?.key }.filter { it !in plan.left }.distinct()
             if (homeless.isNotEmpty()) putJsonArray("no_chest_for") { homeless.take(16).forEach { add(it) } }
           }
-          if (mode == "take" && gained.isEmpty()) put("found_none", "nothing matching lies in these chests")
+          if (mode == "take" && gained.isEmpty()) put("found_none", "nothing matching lies in these chests (within ${read.radius} blocks)")
+          if (mode == "take" && read.skipped.isNotEmpty()) putJsonArray("skipped_chests") {
+            read.skipped.take(8).forEach { (block, why) -> add(buildJsonObject { put("x", block.x); put("y", block.y); put("z", block.z); put("reason", why.model) }) }
+          }
         }
         if (amounts.isNotEmpty()) {
           // Each amount as asked and as planned, so a shortfall is plain: “6 lapis, only 4 in the chests”.
@@ -328,7 +340,11 @@ object Chests {
                 amount.count?.let { put("asked", it) }
                 amount.upTo?.let { put("up_to", it); put("carried", carried(index)) }
                 put("planned", got)
-                if (got < shares[index]!!) put("short", shares[index]!! - got)
+                if (got < shares[index]!!) {
+                  put("short", shares[index]!! - got)
+                  // Lapis from lapis blocks, ingots from iron blocks: what's short may still be crafted.
+                  if (mode == "take") put("then", "apply, then start_task kind crafting for the short count: it makes it from blocks or parts around")
+                }
               })
             }
           }

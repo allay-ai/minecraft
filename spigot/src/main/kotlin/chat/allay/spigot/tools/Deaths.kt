@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Sends every death to the backend (6.9), which keeps the history: when, where, and how. The plugin keeps only each
  * player's last death of this run in memory, so `get_death_info` can say what dropped and whether it still lies there.
  */
-class Deaths(private val data: PlayerData) : Listener {
+class Deaths(private val data: PlayerData, private val consented: (UUID) -> Boolean) : Listener {
   private val last = ConcurrentHashMap<UUID, Death>()
 
   /** The player's last death since the server started, or null. */
@@ -29,14 +29,17 @@ class Deaths(private val data: PlayerData) : Listener {
     val world = place.world ?: return
     val source = event.damageSource
     val killer = source.causingEntity
-    // A player killer by name only when the victim could see them; a mob by the name a player gave it.
+    // Another player by name only when they agreed here and the victim could see them; a mob by the name a player gave it.
+    fun named(other: Player) = consented(other.uniqueId) && Vanish.visible(player, other)
     val killerName = when (killer) {
       null -> null
-      is Player -> killer.name.takeIf { Vanish.visible(player, killer) }
+      is Player -> killer.name.takeIf { named(killer) }
       else -> killer.customName
     }
-    val drops = event.drops.groupBy { it.type.key.key }.mapValues { (_, stacks) -> stacks.sumOf { it.amount } }
-      .entries.sortedByDescending { it.value }.take(MAX_DROPS).associate { it.key to it.value }
+    // The game's message names whoever it likes; the rest of the players stay unnamed in the history.
+    val hidden = player.server.onlinePlayers.filter { it != player && !named(it) }.map { it.name }
+    val piles = event.drops.groupBy { it.type.key.key }.mapValues { (_, stacks) -> stacks.sumOf { it.amount } }
+    val drops = piles.entries.sortedByDescending { it.value }.take(Death.MAX_DROPS).associate { it.key to it.value }
     val death = Death(
       at = System.currentTimeMillis(),
       world = world.name,
@@ -47,11 +50,12 @@ class Deaths(private val data: PlayerData) : Listener {
       cause = source.damageType.key.toString(),
       killer = killer?.type?.key?.toString(),
       killer_name = killerName,
-      message = event.deathMessage,
+      message = Death.scrub(event.deathMessage, hidden),
       level = player.level,
       kept_inventory = event.keepInventory.takeIf { it },
       drops = drops.takeIf { it.isNotEmpty() },
       experience = event.droppedExp.takeIf { it > 0 },
+      more_drops = (piles.size - drops.size).takeIf { it > 0 },
     )
     last[player.uniqueId] = death
     data.died(player.uniqueId, death)
@@ -65,6 +69,5 @@ class Deaths(private val data: PlayerData) : Listener {
   companion object {
     /** Items on the ground vanish after 5 minutes, counted only while their chunk is loaded. */
     const val DESPAWN_TICKS = 6_000
-    private const val MAX_DROPS = 20
   }
 }

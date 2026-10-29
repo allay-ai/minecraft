@@ -23,7 +23,7 @@ data class Goal(
   val radius: Int? = null,
   val biome: String? = null,
   val dimension: String? = null,
-  /** The statistic's value, or the distance to the place, when the goal was set. */
+  /** The statistic's value, or the distance to the place, when the goal was set; [UNSET] for a place in another dimension. */
   val baseline: Long = 0,
   /** Statistics in centimeters show in blocks: 100 raw units each. */
   val scale: Int = 1,
@@ -37,6 +37,9 @@ data class Goal(
 
   companion object {
     val KINDS = setOf("stat", "pickup", "level", "advancement", "reach", "biome", "dimension")
+
+    /** A place's start distance before the player has been in its dimension since the goal was set. */
+    const val UNSET = -1L
   }
 }
 
@@ -66,6 +69,17 @@ class GoalBook(initial: List<Goal>, private val max: () -> Int, private val newI
     val index = goals.indexOfFirst { it.id == id }
     if (index < 0) return null
     if (goals[index].progress != value) goals[index] = goals[index].copy(progress = value.coerceAtLeast(0))
+    return goals[index]
+  }
+
+  /**
+   * A place goal set from another dimension starts counting at the first distance read in the place's own: until
+   * then its bar would show “1 block” the whole way. Returns the goal as it is now, or null when it's gone.
+   */
+  @Synchronized fun rebase(id: String, distance: Long): Goal? {
+    val index = goals.indexOfFirst { it.id == id }
+    if (index < 0) return null
+    goals[index] = goals[index].copy(baseline = distance, target = maxOf(1, distance), progress = 0)
     return goals[index]
   }
 

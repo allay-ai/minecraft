@@ -20,7 +20,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   private val server get() = platform.server
   private val locales = allay.locales
   val goals = Goals(platform.scheduler, locales, allay.data) { allay.config.tools.maxGoals }
-  private val deaths = Deaths(allay.data)
+  private val deaths = Deaths(allay.data) { allay.consented.has(it) }
   private val automation = Automation(platform, locales, { allay.config }, { allay.service }, { allay.clicks }, { allay.quota }, allay.scope)
   private var placeholders: AutoCloseable? = null
   private var integrations: List<AutoCloseable> = emptyList()

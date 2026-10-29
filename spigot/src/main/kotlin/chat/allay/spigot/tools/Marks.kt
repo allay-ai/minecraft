@@ -226,9 +226,16 @@ object MarkTools {
       }
       if (made.isEmpty()) throw ToolError("no mark could be shown: ${refused.joinToString { (it as JsonObject).string("reason") ?: "" }}")
       Marks.show(context.plugin, player, made, seconds)
+      // Marks glow through walls but only where the player looks: where the nearest is, so the model can say where to turn.
+      val nearest = made.minBy { it.block.location.distanceSquared(player.location) }.block
       val result = buildJsonObject {
         put("shown", made.size)
         put("seconds", seconds)
+        put("nearest", buildJsonObject {
+          with(Facts) { place(nearest.x, nearest.y, nearest.z, player.location.x, player.location.z) }
+          put("above", nearest.y - player.location.blockY)
+          put("turn", TrailBar.turn(player.location.yaw, nearest.x + 0.5 - player.location.x, nearest.z + 0.5 - player.location.z))
+        })
         if (refused.isNotEmpty()) put("refused", refused)
       }
       return ToolOutput(result, lang.text("summary.marks", "count" to made.size))

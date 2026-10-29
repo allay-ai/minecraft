@@ -163,11 +163,9 @@ tools:
     get_xp_info: true             # Level, points, how far to a level
     get_food_options: true        # Food in the inventory: hunger, saturation, side effects
     get_anvil_plan: true          # The cheapest order of books on the anvil for an item in hand or in the inventory
-    get_light_spawn_check: true   # Dark spots around where hostile mobs can spawn
     inspect_redstone: true        # A machine's parts and the faults the game's rules make certain; only where the player may build
     get_brewing_items: true       # Everything for brewing in the inventory and brewing stands nearby
     get_brewing_recipe: true      # How to brew a potion, step by step, from the game's own recipes
-    scan_farm: true               # The farm around: crops by stage, farmland, animals, spawners
     # How the answer reaches the player
     add_buttons: true             # Buttons in the answer: next question, the way, a note, windows, a command, a line to send
     write_book: true              # A long answer as a book when the player asks for detail; the book is free to take
@@ -221,13 +219,14 @@ tools:
     default_seconds: 30       # When the assistant names no length, and for way buttons
     follow_seconds: 180       # The same for a trail to another player, which follows them as they move
     max_seconds: 600          # The longest trail the assistant may draw (10–3600)
+    action_bar: true          # An arrow toward the spot and the blocks left in the action bar; an answer's status comes first
   # Marks over blocks: they glow through walls, but never on ores, spawners, or vaults, and only on
   # containers the player could open (outside claims, or with container trust in GriefPrevention).
   # They go out after their time, on /allay cancel, or when the player places a block on a ghost.
   show_marks:
     default_seconds: 30       # When the assistant names no length
     max_seconds: 600          # The longest the assistant may keep them (10–3600)
-    max_marks: 64             # Marks at once (1–256)
+    max_marks: 64             # Marks at once (1–64)
     radius: 48                # How far from the player a mark may be, in blocks (8–128)
   # The biome search radius in blocks (64–6400); it runs on the main thread, like /locate biome.
   locate_biome_radius: 2048

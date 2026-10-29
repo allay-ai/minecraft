@@ -37,7 +37,7 @@ object KnowledgeTools {
       val locale = context.nameLocale
       // With plan, each item also comes with what crafting it would take from the player's things, parts on the way.
       // Items in one call share the player's things: a set of armor counts the same ingots once.
-      val plan = if (args.bool("plan") == true) (args.int("count") ?: 1).coerceIn(1, 64) else null
+      val plan = if (args.bool("plan") == true) (args.int("count") ?: 1).coerceIn(1, chat.allay.spigot.automation.Crafting.MAX_COUNT) else null
       val spent = mutableMapOf<String, Int>()
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
       if (args["items"] == null) {
@@ -81,7 +81,9 @@ object KnowledgeTools {
       val own = base?.takeUnless { it.isAir }?.let { Bukkit.getRecipesFor(ItemStack(it)) }.orEmpty()
         .filter { Catalogs.id(it.result) == entry.id }.mapNotNull(::describe)
       val described = context.features.expansions?.items().orEmpty().filter { it.second.id() == entry.id }.flatMap { it.second.recipes().mapNotNull(Catalog::describe) }
-      val all = own + described
+      // Fireworks, copied books, dyed leather: recipes no fixed grid shows, in words.
+      val special = SpecialRecipes.forItem(entry.id, specialKeys(context))
+      val all = own + described + special
       val found = all.take(most)
       return buildJsonObject {
         put("item", entry.id)
@@ -89,9 +91,14 @@ object KnowledgeTools {
         if (entry.source != Catalog.MINECRAFT) put("source", entry.source)
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
+        if (entry.id in SpecialRecipes.FIREWORK_ITEMS && special.isNotEmpty()) put("fireworks", SpecialRecipes.fireworks())
         if (plan != null) put("plan", try { chat.allay.spigot.automation.Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
       }
     }
+
+    /** The game's own recipe keys on this server, which say which special recipes it has. */
+    private fun specialKeys(context: ToolContext): Set<String> = Bukkit.recipeIterator().asSequence()
+      .mapNotNull { (it as? org.bukkit.Keyed)?.key?.takeIf { key -> key.namespace == org.bukkit.NamespacedKey.MINECRAFT }?.key }.toSet()
 
     /** Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. */
     private val tags: Map<Set<Material>, String> by lazy {
@@ -134,6 +141,12 @@ object KnowledgeTools {
           put("type", "stonecutting")
           put("input", choice(recipe.inputChoice))
         }
+        is org.bukkit.inventory.TransmuteRecipe -> {
+          put("type", "crafting_transmute")
+          put("input", choice(recipe.input))
+          put("material", choice(recipe.material))
+          put("does", SpecialRecipes.TRANSMUTE)
+        }
         is SmithingTransformRecipe -> {
           put("type", "smithing")
           put("template", choice(recipe.template))
@@ -157,14 +170,17 @@ object KnowledgeTools {
       Bukkit.advancementIterator().forEach { advancement ->
         val key = advancement.key.key
         val display = advancement.display ?: return@forEach
-        if (key.startsWith("recipes/") || display.isHidden) return@forEach
+        if (key.startsWith("recipes/")) return@forEach
+        val progress = player.getAdvancementProgress(advancement)
+        // A hidden one stays hidden until it's done, as on the game's own screen, which then counts it too.
+        if (display.isHidden && !progress.isDone) return@forEach
         val entry = buildJsonObject {
           // The key set_goal takes for an advancement goal, such as story/mine_diamond.
           put("key", key)
           put("title", display.title)
-          put("description", display.description)
+          // What's done needs only its name, unless asked: descriptions are most of the tokens.
+          if (!progress.isDone || args.bool("detail") == true) put("description", display.description)
         }
-        val progress = player.getAdvancementProgress(advancement)
         when {
           progress.isDone -> done += entry
           // Started ones first: they are the nearest next steps. Spigot has no parent links to go by.
@@ -176,14 +192,16 @@ object KnowledgeTools {
         put("done_count", done.size)
         put("todo_count", todo.size)
         if (filter != "todo") put("done", JsonArray(done.take(MAX_ADVANCEMENTS)))
-        if (filter != "done") put("todo", JsonArray(todo.take(MAX_ADVANCEMENTS)))
+        // The nearest next steps, started ones first; more would only cost tokens on every call.
+        if (filter != "done") put("todo", JsonArray(todo.take(MAX_TODO)))
       }
       return ToolOutput(result, context.lang.text("summary.advancements", "done" to done.size, "todo" to todo.size))
     }
   }
 
-  /** Advancements listed per list at most; the counts cover them all. */
+  /** Done advancements listed at most, and next steps; the counts cover them all. */
   private const val MAX_ADVANCEMENTS = 40
+  private const val MAX_TODO = 15
 
   /** Items one get_recipes call takes, and recipes shown for one item and for each of several. */
   private const val MAX_ITEMS = 5

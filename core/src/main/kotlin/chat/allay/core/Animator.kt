@@ -42,9 +42,11 @@ class Animator(private val platform: Platform, config: Config, private val effec
 
     var lastParticles = 0L
     var task: AutoCloseable? = null
+    if (ui.actionBarEnabled) status.add(player.uuid)
     task = platform.scheduler.every(0L, 2L) {
       if (!player.online || run.cancelled) {
         task?.close()
+        status.remove(player.uuid)
         return@every
       }
       if (ui.actionBarEnabled) player.actionBar(Legacy.color(statusLine(run)))
@@ -64,22 +66,40 @@ class Animator(private val platform: Platform, config: Config, private val effec
     run.lang.send(to, "tool_lines.started", "label" to label)
   }
 
-  /** A failed tool shows its reason only where the language's `tool_lines.failed` asks for `{reason}`: the reasons are written for the model. */
-  fun toolFinished(run: Run, to: Audience, summary: String?, failed: Boolean) {
+  /**
+   * A failed tool shows its reason only where the language's `tool_lines.failed` asks for `{reason}`: the reasons are
+   * written for the model. A refused one (nothing crafted, nothing found) is no success either, and its summary is
+   * already in the player's language.
+   */
+  fun toolFinished(run: Run, to: Audience, summary: String?, failed: Boolean, refused: Boolean = false) {
     if (!ui.toolLines || summary.isNullOrBlank()) return
-    if (failed) run.lang.send(to, "tool_lines.failed", "reason" to summary) else run.lang.send(to, "tool_lines.finished", "summary" to summary)
+    when {
+      failed -> run.lang.send(to, "tool_lines.failed", "reason" to summary)
+      refused -> run.lang.send(to, "tool_lines.refused", "summary" to summary)
+      else -> run.lang.send(to, "tool_lines.finished", "summary" to summary)
+    }
   }
 
   fun stop(player: PlayerAudience) {
     active.remove(player.uuid)?.let { animation ->
       animation.close()
+      status.remove(player.uuid)
       if (ui.actionBarEnabled) player.actionBar("")
     }
   }
 
   fun stopAll() {
     active.values.forEach(AutoCloseable::close)
+    active.keys.forEach(status::remove)
     active.clear()
+  }
+
+  companion object {
+    // Shared by every Allay in the game: a singleplayer game starts one per world, and a trail outlives none of them.
+    private val status = ConcurrentHashMap.newKeySet<UUID>()
+
+    /** Whether a running answer's status holds [player]'s action bar; anything else there waits for it. */
+    fun showing(player: UUID): Boolean = player in status
   }
 
   fun success(player: PlayerAudience) {

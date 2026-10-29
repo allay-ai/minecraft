@@ -79,7 +79,8 @@ class Service<C>(
   /** What the display needs to hear about while the stream runs. Called off the server thread. */
   interface Listener {
     fun toolStarted(callId: String, name: String, args: kotlinx.serialization.json.JsonObject?)
-    fun toolFinished(callId: String, summary: String?, failed: Boolean)
+    /** [failed]: an error, its reason written for the model; [refused]: the tool answered no, its summary in the player's language. */
+    fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean = false)
   }
 
   private class V2Unsupported : Exception()
@@ -226,7 +227,7 @@ class Service<C>(
     } else {
       try {
         val output = if (tool.offMain) tool.run(context, call.args) else host.onMain(config.http.toolTimeout) { tool.run(context, call.args) }
-        listener.toolFinished(call.call_id, output.summary, failed = false)
+        listener.toolFinished(call.call_id, output.summary, failed = false, refused = output.refused)
         Protocol.ToolResult(ok = true, result = output.result)
       } catch (error: Exception) {
         val cause = generateSequence<Throwable>(error) { it.cause }.firstOrNull { it is ToolError } ?: generateSequence<Throwable>(error) { it.cause }.last()
@@ -262,7 +263,7 @@ class Service<C>(
     return try {
       val started = host.onMain(config.http.toolTimeout) { expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
       val output = expansions!!.finish(started, config.http.toolTimeout)
-      listener.toolFinished(call.call_id, output.summary, failed = false)
+      listener.toolFinished(call.call_id, output.summary, failed = false, refused = output.refused)
       Protocol.ToolResult(ok = true, result = output.result)
     } catch (error: Exception) {
       val cause = generateSequence<Throwable>(error) { it.cause }.firstOrNull { it is ToolError } ?: generateSequence<Throwable>(error) { it.cause }.last()

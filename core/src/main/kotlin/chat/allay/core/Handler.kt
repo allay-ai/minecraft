@@ -128,7 +128,7 @@ class Handler(
 
     val listener = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) = platform.scheduler.main { animator.toolStarted(run, sender, name, args) }
-      override fun toolFinished(callId: String, summary: String?, failed: Boolean) = platform.scheduler.main { animator.toolFinished(run, sender, summary, failed) }
+      override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) = platform.scheduler.main { animator.toolFinished(run, sender, summary, failed, refused) }
     }
 
     scope.launch {

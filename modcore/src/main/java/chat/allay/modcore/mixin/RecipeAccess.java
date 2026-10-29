@@ -11,6 +11,8 @@ import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.crafting.SingleItemRecipe;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
+import net.minecraft.world.item.crafting.TransmuteRecipe;
+import net.minecraft.world.item.crafting.TransmuteResult;
 import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -52,5 +54,13 @@ public final class RecipeAccess {
   @Mixin(SmithingTransformRecipe.class)
   public interface Smithing {
     @Accessor("result") ItemStackTemplate allay$result();
+  }
+
+  /** Dyeing a shulker box or a bundle: the item that keeps what it holds, the dye, and the look it takes, as Bukkit's `TransmuteRecipe`. */
+  @Mixin(TransmuteRecipe.class)
+  public interface Transmute {
+    @Accessor("input") Ingredient allay$input();
+    @Accessor("material") Ingredient allay$material();
+    @Accessor("result") TransmuteResult allay$result();
   }
 }

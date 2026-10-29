@@ -223,7 +223,7 @@ class Agents(
     agent.run = run
     val quiet = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) {}
-      override fun toolFinished(callId: String, summary: String?, failed: Boolean) {}
+      override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) {}
     }
     scope.launch {
       var failure: Exception? = null
@@ -259,6 +259,17 @@ class Agents(
       return end(task, ErrorHandler.message(locales.of(player), failure))
     }
     val busy = agent.job?.let(world::active) == true || book.children(task).isNotEmpty()
+    // A wake that ends with no word, no wait, and no finish leaves the player with nothing until the task times out:
+    // the first time the agent hears so and goes on, the second time it ends with a line to the player.
+    if (agent.said == null && !agent.asked && !task.waited && !busy && task.question == null && task.inbox.isEmpty()) {
+      if (!task.nudged) {
+        task.nudged = true
+        task.inbox += SILENT
+        return wake(task)
+      }
+      return end(task, locales.of(player).text("automation.silent"))
+    }
+    if (agent.said != null || task.waited) task.nudged = false
     task.settle(agent.said, agent.asked, busy)
     if (task.inbox.isNotEmpty()) wake(task)
   }
@@ -301,6 +312,9 @@ class Agents(
   }
 
   companion object {
+    /** What an agent hears after a wake that ended without a word to the player. */
+    const val SILENT = "[plugin] Your last wake ended without say, wait, or finish, so the player heard nothing. Tell them in a line what happened and what's missing, then end with wait (seconds when something will finish) or finish."
+
     /** In another world, or farther than [distance] blocks from where the agent started. */
     fun away(at: Protocol.Position, anchor: Protocol.Position, distance: Int): Boolean {
       if (at.world != anchor.world || at.dimension != anchor.dimension) return true

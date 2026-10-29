@@ -9,6 +9,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import org.bukkit.FluidCollisionMode
 import org.bukkit.Material
 import org.bukkit.Nameable
 import org.bukkit.Tag
@@ -56,19 +57,22 @@ object LookTools {
     if ((state as? org.bukkit.loot.Lootable)?.lootTable != null) "an unopened structure chest: its loot rolls when someone opens it"
     else "in someone's claim where the player has no container trust; its contents stay private"
 
+  private fun nothing(blockBeyond: Long?) = Facts.nothingInSight(BLOCK_RANGE, ENTITY_RANGE, blockBeyond)
+
   private val lookAt = object : Tool {
     override val name = "look_at"
 
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
       val player = context.requirePlayer()
       val eye = player.eyeLocation
-      val entity = player.world.rayTraceEntities(eye, eye.direction, ENTITY_RANGE) { it != player && chat.allay.spigot.Vanish.visible(player, it) }?.hitEntity
+      // Blocks stop the ray as they stop the eye, so no mob shows through a wall.
+      val hit = player.world.rayTrace(eye, eye.direction, ENTITY_RANGE, FluidCollisionMode.NEVER, true, 0.0) { it != player && chat.allay.spigot.Vanish.visible(player, it) }
+      val entity = hit?.hitEntity
       val block = player.getTargetBlockExact(BLOCK_RANGE)
-      val entityCloser = entity != null && (block == null || entity.location.distance(eye) < block.location.add(0.5, 0.5, 0.5).distance(eye))
       return when {
-        entity != null && entityCloser -> entity(context.lang, player, entity)
+        entity != null -> entity(context.lang, player, entity)
         block != null -> block(context.lang, player, block, args.bool("detail") == true)
-        else -> ToolOutput(buildJsonObject { put("kind", "nothing") }, context.lang.text("summary.look_nothing"))
+        else -> ToolOutput(nothing(hit?.hitBlock?.let { Math.round(hit.hitPosition.distance(eye.toVector())) }), context.lang.text("summary.look_nothing"))
       }
     }
   }

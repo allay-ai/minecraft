@@ -103,9 +103,11 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val trailSeconds = config.int("tools.point_to.default_seconds", 30).coerceIn(1, trailMaxSeconds)
     /** A trail to another player when nobody names a length, also for their way buttons: they move, so it lasts longer. */
     val followSeconds = config.int("tools.point_to.follow_seconds", 180).coerceIn(1, trailMaxSeconds)
+    /** An arrow and the blocks left in the action bar while a trail runs ([chat.allay.core.tools.TrailBar]). */
+    val trailBar = config.boolean("tools.point_to.action_bar", true)
     val biomeRadius = config.int("tools.locate_biome_radius", 2048).coerceIn(64, 6400)
     /** `show_marks`: how many at once, how far from the player, and how long they stay when nobody says, and at most. */
-    val maxMarks = config.int("tools.show_marks.max_marks", 64).coerceIn(1, 256)
+    val maxMarks = config.int("tools.show_marks.max_marks", 64).coerceIn(1, 64)
     val marksRadius = config.int("tools.show_marks.radius", 48).coerceIn(8, 128)
     val marksMaxSeconds = config.int("tools.show_marks.max_seconds", 600).coerceIn(10, 3600)
     val marksSeconds = config.int("tools.show_marks.default_seconds", 30).coerceIn(1, marksMaxSeconds)

@@ -44,6 +44,27 @@ object OperatorArgs {
     return ticks
   }
 
+  /** Effects that hurt: `heal` takes them off too, or poison and wither would undo it in seconds. */
+  val HARMFUL = setOf(
+    "poison", "wither", "hunger", "slowness", "mining_fatigue", "weakness", "blindness", "nausea", "darkness", "levitation",
+    "instant_damage", "unluck", "infested", "oozing", "weaving", "wind_charged",
+  )
+
+  /** Items a potion type goes on, as `give_item`'s `potion` takes it. */
+  val POTION_ITEMS = setOf("potion", "splash_potion", "lingering_potion", "tipped_arrow")
+
+  /**
+   * Why a player wouldn't stand safely somewhere, from what's at their feet, head, and below, or null when they would:
+   * [fall] is how many free blocks lie under their feet before ground.
+   */
+  fun danger(feetSolid: Boolean, headSolid: Boolean, lava: Boolean, water: Boolean, fall: Int): String? = when {
+    feetSolid || headSolid -> "inside blocks: the player would suffocate"
+    lava -> "lava"
+    water -> "in water"
+    fall > 3 -> "a fall of $fall blocks"
+    else -> null
+  }
+
   fun gamemode(value: String?): String {
     val mode = value?.lowercase()
     if (mode !in GAMEMODES) throw ToolError("mode must be one of ${GAMEMODES.joinToString()}")

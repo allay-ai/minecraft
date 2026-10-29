@@ -72,6 +72,12 @@ object Blocks {
     return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.world, view, block.location.toVector().add(org.bukkit.util.Vector(x, y, z))) } }
   }
 
+  /** Whether any face of [block] touches a block that lets the view through: one sealed in stone can't be seen at all. */
+  fun exposed(block: Block): Boolean =
+    FACES.any { (x, y, z) -> !block.getRelative(x, y, z).type.isOccluding }
+
+  private val FACES = listOf(Triple(1, 0, 0), Triple(-1, 0, 0), Triple(0, 1, 0), Triple(0, -1, 0), Triple(0, 0, 1), Triple(0, 0, -1))
+
   /**
    * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
    * any opaque full block.
@@ -117,6 +123,9 @@ object Blocks {
       next.type == Material.HOPPER && (next.blockData as? Hopper)?.facing == face.oppositeFace
     }
   }
+
+  /** A hopper under the block pulls from it: taking from it would race the machine draining it. */
+  fun drained(block: Block): Boolean = halves(block).any { it.getRelative(BlockFace.DOWN).type == Material.HOPPER }
 
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: Block): Boolean = (block.state as? Container)?.inventory?.viewers?.isNotEmpty() == true
@@ -176,13 +185,14 @@ object Blocks {
 
   /**
    * Why a storage container can't be used, or null when it can. With [adding] a hopper is fine: putting things into a
-   * sorter's input chest is what it's for, only rearranging or taking from one would race the machine.
+   * sorter's input chest is what it's for, only rearranging or taking from one would race the machine. With [taking]
+   * only a hopper draining it counts: a sorter's output chest, which hoppers fill, is where the player takes from.
    */
-  fun unsuitable(player: Player, block: Block, adding: Boolean = false): Unfit? {
+  fun unsuitable(player: Player, block: Block, adding: Boolean = false, taking: Boolean = false): Unfit? {
     if (!storage(block.type)) return Unfit.TYPE
     val state = block.state as? Container ?: return Unfit.TYPE
     if (!Claims.mayOpen(player, state)) return Unfit.CLAIM
-    if (!adding && hopperLinked(block)) return Unfit.HOPPER
+    if (!adding && (if (taking) drained(block) else hopperLinked(block))) return Unfit.HOPPER
     if (open(block)) return Unfit.OPEN
     return null
   }

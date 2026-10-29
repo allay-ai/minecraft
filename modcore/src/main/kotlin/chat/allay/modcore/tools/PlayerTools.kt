@@ -112,23 +112,44 @@ object PlayerTools {
   /** Mobs count within this many blocks, whatever the block radius. */
   const val ENTITY_RADIUS = 32.0
 
+  /** Blocks that count only where the player sees them: what anti-xray hides ([Marks.secret]), and a geode's heart. */
+  private fun inSightOnly(state: net.minecraft.world.level.block.state.BlockState) =
+    Marks.secret(state) || state.`is`(net.minecraft.world.level.block.Blocks.BUDDING_AMETHYST)
+
+  /** Containers count only when the player could open them, as every tool that reads one asks. */
+  private val containers = Regex("CHEST$|^BARREL$|SHULKER_BOX$")
+
+  /** Sight checks per call at most, nearest first: each walks lines through the world on the server thread. */
+  private const val SIGHT_CHECKS = 48
+
   private val surroundings = tool("get_surroundings") { context, player, args ->
     val radius = (args.int("radius") ?: 8).coerceIn(1, 16)
     val origin = player.blockPosition()
     val level = player.level()
     val counts = mutableMapOf<Block, Int>()
     val found = mutableListOf<Pair<BlockAt, Int>>()
+    val guarded = mutableListOf<Pair<BlockAt, Int>>()
     val minY = (origin.y - radius).coerceAtLeast(level.minY)
     val maxY = (origin.y + radius).coerceAtMost(level.maxY)
     val pos = BlockPos.MutableBlockPos()
     for (x in -radius..radius) for (y in minY..maxY) for (z in -radius..radius) {
       val state = level.getBlockState(pos.set(origin.x + x, y, origin.z + z))
       if (state.isAir) continue
-      counts.merge(state.block, 1, Int::plus)
+      val distance = x * x + (y - origin.y) * (y - origin.y) + z * z
       // The same names Bukkit's materials carry, so the same blocks count as notable.
-      if (notable.containsMatchIn(Names.bukkit(BuiltInRegistries.BLOCK.getKey(state.block).path))) {
-        found += level.at(pos) to x * x + (y - origin.y) * (y - origin.y) + z * z
-      }
+      val name = Names.bukkit(BuiltInRegistries.BLOCK.getKey(state.block).path)
+      // Neither counted nor listed until the checks below let it through, so nothing hidden leaks as a number.
+      if (inSightOnly(state) || containers.containsMatchIn(name)) { guarded += level.at(pos) to distance; continue }
+      counts.merge(state.block, 1, Int::plus)
+      if (notable.containsMatchIn(name)) found += level.at(pos) to distance
+    }
+    var checks = 0
+    guarded.sortedBy { it.second }.forEach { (block, distance) ->
+      val shown = if (inSightOnly(block.state)) chat.allay.modcore.automation.Blocks.exposed(block) && checks++ < SIGHT_CHECKS && chat.allay.modcore.automation.Blocks.sees(player, block)
+        else chat.allay.modcore.Claims.mayOpen(player, block.level, block.pos)
+      if (!shown) return@forEach
+      counts.merge(block.state.block, 1, Int::plus)
+      found += block to distance
     }
     val seen = level.getEntities(player, AABB.ofSize(player.position(), ENTITY_RADIUS * 2, ENTITY_RADIUS * 2, ENTITY_RADIUS * 2)) { it is LivingEntity && Vanish.visible(player, it) }
       .map { Facts.Seen(type(it), it.position().distanceTo(player.position()), it is Enemy, it is ServerPlayer) }
@@ -174,12 +195,17 @@ object PlayerTools {
     ToolOutput(result, context.lang.text("summary.statistics", "hours" to hours))
   }
 
+  /** Villagers listed at most, nearest first, and trades for each; the rest are counted. */
+  private const val MAX_VILLAGERS = 10
+  private const val MAX_TRADES = 10
+
   private val villagers = tool("find_villagers") { context, player, args ->
     val limit = context.features.villagerRadius()
     val radius = (args.int("radius") ?: limit).coerceIn(4, limit)
     val item = args.string("item")?.let(InteractTools::item)
     val profession = args.string("profession")?.lowercase()
-    val found = Villagers.around(player, radius, item).filter { profession == null || Villagers.profession(it.trader) == profession }.take(10)
+    val matching = Villagers.around(player, radius, item).filter { profession == null || Villagers.profession(it.trader) == profession }
+    val found = matching.take(MAX_VILLAGERS)
     val result = buildJsonObject {
       put("radius", radius)
       put("villagers", buildJsonArray {
@@ -189,10 +215,12 @@ object PlayerTools {
             put("profession", Villagers.profession(villager.trader))
             (villager.trader as? Villager)?.let { put("level", it.villagerData.level()) }
             place(at.x, at.y, at.z, player)
-            put("trades", buildJsonArray { villager.trades.take(10).forEach { add(Villagers.trade(it)) } })
+            put("trades", buildJsonArray { villager.trades.take(MAX_TRADES).forEach { add(Villagers.trade(it)) } })
+            if (villager.trades.size > MAX_TRADES) put("more_trades", villager.trades.size - MAX_TRADES)
           })
         }
       })
+      if (matching.size > found.size) put("more_villagers", matching.size - found.size)
     }
     ToolOutput(result, if (found.isEmpty()) context.lang.text("summary.villagers_none") else context.lang.text("summary.villagers", "count" to found.size))
   }

@@ -9,8 +9,12 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import chat.allay.core.Lang
 
-/** A tool result for the model, plus a short line for the chat in the asker's language (`⎿ 36 stacks`). */
-class ToolOutput(val result: JsonElement, val summary: String)
+/**
+ * A tool result for the model, plus a short line for the chat in the asker's language (`⎿ 36 stacks`). [refused] marks
+ * an answer that is data for the model but a “no” for the player (nothing crafted, nothing found): its line shows as
+ * a failure, with the summary saying why, instead of looking like success.
+ */
+class ToolOutput(val result: JsonElement, val summary: String, val refused: Boolean = false)
 
 class ToolError(message: String) : Exception(message)
 
@@ -59,7 +63,7 @@ val OPERATOR_TOOLS = setOf("give_item", "teleport", "set_gamemode", "heal", "app
  */
 val CLIENT_TOOLS = setOf(
   "get_player_status", "get_inventory", "get_surroundings", "look_at", "get_world", "get_statistics", "get_advancements", "get_recipes", "search_items", "search_commands", "locate_structure", "get_server", "get_locations", "get_nearby_players", "show_marks", "show_draft", "inspect_redstone",
-  "point_to", "sort_inventory", "reminders", "scan_nearby_containers", "find_item", "get_light_spawn_check", "get_brewing_items", "get_brewing_recipe", "scan_farm",
+  "point_to", "sort_inventory", "reminders", "scan_nearby_containers", "find_item", "get_brewing_items", "get_brewing_recipe",
   "get_item_durability", "get_xp_info", "get_food_options", "ping_me",
   "locate_biome", "get_death_info", "find_villagers", "get_anvil_plan", "write_book", "set_timezone", "goals", "inspect_item",
   "get_allay_guide", "allay_settings",

@@ -98,6 +98,10 @@ object Blocks {
     return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.level, view, Vec3(block.x + x, block.y + y, block.z + z)) } }
   }
 
+  /** Whether any face of [block] touches a block that lets the view through: one sealed in stone can't be seen at all. */
+  fun exposed(block: BlockAt): Boolean =
+    net.minecraft.core.Direction.entries.any { !occluding(block.level.getBlockState(block.pos.relative(it))) }
+
   /**
    * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
    * any opaque full block.
@@ -151,6 +155,9 @@ object Blocks {
     }
   }
 
+  /** A hopper under the block pulls from it: taking from it would race the machine draining it. */
+  fun drained(block: BlockAt): Boolean = halves(block).any { it.relative(Direction.DOWN).state.`is`(GameBlocks.HOPPER) }
+
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: BlockAt): Boolean {
     val container = container(block) ?: return false
@@ -202,6 +209,17 @@ object Blocks {
 
   fun near(player: ServerPlayer, radius: Int, filter: (BlockAt) -> Boolean) = near(player.level(), player.position(), radius, filter)
 
+  /** Chunks the radius touches that aren't loaded, so a search there read nothing. */
+  fun unloaded(player: ServerPlayer, radius: Int): Int {
+    val x = player.position().x.toInt()
+    val z = player.position().z.toInt()
+    var unloaded = 0
+    for (cx in ((x - radius) shr 4)..((x + radius) shr 4)) for (cz in ((z - radius) shr 4)..((z + radius) shr 4)) {
+      if (player.level().chunkSource.getChunkNow(cx, cz) == null) unloaded++
+    }
+    return unloaded
+  }
+
   /** For a scan that found nothing in [radius]: the nearest such block within [far], so the agent can say where to go. */
   fun beyond(player: ServerPlayer, radius: Int, far: Int = 96, filter: (BlockAt) -> Boolean): BlockAt? =
     near(player, maxOf(far, radius), filter).firstOrNull { it.corner.distanceToSqr(player.position()) > radius.toDouble() * radius }
@@ -221,13 +239,14 @@ object Blocks {
 
   /**
    * Why a storage container can't be used, or null when it can. With [adding] a hopper is fine: putting things into a
-   * sorter's input chest is what it's for, only rearranging or taking from one would race the machine.
+   * sorter's input chest is what it's for, only rearranging or taking from one would race the machine. With [taking]
+   * only a hopper draining it counts: a sorter's output chest, which hoppers fill, is where the player takes from.
    */
-  fun unsuitable(player: ServerPlayer, block: BlockAt, adding: Boolean = false): Unfit? {
+  fun unsuitable(player: ServerPlayer, block: BlockAt, adding: Boolean = false, taking: Boolean = false): Unfit? {
     if (!storage(block.state)) return Unfit.TYPE
     container(block) ?: return Unfit.TYPE
     if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM
-    if (!adding && hopperLinked(block)) return Unfit.HOPPER
+    if (!adding && (if (taking) drained(block) else hopperLinked(block))) return Unfit.HOPPER
     if (open(block)) return Unfit.OPEN
     return null
   }

@@ -50,6 +50,9 @@ class Task(
 
   val inbox = ConcurrentLinkedDeque<String>()
 
+  /** The agent heard that its last wake ended without a word; a second silent wake ends the task. */
+  @Volatile var nudged = false
+
   /** Wakes in a row the backend couldn't take (busy, rate-limited, unreachable); a wake that runs resets it. */
   @Volatile var retries = 0
 

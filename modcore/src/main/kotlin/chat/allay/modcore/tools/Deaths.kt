@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
  * The death is read as the player starts to die ([Hooks.died]), with everything still on them, and told as Bukkit's
  * `PlayerDeathEvent` tells it, once the game dropped what it drops ([Hooks.deathDrops]).
  */
-class Deaths(private val data: PlayerData) {
+class Deaths(private val data: PlayerData, private val consented: (UUID) -> Boolean) {
   private val last = ConcurrentHashMap<UUID, Death>()
 
   /** Deaths read, waiting for their drops. Server thread only. */
@@ -39,12 +39,15 @@ class Deaths(private val data: PlayerData) {
     val level = player.level()
     val pos = player.blockPosition()
     val killer = source.entity
-    // A player killer by name only when the victim could see them; a mob by the name a player gave it.
+    // Another player by name only when they agreed here and the victim could see them; a mob by the name a player gave it.
+    fun named(other: ServerPlayer) = consented(other.uuid) && Vanish.visible(player, other)
     val killerName = when (killer) {
       null -> null
-      is ServerPlayer -> killer.gameProfile.name.takeIf { Vanish.visible(player, killer) }
+      is ServerPlayer -> killer.gameProfile.name.takeIf { named(killer) }
       else -> killer.customName?.let(Texts::legacyOf)
     }
+    // The game's message names whoever it likes; the rest of the players stay unnamed in the history.
+    val hidden = level.server.playerList.players.filter { it != player && !named(it) }.map { it.gameProfile.name }
     // A spectator keeps everything too, as CraftBukkit's event says.
     val keepInventory = level.gameRules.get(GameRules.KEEP_INVENTORY) || player.isSpectator
     val experience = player.getExperienceReward(level, killer)
@@ -58,7 +61,7 @@ class Deaths(private val data: PlayerData) {
       cause = source.typeHolder().unwrapKey().map { it.identifier().toString() }.orElse(null),
       killer = killer?.let { EntityType.getKey(it.type).toString() },
       killer_name = killerName,
-      message = Texts.legacyOf(player.combatTracker.deathMessage),
+      message = Death.scrub(Texts.legacyOf(player.combatTracker.deathMessage), hidden),
       level = player.experienceLevel,
       kept_inventory = keepInventory.takeIf { it },
       drops = null,
@@ -74,9 +77,9 @@ class Deaths(private val data: PlayerData) {
    */
   private fun dropped(player: ServerPlayer, items: List<ItemStack>) {
     val death = dying.remove(player.uuid) ?: return
-    val drops = items.groupBy { Recipes.id(it.item) }.mapValues { (_, stacks) -> stacks.sumOf { it.count } }
-      .entries.sortedByDescending { it.value }.take(MAX_DROPS).associate { it.key to it.value }
-    record(player.uuid, death.copy(drops = drops.takeIf { it.isNotEmpty() }))
+    val piles = items.groupBy { Recipes.id(it.item) }.mapValues { (_, stacks) -> stacks.sumOf { it.count } }
+    val drops = piles.entries.sortedByDescending { it.value }.take(Death.MAX_DROPS).associate { it.key to it.value }
+    record(player.uuid, death.copy(drops = drops.takeIf { it.isNotEmpty() }, more_drops = (piles.size - drops.size).takeIf { it > 0 }))
   }
 
   private fun record(uuid: UUID, death: Death) {
@@ -93,6 +96,5 @@ class Deaths(private val data: PlayerData) {
   companion object {
     /** Items on the ground vanish after 5 minutes, counted only while their chunk is loaded. */
     const val DESPAWN_TICKS = 6_000
-    private const val MAX_DROPS = 20
   }
 }

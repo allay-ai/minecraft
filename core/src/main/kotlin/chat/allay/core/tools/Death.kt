@@ -27,4 +27,21 @@ data class Death(
   /** At most 20 kinds, the biggest piles first. */
   val drops: Map<String, Int>? = null,
   val experience: Int? = null,
-)
+  /** Kinds beyond the 20 in [drops] (backend 6.21 keeps it; older ones drop the field). */
+  val more_drops: Int? = null,
+) {
+  companion object {
+    /** Kinds of drops a death keeps; the rest only count in [more_drops]. */
+    const val MAX_DROPS = 20
+
+    /**
+     * The game's death message with each name in [hidden] (other players the victim may not learn about: they never
+     * agreed here, or they're vanished) put as “a player”, so the history never names them.
+     */
+    fun scrub(message: String?, hidden: Collection<String>): String? {
+      if (message == null) return null
+      return hidden.filter { it.isNotEmpty() }.sortedByDescending { it.length }
+        .fold(message) { text, name -> text.replace(Regex("(?<![A-Za-z0-9_])${Regex.escape(name)}(?![A-Za-z0-9_])"), "a player") }
+    }
+  }
+}

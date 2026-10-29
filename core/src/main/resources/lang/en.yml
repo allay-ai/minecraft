@@ -8,6 +8,10 @@ status:
   # The live line in the action bar while the assistant works, like Claude Code:
   # spinner, a changing verb, seconds, tokens read (↑) and written (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|token|tokens})"
+  # While a way trail runs: an arrow that turns with your view, and the blocks left.
+  trail: "&b{arrow} &f{blocks} &7{blocks|block|blocks}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|block|blocks}"
+  trail_hidden: "&7{name} is off your locator bar"
   answering: "Writing the answer"
   verbs:
     - "Flipping through the recipe book"
@@ -38,6 +42,8 @@ tool_lines:
   # A line in chat when the assistant uses a tool, and the result under it.
   started: "&7⏺ {label}"
   finished: "&8  ⎿ {summary}"
+  # The tool answered no (nothing crafted, nothing found); {summary} says why, in the reader's language.
+  refused: "&c  ⎿ {summary}"
   # {reason} is written for the assistant, in English.
   failed: "&c  ⎿ {reason}"
   unknown: "Using {name}"
@@ -73,10 +79,8 @@ tools:
     by_queries: "Looking up commands: {query}"
     by_plugin: "Looking up {plugin}'s commands"
     by_check: "Checking the commands"
-  get_light_spawn_check: "Looking for dark spots"
   get_brewing_items: "Checking brewing supplies"
   get_brewing_recipe: "Looking up the brewing steps"
-  scan_farm: "Inspecting the farm"
   point_to: "Showing the way"
   get_nearby_players: "Looking for players nearby"
   show_marks: "Marking blocks"
@@ -149,10 +153,7 @@ summary:
   find: "{total} in {places} {places|place|places}"
   find_none: "not found"
   item: "{id}"
-  dark: "{count} dark {count|spot|spots}"
-  dark_none: "no dark spots"
   brewing: "{stacks} {stacks|stack|stacks} for brewing, {stands} brewing {stands|stand|stands}"
-  farm: "{plants} {plants|plant|plants}, {animals} {animals|animal|animals}"
   wear_fine: "{count} {count|item|items}, all fine"
   wear_low: "{low} of {count} almost broken"
   xp: "level {level}, {points} {points|point|points}"
@@ -267,8 +268,12 @@ messages:
   cancelled: "&7Stopped."
   nothing_to_cancel: "&7I'm not doing anything right now."
   arrived: "&aYou're there."
+  arrived_above: "&aYou're there, the spot is &f{blocks} {blocks|block|blocks}&a above you."
+  arrived_below: "&aYou're there, the spot is &f{blocks} {blocks|block|blocks}&a below you."
   found: "&f{name} &ais right here."
   trail_lost: "&7{name} is off your locator bar, so the trail is gone."
+  trail_ended: "&7The trail ran out with &f{blocks} {blocks|block|blocks}&7 to go. Ask again and I'll show the rest."
+  trail_other_world: "&7You left the trail's dimension, so it's gone. It waits for you back there."
   trail_stopped: "&7Trail hidden."
   marks_cleared: "&7Marks hidden."
   draft_cleared: "&7Draft removed."
@@ -419,6 +424,7 @@ automation:
   cancelled: "cancelled."
   interfered: "you or another player got in the way of the automation: {reason}."
   timed_out: "time's up ({minutes} min)."
+  silent: "it went quiet without finishing. Ask again, perhaps in other words."
   too_many_steps: "it took too many steps. Ask again in smaller parts."
   quota: "the Allay quota ran out."
   gone: "&7This automation is over."

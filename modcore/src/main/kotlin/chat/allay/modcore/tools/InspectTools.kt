@@ -5,7 +5,6 @@ import chat.allay.core.tools.*
 import chat.allay.modcore.Claims
 import chat.allay.modcore.Texts
 import chat.allay.modcore.automation.Blocks
-import chat.allay.modcore.mixin.InfoAccess
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,28 +12,14 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-import net.minecraft.core.BlockPos
-import net.minecraft.core.registries.BuiltInRegistries
-import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.Container
 import net.minecraft.world.Nameable
-import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EquipmentSlot
-import net.minecraft.world.entity.animal.Animal
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.EmptyBlockGetter
-import net.minecraft.world.level.LightLayer
-import net.minecraft.world.level.block.Blocks as GameBlocks
-import net.minecraft.world.level.block.ComposterBlock
-import net.minecraft.world.level.block.FarmlandBlock
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
-import net.minecraft.world.level.block.entity.SpawnerBlockEntity
-import net.minecraft.world.level.block.state.BlockState
-import net.minecraft.world.phys.AABB
-import net.minecraft.tags.BlockTags
 
-/** Tools that search and inspect what is around the player: containers, items, dark spots, brewing, farms. */
+/** Tools that search and inspect what is around the player: containers, items, brewing. */
 object InspectTools {
   private fun tool(name: String, body: (ToolContext, ServerPlayer, JsonObject) -> ToolOutput) = object : Tool {
     override val name = name
@@ -48,17 +33,32 @@ object InspectTools {
   }
 
   /**
+   * What a container search reached: the containers the player could open themself, nearest first, and what it
+   * couldn't look into, so the model never reads “none here” as “none”. [locked] counts claimed containers only;
+   * an unopened structure chest stays out of every count, as anti-xray hides it.
+   */
+  private class Reach(val containers: List<Found>, val locked: Int, val unloaded: Int) {
+    fun report(into: kotlinx.serialization.json.JsonObjectBuilder) {
+      if (locked > 0) into.put("locked_containers", locked)
+      if (unloaded > 0) into.put("unloaded_chunks", unloaded)
+    }
+  }
+
+  /**
    * Containers within the radius that the player could open themself ([Claims]), nearest first. Both halves of a
    * double chest hold the whole inventory, so the nearer half stands for it and the other is dropped.
    */
-  private fun containersNear(player: ServerPlayer, radius: Int): List<Found> =
-    Blocks.near(player, radius) { Blocks.container(it) != null && Claims.mayOpen(player, it.level, it.pos) }
-      .distinctBy { Blocks.root(it).pos }
-      .mapNotNull { block -> Blocks.inventory(block)?.let { Found(block, it) } }
+  private fun containersNear(player: ServerPlayer, radius: Int): Reach {
+    val (open, closed) = Blocks.near(player, radius) { Blocks.container(it) != null }.distinctBy { Blocks.root(it).pos }
+      .partition { Claims.mayOpen(player, it.level, it.pos) }
+    val locked = closed.count { (it.entity as? net.minecraft.world.RandomizableContainer)?.lootTable == null }
+    return Reach(open.mapNotNull { block -> Blocks.inventory(block)?.let { Found(block, it) } }, locked, Blocks.unloaded(player, radius))
+  }
 
   private val scanContainers = tool("scan_nearby_containers") { context, player, args ->
     val radius = (args.int("radius") ?: 32).coerceIn(1, 52)
-    val found = containersNear(player, radius)
+    val reach = containersNear(player, radius)
+    val found = reach.containers
     val rows = found.take(20).map { container ->
       val items = container.contents
       buildJsonObject {
@@ -68,8 +68,10 @@ object InspectTools {
         put("used_slots", items.count { !it.isEmpty })
         val counts = Items.counts(items.data(), limit = 4)
         put("top", counts["items"]!!)
+        counts["more_kinds"]?.let { put("more_kinds", it) }
         Items.inside(items.data()).takeIf { it.isNotEmpty() }?.let { totals ->
           putJsonObject("inside_containers") { totals.entries.sortedByDescending { it.value }.take(4).forEach { (id, n) -> put(id, n) } }
+          if (totals.size > 4) put("more_kinds_inside", totals.size - 4)
         }
       }
     }
@@ -77,6 +79,7 @@ object InspectTools {
       put("radius", radius)
       put("containers", buildJsonArray { rows.forEach(::add) })
       if (found.size > rows.size) put("more_containers", found.size - rows.size)
+      reach.report(this)
     }
     ToolOutput(result, context.lang.text("summary.containers", "count" to found.size))
   }
@@ -120,7 +123,8 @@ object InspectTools {
     val ender = player.enderChestInventory
     (0 until ender.containerSize).forEach { slot -> stack("enderchest", slot, ender.getItem(slot)) }
     val found = mutableListOf<Pair<Found, Int>>()
-    containersNear(player, radius).forEach { container ->
+    val reach = containersNear(player, radius)
+    reach.containers.forEach { container ->
       var direct = 0
       var nested = 0
       container.contents.forEach { item -> count(item).let { (d, n) -> direct += d; nested += n } }
@@ -145,6 +149,7 @@ object InspectTools {
       put("radius", radius)
       put("places", buildJsonArray { places.take(MAX_PLACES).forEach(::add) })
       if (places.size > MAX_PLACES) put("more_places", places.size - MAX_PLACES)
+      reach.report(this)
     }
     ToolOutput(result, if (total == 0) context.lang.text("summary.find_none") else context.lang.text("summary.find", "total" to total, "places" to places.size))
   }
@@ -168,38 +173,6 @@ object InspectTools {
     return true
   }
 
-  /** Bukkit's `Material.isSolid` and `isOccluding`: by the block's type, not its state. */
-  private fun solid(state: BlockState) = state.block.defaultBlockState().let { it.`is`(BlockTags.BLOCKS_MOTION) && it.isRedstoneConductor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) }
-
-  private val spawnCheck = tool("get_light_spawn_check") { context, player, args ->
-    val radius = (args.int("radius") ?: 8).coerceIn(1, 16)
-    val height = minOf(radius, 6)
-    val origin = player.blockPosition()
-    val level = player.level()
-    val spots = mutableListOf<IntArray>()
-    for (dx in -radius..radius) for (dy in -height..height) for (dz in -radius..radius) {
-      val y = origin.y + dy
-      if (y - 1 < level.minY || y + 1 > level.maxY) continue
-      val feet = level.at(origin.x + dx, y, origin.z + dz)
-      val below = feet.relative(net.minecraft.core.Direction.DOWN).state
-      val head = feet.relative(net.minecraft.core.Direction.UP)
-      if (!solid(below)) continue
-      if (!feet.passable || feet.liquid || !head.passable || head.liquid) continue
-      if (level.getBrightness(LightLayer.BLOCK, feet.pos) != 0) continue
-      spots += intArrayOf(dx, dy, dz)
-    }
-    val nearest = spots.sortedBy { it[0] * it[0] + it[1] * it[1] + it[2] * it[2] }.take(10)
-    val result = buildJsonObject {
-      put("radius", radius)
-      put("dark_spots", spots.size)
-      put("nearest", buildJsonArray {
-        nearest.forEach { add(buildJsonObject { place(origin.x + it[0], origin.y + it[1], origin.z + it[2], player) }) }
-      })
-      put("rule", "hostile mobs spawn at block light 0; on the surface sky light also has to be dark, so these spots matter at night and underground")
-    }
-    ToolOutput(result, if (spots.isEmpty()) context.lang.text("summary.dark_none") else context.lang.text("summary.dark", "count" to spots.size))
-  }
-
   private val brewingIds = setOf(
     "nether_wart", "blaze_powder", "blaze_rod", "glass_bottle", "potion", "splash_potion", "lingering_potion", "dragon_breath",
     "redstone", "glowstone_dust", "gunpowder", "fermented_spider_eye", "spider_eye", "sugar", "rabbit_foot",
@@ -207,12 +180,21 @@ object InspectTools {
     "breeze_rod", "cobweb", "slime_block", "stone", "brown_mushroom", "brewing_stand", "cauldron", "water_bucket",
   )
 
+  private const val MAX_STANDS = 4
+
   private val brewing = tool("get_brewing_items") { context, player, _ ->
-    val items = PlayerTools.contents(player).filter { !it.isEmpty && Recipes.id(it.item) in brewingIds }
+    // The game's ingredients, and whatever data packs and mods brew with on this server.
+    val ids = brewingIds + BrewingRecipes.all().map { it.reagent }
+    val contents = PlayerTools.contents(player).filter { !it.isEmpty }
+    val items = contents.filter { Recipes.id(it.item) in ids }
+    val inside = Items.inside(contents.data()).filterKeys { it in ids }
     // A stand is a container like any other: only the ones the player could open show.
-    val stands = Blocks.near(player, 8) { it.entity is BrewingStandBlockEntity && Claims.mayOpen(player, it.level, it.pos) }.take(4)
+    val near = Blocks.near(player, 8) { it.entity is BrewingStandBlockEntity && Claims.mayOpen(player, it.level, it.pos) }
+    val stands = near.take(MAX_STANDS)
     val result = buildJsonObject {
       put("inventory", buildJsonArray { items.forEach { it.compact()?.let(::add) } })
+      if (inside.isNotEmpty()) putJsonObject("inside_boxes_and_bundles") { inside.forEach { (id, n) -> put(id, n) } }
+      if (near.size > stands.size) put("more_stands", near.size - stands.size)
       put("brewing_stands", buildJsonArray {
         stands.forEach { block ->
           val stand = block.entity as BrewingStandBlockEntity
@@ -229,65 +211,6 @@ object InspectTools {
       })
     }
     ToolOutput(result, context.lang.text("summary.brewing", "stacks" to items.size, "stands" to stands.size))
-  }
-
-  /** The mob a spawner makes, as Bukkit's `CreatureSpawner.getSpawnedType`; null for an empty one. */
-  private fun spawned(spawner: SpawnerBlockEntity): EntityType<*>? =
-    (spawner.spawner as InfoAccess.Spawner).`allay$nextSpawnData`()?.entityToSpawn()?.getString("id")?.orElse(null)?.let(Identifier::tryParse)?.let { BuiltInRegistries.ENTITY_TYPE.getOptional(it).orElse(null) }
-
-  private val farm = tool("scan_farm") { context, player, args ->
-    val radius = (args.int("radius") ?: 8).coerceIn(1, 16)
-    val height = minOf(radius, 4)
-    val origin = player.blockPosition()
-    val level = player.level()
-    val crops = mutableMapOf<String, MutableMap<Int, Int>>()
-    val maxAge = mutableMapOf<String, Int>()
-    var wet = 0
-    var dry = 0
-    var hoppers = 0
-    val composters = mutableListOf<Int>()
-    val spawners = mutableMapOf<String, Int>()
-    for (dx in -radius..radius) for (dy in -height..height) for (dz in -radius..radius) {
-      val y = origin.y + dy
-      if (y < level.minY || y > level.maxY) continue
-      val block = level.at(origin.x + dx, y, origin.z + dz)
-      val state = block.state
-      val age = LookTools.age(state)
-      when {
-        state.block is FarmlandBlock -> if (state.getValue(FarmlandBlock.MOISTURE) >= FarmlandBlock.MAX_MOISTURE) wet++ else dry++
-        age != null -> if (!state.`is`(GameBlocks.FIRE) && !state.`is`(GameBlocks.FROSTED_ICE)) {
-          val id = block.key
-          crops.getOrPut(id) { sortedMapOf() }.merge(state.getValue(age), 1, Int::plus)
-          maxAge[id] = age.possibleValues.max()
-        }
-        state.`is`(GameBlocks.COMPOSTER) -> composters += state.getValue(ComposterBlock.LEVEL)
-      }
-      when {
-        state.`is`(GameBlocks.HOPPER) -> hoppers++
-        state.`is`(GameBlocks.SPAWNER) -> (block.entity as? SpawnerBlockEntity)?.let(::spawned)?.let { spawners.merge(Worlds.key(EntityType.getKey(it)), 1, Int::plus) }
-      }
-    }
-    val animals = level.getEntitiesOfClass(Animal::class.java, AABB(player.position(), player.position()).inflate(radius.toDouble(), height.toDouble(), radius.toDouble()))
-      .groupingBy { PlayerTools.type(it) }.eachCount()
-    val result = buildJsonObject {
-      put("radius", radius)
-      putJsonObject("crops") {
-        crops.forEach { (id, ages) ->
-          putJsonObject(id) {
-            put("total", ages.values.sum())
-            put("ripe", ages[maxAge[id]] ?: 0)
-            put("max_age", maxAge[id] ?: 0)
-            putJsonObject("by_age") { ages.forEach { (age, n) -> put(age.toString(), n) } }
-          }
-        }
-      }
-      putJsonObject("farmland") { put("hydrated", wet); put("dry", dry) }
-      if (composters.isNotEmpty()) put("composter_levels", buildJsonArray { composters.forEach { add(JsonPrimitive(it)) } })
-      if (hoppers > 0) put("hoppers", hoppers)
-      if (spawners.isNotEmpty()) putJsonObject("spawners") { spawners.forEach { (k, v) -> put(k, v) } }
-      putJsonObject("animals") { animals.forEach { (k, v) -> put(k, v) } }
-    }
-    ToolOutput(result, context.lang.text("summary.farm", "plants" to crops.values.sumOf { it.values.sum() }, "animals" to animals.values.sum()))
   }
 
   private val slotted = setOf("inventory", "enderchest", "container")
@@ -324,5 +247,5 @@ object InspectTools {
     ToolOutput(result, context.lang.text("summary.item", "id" to Recipes.id(item.item)))
   }
 
-  val all = listOf(scanContainers, findItem, spawnCheck, brewing, farm, inspectItem)
+  val all: List<Tool> = listOf(scanContainers, findItem, brewing, inspectItem)
 }

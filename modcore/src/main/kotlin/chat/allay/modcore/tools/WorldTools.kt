@@ -65,6 +65,15 @@ object WorldTools {
           }
         }
         put("border", round1(world.worldBorder.size))
+        // From the Nether or the End, the sky players mean (can I sleep, is it raining up there) is the overworld's.
+        context.player?.let(OperatorTools::skyWorld)?.takeIf { it != world }?.let { sky ->
+          val skyTime = Math.floorMod(fullTime(sky), 24_000L)
+          putJsonObject("overworld") {
+            put("time", skyTime)
+            put("phase", Facts.dayPhase(skyTime))
+            put("weather", if (sky.weatherData.isThundering) "thunder" else if (sky.weatherData.isRaining) "rain" else "clear")
+          }
+        }
       }
       return ToolOutput(result, context.lang.text("summary.world", "day" to day, "phase" to context.lang.text("phases.$phase")))
     }
@@ -138,13 +147,19 @@ object WorldTools {
         ?.takeIf { it.isNotEmpty() } ?: throw ToolError("say which structure, for example village or stronghold")
       val level = player.level()
       // Searching runs on the server thread, so only a few candidates and a capped radius.
-      val candidates = level.registryAccess().lookupOrThrow(Registries.STRUCTURE).listElements().toList()
-        .filter { it.key().identifier().path == wanted || it.key().identifier().path.startsWith("${wanted}_") }.take(6)
-      if (candidates.isEmpty()) throw ToolError("no structure called $wanted")
+      val all = level.registryAccess().lookupOrThrow(Registries.STRUCTURE).listElements().toList().associateBy { it.key().identifier().path }
+      val candidates = Structures.match(wanted, all.keys).mapNotNull(all::get)
+      if (candidates.isEmpty()) throw ToolError(Structures.missing(wanted, all.keys))
       val origin = player.position()
       val found = candidates.mapNotNull { level.chunkSource.generator.findNearestMapStructure(level, HolderSet.direct(it), player.blockPosition(), context.structureRadius, false) }
         .minByOrNull { it.first.distToLowCornerSqr(origin.x, origin.y, origin.z) }
-        ?: return ToolOutput(buildJsonObject { put("found", false); put("radius_blocks", context.structureRadius * 16) }, context.lang.text("summary.not_found"))
+        ?: return ToolOutput(buildJsonObject {
+          put("found", false)
+          put("searched", buildJsonArray { candidates.forEach { add(JsonPrimitive(it.key().identifier().path)) } })
+          put("radius_blocks", context.structureRadius * 16)
+          // A village looked for in the Nether: the dimension tells the model it's the wrong place, not too far.
+          put("dimension", Dimensions.id(level))
+        }, context.lang.text("summary.not_found"), refused = true)
       val at = found.first
       val dx = at.x - origin.x
       val dz = at.z - origin.z
@@ -179,7 +194,7 @@ object WorldTools {
       // The same steps as /locate biome: every 32 blocks across, every 64 up and down.
       val keys = candidates.map { it.key() }.toSet()
       val found = level.findClosestBiome3d({ biome -> biome.unwrapKey().map(keys::contains).orElse(false) }, player.blockPosition(), radius, 32, 64)
-        ?: return ToolOutput(buildJsonObject { put("found", false); put("radius_blocks", radius) }, context.lang.text("summary.not_found"))
+        ?: return ToolOutput(buildJsonObject { put("found", false); put("radius_blocks", radius) }, context.lang.text("summary.not_found"), refused = true)
       val at = found.first
       val dx = at.x - origin.x
       val dz = at.z - origin.z

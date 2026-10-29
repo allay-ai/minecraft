@@ -78,28 +78,32 @@ object LookTools {
     if ((block.entity as? RandomizableContainer)?.lootTable != null) "an unopened structure chest: its loot rolls when someone opens it"
     else "in someone's claim where the player has no container trust; its contents stay private"
 
+  private fun nothing(blockBeyond: Long?) = Facts.nothingInSight(BLOCK_RANGE, ENTITY_RANGE, blockBeyond)
+
   private val lookAt = object : Tool {
     override val name = "look_at"
 
     override fun run(context: ToolContext, args: JsonObject): ToolOutput {
       val player = context.requirePlayer()
       val eye = player.eyePosition
-      val entity = entityInSight(player)
+      // Blocks stop the ray as they stop the eye, so no mob shows through a wall: Bukkit's `rayTrace` past passable ones.
+      val wall = player.level().clip(ClipContext(eye, eye.add(player.lookAngle.scale(ENTITY_RANGE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player))
+        .takeIf { it.type == HitResult.Type.BLOCK }?.location
+      val entity = entityInSight(player, wall?.distanceToSqr(eye) ?: Double.MAX_VALUE)
       val block = targetBlock(player)
-      val entityCloser = entity != null && (block == null || entity.position().distanceTo(eye) < block.center.distanceTo(eye))
       return when {
-        entity != null && entityCloser -> entity(context.lang, player, entity)
+        entity != null -> entity(context.lang, player, entity)
         block != null -> block(context.lang, player, block, args.bool("detail") == true)
-        else -> ToolOutput(buildJsonObject { put("kind", "nothing") }, context.lang.text("summary.look_nothing"))
+        else -> ToolOutput(nothing(wall?.let { Math.round(it.distanceTo(eye)) }), context.lang.text("summary.look_nothing"))
       }
     }
   }
 
   /**
-   * The nearest entity whose box the line of sight crosses within [ENTITY_RANGE], walls or not, as Bukkit's
-   * `rayTraceEntities`; `look_at` then compares it with the block. Vanished players are never in sight.
+   * The nearest entity whose box the line of sight crosses within [ENTITY_RANGE] and nearer than the first block in
+   * the way ([before], a squared distance), as Bukkit's `rayTraceEntities`. Vanished players are never in sight.
    */
-  private fun entityInSight(player: ServerPlayer): Entity? {
+  private fun entityInSight(player: ServerPlayer, before: Double): Entity? {
     val eye = player.eyePosition
     val end = eye.add(player.lookAngle.scale(ENTITY_RANGE))
     return player.level().getEntities(player, net.minecraft.world.phys.AABB(eye, end).inflate(1.0)) { Vanish.visible(player, it) }
@@ -109,6 +113,7 @@ object LookTools {
         val hit = if (box.contains(eye)) box.clip(end, eye) else box.clip(eye, end)
         hit.orElse(null)?.let { entity to it.distanceToSqr(eye) }
       }
+      .filter { it.second < before }
       .minByOrNull { it.second }?.first
   }
 

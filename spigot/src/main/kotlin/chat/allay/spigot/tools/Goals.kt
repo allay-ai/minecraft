@@ -90,7 +90,8 @@ class Goals(
     // The player may already be there, or at that level.
     poll(player)
     show(player)
-    return book.all().firstOrNull { it.id == goal.id } ?: goal
+    // Met already: the poll above finished it and told the player, so the model hears it's done too.
+    return book.all().firstOrNull { it.id == goal.id } ?: goal.copy(progress = goal.target)
   }
 
   fun remove(player: Player, id: String?): Int {
@@ -103,14 +104,14 @@ class Goals(
 
   /** What the bar says, in the player's language: the title, then where the player stands. */
   fun label(goal: Goal, lang: chat.allay.core.Lang): String = when (goal.kind) {
-    "reach" -> lang.text("goals.bar_distance", "title" to goal.title, "blocks" to max(0, goal.target - goal.progress))
+    "reach" -> if (goal.baseline == Goal.UNSET) goal.title else lang.text("goals.bar_distance", "title" to goal.title, "blocks" to max(0, goal.target - goal.progress))
     "advancement", "biome", "dimension" -> goal.title
     else -> lang.text("goals.bar_count", "title" to goal.title, "progress" to goal.progress / goal.scale, "target" to goal.target / goal.scale)
   }
 
   private fun baseline(player: Player, goal: Goal): Long = when (goal.kind) {
     "stat" -> statistic(player, goal)
-    "reach" -> distance(player, goal)?.toLong() ?: 0
+    "reach" -> distance(player, goal)?.toLong() ?: Goal.UNSET
     else -> 0
   }
 
@@ -141,7 +142,10 @@ class Goals(
           val advancement = goal.advancement?.let(NamespacedKey::fromString)?.let(Bukkit::getAdvancement)
           if (advancement != null && player.getAdvancementProgress(advancement).isDone) 1 else 0
         }
-        "reach" -> distance(player, goal)?.let { d -> if (d <= (goal.radius ?: 10)) goal.target else (goal.baseline - d.toLong()).coerceIn(0, goal.target - 1) } ?: goal.progress
+        "reach" -> distance(player, goal)?.let { d ->
+          val counted = if (goal.baseline == Goal.UNSET) book.rebase(goal.id, d.toLong()) ?: continue else goal
+          if (d <= (counted.radius ?: 10)) counted.target else (counted.baseline - d.toLong()).coerceIn(0, counted.target - 1)
+        } ?: goal.progress
         "biome" -> if (player.location.block.biome.key.key == goal.biome) 1 else 0
         "dimension" -> if (Dimensions.id(player.world) == Dimensions.normalize(goal.dimension)) 1 else 0
         else -> continue

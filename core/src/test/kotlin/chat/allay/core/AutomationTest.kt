@@ -376,6 +376,42 @@ class AutomationTest {
     }
   }
 
+  private val copies: (String) -> List<Workshop.Recipe> = { id ->
+    when (id) {
+      "netherite_upgrade_smithing_template" -> listOf(Workshop.Recipe(id, 2, listOf(setOf(id), setOf("netherrack")) + List(7) { setOf("diamond") }))
+      "diamond" -> listOf(Workshop.Recipe(id, 9, listOf(setOf("diamond_block")), small = true))
+      "diamond_block" -> listOf(Workshop.Recipe(id, 1, List(9) { setOf("diamond") }))
+      "lapis_lazuli" -> listOf(Workshop.Recipe(id, 9, listOf(setOf("lapis_block")), small = true), Workshop.Recipe(id, 1, listOf(setOf("lapis_ore")), Workshop.Station.FURNACE))
+      "lapis_block" -> listOf(Workshop.Recipe(id, 1, List(9) { setOf("lapis_lazuli") }))
+      else -> emptyList()
+    }
+  }
+
+  @Test fun `a template copies from the player's own, with diamonds from a block`() {
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("netherite_upgrade_smithing_template", 1, mapOf("netherite_upgrade_smithing_template" to 1, "netherrack" to 1, "diamond_block" to 1), copies))
+    assertEquals(1, plan.takes["netherite_upgrade_smithing_template"])
+    assertEquals(listOf("diamond", "netherite_upgrade_smithing_template"), plan.steps.map { it.recipe.result })
+  }
+
+  @Test fun `a template short of diamonds names the diamonds, not the template`() {
+    val missing = assertIs<Workshop.Missing>(Workshop.plan("netherite_upgrade_smithing_template", 1, mapOf("netherite_upgrade_smithing_template" to 1, "netherrack" to 1, "diamond" to 3), copies))
+    assertEquals(mapOf("diamond" to 4), missing.items)
+  }
+
+  @Test fun `a template with none to copy from says the template`() {
+    val missing = assertIs<Workshop.Missing>(Workshop.plan("netherite_upgrade_smithing_template", 1, mapOf("netherrack" to 1, "diamond" to 7), copies))
+    assertEquals(setOf("netherite_upgrade_smithing_template"), missing.items.keys)
+  }
+
+  @Test fun `lapis comes from blocks, and only what's short needs crafting`() {
+    // 5 loose and 2 blocks: the 15 the player lacks of 20 come from the blocks.
+    val plan = assertIs<Workshop.Plan>(Workshop.plan("lapis_lazuli", 15, mapOf("lapis_lazuli" to 5, "lapis_block" to 2), copies))
+    assertEquals(mapOf("lapis_block" to 2), plan.takes)
+    // 20 more than they have would need a third block from 9 loose lapis, and 5 are there: 4 short, not 20.
+    val missing = assertIs<Workshop.Missing>(Workshop.plan("lapis_lazuli", 20, mapOf("lapis_lazuli" to 5, "lapis_block" to 2), copies))
+    assertEquals(mapOf("lapis_lazuli" to 4), missing.items)
+  }
+
   @Test fun `planks come from the wood the player carries`() {
     val plan = assertIs<Workshop.Plan>(Workshop.plan("chest", 8, mapOf("jungle_log" to 37), woods))
     assertEquals(mapOf("jungle_log" to 16), plan.takes)

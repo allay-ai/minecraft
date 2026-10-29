@@ -102,6 +102,14 @@ object GoalTools {
     put("title", goal.title)
     put("progress", goal.progress / goal.scale)
     put("target", goal.target / goal.scale)
+    if (goal.kind == "reach") {
+      put("x", goal.x)
+      put("z", goal.z)
+      put("radius", goal.radius)
+      put("dimension", goal.dimension)
+      // Set from another dimension: the bar shows only the title until the player gets there.
+      if (goal.baseline == Goal.UNSET) put("counts_from_arrival_in", goal.dimension)
+    }
     if (goal.done) put("done", true)
   }
 

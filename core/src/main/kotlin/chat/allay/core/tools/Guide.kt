@@ -12,6 +12,7 @@ object Guide {
     Triple("/allay", Permissions.ASK, "opens a settings window: chat mode and its tip, time zone, language, memory, starting over, full privacy, and the player's data; admins also get reload, the subscription's status, and the payment link there"),
     Triple("/allay chat [on|off]", Permissions.CHAT, "chat mode: everything the player writes in chat goes to Allay"),
     Triple("/allay hints [on|off]", Permissions.CHAT, "the tip about chat mode under answers"),
+    Triple("/allay language [code|auto]", Permissions.ASK, "picks the language Allay answers in, such as en or ru; auto goes back to the one picked by the player's country and game"),
     Triple("/allay cancel", Permissions.ASK, "stops the answer being written; with no answer running, ends the way trail"),
     Triple("/allay new", Permissions.ASK, "starts the conversation over; memories stay"),
     Triple("/allay memory", Permissions.ASK, "opens a window of what Allay remembers about the player: each memory opens with the way to its place and a button to forget it; buttons there add one (with the player's place, if they like) or forget all"),

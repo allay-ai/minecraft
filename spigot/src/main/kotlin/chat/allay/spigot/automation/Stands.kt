@@ -371,7 +371,7 @@ object Stands {
       if (have < n) putJsonObject("missing") { put("glass_bottle", n - have) }
       put("water", short)
       put("note", "tell the player what's missing and where it comes from; nothing was taken")
-    }, context.lang.text("summary.brewing_missing", "count" to 1))
+    }, context.lang.text("summary.brewing_missing", "count" to 1), refused = true)
     if (!sources.reserve(glass, "glass_bottle", n, holds, task.id)) throw ToolError("someone took the glass bottles meanwhile")
     val (taken, changed) = sources.takeReserved(glass, "glass_bottle", n, holds, task.id)
     if (changed != null) {
@@ -512,7 +512,7 @@ object Stands {
         water?.let { put("water", it) }
         if (fillable > 0) put("fills_water_bottles", "$fillable water bottles fill from the player's glass bottles at the water near once the rest is here")
         put("note", "tell the player what's missing and where it comes from; nothing else was taken")
-      }, context.lang.text("summary.brewing_missing", "count" to missing.size))
+      }, context.lang.text("summary.brewing_missing", "count" to missing.size), refused = true)
     }
 
     // Reserve it all, then put in the first bottles and the fuel; the first reagents go in last, and the stands start.

@@ -107,7 +107,7 @@ object InteractTools {
   private val book = tool("write_book") { context, player, args ->
     val title = args.string("title")?.take(32) ?: throw ToolError("title is required")
     val text = args.string("text")?.take(8_000) ?: throw ToolError("text is required")
-    if (context.buttons.size + 2 > MAX_BUTTONS) throw ToolError("no room for the book's buttons; add fewer buttons")
+    if (context.buttons.size + 2 > MAX_BUTTONS) throw ToolError("no room for the book's buttons: the answer already has ${context.buttons.size} of $MAX_BUTTONS (way buttons from find_item count too); write fewer button tags in the answer")
     val written = context.features.books.add(player.uuid, title, text)
     // Labels come from the config when the handler draws them.
     context.buttons += Button.ReadBook("", written.id)

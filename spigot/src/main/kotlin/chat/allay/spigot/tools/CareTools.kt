@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -104,6 +105,10 @@ object CareTools {
       put("saturation", round1(player.saturation.toDouble()))
       put("food_missing", 20 - player.foodLevel)
       put("foods", buildJsonArray { foods.forEach(::add) })
+      // Bread in a bundle is still bread: say it's there, to take out first.
+      Items.inside(player.inventory.contents.asIterable().data()).filterKeys { it in Mechanics.FOODS }.takeIf { it.isNotEmpty() }?.let { inside ->
+        putJsonObject("inside_boxes_and_bundles") { inside.forEach { (id, n) -> put(id, n) } }
+      }
     }
     ToolOutput(result, if (foods.isEmpty()) context.lang.text("summary.food_none") else context.lang.text("summary.food", "kinds" to foods.size))
   }
@@ -125,16 +130,21 @@ object CareTools {
           put("reason", if (wanted == null) "nothing the player has gains on an anvil: no enchanted book fits any of their items, and no two enchanted items of a kind" else "no item the player has takes all of these enchantments")
         },
         context.lang.text("summary.anvil_nothing"),
+        refused = true,
       )
     }
     // Without enchantments to aim for, plan with what the player has: books and items of this kind in the inventory.
     if (wanted == null) return@tool fromInventory(context, player, slots, target)
     val item = player.inventory.getItem(target)?.takeUnless { it.type.isAir } ?: throw ToolError("${AnvilTargets.label(target, player.inventory.heldItemSlot)} is empty")
+    val capped = mutableMapOf<String, Int>()
     val books = wanted.keys.map { key ->
       val id = Names.enchantment(key)
       val enchantment = id.ifEmpty { null }?.let(Anvils::enchantment) ?: throw ToolError("no enchantment called $key")
-      if (!enchantment.canEnchantItem(item)) throw ToolError("$id doesn't go on ${item.type.key.key}")
-      val level = (wanted.int(key) ?: enchantment.maxLevel).coerceIn(1, enchantment.maxLevel)
+      if (!enchantment.canEnchantItem(item)) throw ToolError("$id doesn't go on ${item.type.key.key}; it may be meant for another item: pass item or slot for that one")
+      val asked = wanted.int(key) ?: enchantment.maxLevel
+      val level = asked.coerceIn(1, enchantment.maxLevel)
+      // Sharpness 10 is no book the game makes: say what the plan really aims for.
+      if (level != asked) capped[id] = level
       enchantment to level
     }
     val all = books.map { it.first } + item.enchantments.keys
@@ -154,6 +164,7 @@ object CareTools {
       })
       put("total_levels", plan.total)
       put("too_expensive", plan.tooExpensive)
+      if (capped.isNotEmpty()) putJsonObject("capped_to") { capped.forEach { (id, level) -> put(id, level) } }
     }
     ToolOutput(result, if (plan.tooExpensive) context.lang.text("summary.anvil_too_expensive") else context.lang.text("summary.anvil", "levels" to plan.total, "steps" to plan.steps.size))
   }
@@ -194,7 +205,7 @@ object CareTools {
 
   private fun fromInventory(context: ToolContext, player: Player, slots: List<Int>?, target: Int): ToolOutput {
     val planned = Anvils.plan(player, slots, target)
-      ?: return ToolOutput(buildJsonObject { put("found", false); put("reason", "nothing in the inventory adds to that item: no enchanted book or second enchanted item of its kind that improves it") }, context.lang.text("summary.anvil_nothing"))
+      ?: return ToolOutput(buildJsonObject { put("found", false); put("reason", "nothing in the inventory adds to that item: no enchanted book or second enchanted item of its kind that improves it") }, context.lang.text("summary.anvil_nothing"), refused = true)
     val (sources, plan) = planned.sources to planned.plan
     fun names(pieces: List<Int>) = buildJsonArray { pieces.forEach { add(kotlinx.serialization.json.JsonPrimitive(Anvils.label(sources[it], planned.hand))) } }
     fun enchantments(piece: Mechanics.AnvilPiece) = buildJsonObject { piece.enchantments.forEach { (key, level) -> put(key, level) } }
@@ -223,6 +234,7 @@ object CareTools {
       put("too_expensive", plan.tooExpensive)
       val unused = sources.indices.filter { it !in plan.used }
       if (unused.isNotEmpty()) put("unused", names(unused))
+      if (planned.skipped > 0) put("not_considered", planned.skipped)
     }
     val summary = if (plan.tooExpensive) context.lang.text("summary.anvil_too_expensive") else context.lang.text("summary.anvil", "levels" to plan.total, "steps" to plan.steps.size)
     return ToolOutput(result, summary)

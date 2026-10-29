@@ -24,7 +24,8 @@ object Anvils {
   class Source(val slot: Int, val item: ItemStack, val piece: Mechanics.AnvilPiece)
 
   /** The plan; the first source is the item it works on. */
-  class Planned(val sources: List<Source>, val plan: Mechanics.MergePlan, val hand: Int) {
+  /** [skipped]: useful pieces left out past the richest [MAX_EXTRA], so the model knows more books wait. */
+  class Planned(val sources: List<Source>, val plan: Mechanics.MergePlan, val hand: Int, val skipped: Int = 0) {
     val target get() = sources.first()
   }
 
@@ -72,7 +73,7 @@ object Anvils {
     val held = item(player, target) ?: throw ToolError(if (target == hand) "the player holds nothing; name the item to enchant, or leave item out to let the tool find it" else "${AnvilTargets.label(target, hand)} is empty")
     if (isBook(held)) throw ToolError("${AnvilTargets.label(target, hand)} holds a book; name the item to enchant, not a book")
     val rules = Rules(held.type)
-    val candidates = (slots ?: ((0..35) + AnvilTargets.OFFHAND)).distinct().filter { it in AnvilTargets.ALL && it != target }.mapNotNull { slot ->
+    val pieces = (slots ?: ((0..35) + AnvilTargets.OFFHAND)).distinct().filter { it in AnvilTargets.ALL && it != target }.mapNotNull { slot ->
       val item = item(player, slot) ?: return@mapNotNull null
       val piece = piece(item)
       val useful = when {
@@ -84,11 +85,12 @@ object Anvils {
         if (slots != null) throw ToolError("slot $slot holds ${item.type.key.key}, which can't go onto ${held.type.key.key}")
         null
       } else Source(slot, item, piece)
-    }.sortedByDescending { it.piece.levels }.take(MAX_EXTRA)
-    if (candidates.isEmpty()) return null
+    }.sortedByDescending { it.piece.levels }
+    if (pieces.isEmpty()) return null
+    val candidates = pieces.take(MAX_EXTRA)
     val sources = listOf(Source(target, held, piece(held))) + candidates
     val plan = Mechanics.mergePlan(sources.map { it.piece }, rules) ?: return null
-    return Planned(sources, plan, hand)
+    return Planned(sources, plan, hand, pieces.size - candidates.size)
   }
 
   /** How much [planned] adds to its item. */

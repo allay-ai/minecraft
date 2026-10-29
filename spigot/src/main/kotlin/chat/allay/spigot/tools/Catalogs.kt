@@ -71,7 +71,9 @@ object Catalogs {
   private fun make(expansions: Expansions?, names: GameNames?): Catalog {
     val made = HashMap<String, MutableSet<String>>()
     val custom = LinkedHashMap<String, Catalog.Entry>()
+    val keys = mutableSetOf<String>()
     Bukkit.recipeIterator().forEach { recipe ->
+      (recipe as? org.bukkit.Keyed)?.key?.takeIf { it.namespace == NamespacedKey.MINECRAFT }?.let { keys += it.key }
       val result = recipe.result.takeUnless { it.type.isAir } ?: return@forEach
       val kind = kind(recipe) ?: return@forEach
       val id = id(result)
@@ -79,6 +81,8 @@ object Catalogs {
       val namespace = (recipe as? org.bukkit.Keyed)?.key?.namespace ?: Catalog.MINECRAFT
       if (id != result.type.key.key && id !in custom) custom[id] = custom(id, result, source(namespace))
     }
+    // Fireworks and the rest of the special recipes have no result to read: crafted all the same.
+    chat.allay.core.tools.SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
     val brewed = BrewingRecipes.all(Bukkit.getServer()).map { it.to.potion }.toSet()
     val items = Material.entries.filter { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }.map { material ->
       val id = material.key.key

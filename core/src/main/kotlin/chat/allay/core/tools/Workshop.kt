@@ -197,6 +197,11 @@ object Workshop {
     val missing = mutableMapOf<String, Int>()
     /** What each ingredient was first wanted for. */
     val parents = mutableMapOf<String, String>()
+    /**
+     * The items being crafted up the chain right now. A recipe that takes its own result (a smithing template copied
+     * from one) never crafts that ingredient again: the player's own copy goes in, or it's missing.
+     */
+    private val making = mutableSetOf<String>()
 
     private class Saved(val stock: Map<String, Int>, val spare: Map<String, Int>, val steps: Int, val missing: Map<String, Int>, val parents: Map<String, String>)
 
@@ -229,6 +234,18 @@ object Workshop {
 
     /** Crafts [short] of [id], trying its recipes from the one the player has most for; a failure leaves what's missing. */
     fun craft(id: String, short: Int, level: Int): Boolean {
+      if (!making.add(id)) {
+        missing.merge(id, short, Int::plus)
+        return false
+      }
+      try {
+        return craftNew(id, short, level)
+      } finally {
+        making.remove(id)
+      }
+    }
+
+    private fun craftNew(id: String, short: Int, level: Int): Boolean {
       // A stonecutter first when there's one: stairs come one from a block there, four from six on a table. A furnace
       // last: smelting takes time, so ingots come from iron blocks first when the player has some.
       val options = if (level < depth) recipes(id).sortedWith(compareBy<Recipe> { it.station == Station.FURNACE }.thenBy { it.station != Station.STONECUTTER }.thenByDescending { recipe -> recipe.slots.sumOf { slot -> slot.maxOf(::available) } }) else emptyList()
@@ -239,11 +256,13 @@ object Workshop {
       for (recipe in options) if (attempt { use(recipe, id, short, level) }) return true
       // Nothing works: the likeliest way says what's missing, but never through a block made of the item itself, so
       // three diamonds short reads as diamonds, not a diamond block, nor through ore, which is mined: diamonds, not the
-      // diamond ore a silk touch pickaxe brings. Raw iron for ingots and sand for glass do say what to get.
+      // diamond ore a silk touch pickaxe brings. Raw iron for ingots and sand for glass do say what to get. A recipe
+      // that takes the item itself (copying a template) still counts, and says the diamonds it lacks. When the player
+      // has some of a block made of the item, that block says what's short: one more lapis block, not 20 lapis.
       val likeliest = options.firstOrNull { recipe ->
-        recipe.slots.none { slot -> slot.any { part -> recipes(part).any { made -> made.slots.any { id in it } } } } &&
+        recipe.slots.none { slot -> slot.any { part -> part != id && recipes(part).any { made -> made.slots.any { id in it } } } } &&
           !(recipe.station == Station.FURNACE && recipe.slots.all { slot -> slot.all { it.endsWith("_ore") } })
-      }
+      } ?: options.firstOrNull { recipe -> recipe.station != Station.FURNACE && recipe.slots.any { slot -> slot.any { available(it) > 0 } } }
       if (likeliest == null) missing.merge(id, short, Int::plus) else use(likeliest, id, short, level)
       return false
     }

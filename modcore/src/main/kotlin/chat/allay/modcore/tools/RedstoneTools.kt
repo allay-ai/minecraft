@@ -99,7 +99,6 @@ object RedstoneTools {
         put("components", buildJsonArray { shown.forEach { add(buildJsonObject { describe(it) }) } })
         if (found.size > shown.size) put("more_components", found.size - shown.size)
         put("issues", issues)
-        put("notes", "repeaters and comparators send their signal toward outputs and take it from input_from; observers watch one side and pulse out the back; received is the strongest signal reaching a block")
       }
       return ToolOutput(result, context.lang.text("summary.redstone", "count" to shown.size, "issues" to issues.size))
     }

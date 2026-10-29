@@ -103,7 +103,11 @@ object DraftTools {
   }
 
   private fun check(context: ToolContext, player: ServerPlayer, draft: Drafts.Draft): ToolOutput {
-    check(player, Drafts.block(draft, DraftCell(0, 0, 0)))
+    val corner = Drafts.block(draft, DraftCell(0, 0, 0))
+    // Away from the build the draft is still there; say where, rather than read blocks a world away.
+    val away = if (player.level() != draft.level) "in ${Dimensions.id(draft.level)}" else Math.round(corner.corner.distanceTo(player.position())).takeIf { it > Drafts.WATCHED }?.let { "$it blocks away" }
+    if (away != null) throw ToolError("the draft stands at ${corner.x}, ${corner.y}, ${corner.z} $away and is still there; it can be checked once the player is within ${Drafts.WATCHED.toInt()} blocks of it")
+    if (!Claims.mayBuild(player, corner.level, corner.pos)) throw ToolError("that's someone else's claim where the player may not build; drafts go only where they could build")
     val problems = buildJsonArray {
       var listed = 0
       draft.cells.entries.sortedWith(compareBy({ it.key.up }, { it.key.forward }, { it.key.right })).forEach { (cell, planned) ->

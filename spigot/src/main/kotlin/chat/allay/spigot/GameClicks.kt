@@ -83,11 +83,15 @@ class GameClicks(
       return
     }
     val target = Location(player.world, button.x + 0.5, button.y.toDouble(), button.z + 0.5)
+    val lang = lang(player)
+    val config = features.config()
+    val audience = player.audience
+    Trails.show(plugin, player, target, config.tools.trailSeconds, bar = TrailBar.of(config, audience, lang), ended = { TrailNotes.ended(lang, audience, it) }) {
+      TrailNotes.arrived(lang, audience, it)
+    }
     player.compassTarget = target
-    Trails.show(plugin, player, target, features.config().tools.trailSeconds) { lang(player).send(player, "messages.arrived") }
     val dx = target.x - player.location.x
     val dz = target.z - player.location.z
-    val lang = lang(player)
     lang.send(player, "buttons.path_shown", "distance" to Math.round(Math.hypot(dx, dz)), "direction" to lang.text("directions.${Facts.direction(dx, dz)}"))
   }
 
@@ -96,7 +100,8 @@ class GameClicks(
     // Checked again on the press: the button may be an hour old, and the player may have hidden since.
     val target = Locator.named(player, button.player)?.takeIf { Locator.shows(player, it) }
       ?: return lang.send(player, "buttons.player_hidden", "name" to button.player)
-    Trails.follow(plugin, player, target, features.config().tools.followSeconds,
+    val config = features.config()
+    Trails.follow(plugin, player, target, config.tools.followSeconds, bar = TrailBar.of(config, player.audience, lang),
       found = { lang.send(player, "messages.found", "name" to target.name) },
       lost = { lang.send(player, "messages.trail_lost", "name" to target.name) })
     val dx = target.location.x - player.location.x

@@ -12,9 +12,9 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.BundleMeta
 
 /**
- * Where automation takes ingredients from: the player's inventory, the bundles in it (bundles inside bundles too, as
- * deep as the game nests them), the ender chest when one stands near, and chests and barrels nearby the player may
- * open. Never shulker boxes, and never items with a name, enchantments, or anything else of their own. Server thread only.
+ * Where automation takes ingredients from: the player's inventory, the ender chest when one stands near, and chests and
+ * barrels nearby the player may open, each with the bundles it holds (bundles inside bundles too, as deep as the game
+ * nests them). Never shulker boxes, and never items with a name, enchantments, or anything else of their own. Server thread only.
  */
 class Sources private constructor(val list: List<Source>) {
   /** One place items come from, read and written as a whole list of slots. */
@@ -122,20 +122,29 @@ class Sources private constructor(val list: List<Source>) {
     fun around(player: Player, radius: Int): Sources {
       val list = mutableListOf<Source>()
       list += Source(Blocks.inventory(player), true, null, { player.inventory.storageContents.toList() }, { player.inventory.storageContents = it.toTypedArray() })
-      for (slot in 0 until 36) bundles(list, "${Blocks.inventory(player)}#$slot", 1, { player.inventory.getItem(slot) }, { player.inventory.setItem(slot, it) })
-      val ender = Blocks.near(player.location, radius) { it.type == Material.ENDER_CHEST }.isNotEmpty()
-      if (ender) list += Source("ender:${player.uniqueId}", true, null, { player.enderChest.contents.toList() }, { player.enderChest.contents = it.toTypedArray() })
+      for (slot in 0 until 36) bundles(list, "${Blocks.inventory(player)}#$slot", 1, true, { player.inventory.getItem(slot) }, { player.inventory.setItem(slot, it) })
+      if (enderNear(player, radius)) {
+        val place = "ender:${player.uniqueId}"
+        list += Source(place, true, null, { player.enderChest.contents.toList() }, { player.enderChest.contents = it.toTypedArray() })
+        for (slot in 0 until player.enderChest.size) bundles(list, "$place#$slot", 1, true, { player.enderChest.getItem(slot) }, { player.enderChest.setItem(slot, it) })
+      }
       Blocks.near(player.location, radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct().forEach { block ->
         val state = block.state as? Container ?: return@forEach
         // A farm's output or a sorter's chest (a hopper on it) stays out, as it does for sorting.
         if (state !is Container || Blocks.unsuitable(player, block) != null) return@forEach
         list += Source(Blocks.place(block), false, block, { (block.state as? Container)?.inventory?.contents?.toList().orEmpty() }, { items -> (block.state as? Container)?.inventory?.contents = items.toTypedArray() })
+        for (slot in 0 until state.inventory.size) {
+          bundles(list, "${Blocks.place(block)}#$slot", 1, false, { (block.state as? Container)?.inventory?.getItem(slot) }, { item -> (block.state as? Container)?.inventory?.setItem(slot, item) })
+        }
       }
       return Sources(list)
     }
 
+    /** Whether an ender chest stands within [radius]: only then is the player's own a source, as in the game. */
+    fun enderNear(player: Player, radius: Int) = Blocks.near(player.location, radius) { it.type == Material.ENDER_CHEST }.isNotEmpty()
+
     /** A bundle at [get] becomes a source, and each bundle inside it too, down to [BUNDLE_DEPTH]. */
-    private fun bundles(list: MutableList<Source>, place: String, depth: Int, get: () -> ItemStack?, set: (ItemStack?) -> Unit) {
+    private fun bundles(list: MutableList<Source>, place: String, depth: Int, own: Boolean, get: () -> ItemStack?, set: (ItemStack?) -> Unit) {
       if (depth > BUNDLE_DEPTH) return
       val bundle = get() ?: return
       val meta = bundle.itemMeta as? BundleMeta ?: return
@@ -150,9 +159,9 @@ class Sources private constructor(val list: List<Source>) {
         }
       }
       // A bundle has no empty slots: what goes in is added at the end, never into a full bundle.
-      list += Source(place, true, null, read, write)
+      list += Source(place, own, null, read, write)
       meta.items.forEachIndexed { index, _ ->
-        bundles(list, "$place/$index", depth + 1, { read().getOrNull(index) }, { inner ->
+        bundles(list, "$place/$index", depth + 1, own, { read().getOrNull(index) }, { inner ->
           val items = read().toMutableList()
           if (index < items.size) {
             if (inner == null) items.removeAt(index) else items[index] = inner

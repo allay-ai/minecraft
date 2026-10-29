@@ -142,9 +142,15 @@ object Drafts : Listener {
   fun firstOpen(draft: Draft, from: Int): Int =
     (from until draft.layers).firstOrNull { layer -> cellsOf(draft, layer).any { (cell, planned) -> state(draft, cell, planned) != State.DONE } } ?: (draft.layers - 1)
 
+  /** Farther than this from its corner, or in another dimension, the player leaves the draft waiting. */
+  const val WATCHED = 128.0
+
   private fun tick(draft: Draft) {
     val player = Bukkit.getPlayer(draft.owner)
     if (player == null || !player.isOnline) return run { clear(draft.owner) }
+    // Away from the build the draft waits: reading its blocks would keep its chunks loaded for nothing.
+    val corner = block(draft, DraftCell(0, 0, 0))
+    if (player.world != draft.world || corner.location.distance(player.location) > WATCHED) return
     val lang = locales.of(player)
     val cells = cellsOf(draft, draft.layer)
     var done = 0
@@ -167,9 +173,9 @@ object Drafts : Listener {
     val total = cells.size.coerceAtLeast(1)
     bar.progress = (done.toDouble() / total).coerceIn(0.0, 1.0)
     bar.setTitle(lang.text(if (draft.layer < 0) "drafts.bar_all" else "drafts.bar", "title" to draft.title, "layer" to draft.layer + 1, "layers" to draft.layers, "done" to done, "total" to cells.size))
-    if (done < cells.size || draft.layer < 0) return
-    // The layer is built: on to the next one with work left, or the whole draft is done.
-    val next = if (draft.layer + 1 < draft.layers) firstOpen(draft, draft.layer + 1) else draft.layers
+    if (done < cells.size) return
+    // The layer is built: on to the next one with work left, or the whole draft is done (all layers at once: done now).
+    val next = if (draft.layer >= 0 && draft.layer + 1 < draft.layers) firstOpen(draft, draft.layer + 1) else draft.layers
     if (next >= draft.layers || cellsOf(draft, next).all { (cell, planned) -> state(draft, cell, planned) == State.DONE }) {
       lang.send(player, "drafts.done", "title" to draft.title)
       player.playSound(player.location, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.6f, 1.2f)

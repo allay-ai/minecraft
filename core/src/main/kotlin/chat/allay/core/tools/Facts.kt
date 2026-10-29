@@ -39,6 +39,17 @@ object Facts {
   }
 
   /** A compass direction for a horizontal offset; Minecraft's north is negative Z. */
+  /**
+   * `look_at` with nothing in reach: how far it looked for a block and for an entity, and how far the block in sight
+   * is when it's beyond reach, so “nothing” reads as “too far”, not as empty air.
+   */
+  fun nothingInSight(blockRange: Int, entityRange: Double, blockBeyond: Long?): JsonObject = buildJsonObject {
+    put("kind", "nothing")
+    put("block_range", blockRange)
+    put("entity_range", entityRange.toInt())
+    blockBeyond?.let { put("block_beyond_reach", it) }
+  }
+
   fun direction(dx: Double, dz: Double): String {
     val degrees = (Math.toDegrees(atan2(dx, -dz)) + 360) % 360
     return listOf("north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west")[((degrees + 22.5) / 45).toInt() % 8]

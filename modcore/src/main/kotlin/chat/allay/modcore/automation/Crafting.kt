@@ -4,6 +4,7 @@ import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
 import chat.allay.modcore.tools.BlockAt
 import chat.allay.modcore.tools.Catalogs
+import chat.allay.modcore.tools.FireworkItems
 import chat.allay.modcore.tools.InteractTools
 import chat.allay.modcore.tools.Marks
 import chat.allay.modcore.tools.Recipes
@@ -11,6 +12,7 @@ import chat.allay.modcore.tools.Tool
 import chat.allay.modcore.tools.ToolContext
 import chat.allay.modcore.tools.Worlds
 import chat.allay.modcore.tools.at
+import chat.allay.modcore.tools.data
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -47,6 +49,9 @@ import net.minecraft.world.level.block.state.BlockState
  * glass bottles at water or a cauldron near, a level a bottle, as clicking does.
  */
 object Crafting {
+  /** The most one craft call makes: a full inventory of stacks of 64. */
+  const val MAX_COUNT = 2304
+
   /** What Bukkit's `PotionMeta` covers. */
   private val POTIONS = setOf(Items.POTION, Items.SPLASH_POTION, Items.LINGERING_POTION, Items.TIPPED_ARROW)
 
@@ -156,10 +161,24 @@ object Crafting {
     put("z", block.z)
   }
 
-  private fun missing(lang: chat.allay.core.Lang, missing: Workshop.Missing) = ToolOutput(JsonObject(buildJsonObject {
-    put("crafted", false)
-    put("note", "tell the player what's missing; nothing was taken")
-  } + short(missing)), lang.text("summary.craft_missing", "count" to missing.items.size))
+  /**
+   * What's missing, and what of it waits in the player's ender chest, bundles there included, when no ender chest
+   * stands near enough for crafting to take from it: the model then asks them to stand by one instead of saying “none”.
+   */
+  private fun missing(context: ToolContext, player: ServerPlayer, missing: Workshop.Missing): ToolOutput {
+    val radius = context.features.automation.settings().radius
+    val stored = if (Sources.enderNear(player, radius)) emptyList() else Slots.read(player.enderChestInventory).data()
+    val ender = missing.items.keys.associateWith { id -> stored.sumOf { chat.allay.core.tools.Items.matching(it) { found -> found == id }.let { (direct, nested) -> direct + nested } } }
+      .filterValues { it > 0 }
+    return ToolOutput(JsonObject(buildJsonObject {
+      put("crafted", false)
+      put("note", "tell the player what's missing; nothing was taken")
+      if (ender.isNotEmpty()) {
+        putJsonObject("in_ender_chest") { ender.forEach { (id, n) -> put(id, n) } }
+        put("ender_chest", "no ender chest within $radius blocks, and crafting takes from the player's only beside one: ask them to stand by an ender chest, then craft again")
+      }
+    } + short(missing)), context.lang.text("summary.craft_missing", "count" to missing.items.size), refused = true)
+  }
 
   /** Enchantment levels on an item, as Bukkit's `getEnchantments` sums them. */
   private fun levels(item: ItemStack) = item.get(DataComponents.ENCHANTMENTS)?.entrySet()?.sumOf { it.intValue } ?: 0
@@ -326,10 +345,13 @@ object Crafting {
       val automation = context.features.automation
       val holds = automation.reservations
       automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
-      val count = (args.int("count") ?: 1).coerceIn(1, 64)
+      // Crafting is instant, so a whole order goes in one call: 36 stacks, a full inventory.
+      val count = (args.int("count") ?: 1).coerceIn(1, MAX_COUNT)
       val lang = context.lang
+      // Fireworks follow the game's special recipes: what goes in is the player's description of the show.
+      Names.normalize(args.string("item").orEmpty()).takeIf { it in SpecialRecipes.FIREWORK_ITEMS }?.let { return fireworks(context, player, task, args, it, count) }
       val planned = when (val planned = plan(context, player, args.string("item") ?: throw ToolError("item is required"), count, task)) {
-        is Workshop.Missing -> return missing(lang, planned)
+        is Workshop.Missing -> return missing(context, player, planned)
         else -> planned as Planned
       }
       val itemId = planned.itemId
@@ -360,7 +382,9 @@ object Crafting {
       upgraded.forEach { (slot, base) -> player.inventory.setItem(slot, base.transmuteCopy(planned.item!!, base.count)) }
       val fresh = if (planned.upgrade != null) List(count - upgraded.size) { ItemStack(planned.item!!) } else emptyList()
       give(player, stacks(planned.book, extra) + fresh + remains(planned.takes))
-      task.report("crafted $count × $itemId into the player's inventory (at their feet when it was full)")
+      // A copy recipe makes more than asked (one template, two out): say what really came.
+      val made = plan.makes[itemId] ?: count
+      task.report("crafted $made × $itemId into the player's inventory (at their feet when it was full)")
       val label = "$count × ${itemId.substringAfter(':').replace('_', ' ')}"
       val used = listOfNotNull(planned.table, planned.cutter?.takeIf { Workshop.Station.STONECUTTER in plan.stations }, planned.smithy)
       if (used.isNotEmpty()) Marks.show(context.scheduler, player, used.map { Marks.Mark(it, null, label, Marks.Hue.GREEN) }, 10)
@@ -387,6 +411,49 @@ object Crafting {
   }
 
   /** Takes everything first; if anything falls short, it all goes back and nothing is crafted. */
+  /**
+   * Fireworks to the player's description ([Fireworks]), crafted from their things as the game's firework recipes
+   * would: the stars first, then the rockets, three a craft; a crafting table near when a grid holds more than 4.
+   */
+  private fun fireworks(context: ToolContext, player: ServerPlayer, task: Task, args: JsonObject, id: String, count: Int): ToolOutput {
+    val star = id == "firework_star"
+    val spec = Fireworks.parse(args["firework"] as? JsonObject ?: if (star) null else JsonObject(emptyMap()), star)
+    val needs = Fireworks.needs(spec, count, star)
+    val settings = context.features.automation.settings()
+    val holds = context.features.automation.reservations
+    val table = if (needs.table) station(player, settings.radius, settings.lineOfSight) { it.`is`(GameBlocks.CRAFTING_TABLE) } else null
+    if (needs.table && table == null) throw ToolError("these fireworks need a crafting table near the player: a grid holds more than 4 items")
+    val sources = Sources.around(player, settings.radius)
+    fun free(item: String) = sources.free({ key(it) == item }, item, holds, task.id)
+    val takes = mutableMapOf<String, Int>()
+    val missing = mutableMapOf<String, Int>()
+    needs.items.forEach { (choices, n) ->
+      // Any mob head makes a creeper face: the kind the player has most of.
+      val item = choices.maxBy(::free)
+      val short = n - free(item)
+      if (short > 0) missing[if (choices.size > 1) "any_mob_head" else item] = short else takes[item] = n
+    }
+    val lang = context.lang
+    if (missing.isNotEmpty()) return ToolOutput(buildJsonObject {
+      put("crafted", false)
+      put("note", "tell the player what's missing; nothing was taken")
+      putJsonObject("missing") { missing.forEach { (item, n) -> put(item, n) } }
+    }, lang.text("summary.craft_missing", "count" to missing.size), refused = true)
+    val described = buildJsonObject {
+      put("item", id)
+      put("makes", needs.makes)
+      putJsonObject("takes") { takes.forEach { (item, n) -> put(item, n) } }
+      table?.let { put("crafting_table", spot(it)) }
+    }
+    if (args.bool("dry_run") == true) return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(false))), lang.text("summary.craft_plan"))
+    takeAll(player, task, sources, holds, takes)
+    val made = FireworkItems.of(id, spec, 1)
+    give(player, generateSequence(needs.makes) { (it - 64).takeIf { left -> left > 0 } }.map { made.copyWithCount(minOf(it, 64)) }.toList())
+    task.report("crafted ${needs.makes} × $id into the player's inventory (at their feet when it was full)")
+    table?.let { Marks.show(context.scheduler, player, listOf(Marks.Mark(it, null, "${needs.makes} × ${id.replace('_', ' ')}", Marks.Hue.GREEN)), 10) }
+    return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(true))), lang.text("summary.crafted", "count" to needs.makes, "item" to id))
+  }
+
   private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>) {
     val taken = mutableListOf<ItemStack>()
     for ((id, n) in takes) {

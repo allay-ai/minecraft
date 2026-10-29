@@ -36,6 +36,16 @@ class GoalsTest {
     assertEquals(12, book.pickedUp("diamond", 6).single().progress)
   }
 
+  @Test fun `a place set from another dimension counts from the first distance there`() {
+    val book = GoalBook(emptyList(), { 5 })
+    val goal = book.add { id -> Goal(id = id, kind = "reach", title = "База", target = 1, x = 100, z = 0, radius = 10, dimension = "overworld", baseline = Goal.UNSET, createdAt = 0) }
+    val counted = book.rebase(goal.id, 400)!!
+    assertEquals(400, counted.baseline)
+    assertEquals(400, counted.target)
+    assertEquals(0, counted.progress)
+    assertNull(book.rebase("gone", 10))
+  }
+
   @Test fun `goals are capped and done at the target`() {
     val book = GoalBook(emptyList(), { 1 })
     val goal = book.add { id -> pickup("diamond", 2).copy(id = id) }

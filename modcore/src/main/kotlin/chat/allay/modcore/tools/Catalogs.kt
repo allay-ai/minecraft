@@ -49,7 +49,9 @@ object Catalogs {
     }
     val made = HashMap<String, MutableSet<String>>()
     val custom = LinkedHashMap<String, Catalog.Entry>()
+    val keys = mutableSetOf<String>()
     Recipes.all(server).forEach { holder ->
+      holder.id().identifier().takeIf { it.namespace == Catalog.MINECRAFT }?.let { keys += it.path }
       val recipe = holder.value()
       val result = (if (recipe is BrewingRecipe) recipe.output.create() else Recipes.result(recipe))?.takeUnless { it.isEmpty } ?: return@forEach
       val kind = kind(recipe) ?: return@forEach
@@ -57,6 +59,8 @@ object Catalogs {
       made.getOrPut(id) { mutableSetOf() } += kind
       if (id != Recipes.id(result.item) && id !in custom) custom[id] = custom(id, result, source(holder.id().identifier().namespace))
     }
+    // Fireworks and the rest of the special recipes have no result to read: crafted all the same.
+    chat.allay.core.tools.SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
     val brewed = brews(server, null).map { it.to.potion }.toSet()
     val items = BuiltInRegistries.ITEM.filter { it != Items.AIR }.map { item ->
       val key = BuiltInRegistries.ITEM.getKey(item)
@@ -76,7 +80,7 @@ object Catalogs {
   }
 
   private fun kind(recipe: Recipe<*>): String? = when (recipe) {
-    is ShapedRecipe, is ShapelessRecipe -> "crafting"
+    is ShapedRecipe, is ShapelessRecipe, is net.minecraft.world.item.crafting.TransmuteRecipe -> "crafting"
     is AbstractCookingRecipe -> "smelting"
     is StonecutterRecipe -> "stonecutting"
     is SmithingTransformRecipe -> "smithing"

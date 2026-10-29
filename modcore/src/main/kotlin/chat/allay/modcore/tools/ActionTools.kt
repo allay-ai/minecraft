@@ -44,13 +44,16 @@ object ActionTools {
     val limit = border.size / 2 + 1
     if (Math.abs(x - border.centerX) > limit || Math.abs(z - border.centerZ) > limit) throw ToolError("the point is outside the world border")
     val target = Vec3(x, y, z)
-    // Compasses point at this only in the overworld; elsewhere the trail still shows the way.
-    Trails.compass(player, level.dimension(), BlockPos.containing(target))
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
       ?: tools.trailSeconds
     val style = Trails.Style.parse(args.string("style"))
-    Trails.show(context.scheduler, player, Trails.Target(level.dimension(), target), seconds, style) { context.lang.send(player.audience, "messages.arrived") }
+    val audience = player.audience
+    Trails.show(context.scheduler, player, Trails.Target(level.dimension(), target), seconds, style, TrailBar.of(context.features.config(), audience, context.lang),
+      label = args.string("label"), surface = args.double("y") == null, ended = { TrailNotes.ended(context.lang, audience, it) }) { TrailNotes.arrived(context.lang, audience, it) }
+    // After the trail starts, which puts back what a trail to a player left: compasses point at this only in the
+    // overworld; elsewhere the trail still shows the way.
+    Trails.compass(player, level.dimension(), BlockPos.containing(target))
     val dx = x - player.x
     val dz = z - player.z
     val distance = Math.round(Math.hypot(dx, dz))
@@ -61,6 +64,7 @@ object ActionTools {
       put("seconds", seconds)
       put("style", style.name.lowercase())
       put("compass", level.dimension() == Level.OVERWORLD)
+      put("action_bar", tools.trailBar)
     }
     ToolOutput(result, context.lang.text("summary.distance", "blocks" to distance, "direction" to context.lang.text("directions.$direction")))
   }
@@ -78,7 +82,7 @@ object ActionTools {
     val style = Trails.Style.parse(args.string("style"))
     val lang = context.lang
     val theirName = target.gameProfile.name
-    Trails.follow(context.scheduler, player, target, seconds, style,
+    Trails.follow(context.scheduler, player, target, seconds, style, TrailBar.of(context.features.config(), player.audience, lang),
       found = { lang.send(player.audience, "messages.found", "name" to theirName) },
       lost = { lang.send(player.audience, "messages.trail_lost", "name" to theirName) })
     val dx = target.x - player.x
@@ -93,6 +97,7 @@ object ActionTools {
       put("style", style.name.lowercase())
       put("follows", true)
       put("compass", player.level().dimension() == Level.OVERWORLD)
+      put("action_bar", tools.trailBar)
     }
     return ToolOutput(result, lang.text("summary.distance_to", "name" to theirName, "blocks" to distance, "direction" to lang.text("directions.$direction")))
   }

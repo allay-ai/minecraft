@@ -8,6 +8,10 @@ status:
   # Die Live-Zeile über der Schnellleiste, während der Assistent arbeitet, wie bei Claude Code:
   # Spinner, wechselndes Verb, Sekunden, gelesene (↑) und geschriebene (↓) Token.
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|Token|Tokens})"
+  # Solange eine Spur läuft: ein Pfeil, der sich mit deinem Blick dreht, und die restlichen Blöcke.
+  trail: "&b{arrow} &f{blocks} &7{blocks|Block|Blöcke}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|Block|Blöcke}"
+  trail_hidden: "&7{name} ist nicht auf deiner Ortungsleiste"
   answering: "Schreibe die Antwort"
   verbs:
     - "Blättere im Rezeptbuch"
@@ -38,6 +42,7 @@ tool_lines:
   # Eine Zeile im Chat, wenn der Assistent ein Werkzeug nutzt, und das Ergebnis darunter.
   started: "&7⏺ {label}"
   finished: "&8  ⎿ {summary}"
+  refused: "&c  ⎿ {summary}"
   # Den Grund ({reason}) schreibt das Plugin für den Assistenten auf Englisch, darum fehlt er hier.
   failed: "&c  ⎿ hat nicht geklappt"
   unknown: "Nutze {name}"
@@ -73,10 +78,8 @@ tools:
     by_queries: "Suche Befehle: {query}"
     by_plugin: "Schaue mir die Befehle von {plugin} an"
     by_check: "Prüfe die Befehle"
-  get_light_spawn_check: "Suche dunkle Stellen"
   get_brewing_items: "Prüfe Brauzutaten"
   get_brewing_recipe: "Schlage die Brauschritte nach"
-  scan_farm: "Schaue mir die Farm an"
   point_to: "Zeige den Weg"
   get_nearby_players: "Suche Spieler in der Nähe"
   show_marks: "Markiere Blöcke"
@@ -149,10 +152,7 @@ summary:
   find: "{total} an {places} {places|Ort|Orten}"
   find_none: "nicht gefunden"
   item: "{id}"
-  dark: "{count} dunkle {count|Stelle|Stellen}"
-  dark_none: "keine dunklen Stellen"
   brewing: "{stacks} {stacks|Stapel|Stapel} zum Brauen, {stands} {stands|Braustand|Braustände}"
-  farm: "{plants} {plants|Pflanze|Pflanzen}, {animals} {animals|Tier|Tiere}"
   wear_fine: "{count} {count|Gegenstand|Gegenstände}, alles in Ordnung"
   wear_low: "{low} von {count} fast kaputt"
   xp: "Stufe {level}, {points} {points|Punkt|Punkte}"
@@ -266,8 +266,12 @@ messages:
   cancelled: "&7Gestoppt."
   nothing_to_cancel: "&7Ich mache gerade nichts."
   arrived: "&aDu bist da."
+  arrived_above: "&aDu bist da, der Ort liegt &f{blocks} {blocks|Block|Blöcke}&a über dir."
+  arrived_below: "&aDu bist da, der Ort liegt &f{blocks} {blocks|Block|Blöcke}&a unter dir."
   found: "&f{name} &aist direkt hier."
   trail_lost: "&7{name} ist von deiner Ortungsleiste verschwunden, die Spur ist weg."
+  trail_ended: "&7Die Spur ist erloschen, noch &f{blocks} {blocks|Block|Blöcke}&7 bis zum Ziel. Frag noch mal, dann zeige ich dir den Rest."
+  trail_other_world: "&7Du hast die Dimension der Spur verlassen, also ist sie weg. Frag wieder, wenn du zurück bist."
   trail_stopped: "&7Spur ausgeblendet."
   marks_cleared: "&7Markierungen ausgeblendet."
   draft_cleared: "&7Entwurf entfernt."
@@ -418,6 +422,7 @@ automation:
   cancelled: "abgebrochen."
   interfered: "du oder ein anderer Spieler hat die Automatisierung gestört: {reason}."
   timed_out: "die Zeit ist um ({minutes} Min.)."
+  silent: "ist verstummt, ohne fertig zu werden. Frag noch mal, vielleicht mit anderen Worten."
   too_many_steps: "das hat zu viele Schritte gebraucht. Frag noch mal in kleineren Teilen."
   quota: "das Allay-Kontingent ist aufgebraucht."
   gone: "&7Diese Automatisierung ist vorbei."
