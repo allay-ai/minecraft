@@ -33,6 +33,10 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.ChestType
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.inventory.AbstractContainerMenu
+import java.lang.ref.WeakReference
+import java.util.Collections
+import java.util.WeakHashMap
 
 /** What automation needs to know about blocks: which may be used, what's written on them, and who could see them. */
 object Blocks {
@@ -161,15 +165,13 @@ object Blocks {
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: BlockAt): Boolean {
     val container = container(block) ?: return false
-    val server = block.level.server
-    if (server !== openServer.get() || server.tickCount != openTick) {
-      openServer = java.lang.ref.WeakReference(server)
-      openTick = server.tickCount
+    val menus = block.level.server.playerList.players.mapNotNull { player -> player.containerMenu.takeUnless { it === player.inventoryMenu } }
+    if (menus.size != openMenus.size || menus.indices.any { menus[it] !== openMenus[it].get() }) {
+      openMenus = menus.map(::WeakReference)
       openNow.clear()
       openPairs.clear()
-      server.playerList.players.forEach { player ->
-        if (player.containerMenu === player.inventoryMenu) return@forEach
-        player.containerMenu.slots.forEach { slot ->
+      menus.forEach { menu ->
+        menu.slots.forEach { slot ->
           val inside = slot.container
           if (inside is CompoundContainer) openPairs += inside else openNow += inside
         }
@@ -179,14 +181,13 @@ object Blocks {
   }
 
   /**
-   * What players have open, read once a tick rather than once a chest: a call that looks at fifty chests would walk
-   * every player's window fifty times. By identity, as the game's containers compare; a double chest as its pair. The
-   * server only weakly: a singleplayer game starts many.
+   * What players have open, read again only when someone's window changed: a call that looks at fifty chests would
+   * otherwise walk every player's window fifty times. The game's containers compare by identity; a double chest counts as
+   * its pair. Everything only weakly, so a stopped server's world isn't held.
    */
-  private var openServer = java.lang.ref.WeakReference<net.minecraft.server.MinecraftServer>(null)
-  private var openTick = -1
-  private val openNow: MutableSet<Container> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
-  private val openPairs: MutableSet<CompoundContainer> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+  private var openMenus: List<WeakReference<AbstractContainerMenu>> = emptyList()
+  private val openNow: MutableSet<Container> = Collections.newSetFromMap(WeakHashMap())
+  private val openPairs: MutableSet<CompoundContainer> = Collections.newSetFromMap(WeakHashMap())
 
   /** Every sign on the chest: wall signs and hanging signs on its sides, a hanging sign under it, a sign on top. Both faces, all lines. */
   fun signs(block: BlockAt): List<String> = halves(block).flatMap { half ->
