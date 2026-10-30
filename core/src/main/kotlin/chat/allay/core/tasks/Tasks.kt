@@ -56,6 +56,9 @@ class Task(
   /** Wakes in a row the backend couldn't take (busy, rate-limited, unreachable); a wake that runs resets it. */
   @Volatile var retries = 0
 
+  /** No wake before this time (epoch milliseconds): a retry's backoff, which a message arriving meanwhile doesn't skip. */
+  @Volatile var notBefore = 0L
+
   /** What its tools reported doing (crafted, smelted, moved), newest last, for the agent that started it. */
   private val results = ConcurrentLinkedQueue<String>()
 

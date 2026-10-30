@@ -217,6 +217,8 @@ class Agents(
   private fun wake(task: Task) {
     val agent = agents[key(task)] ?: return
     if (task.done || task.running || task.inbox.isEmpty() || agent.paused) return
+    // The tick that ends the backoff wakes it with whatever arrived meanwhile.
+    if (System.currentTimeMillis() < task.notBefore) return
     val player = platform.player(task.owner) ?: return end(task, null)
     if (!consented(task, agent, player)) return
     val settings = config().automation
@@ -287,13 +289,12 @@ class Agents(
     agent.run = null
     // A finish the plugin took stands, even when the stream broke after it.
     task.finished?.let { return finish(player, task, it) }
-    Retry.after(failure)?.takeIf { task.retries < Retry.TIMES }?.let { seconds ->
+    Retry.after(failure)?.takeIf { task.retries < Retry.TIMES }?.let { asked ->
       // Nothing ran: the same message goes again later, so a backend restart or a busy minute doesn't kill the agent.
-      task.retries++
       task.inbox.addFirst(message)
-      platform.log.info("⏳ Automation agent ${task.name}: the backend couldn't take the wake ($failure); trying again in $seconds s")
-      platform.scheduler.later(seconds * 20L) { wake(task) }
-      return
+      // Nor did it cost anything, so it doesn't count toward max_wakes.
+      task.wakes--
+      return retry(task, asked, "the backend couldn't take the wake ($failure)")
     }
     task.retries = 0
     if (failure != null) {
@@ -316,6 +317,14 @@ class Agents(
     if (task.inbox.isNotEmpty()) wake(task)
   }
 
+  /** Wakes [task] again after a backoff that grows with each retry in a row; [tick] ends it. */
+  private fun retry(task: Task, asked: Long, why: String) {
+    task.retries++
+    val seconds = Retry.backoff(task.retries, asked)
+    task.notBefore = System.currentTimeMillis() + seconds * 1000L
+    platform.log.info("⏳ Automation agent ${task.name}: $why; trying again in $seconds s")
+  }
+
   private fun tick() {
     val now = System.currentTimeMillis()
     val settings = config().automation
@@ -331,6 +340,10 @@ class Agents(
         agent.paused = away
         line(player, task, if (away) "automation.paused" else "automation.resumed")
         if (!away) wake(task)
+      }
+      if (task.notBefore in 1..now) {
+        task.notBefore = 0L
+        wake(task)
       }
       val due = task.wakeAt
       if (due != null && due <= now && !task.running) {

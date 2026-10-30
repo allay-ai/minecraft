@@ -21,5 +21,16 @@ object Retry {
     }
   }
 
+  /**
+   * Seconds before try number [tries] (1 for the first): 15, 45, 135, at most 300, so a backend that's down for long
+   * isn't asked every few seconds; never sooner than the backend asked for ([asked]).
+   */
+  fun backoff(tries: Int, asked: Long = SECONDS): Long {
+    var seconds = SECONDS
+    repeat((tries - 1).coerceIn(0, 4)) { seconds *= 3 }
+    return maxOf(seconds, asked).coerceAtMost(MAX_SECONDS)
+  }
+
   private const val SECONDS = 15L
+  private const val MAX_SECONDS = 300L
 }

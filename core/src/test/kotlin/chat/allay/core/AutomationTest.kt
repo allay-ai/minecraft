@@ -541,6 +541,12 @@ class AutomationTest {
     assertNull(Retry.after(IllegalStateException("mid-stream")))
   }
 
+  @Test fun `retries back off longer each time, never sooner than the backend asks`() {
+    assertEquals(listOf(15L, 45L, 135L, 300L), (1..4).map { Retry.backoff(it) })
+    assertEquals(60L, Retry.backoff(1, asked = 60))
+    assertEquals(300L, Retry.backoff(1, asked = 900))
+  }
+
   @Test fun `an agent pauses in another world or past its distance, and only then`() {
     val anchor = Protocol.Position(0, 64, 0, "overworld", "world")
     assertFalse(chat.allay.core.tasks.Agents.away(Protocol.Position(40, 70, -40, "overworld", "world"), anchor, 64))
