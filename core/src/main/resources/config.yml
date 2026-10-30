@@ -216,7 +216,7 @@ tools:
   # The trail point_to and the way buttons draw. It ends early once the player arrives,
   # and /allay cancel stops it.
   point_to:
-    default_seconds: 30       # When the assistant names no length, and for way buttons
+    default_seconds: 30       # The shortest trail to a spot when the assistant names no length, and for way buttons; a far spot gets time to walk there
     follow_seconds: 180       # The same for a trail to another player, which follows them as they move
     max_seconds: 600          # The longest trail the assistant may draw (10–3600)
     action_bar: true          # An arrow toward the spot and the blocks left in the action bar; an answer's status comes first

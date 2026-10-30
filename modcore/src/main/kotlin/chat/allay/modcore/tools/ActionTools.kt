@@ -46,7 +46,7 @@ object ActionTools {
     val target = Vec3(x, y, z)
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
-      ?: tools.trailSeconds
+      ?: tools.trailSeconds(Math.hypot(x - player.x, z - player.z))
     val style = Trails.Style.parse(args.string("style"))
     val audience = player.audience
     Trails.show(context.scheduler, player, Trails.Target(level.dimension(), target), seconds, style, TrailBar.of(context.features.config(), audience, context.lang),

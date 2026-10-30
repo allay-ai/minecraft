@@ -86,7 +86,7 @@ class GameClicks(
     val lang = lang(player)
     val config = features.config()
     val audience = player.audience
-    Trails.show(plugin, player, target, config.tools.trailSeconds, bar = TrailBar.of(config, audience, lang), ended = { TrailNotes.ended(lang, audience, it) }) {
+    Trails.show(plugin, player, target, config.tools.trailSeconds(Math.hypot(target.x - player.location.x, target.z - player.location.z)), bar = TrailBar.of(config, audience, lang), ended = { TrailNotes.ended(lang, audience, it) }) {
       TrailNotes.arrived(lang, audience, it)
     }
     player.compassTarget = target

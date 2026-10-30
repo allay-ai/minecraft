@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.22.1
+
+- 🧭 **The way home lasts until you get there.** A trail to a far spot went dark after 30 seconds, often halfway, and looked as if your next question had broken it. A way button or `point_to` without a length now gives you about a second for every two blocks, at least `tools.point_to.default_seconds` and at most `max_seconds`. It still ends the moment you arrive. On Spigot, Paper, Fabric, and NeoForge.
+
 ## 6.22.0
 
 Agents you can trust with your base. Allay Server 6.22.0 lifts the limits below; with an older backend everything else works as before.

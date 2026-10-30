@@ -44,7 +44,7 @@ object ActionTools {
     val target = Location(world, x, y, z)
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
-      ?: tools.trailSeconds
+      ?: tools.trailSeconds(Math.hypot(x - player.location.x, z - player.location.z))
     val style = Trails.Style.parse(args.string("style"))
     val audience = player.audience
     Trails.show(context.plugin, player, target, seconds, style, TrailBar.of(context.features.config(), audience, context.lang), label = args.string("label"),

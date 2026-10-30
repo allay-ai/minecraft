@@ -98,9 +98,14 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val structureRadius = config.int("tools.locate_structure_radius", 64).coerceIn(1, 128)
     val maxReminders = config.int("tools.reminders.max_pending", 10).coerceIn(1, 100)
     val maxGoals = config.int("tools.goals.max_per_player", 5).coerceIn(1, 20)
-    /** The longest trail `point_to` may draw, and the length when nobody names one (also for point buttons). */
+    /** The longest trail `point_to` may draw, and the shortest when nobody names a length (also for point buttons). */
     val trailMaxSeconds = config.int("tools.point_to.max_seconds", 600).coerceIn(10, 3600)
     val trailSeconds = config.int("tools.point_to.default_seconds", 30).coerceIn(1, trailMaxSeconds)
+    /**
+     * A trail to a spot [blocks] away when nobody names a length: long enough to walk there at [TRAIL_PACE], so a far
+     * base doesn't go dark halfway, and never past [trailMaxSeconds]. It ends on arrival anyway.
+     */
+    fun trailSeconds(blocks: Double): Int = maxOf(trailSeconds, Math.ceil(blocks / TRAIL_PACE).toInt()).coerceAtMost(trailMaxSeconds)
     /** A trail to another player when nobody names a length, also for their way buttons: they move, so it lasts longer. */
     val followSeconds = config.int("tools.point_to.follow_seconds", 180).coerceIn(1, trailMaxSeconds)
     /** An arrow and the blocks left in the action bar while a trail runs ([chat.allay.core.tools.TrailBar]). */
@@ -218,6 +223,8 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     const val HOSTED = "hosted"
     const val BYOK = "byok"
     const val POLICY_URL = "https://allay.chat/privacy/"
+    /** Blocks a second a trail allows for: walking is 4.3, and the way is rarely straight. */
+    const val TRAIL_PACE = 2.0
     /** The game's languages of the players Allay speaks to in its own: Russian, German, Spanish, Portuguese. */
     val DEFAULT_LANGUAGES = listOf("ru_ru", "de_de", "es_es", "es_mx", "pt_br", "pt_pt")
 

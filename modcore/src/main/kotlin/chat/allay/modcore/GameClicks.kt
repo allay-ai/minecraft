@@ -98,7 +98,8 @@ class GameClicks(private val features: Features) : Clicks.Game {
     val target = Vec3(button.x + 0.5, button.y.toDouble(), button.z + 0.5)
     val config = features.config()
     val audience = player.audience
-    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target), config.tools.trailSeconds, bar = TrailBar.of(config, audience, lang),
+    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target),
+      config.tools.trailSeconds(Math.hypot(target.x - player.x, target.z - player.z)), bar = TrailBar.of(config, audience, lang),
       ended = { TrailNotes.ended(lang, audience, it) }) { TrailNotes.arrived(lang, audience, it) }
     Trails.compass(player, player.level().dimension(), BlockPos(button.x, button.y, button.z))
     val dx = target.x - player.x
