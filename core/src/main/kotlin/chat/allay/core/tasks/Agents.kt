@@ -225,6 +225,8 @@ class Agents(
     // The tick that ends the backoff wakes it with whatever arrived meanwhile.
     if (System.currentTimeMillis() < task.notBefore) return
     val player = platform.player(task.owner) ?: return end(task, null)
+    // An admin may have switched the kind off or taken the permission away since the agent started.
+    allowed(player, task.kind)?.let { refusal -> return close(task, locales.of(player).text("automation.not_allowed"), "stopped: $refusal") }
     if (!consented(task, agent, player)) return
     val settings = config().automation
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))

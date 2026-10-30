@@ -426,6 +426,7 @@ automation:
   too_many_steps: "foram passos demais. Peça de novo em partes menores."
   quota: "a cota do Allay acabou."
   server_stopping: "o servidor está sendo desligado."
+  not_allowed: "o servidor não permite mais essa automação para você."
   gone: "&7Essa automação já terminou."
   replied: "&d⚙ {title}&8: &a✔ &7Recebido: “{label}”. Vou repassar ao agente."
   chests_done: "Pronto: {count} {count|baú|baús}. As placas mostram o que foi para onde."

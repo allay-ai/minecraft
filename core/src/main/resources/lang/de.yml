@@ -426,6 +426,7 @@ automation:
   too_many_steps: "das hat zu viele Schritte gebraucht. Frag noch mal in kleineren Teilen."
   quota: "das Allay-Kontingent ist aufgebraucht."
   server_stopping: "der Server fährt herunter."
+  not_allowed: "der Server erlaubt dir diese Automatisierung nicht mehr."
   gone: "&7Diese Automatisierung ist vorbei."
   replied: "&d⚙ {title}&8: &a✔ &7Angenommen: „{label}“. Ich gebe es weiter."
   chests_done: "Fertig: {count} {count|Truhe|Truhen}. Die Schilder darüber zeigen, was wohin kam."
