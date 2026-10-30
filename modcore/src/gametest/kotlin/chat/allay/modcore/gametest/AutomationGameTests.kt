@@ -244,6 +244,26 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun aFarAssignLoadsNothing(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    val near = chest(helper, BlockPos(3, 2, 1), ItemStack(Items.DIRT, 3))
+    val far = near.offset(5000, 0, 0)
+    val reason = refused {
+      run(player, task, "chests", buildJsonObject {
+        put("action", "plan")
+        put("mode", "group")
+        put("chests", spots(near))
+        putJsonArray("assign") { add(buildJsonObject { put("x", far.x); put("y", far.y); put("z", far.z); put("category", "stone") }) }
+      })
+    }
+    helper.assertTrue(reason?.contains("farther than") == true, "a far assign is refused: $reason")
+    helper.assertTrue(helper.level.chunkSource.getChunkNow(far.x shr 4, far.z shr 4) == null, "and its chunk stays unloaded")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun hoppersClaimsAndOpenWindowsKeepChestsOut(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)

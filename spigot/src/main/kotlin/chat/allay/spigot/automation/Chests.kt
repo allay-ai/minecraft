@@ -84,6 +84,17 @@ object Chests {
    */
   private fun shared(block: Block) = Blocks.place(Blocks.root(block))
 
+  /**
+   * Why the chest is out of reach, or null: in another world, farther than [limit] blocks from the player, or in a
+   * chunk that isn't loaded. It reads nothing of the block, so a far chest never loads its chunk.
+   */
+  internal fun beyond(player: Player, block: Block, limit: Int): String? = when {
+    block.world != player.world -> "the chest at ${block.x} ${block.y} ${block.z} is in another world"
+    org.bukkit.Location(block.world, block.x + 0.5, block.y + 0.5, block.z + 0.5).distance(player.location) > limit -> "the chest at ${block.x} ${block.y} ${block.z} is farther than $limit blocks from the player"
+    !block.world.isChunkLoaded(block.x shr 4, block.z shr 4) -> "the chest at ${block.x} ${block.y} ${block.z} lies in a chunk that isn't loaded"
+    else -> null
+  }
+
   /** The chests the call names, or the ones the player picked; each one's root, once. [optional] allows none. */
   private fun chosen(context: ToolContext, player: Player, args: JsonObject, optional: Boolean = false): List<Block> {
     val named = Blocks.list(player, args["chests"], context.features.automation.settings().pauseDistance).map(Blocks::root)
@@ -239,7 +250,10 @@ object Chests {
         if (!adding && automation.reservations.heldAt(Blocks.place(block), except = task.id)) throw ToolError("another automation of the player counts on what's in the chest at ${block.x} ${block.y} ${block.z}; leave it out or wait for that one to finish")
       }
       val assign = (args["assign"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.associate { spot ->
-        val block = Blocks.root(player.world.getBlockAt(spot.int("x") ?: 0, spot.int("y") ?: 0, spot.int("z") ?: 0))
+        // Checked like the chests named, before the block is read: a far or unloaded spot loads nothing.
+        val named = Blocks.list(player, JsonArray(listOf(spot)), settings.pauseDistance).single()
+        beyond(player, named, settings.pauseDistance)?.let { throw ToolError("$it; assign only chests near the player") }
+        val block = Blocks.root(named)
         val items = (spot["items"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let(Pins::normalize) }?.toSet().orEmpty()
         Blocks.place(block) to Storage.Assign(Storage.Category.parse(spot.string("category")), items)
       }.orEmpty().toMutableMap()
