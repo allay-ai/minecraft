@@ -25,15 +25,20 @@ object Water {
   private fun source(block: Block) = (block.type == Material.WATER && (block.blockData as? Levelled)?.level == 0) || block.type in UNDERWATER ||
     (block.blockData as? Waterlogged)?.isWaterlogged == true
 
-  /** Water the player could fill bottles at near them: null for none, [Int.MAX_VALUE] for water itself, else the cauldrons' levels. */
+  /**
+   * Water the player could fill bottles at near them: null for none, [Int.MAX_VALUE] for water itself, else the
+   * cauldrons' levels. A cauldron counts as a station does ([Blocks.unusable]): not in someone's claim, within
+   * `automation.radius`, and in plain sight.
+   */
   fun near(player: Player): Pair<Int, List<Block>>? {
+    val settings = Jobs.automation.settings()
     val origin = player.location.block
     val cauldrons = mutableListOf<Block>()
     var levels = 0
     for (dx in -REACH..REACH) for (dy in -REACH..REACH) for (dz in -REACH..REACH) {
       val block = origin.getRelative(dx, dy, dz)
       if (source(block)) return Int.MAX_VALUE to emptyList()
-      if (block.type == Material.WATER_CAULDRON) {
+      if (block.type == Material.WATER_CAULDRON && Blocks.unusable(player, block, settings.radius, settings.lineOfSight) == null) {
         cauldrons += block
         levels += (block.blockData as? Levelled)?.level ?: 0
       }

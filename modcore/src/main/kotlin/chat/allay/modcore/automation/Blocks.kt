@@ -252,11 +252,14 @@ object Blocks {
   }
 
   /**
-   * Why a furnace, brewing stand, or crafting table can't be used, or null when it can: someone's claim, farther than
-   * [radius], or out of the player's sight when [sight] is on.
+   * Why a station (a furnace, brewing stand, crafting table, anvil, grindstone, stonecutter, smithing table) or a
+   * cauldron can't be used, or null when it can: someone's claim, farther than [radius], or out of the player's sight
+   * when [sight] is on. Every one of them asks what opening a container there asks (Flan's open-container permission,
+   * a block interaction for Open Parties and Claims and Common Protection API): using a station in a claim is what its
+   * owner trusts others with, and an anvil wears down to nothing there.
    */
   fun unusable(player: ServerPlayer, block: BlockAt, radius: Int, sight: Boolean): Unfit? {
-    container(block)?.let { if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM }
+    if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM
     if (block.level != player.level() || block.distance(player.eyePosition) > radius) return Unfit.FAR
     if (!sees(player, block, sight)) return Unfit.SIGHT
     if (open(block)) return Unfit.OPEN
