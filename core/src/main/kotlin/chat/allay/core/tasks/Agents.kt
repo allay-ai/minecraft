@@ -230,7 +230,8 @@ class Agents(
     if (!consented(task, agent, player)) return
     val settings = config().automation
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
-    if (!quota().allows(player)) return end(task, locales.of(player).text("automation.quota"))
+    // The gate has told the player already; the agent that started this one still hears why.
+    if (!quota().allows(player)) return close(task, null, "stopped: ${locales.of(player).text("automation.quota")}")
     val message = task.drain()
     task.wakes++
     task.running = true
