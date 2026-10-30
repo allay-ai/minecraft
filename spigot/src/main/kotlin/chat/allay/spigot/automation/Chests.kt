@@ -76,10 +76,16 @@ object Chests {
 
   private fun same(a: List<ItemStack?>, b: List<ItemStack?>): Boolean = a.size == b.size && a.indices.all { a[it] == b[it] }
 
+  /**
+   * The inventory a chest stands for, whichever half names it: both halves of a double chest are one. A pick keeps the
+   * block clicked, and a chest placed beside it since may have made it the right half of a new double chest.
+   */
+  private fun shared(block: Block) = Blocks.place(Blocks.root(block))
+
   /** The chests the call names, or the ones the player picked; each one's root, once. [optional] allows none. */
   private fun chosen(context: ToolContext, player: Player, args: JsonObject, optional: Boolean = false): List<Block> {
     val named = Blocks.list(player, args["chests"], context.features.automation.settings().pauseDistance).map(Blocks::root)
-    val blocks = named.ifEmpty { context.features.automation.picking.picked(player, context.requireTask()) }.distinct()
+    val blocks = named.ifEmpty { context.features.automation.picking.picked(player, context.requireTask()) }.map(Blocks::root).distinctBy(::shared)
     if (blocks.isEmpty() && !optional) throw ToolError("no chests: pick them with pick_blocks, or pass chests")
     val limit = context.features.automation.settings().maxChests
     if (blocks.size > limit) throw ToolError("at most $limit chests at once on this server")
@@ -132,6 +138,9 @@ object Chests {
           val player = context.requirePlayer()
           val agent = automation.agent(task)
           val planned = agent.plan as? Planned ?: throw ToolError("no plan to apply; call plan first")
+          // Two chests of the plan joined into one double chest since: writing both would count its items twice.
+          val halves = planned.blocks.flatMap { Blocks.halves(it).map(Blocks::place) }
+          if (halves.size != halves.toSet().size) throw ToolError("two chests of the plan are one double chest now; plan again")
           for (block in planned.blocks) {
             Blocks.unsuitable(player, block, Blocks.place(block) in planned.adding)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")
@@ -219,6 +228,8 @@ object Chests {
           targets.forEach { if (it !in blocks) blocks += it }
         }
       }
+      // Every block is a root read in this tick; one inventory still never goes into a plan twice.
+      blocks.distinctBy(::shared).let { unique -> blocks.clear(); blocks += unique }
       blocks.forEach { block ->
         val adding = block in targets && mode != "sort" && mode != "group"
         Blocks.unsuitable(player, block, adding, taking)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }

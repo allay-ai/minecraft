@@ -78,8 +78,37 @@ class Picking(private val scheduler: Scheduler, private val locales: Locales, pr
     return session.picked.size
   }
 
-  /** The blocks picked for [task], in the order the player picked them. */
-  fun picked(player: ServerPlayer, task: Task): List<BlockAt> = sessions[player.uuid]?.takeIf { it.task.id == task.id }?.picked?.keys?.toList().orEmpty()
+  /** The blocks picked for [task], in the order the player picked them; chests as their roots now. */
+  fun picked(player: ServerPlayer, task: Task): List<BlockAt> {
+    val session = sessions[player.uuid]?.takeIf { it.task.id == task.id } ?: return emptyList()
+    reroot(player, session)
+    return session.picked.keys.toList()
+  }
+
+  /**
+   * Picks chests by their roots as the world has them now: a chest placed beside a picked one since may have made it
+   * the right half of a double chest, or two picked chests one. Each double chest stays one pick, both halves lit.
+   */
+  private fun reroot(player: ServerPlayer, session: Session) {
+    if (session.kind != Kind.CHESTS) return
+    val rooted = LinkedHashMap<BlockAt, List<Ghosts.Ghost>>()
+    session.picked.forEach { (block, lit) ->
+      val root = Blocks.root(block)
+      when {
+        // Two picks joined into one double chest: one pick stays.
+        root in rooted -> Ghosts.hide(player, lit)
+        root == block && Blocks.halves(root).size == lit.size -> rooted[root] = lit
+        else -> {
+          Ghosts.hide(player, lit)
+          val relit = Blocks.halves(root).map { Marks.box(it, Marks.Hue.GREEN) }
+          Ghosts.show(player, relit)
+          rooted[root] = relit
+        }
+      }
+    }
+    session.picked.clear()
+    session.picked.putAll(rooted)
+  }
 
   /** Unlights and forgets the picks of [task], or of anyone when null. */
   fun stop(player: ServerPlayer, task: Task?) {
@@ -116,6 +145,7 @@ class Picking(private val scheduler: Scheduler, private val locales: Locales, pr
   /** Adds every suitable chest reachable from the picked ones across gaps of up to `automation.chests.gap`, or from the one under the crosshair. */
   private fun all(player: ServerPlayer, session: Session): Int {
     val settings = automation.settings()
+    reroot(player, session)
     val queue = ArrayDeque(session.picked.keys.ifEmpty { listOfNotNull(target(player)?.takeIf { Blocks.storage(it.state) }?.let(Blocks::root)) })
     val seen = queue.toMutableSet()
     var added = 0
@@ -138,6 +168,7 @@ class Picking(private val scheduler: Scheduler, private val locales: Locales, pr
     val lang = locales.of(player)
     if (!session.kind.accepts(clicked.state)) return
     val block = if (session.kind == Kind.CHESTS) Blocks.root(clicked) else clicked
+    reroot(player, session)
     session.picked.remove(block)?.let { lit ->
       Ghosts.hide(player, lit)
       if (!quiet) lang.send(player.audience, "automation.pick.removed", "count" to session.picked.size)

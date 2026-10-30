@@ -193,6 +193,37 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun aPickedChestThatBecameDoubleIsTakenFromOnce(helper: GameTestHelper) {
+    val player = survivor(helper)
+    player.setGameMode(GameType.CREATIVE)
+    val task = agent(player, Kind.CHESTS)
+    val single = chest(helper, BlockPos(3, 2, 1))
+    run(player, task, "pick_blocks", buildJsonObject { put("kind", "chests") })
+    player.gameMode.handleBlockBreakAction(single, ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, Direction.UP, helper.level.maxY, 0)
+    val picking = Players.features.automation.picking
+    // A chest placed beside the picked one: the picked one becomes the half that doesn't stand for the double chest.
+    val beside = single.east()
+    val state = Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.NORTH)
+    helper.level.setBlockAndUpdate(single, state.setValue(ChestBlock.TYPE, ChestType.LEFT))
+    helper.level.setBlockAndUpdate(beside, state.setValue(ChestBlock.TYPE, ChestType.RIGHT))
+    (helper.level.getBlockEntity(single) as ChestBlockEntity).setItem(0, ItemStack(Items.DIAMOND, 5))
+    (helper.level.getBlockEntity(beside) as ChestBlockEntity).setItem(0, ItemStack(Items.DIAMOND, 4))
+    equal(helper, picking.picked(player, task).map { it.pos }, listOf(beside), "the pick follows the double chest's root")
+    player.setGameMode(GameType.SURVIVAL)
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "take")
+      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("diamond")) }
+      putJsonArray("from") { add(kotlinx.serialization.json.JsonPrimitive("nearby")) }
+    })
+    run(player, task, "chests", buildJsonObject { put("action", "apply") })
+    equal(helper, carried(player, Items.DIAMOND), 9, "every diamond taken once")
+    equal(helper, count(contents(helper, single) + contents(helper, beside), Items.DIAMOND), 0, "and none left behind")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun hoppersClaimsAndOpenWindowsKeepChestsOut(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)
