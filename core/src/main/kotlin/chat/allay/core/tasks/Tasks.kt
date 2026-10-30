@@ -101,7 +101,7 @@ class Task(
   }
 
   fun report(fact: String) {
-    results += fact.take(300)
+    results += oneLine(fact).take(300)
     while (results.size > MAX_RESULTS) results.poll()
   }
 
@@ -134,6 +134,13 @@ class Task(
     const val BROKE = "[plugin] Your last wake broke off midway, and its tools may have run: read the state again before acting, and never repeat a step whose result you can't see."
     private const val MAX_RESULTS = 6
     private val ANSWERS = listOf("[player]", "[button]", "[job] picking")
+    private val BREAKS = Regex("\\s*[\\r\\n\\u2028\\u2029]+\\s*")
+
+    /**
+     * [text] on one line. Words that reach the inbox from players or the model (an answer, a button's reply, an item's
+     * name in a report) can then never start a line of their own that reads as the plugin's: `[plugin]`, `[job]`, `[timer]`.
+     */
+    fun oneLine(text: String) = BREAKS.replace(text, " ")
   }
 }
 
