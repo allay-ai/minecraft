@@ -6,13 +6,11 @@ import chat.allay.core.MemoryCommands
 import chat.allay.core.Permissions
 import chat.allay.core.PrivacyCommands
 import chat.allay.modcore.Perms
-import chat.allay.modcore.Sounds
 import chat.allay.modcore.audience
 import chat.allay.modcore.tools.Features
 
 import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -103,40 +101,45 @@ class SettingsMenu(
         changed()
       }
       MEMORY -> if (askAllowed) {
+        press()
         close()
         memory.open(player.audience)
       }
       // A fresh start can't be undone, so a plain click only explains how.
       NEW -> if (askAllowed && shift) {
+        press()
         close()
         memory.newSession(player.audience)
       }
       DATA -> if (askAllowed) {
+        press()
         close()
         privacy.info(player.audience)
       }
-      LANGUAGE -> chooseLanguage()
+      LANGUAGE -> { press(); chooseLanguage() }
       RELOAD -> if (reloadAllowed) {
         admin.reload()
         changed()
       }
       STATUS -> if (adminAllowed) {
+        press()
         close()
         admin.status()
       }
       // Closed first: the link comes to chat, which an open window hides.
       LINK -> if (adminAllowed && admin.pay()) {
+        press()
         close()
         admin.link()
       }
-      CLOSE -> close()
+      CLOSE -> { press(); close() }
     }
   }
 
   override fun click(slot: Int) = click(slot, shift = false)
 
   private fun changed() {
-    Sounds.play(player, SoundEvents.UI_BUTTON_CLICK, 0.5f, 1.2f)
+    press()
     draw()
   }
 

@@ -42,9 +42,9 @@ class BrewingMenu(player: Player, private val lang: Lang, private val target: Br
 
   override fun click(slot: Int) {
     when (slot) {
-      CLOSE -> player.closeInventory()
-      PREVIOUS -> if (page > 0) { page--; draw() }
-      NEXT -> if ((page + 1) * ROWS < chain.size) { page++; draw() }
+      CLOSE -> { press(); player.closeInventory() }
+      PREVIOUS -> if (page > 0) { page--; press(); draw() }
+      NEXT -> if ((page + 1) * ROWS < chain.size) { page++; press(); draw() }
     }
   }
 

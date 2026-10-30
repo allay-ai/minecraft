@@ -92,11 +92,11 @@ class EnchantMenu(player: Player, private val lang: Lang, private val item: Item
 
   override fun click(slot: Int) {
     when {
-      slot == CLOSE -> player.closeInventory()
+      slot == CLOSE -> { press(); player.closeInventory() }
       plan != null -> when (slot) {
-        BACK -> { plan = null; page = 0; draw() }
-        PREVIOUS -> if (page > 0) { page--; draw() }
-        NEXT -> if ((page + 1) * ROWS < plan!!.result.steps.size) { page++; draw() }
+        BACK -> { plan = null; page = 0; press(); draw() }
+        PREVIOUS -> if (page > 0) { page--; press(); draw() }
+        NEXT -> if ((page + 1) * ROWS < plan!!.result.steps.size) { page++; press(); draw() }
       }
       slot == PLAN -> {
         if (selected.isEmpty()) {
@@ -121,7 +121,7 @@ class EnchantMenu(player: Player, private val lang: Lang, private val item: Item
             return
           }
         }
-        player.playSound(player.location, Sound.UI_BUTTON_CLICK, 0.4f, 1.4f)
+        press()
         draw()
       }
     }

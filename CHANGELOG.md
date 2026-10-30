@@ -2,6 +2,11 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.21.1
+
+- 🪟 **`/allay status` opens again.** With nothing to pay, the window had no buttons, and the game refused to draw it: nothing showed, and the log said “actions cannot be empty”. Now “Back” takes the empty spot. On Spigot, Paper, Fabric, and NeoForge.
+- 🔘 **Every button in Allay's menus clicks.** Pages, back, close, and the buttons that open another window now answer with the game's button click, as switches and languages already did. Only you hear it; a refusal keeps its own sound.
+
 ## 6.21.0
 
 Allay Server 6.21.0 tells the model about all of it, so Allay says where to look and what really happened.

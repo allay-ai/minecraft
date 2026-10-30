@@ -60,9 +60,9 @@ class AnvilPlanMenu(player: Player, private val lang: Lang, private val planned:
 
   override fun click(slot: Int) {
     when (slot) {
-      CLOSE -> player.closeInventory()
-      PREVIOUS -> if (page > 0) { page--; draw() }
-      NEXT -> if ((page + 1) * ROWS < steps.size) { page++; draw() }
+      CLOSE -> { press(); player.closeInventory() }
+      PREVIOUS -> if (page > 0) { page--; press(); draw() }
+      NEXT -> if ((page + 1) * ROWS < steps.size) { page++; press(); draw() }
     }
   }
 

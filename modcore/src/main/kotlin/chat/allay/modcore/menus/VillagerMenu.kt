@@ -54,9 +54,9 @@ class VillagerMenu(
 
   override fun click(slot: Int) {
     when (slot) {
-      CLOSE -> close()
-      PREVIOUS -> if (page > 0) { page--; draw() }
-      NEXT -> if ((page + 1) * ROWS < found.size) { page++; draw() }
+      CLOSE -> { press(); close() }
+      PREVIOUS -> if (page > 0) { page--; press(); draw() }
+      NEXT -> if ((page + 1) * ROWS < found.size) { page++; press(); draw() }
       else -> {
         val villager = found.getOrNull(page * ROWS + slot / 9)?.takeIf { slot < ROWS * 9 } ?: return
         val trader = villager.trader

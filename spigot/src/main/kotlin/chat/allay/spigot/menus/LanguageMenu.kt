@@ -6,7 +6,6 @@ import chat.allay.spigot.audience
 import chat.allay.spigot.of
 
 import org.bukkit.Material
-import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 
@@ -37,7 +36,7 @@ class LanguageMenu(
   override fun click(slot: Int) {
     when (slot) {
       AUTO -> picked(null)
-      BACK -> back()
+      BACK -> { press(); back() }
       in SLOTS -> codes.getOrNull(SLOTS.indexOf(slot))?.let(::picked)
     }
   }
@@ -45,7 +44,7 @@ class LanguageMenu(
   /** Back to the settings, already in the new language. */
   private fun picked(code: String?) {
     languages.choose(player.audience, code)
-    player.playSound(player.location, Sound.UI_BUTTON_CLICK, 0.5f, 1.2f)
+    press()
     back()
   }
 

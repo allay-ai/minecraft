@@ -2,10 +2,12 @@ package chat.allay.modcore.menus
 
 import chat.allay.core.*
 import chat.allay.modcore.Hooks
+import chat.allay.modcore.Sounds
 import chat.allay.modcore.Texts
 
 import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.SimpleContainer
 import net.minecraft.world.SimpleMenuProvider
 import net.minecraft.world.entity.player.Inventory
@@ -48,6 +50,9 @@ abstract class Menu(val player: ServerPlayer, size: Int, private val title: Stri
   abstract fun draw()
 
   protected fun set(slot: Int, item: ItemStack?) = container.setItem(slot, item ?: ItemStack.EMPTY)
+
+  /** The click of a button that does something; a refusal or a bigger moment plays its own sound instead. */
+  protected fun press() = Sounds.play(player, SoundEvents.UI_BUTTON_CLICK, 0.5f, 1.2f)
 
   protected fun clear() {
     for (slot in 0 until container.containerSize) container.setItem(slot, FILLER.copy())

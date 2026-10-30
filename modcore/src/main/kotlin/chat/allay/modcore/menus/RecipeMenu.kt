@@ -86,14 +86,16 @@ class RecipeMenu(player: ServerPlayer, private val lang: Lang, first: Target) : 
 
   override fun click(slot: Int) {
     when (slot) {
-      CLOSE -> close()
+      CLOSE -> { press(); close() }
       BACK -> history.removeLastOrNull()?.let { show(it, remember = false) }
       PREVIOUS -> if (recipes.size > 1) {
         page = (page - 1 + recipes.size) % recipes.size
+        press()
         draw()
       }
       NEXT -> if (recipes.size > 1) {
         page = (page + 1) % recipes.size
+        press()
         draw()
       }
       in slots.keys -> {

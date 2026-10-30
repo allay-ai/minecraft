@@ -87,10 +87,10 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Target) : Menu(p
 
   override fun click(slot: Int) {
     when (slot) {
-      CLOSE -> player.closeInventory()
+      CLOSE -> { press(); player.closeInventory() }
       BACK -> history.removeLastOrNull()?.let { show(it, remember = false) }
-      PREVIOUS -> if (recipes.size > 1) { page = (page - 1 + recipes.size) % recipes.size; draw() }
-      NEXT -> if (recipes.size > 1) { page = (page + 1) % recipes.size; draw() }
+      PREVIOUS -> if (recipes.size > 1) { page = (page - 1 + recipes.size) % recipes.size; press(); draw() }
+      NEXT -> if (recipes.size > 1) { page = (page + 1) % recipes.size; press(); draw() }
       in slots.keys -> {
         val options = slots[slot]!!
         val wanted = Target.of(options[tick % options.size])

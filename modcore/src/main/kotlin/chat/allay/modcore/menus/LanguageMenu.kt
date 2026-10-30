@@ -2,13 +2,11 @@ package chat.allay.modcore.menus
 
 import chat.allay.core.Languages
 import chat.allay.core.Locales
-import chat.allay.modcore.Sounds
 import chat.allay.modcore.audience
 import chat.allay.modcore.of
 
 import net.minecraft.core.component.DataComponents
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
@@ -39,7 +37,7 @@ class LanguageMenu(
   override fun click(slot: Int) {
     when (slot) {
       AUTO -> picked(null)
-      BACK -> back()
+      BACK -> { press(); back() }
       in SLOTS -> codes.getOrNull(SLOTS.indexOf(slot))?.let(::picked)
     }
   }
@@ -47,7 +45,7 @@ class LanguageMenu(
   /** Back to the settings, already in the new language. */
   private fun picked(code: String?) {
     languages.choose(player.audience, code)
-    Sounds.play(player, SoundEvents.UI_BUTTON_CLICK, 0.5f, 1.2f)
+    press()
     back()
   }
 

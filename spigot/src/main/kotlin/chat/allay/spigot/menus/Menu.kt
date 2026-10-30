@@ -5,6 +5,7 @@ import chat.allay.core.tools.*
 
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -44,6 +45,9 @@ abstract class Menu(val player: Player, size: Int, title: String) : InventoryHol
   abstract fun draw()
 
   protected fun set(slot: Int, item: ItemStack?) = inventory.setItem(slot, item)
+
+  /** The click of a button that does something; a refusal or a bigger moment plays its own sound instead. */
+  protected fun press() = player.playSound(player.location, Sound.UI_BUTTON_CLICK, 0.5f, 1.2f)
 
   protected fun clear() {
     inventory.clear()

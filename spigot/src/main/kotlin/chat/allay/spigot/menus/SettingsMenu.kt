@@ -13,7 +13,6 @@ import chat.allay.spigot.audience
 import chat.allay.spigot.explain
 import chat.allay.spigot.tools.Features
 import org.bukkit.Material
-import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.time.ZoneId
@@ -103,40 +102,45 @@ class SettingsMenu(
         changed()
       }
       MEMORY -> if (askAllowed) {
+        press()
         player.closeInventory()
         memory.open(player.audience)
       }
       // A fresh start can't be undone, so a plain click only explains how.
       NEW -> if (askAllowed && shift) {
+        press()
         player.closeInventory()
         memory.newSession(player.audience)
       }
       DATA -> if (askAllowed) {
+        press()
         player.closeInventory()
         privacy.info(player.audience)
       }
-      LANGUAGE -> chooseLanguage()
+      LANGUAGE -> { press(); chooseLanguage() }
       RELOAD -> if (reloadAllowed) {
         admin.reload()
         changed()
       }
       STATUS -> if (adminAllowed) {
+        press()
         player.closeInventory()
         admin.status()
       }
       // Closed first: the link comes to chat, which an open window hides.
       LINK -> if (adminAllowed && admin.pay()) {
+        press()
         player.closeInventory()
         admin.link()
       }
-      CLOSE -> player.closeInventory()
+      CLOSE -> { press(); player.closeInventory() }
     }
   }
 
   override fun click(slot: Int) = click(slot, shift = false)
 
   private fun changed() {
-    player.playSound(player.location, Sound.UI_BUTTON_CLICK, 0.5f, 1.2f)
+    press()
     draw()
   }
 
