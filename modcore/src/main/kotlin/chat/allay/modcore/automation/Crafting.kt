@@ -136,24 +136,46 @@ object Crafting {
   private fun smithing(server: MinecraftServer, item: Item): SmithingTransformRecipe? =
     Recipes.all(server).map { it.value() }.filterIsInstance<SmithingTransformRecipe>().firstOrNull { Recipes.result(it)?.item == item }
 
-  /** The nearest block [accepts] takes that the player may use and can see, or null. Tables aren't block entities, so this looks at blocks. */
-  fun station(player: ServerPlayer, radius: Int, sight: Boolean, accepts: (BlockState) -> Boolean): BlockAt? {
-    val origin = player.blockPosition()
-    val level = player.level()
-    var best: BlockAt? = null
-    var bestDistance = Double.MAX_VALUE
-    val reach = minOf(radius, 24)
-    for (dx in -reach..reach) for (dy in -reach..reach) for (dz in -reach..reach) {
-      val block = level.at(origin.offset(dx, dy, dz))
-      if (!accepts(block.state)) continue
-      val distance = block.corner.distanceToSqr(player.position())
-      if (distance < bestDistance && Blocks.unusable(player, block, radius, sight) == null) {
-        best = block
-        bestDistance = distance
+  /** The blocks [Stations] looks for: where automation works, and the furnaces a plan asks about. */
+  private val STATIONS = setOf(
+    GameBlocks.CRAFTING_TABLE, GameBlocks.STONECUTTER, GameBlocks.SMITHING_TABLE, GameBlocks.GRINDSTONE,
+    GameBlocks.ANVIL, GameBlocks.CHIPPED_ANVIL, GameBlocks.DAMAGED_ANVIL, GameBlocks.FURNACE, GameBlocks.BLAST_FURNACE,
+  )
+
+  /**
+   * The stations around [player], read once for a whole call: tables aren't block entities, so this reads the blocks
+   * themselves, within [radius] (24 at most) and only in loaded chunks, skipping sections whose palette holds none.
+   * [find] then gives the nearest one the player may use and can see.
+   */
+  class Stations(private val player: ServerPlayer, private val radius: Int, private val sight: Boolean) {
+    private val blocks: List<BlockAt> = run {
+      val origin = player.blockPosition()
+      val level = player.level()
+      val reach = minOf(radius, 24)
+      val low = maxOf(origin.y - reach, level.minY)
+      val high = minOf(origin.y + reach, level.maxY)
+      val found = mutableListOf<BlockAt>()
+      for (cx in ((origin.x - reach) shr 4)..((origin.x + reach) shr 4)) for (cz in ((origin.z - reach) shr 4)..((origin.z + reach) shr 4)) {
+        val chunk = level.chunkSource.getChunkNow(cx, cz) ?: continue
+        for (sy in (low shr 4)..(high shr 4)) {
+          val section = chunk.getSection(chunk.getSectionIndexFromSectionY(sy))
+          if (section.hasOnlyAir() || !section.maybeHas { it.block in STATIONS }) continue
+          for (y in maxOf(low, sy shl 4)..minOf(high, (sy shl 4) + 15)) {
+            for (x in maxOf(origin.x - reach, cx shl 4)..minOf(origin.x + reach, (cx shl 4) + 15)) for (z in maxOf(origin.z - reach, cz shl 4)..minOf(origin.z + reach, (cz shl 4) + 15)) {
+              if (section.getBlockState(x and 15, y and 15, z and 15).block in STATIONS) found += level.at(x, y, z)
+            }
+          }
+        }
       }
+      found.sortedBy { it.corner.distanceToSqr(player.position()) }
     }
-    return best
+
+    /** The nearest block [accepts] takes that the player may use and can see, or null. */
+    fun find(accepts: (BlockState) -> Boolean): BlockAt? = blocks.firstOrNull { accepts(it.state) && Blocks.unusable(player, it, radius, sight) == null }
   }
+
+  /** The nearest block [accepts] takes that the player may use and can see, or null; one look, for a call that needs one station. */
+  fun station(player: ServerPlayer, radius: Int, sight: Boolean, accepts: (BlockState) -> Boolean): BlockAt? = Stations(player, radius, sight).find(accepts)
 
   private fun spot(block: BlockAt) = buildJsonObject {
     put("x", block.x)
@@ -217,7 +239,8 @@ object Crafting {
     val holds = context.features.automation.reservations
     val server = player.level().server
     val (itemId, item) = target(context, name)
-    val find = { type: net.minecraft.world.level.block.Block -> station(player, settings.radius, settings.lineOfSight) { it.`is`(type) } }
+    val stations = Stations(player, settings.radius, settings.lineOfSight)
+    val find = { type: net.minecraft.world.level.block.Block -> stations.find { it.`is`(type) } }
     val needs = mutableListOf<String>()
     val cutter = find(GameBlocks.STONECUTTER)
     val water = Water.near(player)

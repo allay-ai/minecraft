@@ -120,23 +120,44 @@ object Crafting {
     return null
   }
 
-  /** The nearest block [accepts] takes that the player may use and can see, or null. Tables aren't block entities, so this looks at blocks. */
-  fun station(player: Player, radius: Int, sight: Boolean, accepts: (Material) -> Boolean): Block? {
-    val origin = player.location.block
-    var best: Block? = null
-    var bestDistance = Double.MAX_VALUE
-    val reach = minOf(radius, 24)
-    for (dx in -reach..reach) for (dy in -reach..reach) for (dz in -reach..reach) {
-      val block = origin.getRelative(dx, dy, dz)
-      if (!accepts(block.type)) continue
-      val distance = block.location.distanceSquared(player.location)
-      if (distance < bestDistance && Blocks.unusable(player, block, radius, sight) == null) {
-        best = block
-        bestDistance = distance
+  /** The blocks [Stations] looks for: where automation works, and the furnaces a plan asks about. */
+  private val STATIONS = setOf(
+    Material.CRAFTING_TABLE, Material.STONECUTTER, Material.SMITHING_TABLE, Material.GRINDSTONE,
+    Material.ANVIL, Material.CHIPPED_ANVIL, Material.DAMAGED_ANVIL, Material.FURNACE, Material.BLAST_FURNACE,
+  )
+
+  /**
+   * The stations around [player], read once for a whole call: tables aren't block entities, so this reads the blocks
+   * themselves, within [radius] (24 at most) and only in loaded chunks, a chunk's snapshot at a time, skipping empty
+   * sections. [find] then gives the nearest one the player may use and can see.
+   */
+  class Stations(private val player: Player, private val radius: Int, private val sight: Boolean) {
+    private val blocks: List<Block> = run {
+      val origin = player.location.block
+      val world = player.world
+      val reach = minOf(radius, 24)
+      val low = maxOf(origin.y - reach, world.minHeight)
+      val high = minOf(origin.y + reach, world.maxHeight - 1)
+      val found = mutableListOf<Block>()
+      for (cx in ((origin.x - reach) shr 4)..((origin.x + reach) shr 4)) for (cz in ((origin.z - reach) shr 4)..((origin.z + reach) shr 4)) {
+        if (!world.isChunkLoaded(cx, cz)) continue
+        val snapshot = world.getChunkAt(cx, cz).getChunkSnapshot(false, false, false)
+        for (y in low..high) {
+          if (snapshot.isSectionEmpty((y - world.minHeight) shr 4)) continue
+          for (x in maxOf(origin.x - reach, cx shl 4)..minOf(origin.x + reach, (cx shl 4) + 15)) for (z in maxOf(origin.z - reach, cz shl 4)..minOf(origin.z + reach, (cz shl 4) + 15)) {
+            if (snapshot.getBlockType(x and 15, y, z and 15) in STATIONS) found += world.getBlockAt(x, y, z)
+          }
+        }
       }
+      found.sortedBy { it.location.distanceSquared(player.location) }
     }
-    return best
+
+    /** The nearest block [accepts] takes that the player may use and can see, or null. */
+    fun find(accepts: (Material) -> Boolean): Block? = blocks.firstOrNull { accepts(it.type) && Blocks.unusable(player, it, radius, sight) == null }
   }
+
+  /** The nearest block [accepts] takes that the player may use and can see, or null; one look, for a call that needs one station. */
+  fun station(player: Player, radius: Int, sight: Boolean, accepts: (Material) -> Boolean): Block? = Stations(player, radius, sight).find(accepts)
 
   private fun spot(block: Block) = buildJsonObject { put("x", block.x); put("y", block.y); put("z", block.z) }
 
@@ -192,7 +213,8 @@ object Crafting {
     val settings = context.features.automation.settings()
     val holds = context.features.automation.reservations
     val (itemId, item) = target(context, name)
-    val find = { type: Material -> station(player, settings.radius, settings.lineOfSight) { it == type } }
+    val stations = Stations(player, settings.radius, settings.lineOfSight)
+    val find = { type: Material -> stations.find { it == type } }
     val needs = mutableListOf<String>()
     val cutter = find(Material.STONECUTTER)
     val water = Water.near(player)
