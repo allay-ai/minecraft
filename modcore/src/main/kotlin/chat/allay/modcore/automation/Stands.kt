@@ -419,11 +419,15 @@ object Stands {
       put("water", short)
       put("note", "tell the player what's missing and where it comes from; nothing was taken")
     }, context.lang.text("summary.brewing_missing", "count" to 1), refused = true)
-    if (!sources.reserve(glass, "glass_bottle", n, holds, task.id)) throw ToolError("someone took the glass bottles meanwhile")
+    val booking = Booking(holds, task.id)
+    if (!sources.reserve(glass, "glass_bottle", n, holds, task.id)) {
+      booking.undo()
+      throw ToolError("someone took the glass bottles meanwhile")
+    }
     val (taken, changed) = sources.takeReserved(glass, "glass_bottle", n, holds, task.id)
     if (changed != null) {
       give(player, taken)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError("the glass bottles changed meanwhile")
     }
     val filled = taken.sumOf { it.count }
@@ -563,10 +567,12 @@ object Stands {
     }
 
     // Reserve it all, then put in the first bottles and the fuel; the first reagents go in last, and the stands start.
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     fun fail(reason: String): Nothing {
       give(player, inHand)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError(reason)
     }
     fun reserve(match: (ItemStack) -> Boolean, key: String, n: Int) {

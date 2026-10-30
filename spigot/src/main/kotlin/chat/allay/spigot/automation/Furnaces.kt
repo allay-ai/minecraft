@@ -433,11 +433,13 @@ object Furnaces {
 
     // Reserve everything, then take everything; only when all of it is in hand does anything go into a furnace.
     // Whatever fails on the way goes back to the player and frees the holds, so nothing is lost.
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     val firsts = used.map { (_, item, share) -> item to minOf(64, share) }
     fun fail(reason: String): Nothing {
       give(player, inHand)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError(reason)
     }
     used.groupBy { it.second }.forEach { (item, list) ->
@@ -491,9 +493,12 @@ object Furnaces {
     if (!Jobs.active(job)) throw ToolError("the smelting already ended; start a new one")
     val sources = Sources.around(player, settings.radius)
     val fuelType = Material.matchMaterial(job.fuel)!!
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     fun fail(reason: String): Nothing {
       give(player, inHand)
+      booking.undo()
       throw ToolError(reason)
     }
     // Plan every item first, so a refusal leaves the job as it was.
@@ -600,10 +605,12 @@ object Furnaces {
     val placed = shares.sum()
     if (placed == 0) throw ToolError(if (need) "no furnace needs more fuel for what it's cooking" else "the fuel slots are full")
 
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     fun fail(reason: String): Nothing {
       give(player, inHand)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError(reason)
     }
     val split = takeFuel(player, sources, holds, task, id, placed, inHand, ::fail)
