@@ -8,9 +8,14 @@ status:
   # The live line in the action bar while the assistant works, like Claude Code:
   # spinner, a changing verb, seconds, tokens read (↑) and written (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|token|tokens})"
-  # While a way trail runs: an arrow that turns with your view, and the blocks left.
-  trail: "&b{arrow} &f{blocks} &7{blocks|block|blocks}"
-  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|block|blocks}"
+  # While a way trail runs: an arrow that turns with your view, the blocks left, and {height}, how far up or down
+  # the spot lies (trail_above, trail_below). trail_boss is the boss bar's title; trail the action bar's line.
+  trail: "&b{arrow} &f{blocks} &7{blocks|block|blocks}{height}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|block|blocks}{height}"
+  trail_boss: "{arrow} {blocks} {blocks|block|blocks}{height}"
+  trail_boss_to: "{arrow} {name} · {blocks} {blocks|block|blocks}{height}"
+  trail_above: " · {blocks} up"
+  trail_below: " · {blocks} down"
   trail_hidden: "&7{name} is off your locator bar"
   answering: "Writing the answer"
   verbs:
@@ -272,8 +277,9 @@ messages:
   arrived_below: "&aYou're there, the spot is &f{blocks} {blocks|block|blocks}&a below you."
   found: "&f{name} &ais right here."
   trail_lost: "&7{name} is off your locator bar, so the trail is gone."
-  trail_ended: "&7The trail ran out with &f{blocks} {blocks|block|blocks}&7 to go. Ask again and I'll show the rest."
-  trail_other_world: "&7You left the trail's dimension, so it's gone. It waits for you back there."
+  trail_follow_ended: "&7The trail to &f{name}&7 ran out."
+  trail_ended: "&7The trail went out with &f{blocks} {blocks|block|blocks}&7 to go."
+  trail_other_world: "&7You left the trail's dimension, so it went out. Back there, the button shows the rest."
   trail_stopped: "&7Trail hidden."
   marks_cleared: "&7Marks hidden."
   draft_cleared: "&7Draft removed."
@@ -393,13 +399,14 @@ buttons:
     say: "&7Sends to the chat as you: &f{text}"
   expired: "&7This button doesn't work anymore. Ask again."
   question: "&7› {question}"
-  path_shown: "&7Showing the way: &f{distance} &7blocks {direction}."
+  path_shown: "&7Showing the way: &f{distance} &7{distance|block|blocks} {direction}."
   path_to_player: "&7Showing the way to &f{name}&7: &f{distance} &7{distance|block|blocks} {direction}. The trail follows them."
   other_dimension: "&7This spot is in another dimension."
   player_hidden: "&7{name} isn't on your locator bar right now."
   book_taken: "&aThe book is in your inventory."
   book_gone: "&7This book is gone. Ask for the detailed answer again."
   way_to_chest: "The way"
+  continue_way: "Continue the way"
   command_blocked: "&cThis command is blocked on this server: &f{command}"
 
 # Drafts: a build drawn as ghosts, layer by layer; {block} is a block id with its states.

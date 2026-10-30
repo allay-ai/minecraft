@@ -8,9 +8,14 @@ status:
   # La línea en vivo sobre la barra rápida mientras el asistente trabaja, como en Claude Code:
   # spinner, un verbo que va cambiando, segundos, tokens leídos (↑) y escritos (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|token|tokens})"
-  # Mientras hay un rastro: una flecha que gira con tu vista y los bloques que faltan.
-  trail: "&b{arrow} &f{blocks} &7{blocks|bloque|bloques}"
-  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|bloque|bloques}"
+  # Mientras hay un rastro: una flecha que gira con tu vista, los bloques que faltan y {height}, cuánto más arriba o
+  # abajo está el punto. trail_boss es el título de la barra de jefe; trail, la línea sobre la barra rápida.
+  trail: "&b{arrow} &f{blocks} &7{blocks|bloque|bloques}{height}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|bloque|bloques}{height}"
+  trail_boss: "{arrow} {blocks} {blocks|bloque|bloques}{height}"
+  trail_boss_to: "{arrow} {name} · {blocks} {blocks|bloque|bloques}{height}"
+  trail_above: " · {blocks} más arriba"
+  trail_below: " · {blocks} más abajo"
   trail_hidden: "&7{name} no está en tu barra localizadora"
   answering: "Escribiendo la respuesta"
   verbs:
@@ -270,8 +275,9 @@ messages:
   arrived_below: "&aYa has llegado, el lugar está &f{blocks} {blocks|bloque|bloques}&a más abajo."
   found: "&f{name} &aestá justo aquí."
   trail_lost: "&7{name} ya no está en tu barra localizadora, el rastro se apagó."
-  trail_ended: "&7El rastro se apagó a &f{blocks} {blocks|bloque|bloques}&7 del destino. Pídemelo otra vez y te muestro el resto."
-  trail_other_world: "&7Saliste de la dimensión del rastro, así que se apagó. Cuando vuelvas, pídelo de nuevo."
+  trail_follow_ended: "&7El rastro hacia &f{name}&7 se apagó."
+  trail_ended: "&7El rastro se apagó a &f{blocks} {blocks|bloque|bloques}&7 del destino."
+  trail_other_world: "&7Saliste de la dimensión del rastro, así que se apagó. Cuando vuelvas, el botón te muestra el resto."
   trail_stopped: "&7He quitado el rastro."
   marks_cleared: "&7Marcas ocultas."
   draft_cleared: "&7Boceto quitado."
@@ -391,13 +397,14 @@ buttons:
     say: "&7Lo envía al chat en tu nombre: &f{text}"
   expired: "&7Este botón ya no funciona. Vuelve a preguntar."
   question: "&7› {question}"
-  path_shown: "&7Mostrando el camino: &f{distance} &7bloques al {direction}."
+  path_shown: "&7Mostrando el camino: &f{distance} &7{distance|bloque|bloques} al {direction}."
   path_to_player: "&7Mostrando el camino hasta &f{name}&7: &f{distance} &7{distance|bloque|bloques} al {direction}. El rastro va detrás."
   other_dimension: "&7Este sitio está en otra dimensión."
   player_hidden: "&7{name} no está en tu barra localizadora ahora."
   book_taken: "&aEl libro está en tu inventario."
   book_gone: "&7Este libro ya no existe. Vuelve a pedir la respuesta detallada."
   way_to_chest: "El camino"
+  continue_way: "Seguir el camino"
   command_blocked: "&cEste comando está bloqueado en este servidor: &f{command}"
 
 # Bocetos: una construcción en fantasmas, capa a capa; {block} es el id de un bloque con sus estados.

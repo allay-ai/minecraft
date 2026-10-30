@@ -9,8 +9,12 @@ status:
   # spinner, um verbo que muda, segundos, tokens lidos (↑) e escritos (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|token|tokens})"
   # Enquanto há um rastro: uma seta que gira com a sua visão e os blocos que faltam.
-  trail: "&b{arrow} &f{blocks} &7{blocks|bloco|blocos}"
-  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|bloco|blocos}"
+  trail: "&b{arrow} &f{blocks} &7{blocks|bloco|blocos}{height}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|bloco|blocos}{height}"
+  trail_boss: "{arrow} {blocks} {blocks|bloco|blocos}{height}"
+  trail_boss_to: "{arrow} {name} · {blocks} {blocks|bloco|blocos}{height}"
+  trail_above: " · {blocks} acima"
+  trail_below: " · {blocks} abaixo"
   trail_hidden: "&7{name} saiu da sua barra localizadora"
   answering: "Escrevendo a resposta"
   verbs:
@@ -270,8 +274,9 @@ messages:
   arrived_below: "&aVocê chegou, o lugar fica &f{blocks} {blocks|bloco|blocos}&a abaixo."
   found: "&f{name} &aestá bem aqui."
   trail_lost: "&7{name} saiu da sua barra localizadora, o rastro sumiu."
-  trail_ended: "&7O rastro sumiu a &f{blocks} {blocks|bloco|blocos}&7 do destino. Peça de novo e eu mostro o resto."
-  trail_other_world: "&7Você saiu da dimensão do rastro, então ele sumiu. Quando voltar, peça de novo."
+  trail_follow_ended: "&7O rastro até &f{name}&7 sumiu."
+  trail_ended: "&7O rastro sumiu a &f{blocks} {blocks|bloco|blocos}&7 do destino."
+  trail_other_world: "&7Você saiu da dimensão do rastro, então ele sumiu. Quando voltar, o botão mostra o resto."
   trail_stopped: "&7Tirei o rastro."
   marks_cleared: "&7Marcas escondidas."
   draft_cleared: "&7Rascunho removido."
@@ -391,13 +396,14 @@ buttons:
     say: "&7Envia ao chat em seu nome: &f{text}"
   expired: "&7Esse botão não funciona mais. Pergunte de novo."
   question: "&7› {question}"
-  path_shown: "&7Mostrando o caminho: &f{distance} &7blocos ao {direction}."
+  path_shown: "&7Mostrando o caminho: &f{distance} &7{distance|bloco|blocos} ao {direction}."
   path_to_player: "&7Mostrando o caminho até &f{name}&7: &f{distance} &7{distance|bloco|blocos} ao {direction}. O rastro acompanha."
   other_dimension: "&7Esse lugar fica em outra dimensão."
   player_hidden: "&7{name} não está na sua barra localizadora agora."
   book_taken: "&aO livro está no seu inventário."
   book_gone: "&7Esse livro não existe mais. Peça a resposta detalhada de novo."
   way_to_chest: "O caminho"
+  continue_way: "Continuar o caminho"
   command_blocked: "&cEste comando está bloqueado neste servidor: &f{command}"
 
 # Rascunhos: uma construção em fantasmas, camada por camada; {block} é o id de um bloco com seus estados.

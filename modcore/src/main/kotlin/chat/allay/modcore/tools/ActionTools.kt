@@ -46,14 +46,14 @@ object ActionTools {
     val target = Vec3(x, y, z)
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
-      ?: tools.trailSeconds(Math.hypot(x - player.x, z - player.z))
     val style = Trails.Style.parse(args.string("style"))
+    val color = TrailBar.color(args.string("bar_color"))
     val audience = player.audience
-    Trails.show(context.scheduler, player, Trails.Target(level.dimension(), target), seconds, style, TrailBar.of(context.features.config(), audience, context.lang),
-      label = args.string("label"), surface = args.double("y") == null, ended = { TrailNotes.ended(context.lang, audience, it) }) { TrailNotes.arrived(context.lang, audience, it) }
-    // After the trail starts, which puts back what a trail to a player left: compasses point at this only in the
-    // overworld; elsewhere the trail still shows the way.
-    Trails.compass(player, level.dimension(), BlockPos.containing(target))
+    val spot = BlockPos.containing(target)
+    val dimension = Dimensions.id(level)
+    Trails.show(context.scheduler, player, Trails.Target(level.dimension(), target), tools.trailClock(seconds), style, Trails.bar(context.features.config(), player, context.lang, color),
+      label = args.string("label"), surface = args.double("y") == null,
+      ended = { TrailNotes.ended(context.lang, audience, it, context.features.clicks(), spot.x, spot.y, spot.z, dimension) }) { TrailNotes.arrived(context.lang, audience, it) }
     val dx = x - player.x
     val dz = z - player.z
     val distance = Math.round(Math.hypot(dx, dz))
@@ -61,10 +61,13 @@ object ActionTools {
     val result = buildJsonObject {
       put("distance", distance)
       put("direction", direction)
-      put("seconds", seconds)
+      // Without a length, the trail lasts while the player gets closer, up to seconds.
+      put("seconds", seconds ?: tools.trailMaxSeconds)
+      if (seconds == null) put("idle_seconds", tools.trailIdleSeconds)
       put("style", style.name.lowercase())
-      put("compass", level.dimension() == Level.OVERWORLD)
-      put("action_bar", tools.trailBar)
+      put("compass", true)
+      put("action_bar", tools.trailActionBar)
+      put("boss_bar", tools.trailBossBar)
     }
     ToolOutput(result, context.lang.text("summary.distance", "blocks" to distance, "direction" to context.lang.text("directions.$direction")))
   }
@@ -82,9 +85,11 @@ object ActionTools {
     val style = Trails.Style.parse(args.string("style"))
     val lang = context.lang
     val theirName = target.gameProfile.name
-    Trails.follow(context.scheduler, player, target, seconds, style, TrailBar.of(context.features.config(), player.audience, lang),
+    val color = TrailBar.color(args.string("bar_color"))
+    Trails.follow(context.scheduler, player, target, seconds, style, Trails.bar(context.features.config(), player, lang, color),
       found = { lang.send(player.audience, "messages.found", "name" to theirName) },
-      lost = { lang.send(player.audience, "messages.trail_lost", "name" to theirName) })
+      lost = { lang.send(player.audience, "messages.trail_lost", "name" to theirName) },
+      ended = { TrailNotes.followEnded(lang, player.audience, theirName, context.features.clicks()) })
     val dx = target.x - player.x
     val dz = target.z - player.z
     val distance = Math.round(target.position().distanceTo(player.position()))
@@ -96,8 +101,9 @@ object ActionTools {
       put("seconds", seconds)
       put("style", style.name.lowercase())
       put("follows", true)
-      put("compass", player.level().dimension() == Level.OVERWORLD)
-      put("action_bar", tools.trailBar)
+      put("compass", true)
+      put("action_bar", tools.trailActionBar)
+      put("boss_bar", tools.trailBossBar)
     }
     return ToolOutput(result, lang.text("summary.distance_to", "name" to theirName, "blocks" to distance, "direction" to lang.text("directions.$direction")))
   }

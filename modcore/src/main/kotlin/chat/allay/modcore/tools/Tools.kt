@@ -32,7 +32,8 @@ class Features(
   val automation: Automation,
   expansions: Expansions? = null,
   names: () -> GameNames? = { null },
-) : ToolServices(mod, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names) {
+  clicks: () -> chat.allay.core.Clicks? = { null },
+) : ToolServices(mod, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names, clicks) {
   val server: MinecraftServer get() = mod.server
   val scheduler: Scheduler get() = mod.scheduler
 }

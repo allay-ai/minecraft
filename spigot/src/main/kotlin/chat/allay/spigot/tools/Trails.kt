@@ -1,10 +1,18 @@
 package chat.allay.spigot.tools
 
+import chat.allay.core.Config
+import chat.allay.core.Lang
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.TrailBar
+import chat.allay.core.tools.TrailClock
+import chat.allay.core.tools.TrailLine
+import chat.allay.spigot.audience
 
+import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Particle
+import org.bukkit.boss.BarColor
+import org.bukkit.boss.BarStyle
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitTask
@@ -44,51 +52,56 @@ object Trails {
   private val running = HashMap<UUID, Running>()
 
   /**
-   * Shows the way to a spot for [seconds]. [arrived] runs once if the player gets there before it ends, with how many
-   * blocks the spot lies above them (below when negative; 0 when its height is unknown), and [ended] once it runs out,
-   * with the blocks left, or null when the player left its dimension, so neither ending goes unsaid. With [bar], the
-   * action bar points the way too, under [label] when the model named the spot. With [surface], the height is unknown
-   * and the end column stands on the ground there once the spot is near enough for its chunk to be loaded.
+   * Shows the way to a spot and points the compass there, for as long as [clock] says. [arrived] runs once if the
+   * player gets there before it ends, with how many blocks the spot lies above them (below when negative; 0 when its
+   * height is unknown), and [ended] once it runs out, with the blocks left, or null when the player left its dimension,
+   * so neither ending goes unsaid. With [bar], the action bar points the way too, under [label] when the model named
+   * the spot. With [surface], the height is unknown and the end column stands on the ground there once the spot is near
+   * enough for its chunk to be loaded.
    */
   fun show(
-    plugin: Plugin, player: Player, target: Location, seconds: Int, style: Style = Style.SPARKLE, bar: TrailBar? = null, label: String? = null,
+    plugin: Plugin, player: Player, target: Location, clock: TrailClock, style: Style = Style.SPARKLE, bar: TrailBar? = null, label: String? = null,
     surface: Boolean = false, ended: (Long?) -> Unit = {}, arrived: (Int) -> Unit = {},
   ) {
-    val pulses = seconds * 2
     val spot = target.clone()
     var grounded = !surface
-    trail(plugin, player, style, bar) { pulse, particle ->
+    trail(plugin, player, style, bar, resetCompass(player)) { _, particle ->
       if (player.world != spot.world) return@trail Pulse.END.also { ended(null) }
       val distance = Math.hypot(spot.x - player.location.x, spot.z - player.location.z)
-      if (pulse >= pulses) return@trail Pulse.END.also { ended(Math.round(distance)) }
+      if (!clock.tick(distance)) return@trail Pulse.END.also { ended(Math.round(distance)) }
       if (!grounded && distance <= MARKER) {
         spot.y = spot.world!!.getHighestBlockYAt(spot.blockX, spot.blockZ) + 1.0
         grounded = true
       }
       if (distance <= ARRIVED) {
-        player.spawnParticle(particle, spot.clone().add(0.0, 1.0, 0.0), 30, 0.6, 0.8, 0.6, 0.02)
+        seen(player, particle, spot.clone().add(0.0, 1.0, 0.0), 30, 0.6, 0.8, 0.6, 0.02)
         arrived(if (surface) 0 else Math.round(spot.y - player.location.y).toInt())
         return@trail Pulse.END
       }
       line(player, spot, particle)
       if (distance <= MARKER) column(player, spot, particle)
-      bar?.show(player.location.yaw, spot.x - player.location.x, spot.z - player.location.z, Math.round(distance), label)
+      val above = if (grounded) Math.round(spot.y - player.location.y).toInt() else null
+      bar?.show(player.location.yaw, spot.x - player.location.x, spot.z - player.location.z, Math.round(distance), label, above)
       Pulse.GO
     }
+    // After the trail starts, which put back what the trail before left. The compass points there in any dimension:
+    // the game's client checks only that the spot is in the player's.
+    player.compassTarget = target
   }
 
   /**
    * Shows the way to another player for [seconds], following them as they run. The trail goes dark while they're
    * off the asker's locator bar, as their dot does, and [lost] ends it once they stay off for [HIDDEN_SECONDS] or
-   * leave the game. [found] runs once the asker reaches them.
+   * leave the game. [found] runs once the asker reaches them, and [ended] once [seconds] run out.
    */
-  fun follow(plugin: Plugin, player: Player, target: Player, seconds: Int, style: Style = Style.SPARKLE, bar: TrailBar? = null, found: () -> Unit = {}, lost: () -> Unit = {}) {
-    val pulses = seconds * 2
+  fun follow(
+    plugin: Plugin, player: Player, target: Player, seconds: Int, style: Style = Style.SPARKLE, bar: TrailBar? = null,
+    found: () -> Unit = {}, lost: () -> Unit = {}, ended: () -> Unit = {},
+  ) {
+    val pulses = seconds * TrailClock.PULSES
     var hidden = 0
-    // The compass goes back to the world spawn after, so it never keeps pointing where they last were.
-    val reset = { if (player.isOnline) player.compassTarget = player.world.spawnLocation }
-    trail(plugin, player, style, bar, reset) { pulse, particle ->
-      if (pulse >= pulses) return@trail Pulse.END
+    trail(plugin, player, style, bar, resetCompass(player)) { pulse, particle ->
+      if (pulse >= pulses) return@trail Pulse.END.also { ended() }
       if (!target.isOnline) {
         lost()
         return@trail Pulse.END
@@ -103,22 +116,44 @@ object Trails {
       }
       hidden = 0
       val spot = target.location
-      // Compasses point only in the overworld; elsewhere the trail alone shows the way.
       player.compassTarget = spot
       if (spot.distance(player.location) <= ARRIVED + 1) {
-        player.spawnParticle(particle, spot.clone().add(0.0, 2.2, 0.0), 30, 0.4, 0.4, 0.4, 0.02)
+        seen(player, particle, spot.clone().add(0.0, 2.2, 0.0), 30, 0.4, 0.4, 0.4, 0.02)
         found()
         return@trail Pulse.END
       }
       line(player, spot.clone().add(0.0, 1.0, 0.0), particle)
       // Over their head, so they stand out in a crowd once they're near.
       if (spot.distance(player.location) <= MARKER) column(player, spot.clone().add(0.0, 2.2, 0.0), particle)
-      bar?.show(player.location.yaw, spot.x - player.location.x, spot.z - player.location.z, Math.round(spot.distance(player.location)), target.name)
+      bar?.show(player.location.yaw, spot.x - player.location.x, spot.z - player.location.z, Math.round(spot.distance(player.location)), target.name,
+        Math.round(spot.y - player.location.y).toInt())
       Pulse.GO
     }
   }
 
   private enum class Pulse { GO, END }
+
+  /**
+   * The compass goes back to the world spawn once a trail ends, so it never keeps pointing at an old spot: the main
+   * world's, as the game keeps it, even when the trail ended in the nether.
+   */
+  private fun resetCompass(player: Player) = { if (player.isOnline) player.compassTarget = player.server.worlds.first().spawnLocation }
+
+  /** The bars for [player]'s trail, as the config asks, the boss bar in [color] or the config's. */
+  fun bar(config: Config, player: Player, lang: Lang, color: String? = null): TrailBar? = TrailBar.of(config, player.audience, lang, color) { Boss(player, it) }
+
+  /** A boss bar only [player] sees. */
+  private class Boss(private val player: Player, color: String) : TrailBar.Boss {
+    private val bar = Bukkit.createBossBar("", runCatching { BarColor.valueOf(color.uppercase()) }.getOrDefault(BarColor.BLUE), BarStyle.SOLID)
+
+    override fun show(title: String, progress: Double) {
+      bar.setTitle(title)
+      bar.progress = progress
+      if (player.isOnline && player !in bar.players) bar.addPlayer(player)
+    }
+
+    override fun close() = bar.removeAll()
+  }
 
   /** Runs one trail: two pulses a second, so the line follows the player as they turn and walk. */
   private fun trail(plugin: Plugin, player: Player, style: Style, bar: TrailBar?, cleanup: () -> Unit = {}, pulse: (Int, Particle) -> Pulse) {
@@ -148,27 +183,27 @@ object Trails {
     trail.cleanup()
   }
 
-  /** A short line from the player's chest toward the target. */
+  /** The line from the player's chest toward the target, over the ground in its way ([TrailLine]). */
   private fun line(player: Player, target: Location, particle: Particle) {
     val from = player.eyeLocation.subtract(0.0, 0.4, 0.0)
-    val way = target.toVector().subtract(from.toVector())
-    if (way.lengthSquared() < 1) return
-    // Never past the target: a spot five blocks off gets a five-block line.
-    val steps = minOf(24, (way.length() / 0.5).toInt())
-    val step = way.normalize().multiply(0.5)
-    val point = from.clone()
-    repeat(steps) {
-      point.add(step)
-      player.spawnParticle(particle, point, 1, 0.0, 0.0, 0.0, 0.0)
-    }
+    val world = player.world
+    TrailLine.points(TrailLine.Point(from.x, from.y, from.z), TrailLine.Point(target.x, target.y, target.z)) { x, y, z -> world.getBlockAt(x, y, z).type.isOccluding }
+      .forEach { seen(player, particle, Location(world, it.x, it.y, it.z), 1, 0.0, 0.0, 0.0, 0.0) }
   }
 
   /** A pillar over the spot, so the player sees where exactly it is once it's near. */
   private fun column(player: Player, target: Location, particle: Particle) {
     val point = target.clone()
     repeat(12) {
-      player.spawnParticle(particle, point, 1, 0.05, 0.0, 0.05, 0.0)
+      seen(player, particle, point, 1, 0.05, 0.0, 0.05, 0.0)
       point.add(0.0, 0.5, 0.0)
     }
   }
+
+  /**
+   * Particles only [player] sees, forced: the game's client drops any farther than 32 blocks otherwise, and the
+   * column stands up to [MARKER] away.
+   */
+  private fun seen(player: Player, particle: Particle, at: Location, count: Int, dx: Double, dy: Double, dz: Double, speed: Double) =
+    player.spawnParticle(particle, at, count, dx, dy, dz, speed, null, true)
 }

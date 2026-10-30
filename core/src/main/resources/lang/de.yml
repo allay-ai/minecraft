@@ -8,9 +8,14 @@ status:
   # Die Live-Zeile über der Schnellleiste, während der Assistent arbeitet, wie bei Claude Code:
   # Spinner, wechselndes Verb, Sekunden, gelesene (↑) und geschriebene (↓) Token.
   line: "&6{spinner} &6{verb}… &7({seconds}s · ↑ {input} · ↓ {output} {tokens|Token|Tokens})"
-  # Solange eine Spur läuft: ein Pfeil, der sich mit deinem Blick dreht, und die restlichen Blöcke.
-  trail: "&b{arrow} &f{blocks} &7{blocks|Block|Blöcke}"
-  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|Block|Blöcke}"
+  # Solange eine Spur läuft: ein Pfeil, der sich mit deinem Blick dreht, die restlichen Blöcke und {height}, wie weit
+  # der Punkt höher oder tiefer liegt. trail_boss ist der Titel der Bossleiste, trail die Zeile über der Schnellleiste.
+  trail: "&b{arrow} &f{blocks} &7{blocks|Block|Blöcke}{height}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|Block|Blöcke}{height}"
+  trail_boss: "{arrow} {blocks} {blocks|Block|Blöcke}{height}"
+  trail_boss_to: "{arrow} {name} · {blocks} {blocks|Block|Blöcke}{height}"
+  trail_above: " · {blocks} höher"
+  trail_below: " · {blocks} tiefer"
   trail_hidden: "&7{name} ist nicht auf deiner Ortungsleiste"
   answering: "Schreibe die Antwort"
   verbs:
@@ -270,8 +275,9 @@ messages:
   arrived_below: "&aDu bist da, der Ort liegt &f{blocks} {blocks|Block|Blöcke}&a unter dir."
   found: "&f{name} &aist direkt hier."
   trail_lost: "&7{name} ist von deiner Ortungsleiste verschwunden, die Spur ist weg."
-  trail_ended: "&7Die Spur ist erloschen, noch &f{blocks} {blocks|Block|Blöcke}&7 bis zum Ziel. Frag noch mal, dann zeige ich dir den Rest."
-  trail_other_world: "&7Du hast die Dimension der Spur verlassen, also ist sie weg. Frag wieder, wenn du zurück bist."
+  trail_follow_ended: "&7Die Spur zu &f{name}&7 ist erloschen."
+  trail_ended: "&7Die Spur ist erloschen, noch &f{blocks} {blocks|Block|Blöcke}&7 bis zum Ziel."
+  trail_other_world: "&7Du hast die Dimension der Spur verlassen, also ist sie erloschen. Zurück dort zeigt dir der Knopf den Rest."
   trail_stopped: "&7Spur ausgeblendet."
   marks_cleared: "&7Markierungen ausgeblendet."
   draft_cleared: "&7Entwurf entfernt."
@@ -391,13 +397,14 @@ buttons:
     say: "&7Schickt es in deinem Namen in den Chat: &f{text}"
   expired: "&7Dieser Knopf geht nicht mehr. Frag einfach noch mal."
   question: "&7› {question}"
-  path_shown: "&7Ich zeige dir den Weg: &f{distance} &7Blöcke nach {direction}."
+  path_shown: "&7Ich zeige dir den Weg: &f{distance} &7{distance|Block|Blöcke} nach {direction}."
   path_to_player: "&7Ich zeige dir den Weg zu &f{name}&7: &f{distance} &7{distance|Block|Blöcke} nach {direction}. Die Spur folgt mit."
   other_dimension: "&7Dieser Ort liegt in einer anderen Dimension."
   player_hidden: "&7{name} ist gerade nicht auf deiner Ortungsleiste."
   book_taken: "&aDas Buch ist in deinem Inventar."
   book_gone: "&7Dieses Buch gibt es nicht mehr. Frag noch mal nach der ausführlichen Antwort."
   way_to_chest: "Der Weg"
+  continue_way: "Weiter zum Ziel"
   command_blocked: "&cDieser Befehl ist auf diesem Server gesperrt: &f{command}"
 
 # Entwürfe: ein Bau als Geister, Schicht für Schicht; {block} ist eine Block-ID mit ihren Zuständen.

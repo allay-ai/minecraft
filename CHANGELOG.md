@@ -2,6 +2,17 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.23.0
+
+- 🧭 **The way lasts while you walk it.** A way trail nobody timed, a way button’s too, now stays while you get closer and goes out a minute after you stop (`tools.point_to.idle_seconds`, 60), or after `max_seconds` at most. Detours, fights, and a mine on the way no longer end it. A length Allay names still holds exactly, and every trail ends the moment you arrive. `tools.point_to.default_seconds` is gone.
+- ▶️ **[Continue the way].** When a trail goes out before you get there, or you leave its dimension, the note under it has a button that shows the rest. No new question, so it costs nothing. A trail to another player that runs out says so too, with the same button, instead of going dark without a word.
+- 🧲 **The compass lets go.** Once a trail to a spot ends, your compass points at the world spawn again, as it already did after a trail to a player.
+- 🟦 **A boss bar shows the way.** It shrinks as you get there and shows an arrow that turns with your view, the blocks left, and how far up or down the spot lies, so an underground base is easy to find. Allay's answer no longer hides it, as its status did the arrow above the hotbar. Allay picks a color that fits, or `tools.point_to.bar_color` does. `tools.point_to.bar` chooses `boss_bar` (the default), `action_bar`, `both`, or `off`, and the line above the hotbar now shows the height too. Needs Allay Server 6.23 for the colors.
+- ⛰️ **The trail goes over hills, not into them.** Beyond a dozen blocks the line stays level enough to see and climbs over the ground in its way, and a spot far below no longer drags it into the earth.
+- 🔦 **The marker shows from 48 blocks.** The column over the spot is drawn from 48 blocks away, but the game hid particles past 32. Trail particles now show the whole way.
+- 🧭 **The compass works in the Nether and the End.** It always did in 26.3, though Allay told the model otherwise; now `compass` says so. When a trail ends, the compass goes back to the world spawn, even after a trail in the Nether.
+- ✏️ **“1 block”, not “1 blocks”.** The note under a way button counts blocks properly in every language.
+
 ## 6.22.1
 
 - 🧭 **The way home lasts until you get there.** A trail to a far spot went dark after 30 seconds, often halfway, and looked as if your next question had broken it. A way button or `point_to` without a length now gives you about a second for every two blocks, at least `tools.point_to.default_seconds` and at most `max_seconds`. It still ends the moment you arrive. On Spigot, Paper, Fabric, and NeoForge.

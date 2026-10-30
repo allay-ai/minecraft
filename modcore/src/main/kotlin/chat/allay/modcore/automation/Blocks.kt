@@ -134,7 +134,7 @@ object Blocks {
    * Bukkit's `Material.isOccluding`: by the block's type, whether it conducts redstone as a full block does. A sea
    * lantern or an observer lets the view through, a shulker box doesn't.
    */
-  private fun occluding(state: BlockState) = state.block.defaultBlockState().isRedstoneConductor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
+  fun occluding(state: BlockState) = state.block.defaultBlockState().isRedstoneConductor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
 
   private const val SIGHT_STEP = 0.1
 

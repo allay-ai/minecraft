@@ -44,14 +44,14 @@ object ActionTools {
     val target = Location(world, x, y, z)
     val tools = context.features.config().tools
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
-      ?: tools.trailSeconds(Math.hypot(x - player.location.x, z - player.location.z))
     val style = Trails.Style.parse(args.string("style"))
+    val color = TrailBar.color(args.string("bar_color"))
     val audience = player.audience
-    Trails.show(context.plugin, player, target, seconds, style, TrailBar.of(context.features.config(), audience, context.lang), label = args.string("label"),
-      surface = args.double("y") == null, ended = { TrailNotes.ended(context.lang, audience, it) }) { TrailNotes.arrived(context.lang, audience, it) }
-    // After the trail starts, which puts back what a trail to a player left: compasses point at this only in the
-    // overworld; elsewhere the trail still shows the way.
-    player.compassTarget = target
+    val dimension = Dimensions.id(world)
+    Trails.show(context.plugin, player, target, tools.trailClock(seconds), style, Trails.bar(context.features.config(), player, context.lang, color), label = args.string("label"),
+      surface = args.double("y") == null, ended = { TrailNotes.ended(context.lang, audience, it, context.features.clicks(), target.blockX, target.blockY, target.blockZ, dimension) }) {
+      TrailNotes.arrived(context.lang, audience, it)
+    }
     val dx = x - player.location.x
     val dz = z - player.location.z
     val distance = Math.round(Math.hypot(dx, dz))
@@ -59,10 +59,13 @@ object ActionTools {
     val result = buildJsonObject {
       put("distance", distance)
       put("direction", direction)
-      put("seconds", seconds)
+      // Without a length, the trail lasts while the player gets closer, up to seconds.
+      put("seconds", seconds ?: tools.trailMaxSeconds)
+      if (seconds == null) put("idle_seconds", tools.trailIdleSeconds)
       put("style", style.name.lowercase())
-      put("compass", world.environment == org.bukkit.World.Environment.NORMAL)
-      put("action_bar", tools.trailBar)
+      put("compass", true)
+      put("action_bar", tools.trailActionBar)
+      put("boss_bar", tools.trailBossBar)
     }
     ToolOutput(result, context.lang.text("summary.distance", "blocks" to distance, "direction" to context.lang.text("directions.$direction")))
   }
@@ -78,10 +81,12 @@ object ActionTools {
     val seconds = args.int("seconds")?.also { if (it !in 1..tools.trailMaxSeconds) throw ToolError("seconds must be 1–${tools.trailMaxSeconds}") }
       ?: tools.followSeconds
     val style = Trails.Style.parse(args.string("style"))
+    val color = TrailBar.color(args.string("bar_color"))
     val lang = context.lang
-    Trails.follow(context.plugin, player, target, seconds, style, TrailBar.of(context.features.config(), player.audience, lang),
+    Trails.follow(context.plugin, player, target, seconds, style, Trails.bar(context.features.config(), player, lang, color),
       found = { lang.send(player, "messages.found", "name" to target.name) },
-      lost = { lang.send(player, "messages.trail_lost", "name" to target.name) })
+      lost = { lang.send(player, "messages.trail_lost", "name" to target.name) },
+      ended = { TrailNotes.followEnded(lang, player.audience, target.name, context.features.clicks()) })
     val dx = target.location.x - player.location.x
     val dz = target.location.z - player.location.z
     val distance = Math.round(target.location.distance(player.location))
@@ -93,8 +98,9 @@ object ActionTools {
       put("seconds", seconds)
       put("style", style.name.lowercase())
       put("follows", true)
-      put("compass", player.world.environment == org.bukkit.World.Environment.NORMAL)
-      put("action_bar", tools.trailBar)
+      put("compass", true)
+      put("action_bar", tools.trailActionBar)
+      put("boss_bar", tools.trailBossBar)
     }
     return ToolOutput(result, lang.text("summary.distance_to", "name" to target.name, "blocks" to distance, "direction" to lang.text("directions.$direction")))
   }

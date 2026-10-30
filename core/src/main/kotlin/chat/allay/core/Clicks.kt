@@ -115,6 +115,17 @@ class Clicks(
     player.send(Line(parts))
   }
 
+  /** A line of [text] with [buttons] after it, such as the way on once a trail goes out. */
+  fun note(player: PlayerAudience, text: String, buttons: List<Button>) {
+    val lang = lang(player)
+    val parts = mutableListOf<Line.Part>(Line.Text(Legacy.color(text)))
+    buttons.forEach {
+      parts += Line.SPACE
+      parts += part(lang, player, it, lang.text("buttons.format", "label" to it.label))
+    }
+    player.send(Line(parts))
+  }
+
   /** The quiet tip under a second `/ask`, like Claude Code's: chat mode exists, with buttons to try it or hide the tip. */
   fun tip(player: PlayerAudience) {
     val lang = lang(player)

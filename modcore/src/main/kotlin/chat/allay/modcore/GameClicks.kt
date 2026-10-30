@@ -98,10 +98,9 @@ class GameClicks(private val features: Features) : Clicks.Game {
     val target = Vec3(button.x + 0.5, button.y.toDouble(), button.z + 0.5)
     val config = features.config()
     val audience = player.audience
-    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target),
-      config.tools.trailSeconds(Math.hypot(target.x - player.x, target.z - player.z)), bar = TrailBar.of(config, audience, lang),
-      ended = { TrailNotes.ended(lang, audience, it) }) { TrailNotes.arrived(lang, audience, it) }
-    Trails.compass(player, player.level().dimension(), BlockPos(button.x, button.y, button.z))
+    val dimension = Dimensions.id(player.level())
+    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target), config.tools.trailClock(null), bar = Trails.bar(config, player, lang),
+      ended = { TrailNotes.ended(lang, audience, it, features.clicks(), button.x, button.y, button.z, dimension) }) { TrailNotes.arrived(lang, audience, it) }
     val dx = target.x - player.x
     val dz = target.z - player.z
     lang.send(player.audience, "buttons.path_shown", "distance" to Math.round(Math.hypot(dx, dz)), "direction" to lang.text("directions.${Facts.direction(dx, dz)}"))
@@ -114,9 +113,10 @@ class GameClicks(private val features: Features) : Clicks.Game {
       ?: return lang.send(player.audience, "buttons.player_hidden", "name" to button.player)
     val name = target.gameProfile.name
     val config = features.config()
-    Trails.follow(features.scheduler, player, target, config.tools.followSeconds, bar = TrailBar.of(config, player.audience, lang),
+    Trails.follow(features.scheduler, player, target, config.tools.followSeconds, bar = Trails.bar(config, player, lang),
       found = { lang.send(player.audience, "messages.found", "name" to name) },
-      lost = { lang.send(player.audience, "messages.trail_lost", "name" to name) })
+      lost = { lang.send(player.audience, "messages.trail_lost", "name" to name) },
+      ended = { TrailNotes.followEnded(lang, player.audience, name, features.clicks()) })
     val dx = target.x - player.x
     val dz = target.z - player.z
     lang.send(player.audience, "buttons.path_to_player", "name" to name, "distance" to Math.round(target.position().distanceTo(player.position())), "direction" to lang.text("directions.${Facts.direction(dx, dz)}"))

@@ -40,7 +40,8 @@ class Features(
   platform: Platform,
   expansions: Expansions? = null,
   names: () -> GameNames? = { null },
-) : ToolServices(platform, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names)
+  clicks: () -> chat.allay.core.Clicks? = { null },
+) : ToolServices(platform, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names, clicks)
 
 /** Who asked, on Bukkit: the core's [ToolScope] with the Bukkit sender and the world's stores. */
 class ToolContext(

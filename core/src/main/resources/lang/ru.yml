@@ -8,9 +8,14 @@ status:
   # Живая строка над хотбаром, пока ассистент работает, как у Claude Code:
   # спиннер, меняющийся глагол, секунды, сколько токенов прочитано (↑) и написано (↓).
   line: "&6{spinner} &6{verb}… &7({seconds}с · ↑ {input} · ↓ {output} {tokens|токен|токена|токенов})"
-  # Пока горит тропа: стрелка, которая поворачивается вместе со взглядом, и сколько блоков осталось.
-  trail: "&b{arrow} &f{blocks} &7{blocks|блок|блока|блоков}"
-  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|блок|блока|блоков}"
+  # Пока горит тропа: стрелка, которая поворачивается вместе со взглядом, сколько блоков осталось и {height} — насколько
+  # точка выше или ниже. trail_boss — заголовок боссбара, trail — строка над хотбаром.
+  trail: "&b{arrow} &f{blocks} &7{blocks|блок|блока|блоков}{height}"
+  trail_to: "&b{arrow} &f{name} &7{blocks} {blocks|блок|блока|блоков}{height}"
+  trail_boss: "{arrow} {blocks} {blocks|блок|блока|блоков}{height}"
+  trail_boss_to: "{arrow} {name} · {blocks} {blocks|блок|блока|блоков}{height}"
+  trail_above: " · {blocks} выше"
+  trail_below: " · {blocks} ниже"
   trail_hidden: "&7{name}: нет на локаторе"
   answering: "Пишу ответ"
   verbs:
@@ -270,8 +275,9 @@ messages:
   arrived_below: "&aТы на месте, точка на &f{blocks} {blocks|блок|блока|блоков}&a ниже."
   found: "&f{name} &aрядом."
   trail_lost: "&7{name} больше нет на твоём локаторе, тропа погасла."
-  trail_ended: "&7Тропа погасла, осталось &f{blocks} {blocks|блок|блока|блоков}&7. Спроси ещё раз, и я покажу остаток пути."
-  trail_other_world: "&7Тропа осталась в другом измерении и погасла. Вернёшься туда — попроси снова."
+  trail_follow_ended: "&7Тропа к &f{name}&7 погасла."
+  trail_ended: "&7Тропа погасла, осталось &f{blocks} {blocks|блок|блока|блоков}&7."
+  trail_other_world: "&7Тропа осталась в другом измерении и погасла. Вернёшься туда — кнопка покажет остаток пути."
   trail_stopped: "&7Убрал след."
   marks_cleared: "&7Метки убраны."
   draft_cleared: "&7Драфт убран."
@@ -391,13 +397,14 @@ buttons:
     say: "&7Отправит в чат от твоего имени: &f{text}"
   expired: "&7Эта кнопка уже не работает. Спроси ещё раз."
   question: "&7› {question}"
-  path_shown: "&7Показываю путь: &f{distance} &7блоков на {direction}."
+  path_shown: "&7Показываю путь: &f{distance} &7{distance|блок|блока|блоков} на {direction}."
   path_to_player: "&7Показываю путь к &f{name}&7: &f{distance} &7{distance|блок|блока|блоков} на {direction}. Тропа идёт следом."
   other_dimension: "&7Эта точка в другом измерении."
   player_hidden: "&7{name} сейчас нет на твоём локаторе."
   book_taken: "&aКнига у тебя в инвентаре."
   book_gone: "&7Этой книги уже нет. Попроси расписать ещё раз."
   way_to_chest: "Путь"
+  continue_way: "Продолжить путь"
   command_blocked: "&cЭта команда на сервере запрещена: &f{command}"
 
 # Драфты: постройка призраками, слой за слоем; {block} — id блока с его состояниями.

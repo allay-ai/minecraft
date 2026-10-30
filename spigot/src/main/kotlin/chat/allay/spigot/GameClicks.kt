@@ -86,10 +86,9 @@ class GameClicks(
     val lang = lang(player)
     val config = features.config()
     val audience = player.audience
-    Trails.show(plugin, player, target, config.tools.trailSeconds(Math.hypot(target.x - player.location.x, target.z - player.location.z)), bar = TrailBar.of(config, audience, lang), ended = { TrailNotes.ended(lang, audience, it) }) {
-      TrailNotes.arrived(lang, audience, it)
-    }
-    player.compassTarget = target
+    val dimension = Dimensions.id(player.world)
+    Trails.show(plugin, player, target, config.tools.trailClock(null), bar = Trails.bar(config, player, lang),
+      ended = { TrailNotes.ended(lang, audience, it, features.clicks(), button.x, button.y, button.z, dimension) }) { TrailNotes.arrived(lang, audience, it) }
     val dx = target.x - player.location.x
     val dz = target.z - player.location.z
     lang.send(player, "buttons.path_shown", "distance" to Math.round(Math.hypot(dx, dz)), "direction" to lang.text("directions.${Facts.direction(dx, dz)}"))
@@ -101,9 +100,10 @@ class GameClicks(
     val target = Locator.named(player, button.player)?.takeIf { Locator.shows(player, it) }
       ?: return lang.send(player, "buttons.player_hidden", "name" to button.player)
     val config = features.config()
-    Trails.follow(plugin, player, target, config.tools.followSeconds, bar = TrailBar.of(config, player.audience, lang),
+    Trails.follow(plugin, player, target, config.tools.followSeconds, bar = Trails.bar(config, player, lang),
       found = { lang.send(player, "messages.found", "name" to target.name) },
-      lost = { lang.send(player, "messages.trail_lost", "name" to target.name) })
+      lost = { lang.send(player, "messages.trail_lost", "name" to target.name) },
+      ended = { TrailNotes.followEnded(lang, player.audience, target.name, features.clicks()) })
     val dx = target.location.x - player.location.x
     val dz = target.location.z - player.location.z
     lang.send(player, "buttons.path_to_player", "name" to target.name, "distance" to Math.round(target.location.distance(player.location)), "direction" to lang.text("directions.${Facts.direction(dx, dz)}"))

@@ -51,6 +51,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     platform = allay.platform,
     expansions = allay.expansions,
     names = { allay.namesOrNull },
+    clicks = { allay.clicks },
   )
 
   override fun tools() = Tools.all()

@@ -2,6 +2,7 @@ package chat.allay.core.tools
 
 import chat.allay.core.Audience
 import chat.allay.core.ChatMode
+import chat.allay.core.Clicks
 import chat.allay.core.Config
 import chat.allay.core.Lang
 import chat.allay.core.Locales
@@ -40,6 +41,8 @@ open class ToolServices(
   val expansions: chat.allay.core.Expansions? = null,
   /** The game's names in every language, once Allay has started. */
   val names: () -> GameNames? = { null },
+  /** Buttons outside an answer, such as the way on under a trail that went out; null before Allay has started. */
+  val clicks: () -> Clicks? = { null },
 )
 
 /**

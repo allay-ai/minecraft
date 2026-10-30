@@ -64,7 +64,7 @@ class VillagerMenu(
         if (!villager.trader.isValid) return
         player.closeInventory()
         player.playSound(player.location, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.6f, 1.4f)
-        Trails.show(plugin, player, villager.trader.location.add(0.0, 1.0, 0.0), 15)
+        Trails.show(plugin, player, villager.trader.location.add(0.0, 1.0, 0.0), TrailClock.fixed(15))
       }
     }
   }

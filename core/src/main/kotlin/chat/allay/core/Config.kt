@@ -3,6 +3,8 @@ package chat.allay.core
 import chat.allay.core.tools.EXPERIMENTAL_TOOLS
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.TimeZones
+import chat.allay.core.tools.TrailBar
+import chat.allay.core.tools.TrailClock
 
 /**
  * Settings from `config.yml`. Every key has a default; texts live in `lang/`, so the message keys of 2.3 configs are ignored.
@@ -98,18 +100,24 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val structureRadius = config.int("tools.locate_structure_radius", 64).coerceIn(1, 128)
     val maxReminders = config.int("tools.reminders.max_pending", 10).coerceIn(1, 100)
     val maxGoals = config.int("tools.goals.max_per_player", 5).coerceIn(1, 20)
-    /** The longest trail `point_to` may draw, and the shortest when nobody names a length (also for point buttons). */
+    /** The longest trail `point_to` may draw, and the longest any trail lasts when nobody names a length. */
     val trailMaxSeconds = config.int("tools.point_to.max_seconds", 600).coerceIn(10, 3600)
-    val trailSeconds = config.int("tools.point_to.default_seconds", 30).coerceIn(1, trailMaxSeconds)
-    /**
-     * A trail to a spot [blocks] away when nobody names a length: long enough to walk there at [TRAIL_PACE], so a far
-     * base doesn't go dark halfway, and never past [trailMaxSeconds]. It ends on arrival anyway.
-     */
-    fun trailSeconds(blocks: Double): Int = maxOf(trailSeconds, Math.ceil(blocks / TRAIL_PACE).toInt()).coerceAtMost(trailMaxSeconds)
+    /** A trail to a spot nobody named a length for goes out once the player hasn't got closer for this long. */
+    val trailIdleSeconds = config.int("tools.point_to.idle_seconds", 60).coerceIn(10, trailMaxSeconds)
+    /** The clock of a trail to a spot: [seconds] when the model named them, else while the player gets closer. */
+    fun trailClock(seconds: Int?): TrailClock = seconds?.let(TrailClock::fixed) ?: TrailClock.walking(trailIdleSeconds, trailMaxSeconds)
     /** A trail to another player when nobody names a length, also for their way buttons: they move, so it lasts longer. */
     val followSeconds = config.int("tools.point_to.follow_seconds", 180).coerceIn(1, trailMaxSeconds)
-    /** An arrow and the blocks left in the action bar while a trail runs ([chat.allay.core.tools.TrailBar]). */
-    val trailBar = config.boolean("tools.point_to.action_bar", true)
+    /**
+     * Where a trail shows the way besides its particles ([chat.allay.core.tools.TrailBar]): `boss_bar`, `action_bar`,
+     * `both`, or `off`. Before 6.23 only `action_bar: false` said anything, so that alone still turns the bars off.
+     */
+    private val trailBars = config.get("tools.point_to.bar")?.toString()?.trim()?.lowercase()
+      ?: if (config.get("tools.point_to.action_bar") == false) "off" else "boss_bar"
+    val trailBossBar = trailBars == "boss_bar" || trailBars == "both"
+    val trailActionBar = trailBars == "action_bar" || trailBars == "both"
+    /** The boss bar's color when the model names none. */
+    val trailColor = config.string("tools.point_to.bar_color", "blue").trim().lowercase().takeIf { it in TrailBar.COLORS } ?: "blue"
     val biomeRadius = config.int("tools.locate_biome_radius", 2048).coerceIn(64, 6400)
     /** `show_marks`: how many at once, how far from the player, and how long they stay when nobody says, and at most. */
     val maxMarks = config.int("tools.show_marks.max_marks", 64).coerceIn(1, 64)
@@ -223,8 +231,6 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     const val HOSTED = "hosted"
     const val BYOK = "byok"
     const val POLICY_URL = "https://allay.chat/privacy/"
-    /** Blocks a second a trail allows for: walking is 4.3, and the way is rarely straight. */
-    const val TRAIL_PACE = 2.0
     /** The game's languages of the players Allay speaks to in its own: Russian, German, Spanish, Portuguese. */
     val DEFAULT_LANGUAGES = listOf("ru_ru", "de_de", "es_es", "es_mx", "pt_br", "pt_pt")
 

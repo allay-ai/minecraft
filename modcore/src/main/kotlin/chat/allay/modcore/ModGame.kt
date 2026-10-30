@@ -45,6 +45,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     automation = automation,
     expansions = allay.expansions,
     names = { allay.namesOrNull },
+    clicks = { allay.clicks },
   )
 
   override fun tools() = Tools.all()

@@ -63,7 +63,7 @@ class VillagerMenu(
         if (!trader.isAlive) return
         close()
         Sounds.play(player, SoundEvents.NOTE_BLOCK_CHIME, 0.6f, 1.4f)
-        Trails.show(scheduler, player, Trails.Target(trader.level().dimension(), trader.position().add(0.0, 1.0, 0.0)), 15)
+        Trails.show(scheduler, player, Trails.Target(trader.level().dimension(), trader.position().add(0.0, 1.0, 0.0)), TrailClock.fixed(15))
       }
     }
   }

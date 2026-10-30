@@ -216,10 +216,14 @@ tools:
   # The trail point_to and the way buttons draw. It ends early once the player arrives,
   # and /allay cancel stops it.
   point_to:
-    default_seconds: 30       # The shortest trail to a spot when the assistant names no length, and for way buttons; a far spot gets time to walk there
-    follow_seconds: 180       # The same for a trail to another player, which follows them as they move
-    max_seconds: 600          # The longest trail the assistant may draw (10–3600)
-    action_bar: true          # An arrow toward the spot and the blocks left in the action bar; an answer's status comes first
+    idle_seconds: 60          # A trail to a spot nobody timed (way buttons too) lasts while you get closer, and goes out this long after you stop
+    follow_seconds: 180       # How long a trail to another player lasts when nobody says; it follows them as they move
+    max_seconds: 600          # The longest any trail lasts (10–3600)
+    # What shows the way besides the particles, each with an arrow, the blocks left, and how far up or down:
+    # boss_bar (a bar that shrinks as you get there; an answer's status leaves it be), action_bar (a line
+    # above the hotbar, which an answer's status takes while it runs), both, or off.
+    bar: boss_bar
+    bar_color: blue           # The boss bar's color when Allay picks none: pink, blue, red, green, yellow, purple, or white
   # Marks over blocks: they glow through walls, but never on ores, spawners, or vaults, and only on
   # containers the player could open (outside claims, or with container trust in GriefPrevention).
   # They go out after their time, on /allay cancel, or when the player places a block on a ghost.
