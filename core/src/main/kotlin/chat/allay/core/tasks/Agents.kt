@@ -67,6 +67,8 @@ class Agents(
   val reservations = Reservations()
 
   private val agents = ConcurrentHashMap<String, Agent>()
+  /** Kinds the backend refused, and when: start_task refuses them for a while instead of starting an agent that can't wake. */
+  private val unknown = ConcurrentHashMap<Kind, Long>()
   private var ticker: AutoCloseable? = null
   /** Allay is shutting down: nothing wakes any more. */
   @Volatile private var stopping = false
@@ -111,6 +113,7 @@ class Agents(
   /** Starts an agent for [player] with [brief]; [parent] is the agent that starts it, or null for the main chat. */
   fun launch(player: PlayerAudience, kind: Kind, name: String, brief: String, parent: Task?): Task {
     allowed(player, kind)?.let { throw ToolError(it) }
+    unknown[kind]?.takeIf { System.currentTimeMillis() - it < UNKNOWN_MS }?.let { throw ToolError(unknownKind(kind)) }
     val task = book.start(player.uuid, kind, name, brief.take(2000), (parent?.depth ?: 0) + 1, parent?.id)
     agents[key(task)] = Agent(task, player.position)
     say(player, task, locales.of(player).text("automation.started"))
@@ -301,6 +304,11 @@ class Agents(
     agent.run = null
     // A finish the plugin took stands, even when the stream broke after it.
     task.finished?.let { return finish(player, task, it) }
+    if (refusesKind(failure)) {
+      unknown[task.kind] = System.currentTimeMillis()
+      platform.log.warning("❌ Automation agent ${task.name}: the backend doesn't know agents of kind ${task.kind.wire} yet; update it")
+      return close(task, locales.of(player).text("automation.unknown_kind"), "stopped: ${unknownKind(task.kind)}")
+    }
     Retry.after(failure)?.takeIf { task.retries < Retry.TIMES }?.let { asked ->
       // Nothing ran: the same message goes again later, so a backend restart or a busy minute doesn't kill the agent.
       task.inbox.addFirst(message)
@@ -396,6 +404,17 @@ class Agents(
      */
     fun stuck(said: Boolean, asked: Boolean, waited: Boolean, timer: Boolean, busy: Boolean, question: Boolean, inbox: Boolean): Boolean =
       !said && !asked && !(waited && timer) && !busy && !question && !inbox
+
+    /** How long start_task refuses a kind the backend refused: an admin may update the backend meanwhile. */
+    private const val UNKNOWN_MS = 10 * 60_000L
+
+    private fun unknownKind(kind: Kind) = "this backend doesn't know agents of kind ${kind.wire} yet; do this part yourself or tell the player an admin can update the backend"
+
+    /** The backend's answer to a kind it doesn't know: its own code since 6.22, a refused `task.kind` before. */
+    fun refusesKind(failure: Throwable?): Boolean {
+      val error = (failure as? ApiErrorException)?.apiError ?: return false
+      return error.code == ErrorCodes.TASK_KIND_UNKNOWN || (error.code == ErrorCodes.BAD_REQUEST && "task.kind" in error.message)
+    }
 
     /** In another world, or farther than [distance] blocks from where the agent started. */
     fun away(at: Protocol.Position, anchor: Protocol.Position, distance: Int): Boolean {

@@ -429,6 +429,7 @@ automation:
   quota: "the Allay quota ran out."
   server_stopping: "the server is stopping."
   not_allowed: "this server no longer lets you run this automation."
+  unknown_kind: "the backend on this server can't run agents of this kind yet; an admin can update it."
   gone: "&7This automation is over."
   replied: "&d⚙ {title}&8: &a✔ &7Got it: “{label}”. Passing it on."
   chests_done: "Done: {count} {count|chest|chests}. The labels show what went where."

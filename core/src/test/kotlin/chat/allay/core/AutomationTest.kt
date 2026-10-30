@@ -595,6 +595,14 @@ class AutomationTest {
     assertFalse(stuck(asked = true, waited = true))
   }
 
+  @Test fun `a backend that doesn't know a kind is told apart from other refusals`() {
+    val agents = chat.allay.core.tasks.Agents
+    assertTrue(agents.refusesKind(ApiErrorException(ApiError("TASK_KIND_UNKNOWN", "Unknown task kind: anvils", statusCode = 400))))
+    assertTrue(agents.refusesKind(ApiErrorException(ApiError("BAD_REQUEST", "Invalid request body: task.kind: Invalid option", statusCode = 400))))
+    assertFalse(agents.refusesKind(ApiErrorException(ApiError("BAD_REQUEST", "Invalid request body: tasks: Too big", statusCode = 400))))
+    assertFalse(agents.refusesKind(ApiErrorException(ApiError("AI_REQUEST_FAILED", "task.kind"))))
+  }
+
   @Test fun `an agent pauses in another world or past its distance, and only then`() {
     val anchor = Protocol.Position(0, 64, 0, "overworld", "world")
     assertFalse(chat.allay.core.tasks.Agents.away(Protocol.Position(40, 70, -40, "overworld", "world"), anchor, 64))

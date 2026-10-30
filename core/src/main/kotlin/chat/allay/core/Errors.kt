@@ -44,6 +44,9 @@ object ErrorCodes {
   // Since 6.2: an operator of the backend stopped this player from asking on this server.
   const val PLAYER_BLOCKED = "PLAYER_BLOCKED"
 
+  // Since 6.22: an automation agent of a kind this backend doesn't know; older ones answer BAD_REQUEST on task.kind.
+  const val TASK_KIND_UNKNOWN = "TASK_KIND_UNKNOWN"
+
   /** Errors `server.token` fixes: operators learn what to set. */
   val TOKEN = setOf(TOKEN_REQUIRED, TOKEN_INVALID, TOKEN_NOT_SET)
 
