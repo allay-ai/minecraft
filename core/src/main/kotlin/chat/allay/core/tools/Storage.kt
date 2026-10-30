@@ -94,6 +94,20 @@ object Storage {
     chests.flatten().filterNotNull().groupBy { stacks.id(it) }.mapValues { (_, list) -> list.sumOf(stacks::amount) }
 
   /**
+   * Whether writing [after] over [before] keeps every total: the same containers with the same number of slots, no
+   * empty or negative stack, and of each kind of item (like stacks, so an enchanted sword isn't a plain one) exactly as
+   * many as before. A plan that fails this would make or lose items, so nothing of it may be written.
+   */
+  fun <T> balanced(before: Map<String, List<T?>>, after: Map<String, List<T?>>, stacks: Stacks<T>): Boolean {
+    if (before.keys != after.keys) return false
+    if (before.any { (key, slots) -> after[key]!!.size != slots.size }) return false
+    if (after.values.flatten().filterNotNull().any { stacks.amount(it) <= 0 }) return false
+    val was = pool(before.values.flatten(), stacks)
+    val now = pool(after.values.flatten(), stacks)
+    return was.size == now.size && was.all { pool -> now.singleOrNull { stacks.similar(it.item, pool.item) }?.total == pool.total }
+  }
+
+  /**
    * Groups everything in [chests], given nearest first: each item goes to a chest assigned to it, then to one of its
    * category, and the categories nobody assigned take the free chests in order, the most stacks first. A category
    * that doesn't fit flows into the next chest. Null when everything together doesn't fit.

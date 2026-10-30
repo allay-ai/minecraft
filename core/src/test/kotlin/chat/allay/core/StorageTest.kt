@@ -170,6 +170,41 @@ class StorageTest {
     assertEquals(mapOf("bread" to 5), plan.left)
   }
 
+  @Test fun `a plan keeps every total or isn't balanced`() {
+    val before = mapOf(
+      "a" to listOf(Item("iron_ingot", 30), Item("diamond_sword", 1, "sharpness", max = 1), null),
+      "inventory" to listOf(null, Item("iron_ingot", 10)),
+    )
+    val moved = mapOf(
+      "a" to listOf(null, null, Item("diamond_sword", 1, "sharpness", max = 1)),
+      "inventory" to listOf(Item("iron_ingot", 40), null),
+    )
+    assertTrue(Storage.balanced(before, moved, stacks))
+    // One chest planned twice: the same items counted again.
+    assertTrue(!Storage.balanced(before, moved + ("inventory" to listOf(Item("iron_ingot", 70), null)), stacks))
+    // Lost, or swapped for another kind of the same id.
+    assertTrue(!Storage.balanced(before, moved + ("a" to listOf(null, null, null)), stacks))
+    assertTrue(!Storage.balanced(before, moved + ("a" to listOf(null, null, Item("diamond_sword", 1, max = 1))), stacks))
+    // Another chest, another size, an empty stack.
+    assertTrue(!Storage.balanced(before, moved - "a" + ("b" to moved["a"]!!), stacks))
+    assertTrue(!Storage.balanced(before, moved + ("a" to listOf(null, Item("diamond_sword", 1, "sharpness", max = 1))), stacks))
+    assertTrue(!Storage.balanced(before, moved + ("a" to listOf(Item("dirt", 0), null, Item("diamond_sword", 1, "sharpness", max = 1))), stacks))
+  }
+
+  @Test fun `every planner keeps every total`() {
+    val chests = listOf(
+      chest("a", 3, Item("iron_ingot", 30), Item("bread", 10), Item("cobblestone", 64)),
+      chest("b", 3, Item("bread", 5), Item("iron_ingot", 40)),
+    )
+    val inventory = chest("inventory", 4, Item("cobblestone", 3), Item("iron_ingot", 2))
+    val before = (chests + inventory).associate { it.key to it.slots }
+    val chestsOnly = chests.associate { it.key to it.slots }
+    assertTrue(Storage.balanced(chestsOnly, assertNotNull(Storage.group(chests, stacks)).chests, stacks))
+    assertTrue(Storage.balanced(chestsOnly, assertNotNull(Storage.sortEach(chests, stacks)).chests, stacks))
+    assertTrue(Storage.balanced(before, Storage.move(chests + inventory, setOf("inventory"), { it.id == "iron_ingot" }, stacks).chests, stacks))
+    assertTrue(Storage.balanced(before, Storage.stash(inventory, chests, stacks).chests, stacks))
+  }
+
   @Test fun `each item may have a limit of its own`() {
     val chests = listOf(
       chest("chest", 3, Item("lapis_lazuli", 64), Item("coal", 5), Item("coal", 20)),
