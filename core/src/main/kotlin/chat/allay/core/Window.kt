@@ -28,9 +28,13 @@ data class Window(
 
   /**
    * The window as the game should draw it, colored. Gray reads poorly over the blurred game, so a window's paragraphs
-   * are white, and what chat shows in white turns yellow.
+   * are white, and what chat shows in white turns yellow. The game's dialog needs at least one button, so a window
+   * without any gets [exit] as its button.
    */
-  fun ready(): Window = copy(title = Legacy.color(title), paragraphs = paragraphs.map { brighter(Legacy.color(it)) })
+  fun ready(): Window {
+    val colored = copy(title = Legacy.color(title), paragraphs = paragraphs.map { brighter(Legacy.color(it)) })
+    return if (buttons.isEmpty() && exit != null) colored.copy(buttons = listOf(exit), exit = null) else colored
+  }
 
   companion object {
     /** Widths in pixels: the text, and a button or field across it. */
