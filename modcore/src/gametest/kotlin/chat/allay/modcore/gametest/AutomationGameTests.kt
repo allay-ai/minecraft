@@ -170,6 +170,28 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun nothingMovesWhenAChestBecameAShulkerBoxAfterThePlan(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    val shulker = ItemStack(Items.SHULKER_BOX)
+    val first = chest(helper, BlockPos(3, 2, 1), ItemStack(Items.DIRT, 10), shulker.copy())
+    val second = chest(helper, BlockPos(3, 2, 4), ItemStack(Items.STONE, 5))
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "group")
+      put("chests", spots(first, second))
+    })
+    // The second chest broken and a shulker box placed there, holding the same.
+    helper.level.setBlockAndUpdate(second, Blocks.SHULKER_BOX.defaultBlockState())
+    (helper.level.getBlockEntity(second) as net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity).setItem(0, ItemStack(Items.STONE, 5))
+    val reason = refused { run(player, task, "chests", buildJsonObject { put("action", "apply") }) }
+    helper.assertTrue(reason?.contains("another block now") == true, "a chest swapped for a shulker box stops the apply: $reason")
+    equal(helper, count(contents(helper, first), Items.SHULKER_BOX), 1, "the shulker box stayed in the chest")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun aDoubleChestReadsAsOne(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)

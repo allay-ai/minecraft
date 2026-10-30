@@ -33,13 +33,16 @@ object Chests {
   /**
    * A plan waiting for apply: what each chest held when it was read and what it will hold, and the same for the player's
    * inventory ([pack]) when the plan takes from it or puts into it. [adding] names the chests it only puts things into,
-   * and [taking] says a take planned it: a sorter's output chest, which a hopper fills, gives things then.
+   * and [taking] says a take planned it: a sorter's output chest, which a hopper fills, gives things then. [kinds] and
+   * [boxes] say what block each chest was, so apply notices one broken and placed again as something else.
    */
   class Planned(
     val mode: String, val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val after: Map<String, List<ItemStack?>>,
     val inventory: Pair<List<ItemStack?>, List<ItemStack?>>? = null,
     val adding: Set<String> = emptySet(),
     val taking: Boolean = false,
+    val kinds: Map<String, String> = emptyMap(),
+    val boxes: Set<String> = emptySet(),
   )
 
   /** How a plan names the player's inventory among chests. */
@@ -151,11 +154,20 @@ object Chests {
           val player = context.requirePlayer()
           val agent = automation.agent(task)
           val planned = agent.plan as? Planned ?: throw ToolError("no plan to apply; call plan first")
+          // The player may have walked off since the plan: a far chest is left alone, and its chunk isn't loaded for it.
+          val reach = automation.settings().pauseDistance
+          planned.blocks.forEach { block -> beyond(player, block, reach)?.let { throw ToolError("$it now; plan again when the player is near") } }
           // Two chests of the plan joined into one double chest since: writing both would count its items twice.
           val halves = planned.blocks.flatMap { Blocks.halves(it).map(Blocks::place) }
           if (halves.size != halves.toSet().size) throw ToolError("two chests of the plan are one double chest now; plan again")
           for (block in planned.blocks) {
-            Blocks.unsuitable(player, block, Blocks.place(block) in planned.adding, planned.taking)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
+            val place = Blocks.place(block)
+            // Broken and placed again as another block, a shulker box among them: what it may hold isn't what the plan counted on.
+            if (block.type.key.key != planned.kinds[place] || Blocks.box(block) != (place in planned.boxes)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} is another block now; plan again")
+            val adding = place in planned.adding
+            Blocks.unsuitable(player, block, adding, planned.taking)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
+            // Another automation may have started counting on what lies here since the plan.
+            if (!adding && automation.reservations.heldAt(place, except = task.id)) throw ToolError("another automation of the player counts on what's in the chest at ${block.x} ${block.y} ${block.z} now; plan again without it or wait for that one to finish")
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")
           }
           if (planned.inventory != null && !same(pack(player), planned.inventory.first)) throw ToolError("the player's inventory changed since the plan; plan again")
@@ -163,6 +175,10 @@ object Chests {
           val moves = planned.blocks.any { !same(planned.before[Blocks.place(it)]!!, planned.after[Blocks.place(it)]!!) } ||
             planned.inventory?.let { (before, after) -> !same(before, after) } == true
           if (!moves) throw ToolError("the plan moves nothing: no chest or inventory slot changes. Nothing matched or there's no room; say so, or plan again with other items")
+          // Totals equal: across every chest and the inventory, the plan writes exactly what it read, nothing made or lost.
+          val was = planned.before + listOfNotNull(planned.inventory?.let { INVENTORY to it.first })
+          val will = planned.after + listOfNotNull(planned.inventory?.let { INVENTORY to it.second })
+          if (!Storage.balanced(was, will, stacks)) throw ToolError("the plan would make or lose items, so nothing moved; plan again")
           planned.blocks.forEach { block -> (block.state as Container).inventory.contents = planned.after[Blocks.place(block)]!!.toTypedArray() }
           planned.inventory?.let { (_, after) -> unpack(player, after) }
           automation.undo.keep(player.uniqueId, Undo.Change(planned.blocks, planned.before, planned.after, planned.inventory))
@@ -194,7 +210,7 @@ object Chests {
     if (mode !in setOf("sort", "group", "move", "take", "stash")) throw ToolError("mode must be sort, group, move, take, or stash")
     // One tick reads every chest; the planning runs here, off the server thread.
     class Read(
-      val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val assign: Map<String, Storage.Assign>, val targets: Set<String>, val outside: Boolean,
+      val blocks: List<Block>, val kinds: Map<String, String>, val before: Map<String, List<ItemStack?>>, val assign: Map<String, Storage.Assign>, val targets: Set<String>, val outside: Boolean,
       val inventory: List<ItemStack?>?, val held: Int, val boxes: Set<String>,
       /** Chests around that a take passed over, with why, and how far it looked: “none” is never “none anywhere”. */
       val skipped: List<Pair<Block, Blocks.Unfit>> = emptyList(), val radius: Int = 0,
@@ -263,7 +279,7 @@ object Chests {
         if (framed.isNotEmpty()) assign.merge(Blocks.place(block), Storage.Assign(items = framed)) { given, frames -> given.copy(items = given.items + frames.items) }
       }
       val inventory = if ("inventory" in from || mode == "take" || mode == "stash") pack(player) else null
-      Read(blocks, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) },
+      Read(blocks, blocks.associate { Blocks.place(it) to it.type.key.key }, blocks.associate { Blocks.place(it) to contents(it) }, assign, targets.map(Blocks::place).toSet(), blocks.any { !Claims.claimed(it.location) },
         inventory, player.inventory.heldItemSlot, blocks.filter(Blocks::box).map(Blocks::place).toSet(), skipped, settings.radius)
     }
     if (read.blocks.isEmpty()) throw ToolError(if (mode == "take" || mode == "stash") "no usable chest around the player" else "no chests: pick them with pick_blocks, or pass chests")
@@ -324,7 +340,8 @@ object Chests {
       throw ToolError("a shulker box can't hold shulker boxes; leave the box out of this or take the boxes elsewhere first")
     }
     val adding = if (mode == "sort" || mode == "group") emptySet() else read.targets
-    val planned = Planned(mode, read.blocks, read.before, plan.chests.filterKeys { it != INVENTORY }, read.inventory?.let { it to plan.chests[INVENTORY]!! }, adding, taking = mode == "take")
+    val planned = Planned(mode, read.blocks, read.before, plan.chests.filterKeys { it != INVENTORY }, read.inventory?.let { it to plan.chests[INVENTORY]!! }, adding,
+      taking = mode == "take", kinds = read.kinds, boxes = read.boxes)
     return context.main<ToolOutput> {
       val player = context.requirePlayer()
       automation.agent(task).plan = planned
