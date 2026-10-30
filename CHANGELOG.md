@@ -2,6 +2,22 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.22.0
+
+Agents you can trust with your base. Allay Server 6.22.0 lifts the limits below; with an older backend everything else works as before.
+
+- 🤖 **Up to eight agents and hour-long waits.** `automation.max_tasks` now really goes up to 8 and `automation.max_wait_seconds` up to 3600. An agent never sleeps less than 10 seconds, so a loop of short waits can't burn its wakes.
+- 🧱 **No more doubled diamonds.** A picked chest that became half of a double chest was planned twice, so taking from it could duplicate items. Every chest now counts once, and before anything moves Allay checks that every item is still accounted for, in every mode.
+- 🔒 **Someone else's claim stays theirs.** Agents no longer use anvils, grindstones, crafting tables, smithing tables, stonecutters, or cauldrons in a claim you can't open, and cauldrons must be in reach and in sight like any station. A running job checks its chests again at every refill and delivery, and `collect` needs the block in sight and leaves another agent's furnace alone.
+- 🧹 **Erasing your data stops your agents.** `/allay privacy erase` and an admin's erase end the player's agents first, and an agent wakes only while its player agrees to Allay's notice.
+- 💪 **Agents that survive hiccups.** A wake that broke off midway, say during a backend restart, goes on once with a note to look again before acting. Retries wait longer each time and no longer count against `max_wakes`. An agent that waited with nothing to wake it hears so instead of holding a slot until it times out.
+- 📣 **Agents say why they stop.** A server stop tells online players which agents ended, an agent whose kind an admin switched off or whose permission went away ends with a line, and a backend that doesn't know a kind of agent says so plainly. Running out of quota shows one line, not two.
+- 💀 **Nothing lost to the death screen.** While you're dead or away, smelted items stay in the furnace, finished potions in the stand, and anything else drops at the block, never into an inventory you'd lose.
+- 🧪 **A pack's items stay theirs.** Brewing uses only the game's own potions, never a plugin's or data pack's item built on one, and crafting matches exact recipe slots by their own test, so one item model shared by several items no longer swaps one for another.
+- 📦 **Fewer dead ends.** Taking from a sorter's output chest works at apply as in the plan, `assign` and **[Put back]** never reach far or unloaded chunks, a refused craft puts each item back where it came from, and a refused smelt or brew frees only what it held.
+- ⚒️ **Grindstone fixes.** On Fabric and NeoForge a ground enchanted book now stacks with plain books, and on every platform it keeps its name. Unbreakable gear can't be joined anywhere.
+- ⚡ **Lighter on the server.** Jobs leave blocks in unloaded chunks alone until they load, crafting finds its table in one pass, and the mods read open windows once instead of once per chest.
+
 ## 6.21.1
 
 - 🪟 **`/allay status` opens again.** With nothing to pay, the window had no buttons, and the game refused to draw it: nothing showed, and the log said “actions cannot be empty”. Now “Back” takes the empty spot. On Spigot, Paper, Fabric, and NeoForge.
