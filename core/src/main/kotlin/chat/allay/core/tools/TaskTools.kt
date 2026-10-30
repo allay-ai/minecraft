@@ -68,7 +68,8 @@ object TaskTools {
   private val wait = tool("wait") { context, _, _, args ->
     val task = context.requireTask()
     val max = context.services.config().automation.maxWaitSeconds
-    val seconds = args.int("seconds")?.coerceIn(1, max)
+    // At least 10 seconds: a timer that fires every few seconds would pay for a wake each time.
+    val seconds = args.int("seconds")?.coerceIn(MIN_WAIT_SECONDS, max)
     task.waited = true
     task.wakeAt = seconds?.let { System.currentTimeMillis() + it * 1000L }
     ToolOutput(buildJsonObject { put("waiting", true); seconds?.let { put("seconds", it) }; put("note", "end this wake now with a one-line note") }, "")
@@ -90,4 +91,7 @@ object TaskTools {
   }
 
   val all = listOf(start, message, cancel, say, wait, finish)
+
+  /** The shortest `wait` with seconds, as the backend's schema says too. */
+  const val MIN_WAIT_SECONDS = 10
 }
