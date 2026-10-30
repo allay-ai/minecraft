@@ -140,12 +140,14 @@ object Stands {
         Jobs.remove(this)
         val made = summary()
         val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
-        val news = if (to != null) {
+        val news = if (to != null && present(player)) {
           delivered += take(blocks).also { Jobs.deliver(player, it, to) }.sumOf { it.count }
           "brewing done: $made in ${loads.size} stands ($where); all $delivered went to ${Jobs.describe(to)}"
         } else {
-          val gone = if (delivered > 0) "; $delivered from earlier rounds went to the inventory" else ""
-          "brewing done: $made in ${loads.size} stands ($where)$gone; collect the rest"
+          // While the player is dead or away the potions wait in the stands, never in an inventory that loses them.
+          val gone = if (delivered > 0) "; $delivered from earlier rounds went to ${Jobs.describe(to ?: Jobs.Output.Inventory)}" else ""
+          val rest = if (to != null) "; the player is dead or away, so the rest waits in the stands: collect it when they're back" else "; collect the rest"
+          "brewing done: $made in ${loads.size} stands ($where)$gone$rest"
         }
         task.report(news)
         Jobs.automation.post(task, "[job] $news")
@@ -159,13 +161,14 @@ object Stands {
 
     /** A round is done: its potions go out, and the stand's next load goes in. False when someone took what it needs. */
     private fun next(load: Load): Boolean {
-      delivered += take(listOf(load.block)).also { Jobs.deliver(player, it, to ?: Jobs.Output.Inventory) }.sumOf { it.count }
+      // The next round needs the stand: while the player is dead or away, this round's potions drop at it.
+      delivered += take(listOf(load.block)).also { Jobs.deliver(player, it, to ?: Jobs.Output.Inventory, at = load.block) }.sumOf { it.count }
       val work = load.rest.removeFirst()
       val kind = chains[work.potion][work.step].from
-      val (taken, short) = sources.takeReserved(potion(kind), key(kind), work.bottles, Jobs.automation.reservations, task.id)
+      val (taken, short) = here().takeReserved(potion(kind), key(kind), work.bottles, Jobs.automation.reservations, task.id)
       if (short != null || taken.sumOf { it.count } < work.bottles) {
-        give(player, taken)
-        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to key(kind), "place" to (short?.block?.let { "${it.key} ${it.x} ${it.y} ${it.z}" } ?: "?")))
+        give(player, taken, at = load.block)
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to key(kind), "place" to (short?.chest?.let { "${it.key} ${it.x} ${it.y} ${it.z}" } ?: "?")))
         return false
       }
       taken.flatMap { stack -> List(stack.count) { stack.copyWithCount(1) } }.forEachIndexed { slot, bottle -> set(load.block, slot, bottle) }
@@ -175,16 +178,22 @@ object Stands {
       return feed(load)
     }
 
+    /**
+     * The places it reserved from, as they are now: a chest that turned unfit since, or the ender chest with none near
+     * any more, can't be taken from.
+     */
+    private fun here(): Sources = Jobs.automation.settings().let { sources.now(player, it.radius, it.pauseDistance) }
+
     /** Puts the reagent of the load's step into its stand, from what was reserved. False when someone took it. */
     fun feed(load: Load): Boolean {
       val reagent = InteractTools.known(chain(load)[load.step].reagent)!!
-      val (taken, short) = sources.takeReserved(plain(reagent), Slots.id(ItemStack(reagent)), 1, Jobs.automation.reservations, task.id)
+      val (taken, short) = here().takeReserved(plain(reagent), Slots.id(ItemStack(reagent)), 1, Jobs.automation.reservations, task.id)
       if (short != null || taken.isEmpty()) {
-        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to Slots.id(ItemStack(reagent)), "place" to (short?.block?.let { "${it.key} ${it.x} ${it.y} ${it.z}" } ?: "?")))
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to Slots.id(ItemStack(reagent)), "place" to (short?.chest?.let { "${it.key} ${it.x} ${it.y} ${it.z}" } ?: "?")))
         return false
       }
       if (slot(load.block, INGREDIENT) != null) {
-        give(player, taken)
+        give(player, taken, at = load.block)
         Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         return false
       }
@@ -354,7 +363,11 @@ object Stands {
           val blocks = Blocks.list(player, args["stands"], settings.radius).ifEmpty { job?.blocks?.toList().orEmpty() }
           if (blocks.isEmpty()) throw ToolError("which stands? pass stands")
           if (job != null && Jobs.active(job)) throw ToolError("still brewing; wait for the job to end")
-          blocks.forEach { block -> Blocks.unusable(player, block, settings.radius, false)?.let { throw ToolError("the stand at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") } }
+          if (!present(player)) throw ToolError("the player is dead or away; collect once they're back")
+          blocks.forEach { block ->
+            val unfit = Blocks.unusable(player, block, settings.radius, settings.lineOfSight) ?: Blocks.Unfit.BUSY.takeIf { Jobs.busy(block, task) }
+            unfit?.let { throw ToolError("the stand at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+          }
           val taken = take(blocks)
           Jobs.deliver(player, taken, to)
           if (taken.isNotEmpty()) task.report("collected ${Jobs.counts(taken)} from the stands to ${Jobs.describe(to)}")

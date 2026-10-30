@@ -16,9 +16,15 @@ import org.bukkit.inventory.meta.BundleMeta
  * barrels nearby the player may open, each with the bundles it holds (bundles inside bundles too, as deep as the game
  * nests them). Never shulker boxes, and never items with a name, enchantments, or anything else of their own. Server thread only.
  */
-class Sources private constructor(val list: List<Source>) {
-  /** One place items come from, read and written as a whole list of slots. */
-  class Source(val place: String, val own: Boolean, val block: Block?, private val read: () -> List<ItemStack?>, private val write: (List<ItemStack?>) -> Unit) {
+class Sources private constructor(val list: List<Source>, private val dropped: List<Source> = emptyList()) {
+  /**
+   * One place items come from, read and written as a whole list of slots. [block] is the chest it is; [chest] the
+   * chest it lies in, a bundle's too.
+   */
+  class Source(
+    val place: String, val own: Boolean, val block: Block?, private val read: () -> List<ItemStack?>, private val write: (List<ItemStack?>) -> Unit,
+    val chest: Block? = block,
+  ) {
     fun slots() = read()
 
     fun count(match: (ItemStack) -> Boolean) = read().filterNotNull().filter(match).sumOf { it.amount }
@@ -67,6 +73,25 @@ class Sources private constructor(val list: List<Source>) {
 
   fun count(match: (ItemStack) -> Boolean) = list.sumOf { it.count(match) }
 
+  /**
+   * These places as they are now for [player], for a job that takes what it reserved long after its start: a chest
+   * that turned unfit since (someone's claim, open in a window, a hopper on it, gone, another world, farther than
+   * [reach]) and the ender chest once none stands within [radius] drop out, as they would at a start. What the task
+   * holds there can't be taken then: [takeReserved] names the place it fell short at.
+   */
+  fun now(player: Player, radius: Int, reach: Int): Sources {
+    val ender = list.any { it.place.startsWith("ender:") } && enderNear(player, radius)
+    val chests = list.mapNotNull { it.chest }.distinct().associateWith { fits(player, it, reach) }
+    val (kept, out) = list.partition { source ->
+      when {
+        source.chest != null -> chests.getValue(source.chest)
+        source.place.startsWith("ender:") -> ender
+        else -> true
+      }
+    }
+    return Sources(kept, out)
+  }
+
   /** How many [match] finds that nobody holds yet, [task] included: a task never books the same items twice. */
   fun free(match: (ItemStack) -> Boolean, key: String, holds: Reservations, task: String): Int =
     list.sumOf { (it.count(match) - holds.held(it.place, key)).coerceAtLeast(0) }
@@ -92,7 +117,8 @@ class Sources private constructor(val list: List<Source>) {
     takeReservedFrom(match, key, amount, holds, task).let { (parts, short) -> parts.flatMap { it.second } to short }
 
   /**
-   * [takeReserved], keeping each stack with the place it came from, so a refusal can put it back there.
+   * [takeReserved], keeping each stack with the place it came from, so a refusal can put it back there. A place this
+   * look left out ([now]) where the task holds [key] counts as the place it fell short at.
    */
   fun takeReservedFrom(match: (ItemStack) -> Boolean, key: String, amount: Int, holds: Reservations, task: String): Pair<List<Pair<Source, List<ItemStack>>>, Source?> {
     val taken = mutableListOf<Pair<Source, List<ItemStack>>>()
@@ -109,9 +135,9 @@ class Sources private constructor(val list: List<Source>) {
       left -= n
       if (n < want) return taken to source
     }
+    if (left > 0) dropped.firstOrNull { held[it.place]?.get(key) != null }?.let { return taken to it }
     return taken to null
   }
-
 
   companion object {
     /** How deep bundles nest in bundles, as the game allows. */
@@ -141,17 +167,24 @@ class Sources private constructor(val list: List<Source>) {
         if (state !is Container || Blocks.unsuitable(player, block) != null) return@forEach
         list += Source(Blocks.place(block), false, block, { (block.state as? Container)?.inventory?.contents?.toList().orEmpty() }, { items -> (block.state as? Container)?.inventory?.contents = items.toTypedArray() })
         for (slot in 0 until state.inventory.size) {
-          bundles(list, "${Blocks.place(block)}#$slot", 1, false, { (block.state as? Container)?.inventory?.getItem(slot) }, { item -> (block.state as? Container)?.inventory?.setItem(slot, item) })
+          bundles(list, "${Blocks.place(block)}#$slot", 1, false, { (block.state as? Container)?.inventory?.getItem(slot) }, { item -> (block.state as? Container)?.inventory?.setItem(slot, item) }, block)
         }
       }
       return Sources(list)
     }
 
+    /**
+     * Whether a chest is still one to take from or put into for [player]: in their world, within [reach], and fit as
+     * [Blocks.unsuitable] says; with [adding] a sorter's input chest counts too.
+     */
+    fun fits(player: Player, block: Block, reach: Int, adding: Boolean = false): Boolean =
+      block.world == player.world && block.location.add(0.5, 0.5, 0.5).distance(player.location) <= reach && Blocks.unsuitable(player, block, adding = adding) == null
+
     /** Whether an ender chest stands within [radius]: only then is the player's own a source, as in the game. */
     fun enderNear(player: Player, radius: Int) = Blocks.near(player.location, radius) { it.type == Material.ENDER_CHEST }.isNotEmpty()
 
     /** A bundle at [get] becomes a source, and each bundle inside it too, down to [BUNDLE_DEPTH]. */
-    private fun bundles(list: MutableList<Source>, place: String, depth: Int, own: Boolean, get: () -> ItemStack?, set: (ItemStack?) -> Unit) {
+    private fun bundles(list: MutableList<Source>, place: String, depth: Int, own: Boolean, get: () -> ItemStack?, set: (ItemStack?) -> Unit, chest: Block? = null) {
       if (depth > BUNDLE_DEPTH) return
       val bundle = get() ?: return
       val meta = bundle.itemMeta as? BundleMeta ?: return
@@ -166,9 +199,9 @@ class Sources private constructor(val list: List<Source>) {
         }
       }
       // A bundle has no empty slots: what goes in is added at the end, never into a full bundle.
-      list += Source(place, own, null, read, write)
+      list += Source(place, own, null, read, write, chest)
       meta.items.forEachIndexed { index, _ ->
-        bundles(list, "$place/$index", depth + 1, own, { read().getOrNull(index) }, { inner ->
+        bundles(list, "$place/$index", depth + 1, own, { read().getOrNull(index) }, chest = chest, set = { inner ->
           val items = read().toMutableList()
           if (index < items.size) {
             if (inner == null) items.removeAt(index) else items[index] = inner
@@ -180,15 +213,29 @@ class Sources private constructor(val list: List<Source>) {
   }
 }
 
-/** Hands [items] to [player]: into [preferred] if it has room, then the inventory, then at their feet. Returns how many fell there. */
-fun give(player: Player, items: List<ItemStack>, preferred: Sources.Source? = null): Int {
+/**
+ * Whether [player] can take items now: online and alive. On the death screen the inventory is already gone, and what
+ * goes into it then is lost at the respawn.
+ */
+fun present(player: Player) = player.isOnline && !player.isDead
+
+/**
+ * Hands [items] to [player]: into [preferred] if it has room, then the inventory, then at their feet. While they're dead
+ * or gone nothing goes into the inventory: it drops at [at] (the furnace or stand a job works at), else where they are.
+ * Returns how many fell.
+ */
+fun give(player: Player, items: List<ItemStack>, preferred: Sources.Source? = null, at: Block? = null): Int {
+  val here = present(player)
   var dropped = 0
   items.forEach { item ->
     var left: ItemStack? = item
     // A bundle source refuses nothing, so only containers and the inventory take items back.
     if (preferred != null && !preferred.place.contains('#')) left = left?.let(preferred::add)
-    left = left?.let { player.inventory.addItem(it).values.firstOrNull() }
-    left?.let { player.world.dropItemNaturally(player.location, it); dropped += it.amount }
+    if (here) left = left?.let { player.inventory.addItem(it).values.firstOrNull() }
+    left?.let {
+      if (here || at == null) player.world.dropItemNaturally(player.location, it) else at.world.dropItemNaturally(at.location.add(0.5, 1.0, 0.5), it)
+      dropped += it.amount
+    }
   }
   return dropped
 }

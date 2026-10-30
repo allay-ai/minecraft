@@ -173,13 +173,19 @@ object Jobs {
     else -> null
   }
 
-  /** Puts [items] where [to] says; what doesn't fit goes to the inventory, then at the player's feet. */
-  fun deliver(player: ServerPlayer, items: List<ItemStack>, to: Output) {
+  /**
+   * Puts [items] where [to] says; what doesn't fit goes to the inventory, then at the player's feet. Chests named at the
+   * start are asked again, since a job delivers long after it: one that turned unfit (someone's claim, open, gone,
+   * another world, farther than `automation.pause_distance`) is skipped. While the player is dead or gone, what's left
+   * drops at [at] instead of into an inventory that loses it.
+   */
+  fun deliver(player: ServerPlayer, items: List<ItemStack>, to: Output, at: BlockAt? = null) {
     var left = items
+    val settings = automation.settings()
     val chests = when (to) {
-      is Output.Chests -> to.blocks
+      is Output.Chests -> to.blocks.filter { Sources.fits(player, it, settings.pauseDistance, adding = true) }
       // The chests around that already hold each item, nearest first, as a player would put it away.
-      Output.Auto -> Blocks.near(player, automation.settings().radius) { Blocks.storage(it.state) }.map(Blocks::root).distinct()
+      Output.Auto -> if (!present(player)) emptyList() else Blocks.near(player, settings.radius) { Blocks.storage(it.state) }.map(Blocks::root).distinct()
         .filter { Blocks.unsuitable(player, it, adding = true) == null }
       Output.Inventory -> emptyList()
     }
@@ -191,7 +197,7 @@ object Jobs {
         if (!holds || (box && item.`is`(ItemTags.SHULKER_BOXES))) listOf(item) else listOfNotNull(Slots.add(inventory, item))
       }
     }
-    give(player, left)
+    give(player, left, at = at)
   }
 
   val all: List<Tool> = listOf(Furnaces.tool, Stands.tool, Crafting.tool, AnvilWork.tool, GrindstoneWork.tool)
