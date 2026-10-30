@@ -68,6 +68,8 @@ class Agents(
 
   private val agents = ConcurrentHashMap<String, Agent>()
   private var ticker: AutoCloseable? = null
+  /** Allay is shutting down: nothing wakes any more. */
+  @Volatile private var stopping = false
 
   private fun key(task: Task) = "${task.owner}:${task.id}"
 
@@ -79,12 +81,15 @@ class Agents(
   fun title(player: Audience, task: Task) = task.title(locales.of(player).text("automation.title"))
 
   fun start() {
+    stopping = false
     ticker = platform.scheduler.every(20L, 20L, block = ::tick)
   }
 
+  /** Shutdown, a disable, or a reload: owners still online hear why their agents stopped; nothing is kept for later. */
   fun stop() {
     ticker?.close()
-    book.all().forEach { end(it, null) }
+    stopping = true
+    book.all().forEach { task -> end(task, platform.player(task.owner)?.let { locales.of(it).text("automation.server_stopping") }) }
   }
 
   /**
@@ -116,7 +121,7 @@ class Agents(
 
   /** Wakes [task] with [message] now, or right after the wake that's out. Safe from any thread. */
   fun post(task: Task, message: String) {
-    if (task.done) return
+    if (task.done || stopping) return
     task.inbox += message
     onMain { wake(task) }
   }

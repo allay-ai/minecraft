@@ -425,6 +425,7 @@ automation:
   silent: "ficou em silêncio sem terminar. Peça de novo, talvez com outras palavras."
   too_many_steps: "foram passos demais. Peça de novo em partes menores."
   quota: "a cota do Allay acabou."
+  server_stopping: "o servidor está sendo desligado."
   gone: "&7Essa automação já terminou."
   replied: "&d⚙ {title}&8: &a✔ &7Recebido: “{label}”. Vou repassar ao agente."
   chests_done: "Pronto: {count} {count|baú|baús}. As placas mostram o que foi para onde."

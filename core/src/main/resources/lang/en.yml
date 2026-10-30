@@ -427,6 +427,7 @@ automation:
   silent: "it went quiet without finishing. Ask again, perhaps in other words."
   too_many_steps: "it took too many steps. Ask again in smaller parts."
   quota: "the Allay quota ran out."
+  server_stopping: "the server is stopping."
   gone: "&7This automation is over."
   replied: "&d⚙ {title}&8: &a✔ &7Got it: “{label}”. Passing it on."
   chests_done: "Done: {count} {count|chest|chests}. The labels show what went where."
