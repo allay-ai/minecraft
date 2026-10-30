@@ -34,12 +34,14 @@ import java.util.concurrent.ConcurrentHashMap
 object Chests {
   /**
    * A plan waiting for apply: what each chest held when it was read and what it will hold, and the same for the player's
-   * inventory ([pack]) when the plan takes from it or puts into it. [adding] names the chests it only puts things into.
+   * inventory ([pack]) when the plan takes from it or puts into it. [adding] names the chests it only puts things into,
+   * and [taking] says a take planned it: a sorter's output chest, which a hopper fills, gives things then.
    */
   class Planned(
     val mode: String, val blocks: List<BlockAt>, val before: Map<String, List<ItemStack?>>, val after: Map<String, List<ItemStack?>>,
     val inventory: Pair<List<ItemStack?>, List<ItemStack?>>? = null,
     val adding: Set<String> = emptySet(),
+    val taking: Boolean = false,
   )
 
   /** How a plan names the player's inventory among chests. */
@@ -149,7 +151,7 @@ object Chests {
           val halves = planned.blocks.flatMap { Blocks.halves(it).map(Blocks::place) }
           if (halves.size != halves.toSet().size) throw ToolError("two chests of the plan are one double chest now; plan again")
           for (block in planned.blocks) {
-            Blocks.unsuitable(player, block, Blocks.place(block) in planned.adding)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
+            Blocks.unsuitable(player, block, Blocks.place(block) in planned.adding, planned.taking)?.let { throw ToolError("the chest at ${block.x} ${block.y} ${block.z} can't be used now: ${it.model}; plan again") }
             if (!same(contents(block), planned.before[Blocks.place(block)]!!)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} changed since the plan; plan again")
           }
           if (planned.inventory != null && !same(pack(player), planned.inventory.first)) throw ToolError("the player's inventory changed since the plan; plan again")
@@ -315,7 +317,7 @@ object Chests {
       throw ToolError("a shulker box can't hold shulker boxes; leave the box out of this or take the boxes elsewhere first")
     }
     val adding = if (mode == "sort" || mode == "group") emptySet() else read.targets
-    val planned = Planned(mode, read.blocks, read.before, plan.chests.filterKeys { it != INVENTORY }, read.inventory?.let { it to plan.chests[INVENTORY]!! }, adding)
+    val planned = Planned(mode, read.blocks, read.before, plan.chests.filterKeys { it != INVENTORY }, read.inventory?.let { it to plan.chests[INVENTORY]!! }, adding, taking = mode == "take")
     return context.main<ToolOutput> {
       val player = context.requirePlayer()
       automation.agent(task).plan = planned

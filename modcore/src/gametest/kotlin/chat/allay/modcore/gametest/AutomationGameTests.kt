@@ -224,6 +224,26 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun aTakeEmptiesASortersOutputChest(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    // A hopper on top fills it, as a sorter's output; none under it drains it.
+    val output = chest(helper, BlockPos(3, 2, 1), ItemStack(Items.IRON_INGOT, 12))
+    helper.level.setBlockAndUpdate(output.above(), Blocks.HOPPER.defaultBlockState())
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "take")
+      put("chests", spots(output))
+      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_ingot")) }
+    })
+    val reason = refused { run(player, task, "chests", buildJsonObject { put("action", "apply") }) }
+    equal(helper, reason, null, "apply takes from it as the plan did")
+    equal(helper, carried(player, Items.IRON_INGOT), 12, "the ingots")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun hoppersClaimsAndOpenWindowsKeepChestsOut(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)
