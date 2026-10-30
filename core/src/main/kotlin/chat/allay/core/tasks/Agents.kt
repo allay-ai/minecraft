@@ -309,9 +309,9 @@ class Agents(
     }
     task.resumed = false
     val busy = agent.job?.let(world::active) == true || book.children(task).isNotEmpty()
-    // A wake that ends with no word, no wait, and no finish leaves the player with nothing until the task times out:
-    // the first time the agent hears so and goes on, the second time it ends with a line to the player.
-    if (agent.said == null && !agent.asked && !task.waited && !busy && task.question == null && task.inbox.isEmpty()) {
+    // A wake that ends with no word and no finish, and nothing to wake it, holds a slot until the task times out: the
+    // first time the agent hears so and goes on, the second time it ends with a line to the player.
+    if (stuck(agent.said != null, agent.asked, task.waited, task.wakeAt != null, busy, task.question != null, task.inbox.isNotEmpty())) {
       if (!task.nudged) {
         task.nudged = true
         task.inbox += SILENT
@@ -375,7 +375,15 @@ class Agents(
 
   companion object {
     /** What an agent hears after a wake that ended without a word to the player. */
-    const val SILENT = "[plugin] Your last wake ended without say, wait, or finish, so the player heard nothing. Tell them in a line what happened and what's missing, then end with wait (seconds when something will finish) or finish."
+    const val SILENT = "[plugin] Your last wake ended without say or finish and with nothing to wake you (no wait seconds, no job, no sub-agent, no question to the player), so the player heard nothing. Tell them in a line what happened and what's missing, then end with wait (seconds when something will finish) or finish."
+
+    /**
+     * Whether a wake left nothing to wake the agent: no line or buttons to the player, no open question, no job or
+     * sub-agent running, nothing in the inbox, and no wait with seconds. A bare `wait` counts too, since it would hold a
+     * slot until `max_minutes`; a timer instead would wake the agent again and again with nothing new, each wake paid.
+     */
+    fun stuck(said: Boolean, asked: Boolean, waited: Boolean, timer: Boolean, busy: Boolean, question: Boolean, inbox: Boolean): Boolean =
+      !said && !asked && !(waited && timer) && !busy && !question && !inbox
 
     /** In another world, or farther than [distance] blocks from where the agent started. */
     fun away(at: Protocol.Position, anchor: Protocol.Position, distance: Int): Boolean {

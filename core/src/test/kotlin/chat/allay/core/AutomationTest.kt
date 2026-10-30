@@ -566,6 +566,18 @@ class AutomationTest {
     assertEquals(300L, Retry.backoff(1, asked = 900))
   }
 
+  @Test fun `a wake with nothing to wake the agent counts as silent, a bare wait included`() {
+    fun stuck(said: Boolean = false, asked: Boolean = false, waited: Boolean = false, timer: Boolean = false, busy: Boolean = false, question: Boolean = false) =
+      chat.allay.core.tasks.Agents.stuck(said, asked, waited, timer, busy, question, inbox = false)
+    assertTrue(stuck())
+    assertTrue(stuck(waited = true))
+    assertFalse(stuck(waited = true, timer = true))
+    assertFalse(stuck(waited = true, busy = true))
+    assertFalse(stuck(waited = true, question = true))
+    assertFalse(stuck(said = true, waited = true))
+    assertFalse(stuck(asked = true, waited = true))
+  }
+
   @Test fun `an agent pauses in another world or past its distance, and only then`() {
     val anchor = Protocol.Position(0, 64, 0, "overworld", "world")
     assertFalse(chat.allay.core.tasks.Agents.away(Protocol.Position(40, 70, -40, "overworld", "world"), anchor, 64))
