@@ -161,12 +161,32 @@ object Blocks {
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: BlockAt): Boolean {
     val container = container(block) ?: return false
-    return block.level.server.playerList.players.any { player ->
-      player.containerMenu !== player.inventoryMenu && player.containerMenu.slots.any { slot ->
-        slot.container === container || (slot.container as? CompoundContainer)?.contains(container) == true
+    val server = block.level.server
+    if (server !== openServer.get() || server.tickCount != openTick) {
+      openServer = java.lang.ref.WeakReference(server)
+      openTick = server.tickCount
+      openNow.clear()
+      openPairs.clear()
+      server.playerList.players.forEach { player ->
+        if (player.containerMenu === player.inventoryMenu) return@forEach
+        player.containerMenu.slots.forEach { slot ->
+          val inside = slot.container
+          if (inside is CompoundContainer) openPairs += inside else openNow += inside
+        }
       }
     }
+    return container in openNow || openPairs.any { it.contains(container) }
   }
+
+  /**
+   * What players have open, read once a tick rather than once a chest: a call that looks at fifty chests would walk
+   * every player's window fifty times. By identity, as the game's containers compare; a double chest as its pair. The
+   * server only weakly: a singleplayer game starts many.
+   */
+  private var openServer = java.lang.ref.WeakReference<net.minecraft.server.MinecraftServer>(null)
+  private var openTick = -1
+  private val openNow: MutableSet<Container> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
+  private val openPairs: MutableSet<CompoundContainer> = java.util.Collections.newSetFromMap(java.util.IdentityHashMap())
 
   /** Every sign on the chest: wall signs and hanging signs on its sides, a hanging sign under it, a sign on top. Both faces, all lines. */
   fun signs(block: BlockAt): List<String> = halves(block).flatMap { half ->
