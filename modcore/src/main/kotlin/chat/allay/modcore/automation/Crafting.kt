@@ -508,22 +508,22 @@ object Crafting {
     return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(true))), lang.text("summary.crafted", "count" to needs.makes, "item" to id))
   }
 
+  /** Takes everything first, each id by [match]; if anything falls short, it all goes back where it was and nothing is crafted. */
   private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
-    val taken = mutableListOf<ItemStack>()
+    // A refusal puts each stack back where it came from and drops only the holds this call made.
+    val booking = Booking(holds, task.id)
+    val taken = mutableListOf<Pair<Sources.Source, List<ItemStack>>>()
+    fun back(reason: String): Nothing {
+      taken.forEach { (source, stacks) -> give(player, stacks, source) }
+      booking.undo()
+      throw ToolError(reason)
+    }
     for ((id, n) in takes) {
       val match = match(id)
-      if (!sources.reserve(match, id, n, holds, task.id)) {
-        give(player, taken)
-        holds.release(task.id)
-        throw ToolError("someone took the $id meanwhile")
-      }
-      val (got, short) = sources.takeReserved(match, id, n, holds, task.id)
+      if (!sources.reserve(match, id, n, holds, task.id)) back("someone took the $id meanwhile")
+      val (got, short) = sources.takeReservedFrom(match, id, n, holds, task.id)
       taken += got
-      if (short != null) {
-        give(player, taken)
-        holds.release(task.id)
-        throw ToolError("the $id changed meanwhile")
-      }
+      if (short != null) back("the $id changed meanwhile")
     }
   }
 }

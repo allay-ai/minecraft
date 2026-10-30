@@ -88,8 +88,14 @@ class Sources private constructor(val list: List<Source>) {
    * Takes [amount] the task reserved, place by place. Returns what it took and the place it fell short at, if any:
    * someone took what was reserved there.
    */
-  fun takeReserved(match: (ItemStack) -> Boolean, key: String, amount: Int, holds: Reservations, task: String): Pair<List<ItemStack>, Source?> {
-    val taken = mutableListOf<ItemStack>()
+  fun takeReserved(match: (ItemStack) -> Boolean, key: String, amount: Int, holds: Reservations, task: String): Pair<List<ItemStack>, Source?> =
+    takeReservedFrom(match, key, amount, holds, task).let { (parts, short) -> parts.flatMap { it.second } to short }
+
+  /**
+   * [takeReserved], keeping each stack with the place it came from, so a refusal can put it back there.
+   */
+  fun takeReservedFrom(match: (ItemStack) -> Boolean, key: String, amount: Int, holds: Reservations, task: String): Pair<List<Pair<Source, List<ItemStack>>>, Source?> {
+    val taken = mutableListOf<Pair<Source, List<ItemStack>>>()
     var left = amount
     val held = holds.of(task)
     for (source in list) {
@@ -98,13 +104,14 @@ class Sources private constructor(val list: List<Source>) {
       val want = minOf(left, mine)
       val got = source.take(match, want)
       val n = got.sumOf { it.amount }
-      taken += got
+      if (got.isNotEmpty()) taken += source to got
       holds.take(task, source.place, key, n)
       left -= n
       if (n < want) return taken to source
     }
     return taken to null
   }
+
 
   companion object {
     /** How deep bundles nest in bundles, as the game allows. */
