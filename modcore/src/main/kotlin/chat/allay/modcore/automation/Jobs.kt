@@ -64,6 +64,15 @@ object Jobs {
 
   fun busy(block: BlockAt) = of(block) != null
 
+  /** Whether a job of another task than [task] works [block]. */
+  fun busy(block: BlockAt, task: Task) = of(block)?.let { it.task.id != task.id } == true
+
+  /**
+   * Whether [block]'s chunk is loaded. A job's furnaces and stands stand still in an unloaded chunk, as in the game, so
+   * its checks skip them there instead of loading the chunk, and the job goes on once someone comes back.
+   */
+  fun loaded(block: BlockAt) = block.level.chunkSource.getChunkNow(block.x shr 4, block.z shr 4) != null
+
   /** Whether [job] still works; a finished one stays on its agent for collect. */
   fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
 

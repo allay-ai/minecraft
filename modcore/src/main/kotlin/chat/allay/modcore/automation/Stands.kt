@@ -198,6 +198,10 @@ object Stands {
     override fun check() {
       for (load in loads) {
         if (done(load)) continue
+        if (!Jobs.loaded(load.block)) {
+          suspect -= load.block
+          continue
+        }
         val stand = stand(load.block)
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "brewing_stand", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         // A stand of the job brews all the time but for a tick or two between steps. Standing still means someone took

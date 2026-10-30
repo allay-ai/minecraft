@@ -174,6 +174,10 @@ object Furnaces {
 
     override fun check() {
       for (load in loads) {
+        if (!Jobs.loaded(load.block)) {
+          suspect -= load.block
+          continue
+        }
         furnace(load.block)
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "furnace", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         val input = input(load.block)?.takeIf { it.item == load.item }?.count ?: 0
