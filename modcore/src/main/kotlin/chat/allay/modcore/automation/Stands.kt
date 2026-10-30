@@ -77,10 +77,17 @@ object Stands {
 
   private fun plain(type: Item): (ItemStack) -> Boolean = { it.item == type && Sources.plain(it) }
 
-  /** A plain bottle of [kind]: no name, no lore, nothing of its own. */
-  private fun potion(kind: Brewing.Bottle): (ItemStack) -> Boolean = { item ->
-    bottle(item) == kind && item.own(DataComponents.CUSTOM_NAME) == null && item.own(DataComponents.LORE) == null
+  /**
+   * Whether [item] is exactly the game's own potion of its kind, as a fresh one of its potion is: a mod's or data pack's
+   * item built on a potion (a model, a name, data of its own) is never a water bottle or a step of a brew.
+   */
+  private fun fresh(item: ItemStack): Boolean {
+    val potion = item.get(DataComponents.POTION_CONTENTS)?.potion()?.orElse(null) ?: return false
+    return Slots.similar(item, net.minecraft.world.item.alchemy.PotionContents.createItemStack(item.item, potion))
   }
+
+  /** A plain bottle of [kind]: nothing of its own, exactly as the game makes it. */
+  private fun potion(kind: Brewing.Bottle): (ItemStack) -> Boolean = { item -> bottle(item) == kind && fresh(item) }
 
   private val water = potion(Brewing.WATER)
 
@@ -358,6 +365,7 @@ object Stands {
   private fun held(block: BlockAt): Pair<Brewing.Bottle?, Int>? {
     val present = bottles(block).filterNotNull()
     if (present.isEmpty()) return null to 0
+    if (!present.all(::fresh)) return null
     val kind = present.map(::bottle).distinct().singleOrNull() ?: return null
     return kind to present.size
   }

@@ -53,11 +53,18 @@ object Stands {
 
   private fun plain(type: Material): (ItemStack) -> Boolean = { it.type == type && Sources.plain(it) }
 
-  /** A plain bottle of [kind]: no name, no lore, nothing of its own. */
-  private fun potion(kind: Brewing.Bottle): (ItemStack) -> Boolean = { item ->
-    val meta = item.itemMeta as? PotionMeta
-    bottle(item) == kind && meta != null && !meta.hasCustomEffects() && !meta.hasDisplayName() && !meta.hasLore()
+  /**
+   * Whether [item] is exactly the game's own potion of its kind, as a fresh one of its potion is ([Crafting.key] asks
+   * the same): a plugin's or data pack's item built on a potion (a model, a name, data of its own) is never a water
+   * bottle or a step of a brew.
+   */
+  private fun fresh(item: ItemStack): Boolean {
+    val type = (item.itemMeta as? PotionMeta)?.basePotionType ?: return false
+    return item.isSimilar(ItemStack(item.type).apply { itemMeta = (itemMeta as PotionMeta).apply { basePotionType = type } })
   }
+
+  /** A plain bottle of [kind]: nothing of its own, exactly as the game makes it. */
+  private fun potion(kind: Brewing.Bottle): (ItemStack) -> Boolean = { item -> bottle(item) == kind && fresh(item) }
 
   private val water = potion(Brewing.WATER)
 
@@ -321,6 +328,7 @@ object Stands {
   private fun held(block: Block): Pair<Brewing.Bottle?, Int>? {
     val present = bottles(block).filterNotNull()
     if (present.isEmpty()) return null to 0
+    if (!present.all(::fresh)) return null
     val kind = present.map(::bottle).distinct().singleOrNull() ?: return null
     return kind to present.size
   }
