@@ -541,6 +541,25 @@ class AutomationTest {
     assertNull(Retry.after(IllegalStateException("mid-stream")))
   }
 
+  @Test fun `an agent may go on once from a wake that broke off midway, never from a refusal`() {
+    assertTrue(Retry.broke(ApiErrorException(ApiError("AI_REQUEST_FAILED", "provider 429"))))
+    assertTrue(Retry.broke(ApiErrorException(ApiError("NETWORK_ERROR", "socket"))))
+    assertTrue(Retry.broke(ApiErrorException(ApiError("HTTP_ERROR", "oops", statusCode = 500))))
+    assertTrue(Retry.broke(java.io.IOException("unexpected end of stream")))
+    assertFalse(Retry.broke(ApiErrorException(ApiError("QUOTA_EXCEEDED", "spent", statusCode = 402))))
+    assertFalse(Retry.broke(ApiErrorException(ApiError("BAD_REQUEST", "task.kind", statusCode = 400))))
+    assertFalse(Retry.broke(IllegalStateException("a bug")))
+  }
+
+  @Test fun `a wake that broke off goes on with a note, what its tools did, and its message`() {
+    val task = TaskBook({ 2 }).start(player, Kind.CRAFTING, "a", "", 1, null)
+    assertEquals(Task.BROKE + "\nThat wake had woken with:\n[player] да", task.resume("[player] да"))
+    task.report("crafted 3 × glass_bottle into the player's inventory")
+    val note = task.resume("x".repeat(3000))
+    assertTrue(note.startsWith(Task.BROKE + "\nWhat your tools reported so far: crafted 3 × glass_bottle"))
+    assertEquals(Task.MESSAGE_LIMIT, note.length)
+  }
+
   @Test fun `retries back off longer each time, never sooner than the backend asks`() {
     assertEquals(listOf(15L, 45L, 135L, 300L), (1..4).map { Retry.backoff(it) })
     assertEquals(60L, Retry.backoff(1, asked = 60))

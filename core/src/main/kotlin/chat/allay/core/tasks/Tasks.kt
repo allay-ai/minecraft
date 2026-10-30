@@ -56,6 +56,9 @@ class Task(
   /** Wakes in a row the backend couldn't take (busy, rate-limited, unreachable); a wake that runs resets it. */
   @Volatile var retries = 0
 
+  /** It went on once after a wake that broke off midway; a wake that runs resets it. */
+  @Volatile var resumed = false
+
   /** No wake before this time (epoch milliseconds): a retry's backoff, which a message arriving meanwhile doesn't skip. */
   @Volatile var notBefore = 0L
 
@@ -112,12 +115,24 @@ class Task(
     if (done.isNotEmpty()) append("\nWhat its tools reported: ").append(done.joinToString("; "))
   }.take(1000)
 
+  /**
+   * What the agent wakes with after a wake that broke off midway: tools may have acted, so it reads the state before it
+   * acts, with what its tools reported and what that wake had woken with.
+   */
+  fun resume(message: String): String = buildString {
+    append(BROKE)
+    val done = results.toList()
+    if (done.isNotEmpty()) append("\nWhat your tools reported so far: ").append(done.joinToString("; "))
+    if (message.isNotBlank()) append("\nThat wake had woken with:\n").append(message)
+  }.take(MESSAGE_LIMIT)
+
   /** The chat label: “Automation agent: chests”. */
   fun title(prefix: String) = "$prefix: $name"
 
   companion object {
     /** The backend takes up to this many characters in a wake's message. */
     const val MESSAGE_LIMIT = 2000
+    const val BROKE = "[plugin] Your last wake broke off midway, and its tools may have run: read the state again before acting, and never repeat a step whose result you can't see."
     private const val MAX_RESULTS = 6
     private val ANSWERS = listOf("[player]", "[button]", "[job] picking")
   }

@@ -296,11 +296,18 @@ class Agents(
       task.wakes--
       return retry(task, asked, "the backend couldn't take the wake ($failure)")
     }
+    if (failure != null && Retry.broke(failure) && !task.resumed) {
+      // Something ran, so the message doesn't go again as it was: the agent reads first, then goes on, once.
+      task.resumed = true
+      task.inbox.addFirst(task.resume(message))
+      return retry(task, 0, "its wake broke off ($failure)")
+    }
     task.retries = 0
     if (failure != null) {
       platform.log.warning("❌ Automation agent ${task.name} failed: $failure")
       return end(task, ErrorHandler.message(locales.of(player), failure))
     }
+    task.resumed = false
     val busy = agent.job?.let(world::active) == true || book.children(task).isNotEmpty()
     // A wake that ends with no word, no wait, and no finish leaves the player with nothing until the task times out:
     // the first time the agent hears so and goes on, the second time it ends with a line to the player.
