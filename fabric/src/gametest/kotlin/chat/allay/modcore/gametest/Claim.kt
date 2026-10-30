@@ -11,17 +11,23 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.concurrent.CopyOnWriteArrayList
 
-/** A claims mod for the tests on Fabric, behind Common Protection API as GOML is: nobody builds in [areas]. */
+/**
+ * A claims mod for the tests on Fabric, behind Common Protection API as GOML is: nobody builds in [areas], and nobody
+ * opens or uses anything in [locked].
+ */
 object Claim : ProtectionProvider {
   val areas = CopyOnWriteArrayList<AABB>()
+  val locked = CopyOnWriteArrayList<AABB>()
 
   init {
     CommonProtection.register(Identifier.fromNamespaceAndPath("allay_gametest", "claims"), this)
   }
 
-  private fun inside(pos: BlockPos) = areas.any { it.contains(Vec3.atCenterOf(pos)) }
+  private fun inside(pos: BlockPos) = (areas + locked).any { it.contains(Vec3.atCenterOf(pos)) }
+  private fun shut(pos: BlockPos) = locked.any { it.contains(Vec3.atCenterOf(pos)) }
   override fun isProtected(level: Level, pos: BlockPos) = inside(pos)
-  override fun isAreaProtected(level: Level, area: AABB) = areas.any { it.intersects(area) }
+  override fun isAreaProtected(level: Level, area: AABB) = (areas + locked).any { it.intersects(area) }
+  override fun canInteractBlock(level: Level, pos: BlockPos, profile: NameAndId, player: Player?) = !shut(pos)
   override fun canPlaceBlock(level: Level, pos: BlockPos, profile: NameAndId, player: Player?) = !inside(pos)
   override fun canBreakBlock(level: Level, pos: BlockPos, profile: NameAndId, player: Player?) = !inside(pos)
 }
