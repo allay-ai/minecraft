@@ -66,6 +66,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override val address: String? get() = server.ip.trim().takeIf { it.isNotEmpty() && it != "0.0.0.0" }
   override val port: Int get() = server.port
   override val tasks get() = automation.book
+  override val agents get() = automation.agents
 
   /** Several may be out at once; one `/allay cancel` hides them all. */
   override val shown = Handler.Shown { audience ->

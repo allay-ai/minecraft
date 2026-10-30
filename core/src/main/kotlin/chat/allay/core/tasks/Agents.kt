@@ -56,7 +56,12 @@ class Agents(
     var job: Job? = null
     /** The last chest plan, in the platform's own shape, applied by `chests` with action apply. */
     var plan: Any? = null
+    /** The backend is asked whether the owner still agrees to the notice; the wake waits for the answer. */
+    @Volatile var checking = false
   }
+
+  /** The players' agreements to the notice, set by [Allay] once it has them; without them, wakes ask nobody. */
+  @Volatile var consents: (() -> Consents)? = null
 
   val book = TaskBook({ config().automation.maxTasks })
   val reservations = Reservations()
@@ -129,7 +134,14 @@ class Agents(
    * Stops [task]: its wake, job, picks, and holds go; [reason] in the player's language, or null for a quiet end. [byParent]
    * when the agent that started it stopped it, which needs no news of it.
    */
-  fun end(task: Task, reason: String?, byParent: Boolean = false) {
+  fun end(task: Task, reason: String?, byParent: Boolean = false) =
+    close(task, reason, "stopped" + (reason?.let { ": $it" } ?: " (the player left or the server stopped)"), byParent)
+
+  /**
+   * [end] with what the player reads ([reason], in their language, or null for nothing) apart from what the agent that
+   * started it wakes with ([note]).
+   */
+  private fun close(task: Task, reason: String?, note: String, byParent: Boolean = false) {
     if (task.done) return
     val agent = agents.remove(key(task))
     book.end(task)
@@ -141,9 +153,9 @@ class Agents(
       world.stopPicking(player, task)
       if (reason != null) line(player, task, "automation.stopped", "reason" to reason)
     }
-    if (!byParent) tellParent(task, "stopped" + (reason?.let { ": $it" } ?: " (the player left or the server stopped)"))
+    if (!byParent) tellParent(task, note)
     // An agent's sub-agents go with it.
-    book.of(task.owner).filter { it.parent == task.id }.forEach { end(it, reason) }
+    book.of(task.owner).filter { it.parent == task.id }.forEach { close(it, reason, note) }
   }
 
   /** Stops [task] because someone took what it held or touched its blocks; the player hears what happened. */
@@ -206,6 +218,7 @@ class Agents(
     val agent = agents[key(task)] ?: return
     if (task.done || task.running || task.inbox.isEmpty() || agent.paused) return
     val player = platform.player(task.owner) ?: return end(task, null)
+    if (!consented(task, agent, player)) return
     val settings = config().automation
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
     if (!quota().allows(player)) return end(task, locales.of(player).text("automation.quota"))
@@ -236,6 +249,35 @@ class Agents(
         onMain { afterWake(task, player, message, failure) }
       }
     }
+  }
+
+  /**
+   * Whether [task]'s owner still agrees to the notice, as every question asks. Consents trusts an answer for an hour, so
+   * a longer agent waits here for the backend's; an owner who withdrew or was erased meanwhile loses every agent.
+   */
+  private fun consented(task: Task, agent: Agent, player: PlayerAudience): Boolean {
+    val consents = consents?.invoke() ?: return true
+    if (consents.known(task.owner)) return true
+    if (agent.checking) return false
+    agent.checking = true
+    scope.launch {
+      val answer = runCatching { consents.check(task.owner) }
+      onMain {
+        agent.checking = false
+        val state = answer.getOrNull()
+        val error = answer.exceptionOrNull()
+        when {
+          state == Consents.State.GIVEN || state == Consents.State.UNSUPPORTED -> wake(task)
+          state != null -> book.of(task.owner).forEach { close(it, null, "stopped: the player no longer agrees to Allay's notice") }
+          error is CancellationException -> {}
+          else -> {
+            platform.log.warning("❌ Automation agent ${task.name} couldn't check the player's consent: ${(error as? ApiErrorException)?.apiError?.code ?: error?.javaClass?.simpleName}")
+            end(task, ErrorHandler.message(locales.of(player), error ?: IllegalStateException()))
+          }
+        }
+      }
+    }
+    return false
   }
 
   private fun afterWake(task: Task, player: PlayerAudience, message: String, failure: Exception?) {

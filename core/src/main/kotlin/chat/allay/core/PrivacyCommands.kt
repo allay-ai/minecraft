@@ -315,6 +315,8 @@ class PrivacyCommands(
   fun eraseSelf(sender: Audience) {
     val player = sender as? PlayerAudience ?: return locales.of(sender).send(sender, "messages.players_only")
     player.closeWindow()
+    // The agents first: a wake still out would keep something about the player after the erasure.
+    stopAgents(player)
     forget(player.uuid)
     request(sender) { lang ->
       val erased = service.erase(player.uuid.toString())
@@ -372,6 +374,8 @@ class PrivacyCommands(
   /** `/allay privacy erase <player|uuid>`: for a player who asked an admin to be forgotten. */
   fun erase(sender: Audience, who: String) {
     val target = playerOf(who) ?: return locales.of(sender).send(sender, "privacy.unknown_player", "player" to who)
+    // A player offline has no agents: they end on quit.
+    platform.player(target.first)?.let(stopAgents)
     forget(target.first)
     request(sender) { lang ->
       val erased = service.erase(target.first.toString())
