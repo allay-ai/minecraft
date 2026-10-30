@@ -62,7 +62,6 @@ object TaskTools {
     automation.say(player, task, text, buttons)
     // Buttons ask for sure; a plain line may be news, which the end of the wake tells apart.
     if (buttons.isNotEmpty()) agent.asked = true
-    agent.said = Legacy.strip(Chat.strip(text))
     ToolOutput(buildJsonObject { put("said", true) }, "")
   }
 
@@ -91,9 +90,4 @@ object TaskTools {
   }
 
   val all = listOf(start, message, cancel, say, wait, finish)
-
-  /** Plain text out of a line with color codes, for the main chat's prompt. */
-  private object Chat {
-    fun strip(text: String) = text.replace(Regex("&[0-9a-fk-orA-FK-OR]"), "")
-  }
 }

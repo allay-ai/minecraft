@@ -191,10 +191,14 @@ class Agents(
     post(parent, task.outcome(outcome))
   }
 
-  /** A line from the agent to its player, with [buttons] under it. */
+  /**
+   * A line from the agent to its player, with [buttons] under it: its own `say`, or a tool's (chests done, with Undo).
+   * Either way the player heard something this wake, so it isn't silent.
+   */
   fun say(player: PlayerAudience, task: Task, text: String, buttons: List<Button> = emptyList()) {
     line(player, task, "automation.say", "text" to text)
     if (buttons.isNotEmpty()) clicks().show(player, buttons)
+    agents[key(task)]?.said = Legacy.strip(Legacy.color(text))
   }
 
   private fun line(player: PlayerAudience, task: Task, key: String, vararg values: Pair<String, Any?>) {
