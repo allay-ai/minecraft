@@ -149,6 +149,30 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun undoPutsBackOnlyNearThePlayer(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    val first = chest(helper, BlockPos(3, 2, 1), ItemStack(Items.COBBLESTONE, 40), ItemStack(Items.BREAD, 3))
+    val second = chest(helper, BlockPos(3, 2, 4), ItemStack(Items.BREAD, 7), ItemStack(Items.COBBLESTONE, 30))
+    val before = contents(helper, first) to contents(helper, second)
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "group")
+      put("chests", spots(first, second))
+    })
+    run(player, task, "chests", buildJsonObject { put("action", "apply") })
+    val here = player.position()
+    player.teleportTo(here.x + 200, here.y, here.z)
+    val reason = refused { run(player, task, "chests", buildJsonObject { put("action", "undo") }) }
+    helper.assertTrue(reason?.contains("farther than") == true, "a far undo is refused: $reason")
+    player.teleportTo(here.x, here.y, here.z)
+    equal(helper, run(player, task, "chests", buildJsonObject { put("action", "undo") }).result.jsonObject["restored"]!!.jsonPrimitive.int, 2, "back near, it puts both back")
+    helper.assertTrue(same(contents(helper, first), before.first) && same(contents(helper, second), before.second), "the chests hold what they held")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun nothingMovesWhenAChestChangedAfterThePlan(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)

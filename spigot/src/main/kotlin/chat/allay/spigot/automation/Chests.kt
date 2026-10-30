@@ -181,7 +181,7 @@ object Chests {
           if (!Storage.balanced(was, will, stacks)) throw ToolError("the plan would make or lose items, so nothing moved; plan again")
           planned.blocks.forEach { block -> (block.state as Container).inventory.contents = planned.after[Blocks.place(block)]!!.toTypedArray() }
           planned.inventory?.let { (_, after) -> unpack(player, after) }
-          automation.undo.keep(player.uniqueId, Undo.Change(planned.blocks, planned.before, planned.after, planned.inventory))
+          automation.undo.keep(player.uniqueId, Undo.Change(planned.blocks, planned.before, planned.after, planned.inventory, reach, planned.boxes))
           agent.plan = null
           task.report("chests applied: ${planned.blocks.size} chests changed (${planned.blocks.take(4).joinToString("; ") { "${it.x} ${it.y} ${it.z}" }}${if (planned.blocks.size > 4) "; …" else ""})${if (planned.inventory != null) " and the player's inventory" else ""}")
           automation.picking.stop(player, task)
@@ -435,10 +435,16 @@ object Chests {
  * while nobody touched what they changed: chest plans and inventory sorts alike.
  */
 class Undo {
-  /** One change: each chest before and after, and the inventory ([Chests.pack]) before and after, if it changed. */
+  /**
+   * One change: each chest before and after, and the inventory ([Chests.pack]) before and after, if it changed. [reach]
+   * is how far from the player a chest is put back (`automation.pause_distance` when it was kept), and [boxes] names
+   * the chests that were shulker boxes.
+   */
   class Change(
     val blocks: List<Block>, val before: Map<String, List<ItemStack?>>, val after: Map<String, List<ItemStack?>>,
     val inventory: Pair<List<ItemStack?>, List<ItemStack?>>?,
+    val reach: Int = 0,
+    val boxes: Set<String> = emptySet(),
     val at: Long = System.currentTimeMillis(),
   )
 
@@ -464,7 +470,11 @@ class Undo {
       list.removeAll { !fresh(it, minutes) }
       list.lastOrNull()
     } ?: throw ToolError("nothing to put back from the last $minutes minutes")
+    // Only chests near the player and in loaded chunks: a far one stays as it is, and its chunk isn't loaded for it.
+    last.blocks.forEach { block -> Chests.beyond(player, block, last.reach)?.let { throw ToolError("$it; nothing was put back, come closer first") } }
     for (block in last.blocks) {
+      // A shulker box placed where a chest stood, or the other way round: what it held before may not go in there.
+      if (Blocks.box(block) != (Blocks.place(block) in last.boxes)) throw ToolError("the chest at ${block.x} ${block.y} ${block.z} is another block now; nothing was put back")
       val now = (block.state as? Container)?.inventory?.contents?.map { it?.takeUnless { item -> item.type.isAir } }
         ?: throw ToolError("the chest at ${block.x} ${block.y} ${block.z} is gone")
       // A sorter's input may be put back too, while nothing changed in it.
