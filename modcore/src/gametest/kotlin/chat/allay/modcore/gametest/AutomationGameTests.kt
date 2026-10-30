@@ -37,6 +37,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.item.alchemy.Potions
 import net.minecraft.world.item.component.ItemContainerContents
+import net.minecraft.world.item.enchantment.ItemEnchantments
 import net.minecraft.world.level.GameType
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.ChestBlock
@@ -712,6 +713,92 @@ class AutomationGameTests {
     helper.assertTrue(task.inbox.any { it.startsWith("[job] picking: done: 1 chests picked") }, "the agent hears what was picked: ${task.inbox}")
     done(player, task)
     helper.assertTrue(picking.picked(player, task).isEmpty(), "the picks go with the agent")
+    helper.succeed()
+  }
+
+  private fun storedBook(helper: GameTestHelper, level: Int = 1) = ItemStack(Items.ENCHANTED_BOOK).apply {
+    val enchantments = helper.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+    set(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.Mutable(ItemEnchantments.EMPTY).apply { set(enchantments.getOrThrow(Enchantments.SHARPNESS), level) }.toImmutable())
+  }
+
+  @GameTest(padding = 48)
+  fun aGrindstoneTurnsAnEnchantedBookIntoOneThatStacks(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 1)), Blocks.GRINDSTONE.defaultBlockState())
+    player.inventory.setItem(0, storedBook(helper))
+    player.inventory.selectedSlot = 0
+    run(player, task, "grindstone", buildJsonObject { put("action", "apply") })
+    val plain = player.inventory.getItem(0)
+    helper.assertTrue(ItemStack.isSameItemSameComponents(plain, ItemStack(Items.BOOK)), "a plain book that stacks with any other: ${plain.componentsPatch}")
+    // A named book keeps its name, as the game's grindstone does.
+    val name = net.minecraft.network.chat.Component.literal("Notes")
+    player.inventory.setItem(1, storedBook(helper).apply { set(DataComponents.CUSTOM_NAME, name) })
+    player.inventory.selectedSlot = 1
+    run(player, task, "grindstone", buildJsonObject { put("action", "apply") })
+    val named = player.inventory.getItem(1)
+    helper.assertTrue(ItemStack.isSameItemSameComponents(named, ItemStack(Items.BOOK).apply { set(DataComponents.CUSTOM_NAME, name) }), "a plain book with its name: ${named.componentsPatch}")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun anAnvilAndACauldronInSomeoneElsesClaimStayUnused(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CRAFTING)
+    val anvil = helper.absolutePos(BlockPos(3, 2, 1))
+    helper.level.setBlockAndUpdate(anvil, Blocks.ANVIL.defaultBlockState())
+    val cauldron = helper.absolutePos(BlockPos(3, 2, 3))
+    helper.level.setBlockAndUpdate(cauldron, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3))
+    player.inventory.setItem(0, ItemStack(Items.DIAMOND_SWORD))
+    player.inventory.selectedSlot = 0
+    player.inventory.setItem(9, storedBook(helper))
+    player.inventory.setItem(10, ItemStack(Items.GLASS_BOTTLE, 1))
+    // Someone's claim over the anvil and the cauldron, not over the player.
+    val claim = AABB(anvil).minmax(AABB(cauldron)).inflate(0.5)
+    Claim.locked += claim
+    try {
+      equal(helper, refused { run(player, task, "anvil", buildJsonObject { put("action", "apply"); put("merge", true) }) }, "no anvil near the player in plain sight", "an anvil in a claim")
+      helper.assertTrue(helper.level.getBlockState(anvil).`is`(Blocks.ANVIL), "the anvil wasn't used")
+      equal(helper, carried(player, Items.ENCHANTED_BOOK), 1, "the book is still there")
+      val bottling = agent(player, Kind.BREWING)
+      val water = run(player, bottling, "brew", buildJsonObject { put("action", "start"); put("potion", "water"); put("bottles", 1) }).result.jsonObject
+      helper.assertTrue(water["water"]?.jsonPrimitive?.content?.contains("no water source") == true, "a cauldron in a claim gives no water: $water")
+      equal(helper, helper.level.getBlockState(cauldron).getValue(LayeredCauldronBlock.LEVEL), 3, "the cauldron keeps its water")
+      Players.features.automation.end(bottling, null)
+    } finally {
+      Claim.locked -= claim
+    }
+    // Outside the claim the same anvil works.
+    val plan = run(player, task, "anvil", buildJsonObject { put("action", "plan"); put("merge", true) }).result.jsonObject
+    equal(helper, plan["enchantments"]!!.jsonObject["sharpness"]!!.jsonPrimitive.int, 1, "the anvil out of a claim: $plan")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
+  fun brewingLeavesADataPacksPotionAlone(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.BREWING)
+    val stand = helper.absolutePos(BlockPos(3, 2, 1))
+    helper.level.setBlockAndUpdate(stand, Blocks.BREWING_STAND.defaultBlockState())
+    // A pack's drink built on a water bottle, with a model of its own: no water bottle to brew from.
+    val drink = PotionContents.createItemStack(Items.POTION, Potions.WATER).apply {
+      set(DataComponents.ITEM_MODEL, net.minecraft.resources.Identifier.fromNamespaceAndPath("allay_gametest", "energy_drink"))
+    }
+    (0..2).forEach { player.inventory.setItem(9 + it, drink.copy()) }
+    player.inventory.setItem(12, ItemStack(Items.NETHER_WART))
+    player.inventory.setItem(13, ItemStack(Items.BLAZE_POWDER))
+    val started = run(player, task, "brew", buildJsonObject {
+      put("action", "start")
+      put("potion", "awkward")
+      put("stands", spots(stand))
+      put("to", "inventory")
+    }).result.jsonObject
+    equal(helper, started["started"]?.jsonPrimitive?.boolean, false, "nothing to brew from: $started")
+    equal(helper, started["missing"]?.jsonObject?.get("water_bottle")?.jsonPrimitive?.int, 3, "water bottles missing: $started")
+    equal(helper, (9..11).count { ItemStack.matches(player.inventory.getItem(it), drink) }, 3, "the drinks stay where they were")
+    done(player, task)
     helper.succeed()
   }
 }

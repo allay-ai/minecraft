@@ -73,6 +73,13 @@ internal object Slots {
   /** Puts [item] into the player's storage slots, as Bukkit's `PlayerInventory.addItem`. */
   fun add(player: ServerPlayer, item: ItemStack): ItemStack? = add(player.inventory, STORAGE, item)
 
+  /** Drops [item] on top of [block], as Bukkit's `dropItemNaturally` there. */
+  fun drop(block: chat.allay.modcore.tools.BlockAt, item: ItemStack) {
+    val entity = ItemEntity(block.level, block.x + 0.5, block.y + 1.0, block.z + 0.5, item.copy())
+    entity.setDefaultPickUpDelay()
+    block.level.addFreshEntity(entity)
+  }
+
   /** Drops [item] at the player's feet, as Bukkit's `dropItemNaturally`. */
   fun drop(player: ServerPlayer, item: ItemStack) {
     val entity = ItemEntity(player.level(), player.x, player.y + 0.25, player.z, item.copy())

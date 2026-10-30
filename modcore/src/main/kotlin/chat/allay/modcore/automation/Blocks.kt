@@ -33,6 +33,10 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.ChestType
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.inventory.AbstractContainerMenu
+import java.lang.ref.WeakReference
+import java.util.Collections
+import java.util.WeakHashMap
 
 /** What automation needs to know about blocks: which may be used, what's written on them, and who could see them. */
 object Blocks {
@@ -161,12 +165,29 @@ object Blocks {
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: BlockAt): Boolean {
     val container = container(block) ?: return false
-    return block.level.server.playerList.players.any { player ->
-      player.containerMenu !== player.inventoryMenu && player.containerMenu.slots.any { slot ->
-        slot.container === container || (slot.container as? CompoundContainer)?.contains(container) == true
+    val menus = block.level.server.playerList.players.mapNotNull { player -> player.containerMenu.takeUnless { it === player.inventoryMenu } }
+    if (menus.size != openMenus.size || menus.indices.any { menus[it] !== openMenus[it].get() }) {
+      openMenus = menus.map(::WeakReference)
+      openNow.clear()
+      openPairs.clear()
+      menus.forEach { menu ->
+        menu.slots.forEach { slot ->
+          val inside = slot.container
+          if (inside is CompoundContainer) openPairs += inside else openNow += inside
+        }
       }
     }
+    return container in openNow || openPairs.any { it.contains(container) }
   }
+
+  /**
+   * What players have open, read again only when someone's window changed: a call that looks at fifty chests would
+   * otherwise walk every player's window fifty times. The game's containers compare by identity; a double chest counts as
+   * its pair. Everything only weakly, so a stopped server's world isn't held.
+   */
+  private var openMenus: List<WeakReference<AbstractContainerMenu>> = emptyList()
+  private val openNow: MutableSet<Container> = Collections.newSetFromMap(WeakHashMap())
+  private val openPairs: MutableSet<CompoundContainer> = Collections.newSetFromMap(WeakHashMap())
 
   /** Every sign on the chest: wall signs and hanging signs on its sides, a hanging sign under it, a sign on top. Both faces, all lines. */
   fun signs(block: BlockAt): List<String> = halves(block).flatMap { half ->
@@ -252,11 +273,14 @@ object Blocks {
   }
 
   /**
-   * Why a furnace, brewing stand, or crafting table can't be used, or null when it can: someone's claim, farther than
-   * [radius], or out of the player's sight when [sight] is on.
+   * Why a station (a furnace, brewing stand, crafting table, anvil, grindstone, stonecutter, smithing table) or a
+   * cauldron can't be used, or null when it can: someone's claim, farther than [radius], or out of the player's sight
+   * when [sight] is on. Every one of them asks what opening a container there asks (Flan's open-container permission,
+   * a block interaction for Open Parties and Claims and Common Protection API): using a station in a claim is what its
+   * owner trusts others with, and an anvil wears down to nothing there.
    */
   fun unusable(player: ServerPlayer, block: BlockAt, radius: Int, sight: Boolean): Unfit? {
-    container(block)?.let { if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM }
+    if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM
     if (block.level != player.level() || block.distance(player.eyePosition) > radius) return Unfit.FAR
     if (!sees(player, block, sight)) return Unfit.SIGHT
     if (open(block)) return Unfit.OPEN

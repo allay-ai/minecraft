@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.enchantments.Enchantment
@@ -74,7 +75,8 @@ object GrindstoneWork {
           .maxByOrNull { enchantments(it.second).values.sum() } ?: throw ToolError("the player has no ${named.key.key}")
       }
       val second = if (!combine) null else second(player, settings.radius, slot, target)
-      if (combine && maxDamage(target) <= 0) throw ToolError("${target.type.key.key} has no durability; a grindstone joins only tools, weapons, and armor")
+      // Unbreakable gear has no durability to join, as the game's grindstone sees it.
+      if (combine && (maxDamage(target) <= 0 || target.itemMeta?.isUnbreakable == true)) throw ToolError("${target.type.key.key} has no durability to join: it never wears or is unbreakable; a grindstone joins only tools, weapons, and armor")
       if (combine && second == null) throw ToolError("no second ${target.type.key.key} at hand (inventory, bundles, ender chest, chests near)")
 
       val own = enchantments(target)
@@ -107,9 +109,9 @@ object GrindstoneWork {
       if (player.inventory.getItem(slot)?.isSimilar(target) != true) throw ToolError("the item moved meanwhile; plan again")
 
       if (second != null && second.source.take({ it.isSimilar(second.item) }, 1).isEmpty()) throw ToolError("the second ${second.item.type.key.key} at ${label(second.source)} is gone; plan again")
-      // A book left with nothing turns plain, as the game's does; anything else keeps its name and kind.
+      // Everything but curses comes off; a book left with nothing turns plain and keeps its name, as the game's does.
       val book = target.type == Material.ENCHANTED_BOOK && curses.isEmpty()
-      val made = if (book) ItemStack(Material.BOOK, target.amount) else target.clone().apply {
+      val worked = target.clone().apply {
         val meta = itemMeta
         if (meta is EnchantmentStorageMeta) meta.storedEnchants.keys.toList().forEach(meta::removeStoredEnchant)
         else meta?.enchants?.keys?.toList()?.forEach(meta::removeEnchant)
@@ -120,6 +122,9 @@ object GrindstoneWork {
         if (meta is Repairable) meta.repairCost = Mechanics.grindstoneRepairCost(curses.size)
         if (meta is Damageable && second != null) meta.damage = damage
         itemMeta = meta
+      }
+      val made = if (!book) worked else ItemStack(Material.BOOK, worked.amount).apply {
+        worked.itemMeta?.let { itemMeta = Bukkit.getItemFactory().asMetaFor(it, Material.BOOK) }
       }
       player.inventory.setItem(slot, made)
       // The experience drops at the grindstone, as the game's does.

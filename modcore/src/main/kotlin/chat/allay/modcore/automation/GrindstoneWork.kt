@@ -75,7 +75,8 @@ object GrindstoneWork {
           .maxByOrNull { (_, item) -> enchantments(item).sumOf { it.second } } ?: throw ToolError("the player has no ${chat.allay.modcore.tools.Recipes.id(named)}")
       }
       val second = if (!combine) null else second(player, settings.radius, slot, target)
-      if (combine && !target.isDamageableItem) throw ToolError("${Slots.id(target)} has no durability; a grindstone joins only tools, weapons, and armor")
+      // Unbreakable gear has no durability to join, as the game's grindstone sees it.
+      if (combine && !target.isDamageableItem) throw ToolError("${Slots.id(target)} has no durability to join: it never wears or is unbreakable; a grindstone joins only tools, weapons, and armor")
       if (combine && second == null) throw ToolError("no second ${Slots.id(target)} at hand (inventory, bundles, ender chest, chests near)")
 
       val own = enchantments(target)
@@ -114,12 +115,14 @@ object GrindstoneWork {
       if (second != null && second.source.take({ Slots.similar(it, second.item) }, 1).isEmpty()) {
         throw ToolError("the second ${Slots.id(second.item)} at ${label(second.source)} is gone; plan again")
       }
-      // A book left with nothing turns plain, as the game's does; anything else keeps its name and kind.
-      val made = if (target.`is`(Items.ENCHANTED_BOOK) && curses.isEmpty()) target.transmuteCopy(Items.BOOK) else target.copy()
+      // Everything but curses comes off first; then a book left with nothing turns plain and keeps its name, in the
+      // game's order (GrindstoneMenu.removeNonCursesFrom), so no empty stored_enchantments stays on a book that should stack.
+      var made = target.copy()
       val kept = ItemEnchantments.Mutable(ItemEnchantments.EMPTY)
       curses.forEach { (enchantment, level) -> kept.set(enchantment, level) }
       if (made.has(DataComponents.STORED_ENCHANTMENTS)) made.set(DataComponents.STORED_ENCHANTMENTS, kept.toImmutable())
       if (made.has(DataComponents.ENCHANTMENTS)) made.set(DataComponents.ENCHANTMENTS, kept.toImmutable())
+      if (made.`is`(Items.ENCHANTED_BOOK) && curses.isEmpty()) made = made.transmuteCopy(Items.BOOK)
       made.set(DataComponents.REPAIR_COST, Mechanics.grindstoneRepairCost(curses.size))
       if (second != null) made.damageValue = damage
       inventory.setItem(slot, made)

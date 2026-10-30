@@ -108,7 +108,7 @@ object Furnaces {
       }
       // Refill from what was reserved, as far as this furnace's share goes.
       if (load.expected == 0 && load.share > 0) {
-        val (taken, short) = sources.takeReserved(plain(item), item.key.key, minOf(64, load.share), Jobs.automation.reservations, task.id)
+        val (taken, short) = here().takeReserved(plain(item), item.key.key, minOf(64, load.share), Jobs.automation.reservations, task.id)
         if (short != null) return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to item.key.key, "place" to where(short)))
         val amount = taken.sumOf { it.amount }
         if (amount > 0) {
@@ -130,9 +130,11 @@ object Furnaces {
         Jobs.remove(this)
         val made = loads.groupBy { it.result.type.key.key }.entries.joinToString(", ") { (id, list) -> "${list.sumOf { load -> load.first }} × $id" }
         val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
-        val news = if (to != null) {
+        val news = if (to != null && present(player)) {
           collect(blocks)
           "smelting done: $made in ${loads.size} furnaces ($where); collected $collected to ${Jobs.describe(to)}, with $experience experience for the player"
+        } else if (to != null) {
+          "smelting done: $made in ${loads.size} furnaces ($where); the player is dead or away, so the output waits in them: collect it when they're back"
         } else {
           "smelting done: $made in ${loads.size} furnaces ($where); the output waits in them: collect it"
         }
@@ -141,8 +143,18 @@ object Furnaces {
       }
     }
 
-    /** Empties [furnaces] to the job's output, with the experience. */
+    /**
+     * The places it reserved from, as they are now: a chest that turned unfit since, or the ender chest with none near
+     * any more, can't be taken from.
+     */
+    fun here(): Sources = Jobs.automation.settings().let { sources.now(player, it.radius, it.pauseDistance) }
+
+    /**
+     * Empties [furnaces] to the job's output, with the experience. Not while the player is dead or gone: the output
+     * waits in the furnaces then, and [check] empties full ones once they're back.
+     */
     fun collect(furnaces: List<Block>) {
+      if (!present(player)) return
       val (items, xp) = takeOutputs(player, furnaces)
       collected += items.filter { it.type != Material.BUCKET }.sumOf { it.amount }
       experience += xp
@@ -154,6 +166,10 @@ object Furnaces {
 
     override fun check() {
       for (load in loads) {
+        if (!Jobs.loaded(load.block)) {
+          suspect -= load.block
+          continue
+        }
         val inventory = furnace(load.block)?.inventory
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "furnace", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         val input = inventory.smelting?.takeIf { it.type == load.item }?.amount ?: 0
@@ -162,6 +178,11 @@ object Furnaces {
         } else if (!suspect.add(load.block)) {
           return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.type.key.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         }
+      }
+      // A furnace that filled up while the player was dead or away stands still: empty it once they're back.
+      if (to != null && present(player)) {
+        val full = loads.filter { load -> load.share > 0 && Jobs.loaded(load.block) && furnace(load.block)?.inventory?.result?.let { it.amount >= it.maxStackSize } == true }
+        if (full.isNotEmpty()) collect(full.map { it.block })
       }
     }
 
@@ -205,7 +226,7 @@ object Furnaces {
     return whole
   }
 
-  private fun where(source: Sources.Source) = source.block?.let { "${it.type.key.key} ${it.x} ${it.y} ${it.z}" } ?: source.place.substringBefore(':')
+  private fun where(source: Sources.Source) = source.chest?.let { "${it.type.key.key} ${it.x} ${it.y} ${it.z}" } ?: source.place.substringBefore(':')
 
   /**
    * Reserves and takes [amount] of [fuel] for [task] into [inHand]. Coal comes from coal blocks too when coal runs
@@ -356,7 +377,11 @@ object Furnaces {
           val job = automation.agent(task).job as? Job
           val blocks = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { job?.blocks?.toList().orEmpty() }
           if (blocks.isEmpty()) throw ToolError("which furnaces? pass furnaces")
-          blocks.forEach { block -> Blocks.unusable(player, block, settings.radius, false)?.let { throw ToolError("the furnace at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") } }
+          if (!present(player)) throw ToolError("the player is dead or away; collect once they're back")
+          blocks.forEach { block ->
+            val unfit = Blocks.unusable(player, block, settings.radius, settings.lineOfSight) ?: Blocks.Unfit.BUSY.takeIf { Jobs.busy(block, task) }
+            unfit?.let { throw ToolError("the furnace at ${block.x} ${block.y} ${block.z} can't be used: ${it.model}") }
+          }
           val (items, xp) = takeOutputs(player, blocks)
           Jobs.deliver(player, items, to)
           job?.reportedFull = false
@@ -433,11 +458,13 @@ object Furnaces {
 
     // Reserve everything, then take everything; only when all of it is in hand does anything go into a furnace.
     // Whatever fails on the way goes back to the player and frees the holds, so nothing is lost.
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     val firsts = used.map { (_, item, share) -> item to minOf(64, share) }
     fun fail(reason: String): Nothing {
       give(player, inHand)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError(reason)
     }
     used.groupBy { it.second }.forEach { (item, list) ->
@@ -491,9 +518,12 @@ object Furnaces {
     if (!Jobs.active(job)) throw ToolError("the smelting already ended; start a new one")
     val sources = Sources.around(player, settings.radius)
     val fuelType = Material.matchMaterial(job.fuel)!!
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     fun fail(reason: String): Nothing {
       give(player, inHand)
+      booking.undo()
       throw ToolError(reason)
     }
     // Plan every item first, so a refusal leaves the job as it was.
@@ -600,10 +630,12 @@ object Furnaces {
     val placed = shares.sum()
     if (placed == 0) throw ToolError(if (need) "no furnace needs more fuel for what it's cooking" else "the fuel slots are full")
 
+    // A refusal gives back only what this call reserved: a running job keeps its holds.
+    val booking = Booking(holds, task.id)
     val inHand = mutableListOf<ItemStack>()
     fun fail(reason: String): Nothing {
       give(player, inHand)
-      holds.release(task.id)
+      booking.undo()
       throw ToolError(reason)
     }
     val split = takeFuel(player, sources, holds, task, id, placed, inHand, ::fail)
