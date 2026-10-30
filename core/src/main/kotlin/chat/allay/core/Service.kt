@@ -85,6 +85,12 @@ class Service<C>(
 
   private class V2Unsupported : Exception()
 
+  private companion object {
+    /** Running agents a request lists: all that `automation.max_tasks` allows. Backends before 6.22 take [OLD_MAX_TASKS]. */
+    const val MAX_TASKS = 8
+    const val OLD_MAX_TASKS = 4
+  }
+
   // encodeDefaults sends platform: without it the backend files v1 requests under "unknown".
   private val json = Json {
     ignoreUnknownKeys = true
@@ -103,9 +109,11 @@ class Service<C>(
     }
   }
 
-  private fun stream(run: Run, message: String, listener: Listener): Outcome {
+  /** [taskLimit]: how many running agents the request lists; backends before 6.22 take at most [OLD_MAX_TASKS]. */
+  private fun stream(run: Run, message: String, listener: Listener, taskLimit: Int = MAX_TASKS): Outcome {
     identity?.ensure()
-    val body = Protocol.json.encodeToString(Protocol.ChatRequest.serializer(), request(run, message))
+    val request = request(run, message, taskLimit)
+    val body = Protocol.json.encodeToString(Protocol.ChatRequest.serializer(), request)
     val call = client.newCall(
       Request.Builder()
         .url("${config.server.url}/api/v2/chat")
@@ -117,7 +125,14 @@ class Service<C>(
     run.call = call
     call.execute().use { response ->
       if (response.code == 404 || response.code == 405) throw V2Unsupported()
-      if (!response.isSuccessful) throw failure(errorParser.parseErrorFromResponse(response))
+      if (!response.isSuccessful) {
+        val error = errorParser.parseErrorFromResponse(response)
+        // An older backend refuses more than four; the newest four go again rather than the question failing.
+        if (error.code == ErrorCodes.BAD_REQUEST && "tasks" in error.message && (request.tasks?.size ?: 0) > OLD_MAX_TASKS) {
+          return stream(run, message, listener, OLD_MAX_TASKS)
+        }
+        throw failure(error)
+      }
 
       var outcome: Outcome? = null
       var commands: Protocol.Commands? = null
@@ -169,7 +184,7 @@ class Service<C>(
     return lang.text(key, *values.toTypedArray())
   }
 
-  private fun request(run: Run, message: String): Protocol.ChatRequest {
+  private fun request(run: Run, message: String, taskLimit: Int): Protocol.ChatRequest {
     val asker = run.asker
     val uuid = asker.uuid
     return Protocol.ChatRequest(
@@ -188,9 +203,9 @@ class Service<C>(
       provider = credentials.block(run.model),
       task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire) },
       tasks = when (run.mode) {
-        Run.Mode.ASK -> tasks(run).takeIf { it.isNotEmpty() }
+        Run.Mode.ASK -> tasks(run, taskLimit).takeIf { it.isNotEmpty() }
         // An agent sees its own running sub-agents, so it never claims one works after it ended.
-        Run.Mode.TASK -> tasks(run)
+        Run.Mode.TASK -> tasks(run, taskLimit)
         else -> null
       },
       expansion_tools = run.expansionTools.ifEmpty { null },
@@ -205,12 +220,12 @@ class Service<C>(
   private fun isOperator(asker: Asker) = asker.uuid != null && asker.operator
 
   /** The asker's running automation agents for the main chat's prompt, or a waking agent's own sub-agents. */
-  private fun tasks(run: Run): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
+  private fun tasks(run: Run, limit: Int): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
     taskBook?.of(owner)?.filter { run.task == null || it.parent == run.task.id }?.mapNotNull { task ->
       // The server thread may end a task meanwhile; the backend knows no state "done" and would refuse the request.
       val state = task.state.takeIf { it != chat.allay.core.tasks.Task.State.DONE } ?: return@mapNotNull null
       Protocol.TaskBrief(task.id, task.name, state.wire, task.question?.take(200))
-    }?.take(4)
+    }?.takeLast(limit)
   }.orEmpty()
 
   /** Runs a client tool on the server thread and posts what came out; failures go back as errors, never as exceptions. */
