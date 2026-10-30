@@ -59,6 +59,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   override val address: String? get() = server.localIp?.trim()?.takeIf { server.isDedicatedServer && it.isNotEmpty() && it != "0.0.0.0" }
   override val port: Int? get() = server.port.takeIf { server.isDedicatedServer && it > 0 }
   override val tasks get() = automation.book
+  override val agents get() = automation.agents
 
   /** Several may be out at once; one `/allay cancel` hides them all. */
   override val shown = Handler.Shown { audience ->

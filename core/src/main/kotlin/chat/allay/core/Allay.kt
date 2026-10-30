@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.Books
 import chat.allay.core.tools.GameNames
@@ -61,6 +62,9 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
 
     /** The automation agents, so a question tells the backend which of the asker's are running; null without agents. */
     val tasks: TaskBook? get() = null
+
+    /** The automation agents themselves, so their wakes ask for the owner's consent as questions do; null without agents. */
+    val agents: Agents? get() = null
 
     /** A player's state arrived from the backend: goals and the like start from it. */
     fun loaded(player: UUID, state: PlayerState) {}
@@ -166,6 +170,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     game = build(this)
     names = GameNames(platform.shared, game.gameVersion, log, game::names)
     data.loaded = game::loaded
+    // load() makes a new Consents each time, so the agents ask for the one of the moment.
+    game.agents?.consents = { consents }
     game.start()
     load()
     // Expansions registered before Allay started join now; the platform finds the rest in plugins and mods.

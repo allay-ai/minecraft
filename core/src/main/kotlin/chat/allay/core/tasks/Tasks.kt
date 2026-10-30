@@ -1,6 +1,5 @@
 package chat.allay.core.tasks
 
-import chat.allay.core.tools.ReminderBook
 import chat.allay.core.tools.ToolError
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -56,6 +55,12 @@ class Task(
   /** Wakes in a row the backend couldn't take (busy, rate-limited, unreachable); a wake that runs resets it. */
   @Volatile var retries = 0
 
+  /** It went on once after a wake that broke off midway; a wake that runs resets it. */
+  @Volatile var resumed = false
+
+  /** No wake before this time (epoch milliseconds): a retry's backoff, which a message arriving meanwhile doesn't skip. */
+  @Volatile var notBefore = 0L
+
   /** What its tools reported doing (crafted, smelted, moved), newest last, for the agent that started it. */
   private val results = ConcurrentLinkedQueue<String>()
 
@@ -96,7 +101,7 @@ class Task(
   }
 
   fun report(fact: String) {
-    results += fact.take(300)
+    results += oneLine(fact).take(300)
     while (results.size > MAX_RESULTS) results.poll()
   }
 
@@ -109,25 +114,48 @@ class Task(
     if (done.isNotEmpty()) append("\nWhat its tools reported: ").append(done.joinToString("; "))
   }.take(1000)
 
+  /**
+   * What the agent wakes with after a wake that broke off midway: tools may have acted, so it reads the state before it
+   * acts, with what its tools reported and what that wake had woken with.
+   */
+  fun resume(message: String): String = buildString {
+    append(BROKE)
+    val done = results.toList()
+    if (done.isNotEmpty()) append("\nWhat your tools reported so far: ").append(done.joinToString("; "))
+    if (message.isNotBlank()) append("\nThat wake had woken with:\n").append(message)
+  }.take(MESSAGE_LIMIT)
+
   /** The chat label: “Automation agent: chests”. */
   fun title(prefix: String) = "$prefix: $name"
 
   companion object {
     /** The backend takes up to this many characters in a wake's message. */
     const val MESSAGE_LIMIT = 2000
+    const val BROKE = "[plugin] Your last wake broke off midway, and its tools may have run: read the state again before acting, and never repeat a step whose result you can't see."
     private const val MAX_RESULTS = 6
     private val ANSWERS = listOf("[player]", "[button]", "[job] picking")
+    private val BREAKS = Regex("\\s*[\\r\\n\\u2028\\u2029]+\\s*")
+
+    /**
+     * [text] on one line. Words that reach the inbox from players or the model (an answer, a button's reply, an item's
+     * name in a report) can then never start a line of their own that reads as the plugin's: `[plugin]`, `[job]`, `[timer]`.
+     */
+    fun oneLine(text: String) = BREAKS.replace(text, " ")
   }
 }
 
 /** Every running automation agent, by owner. A player has at most [maxTasks] at once, of all depths together. */
-class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String = ReminderBook::shortId) {
+class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String = ::taskId) {
   private val tasks = ConcurrentHashMap<UUID, MutableList<Task>>()
+
+  /**
+   * Every id this book ever handed out. Reservations, Reply buttons, and reports go by id, so an id names one agent for
+   * the server's life: a late click or report for an ended agent never reaches a new one.
+   */
+  private val issued = ConcurrentHashMap.newKeySet<String>()
 
   fun start(owner: UUID, kind: Kind, name: String, brief: String, depth: Int, parent: String?, now: Long = System.currentTimeMillis()): Task {
     if (depth > MAX_DEPTH) throw ToolError("an agent this deep may not start another; do it yourself")
-    // Reservations go by id, so no two players' running tasks share one.
-    val taken = all().mapTo(HashSet()) { it.id }
     val list = tasks.computeIfAbsent(owner) { mutableListOf() }
     synchronized(list) {
       list.removeIf(Task::done)
@@ -138,7 +166,7 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
         }
         throw ToolError("the player already has ${list.size} automations running, the most this server allows; wait for one to finish or cancel one")
       }
-      val id = generateSequence(newId).first { candidate -> candidate !in taken && list.none { it.id == candidate } }
+      val id = generateSequence(newId).first(issued::add)
       val clean = name.trim().take(40).ifEmpty { kind.wire }
       return Task(id, owner, clean, kind, depth, parent, brief, now).also { list += it }
     }
@@ -162,6 +190,11 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
   companion object {
     /** The main chat is depth 0; its agents 1; theirs 2, the last. */
     const val MAX_DEPTH = 2
+
+    private const val ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+    /** Six characters without look-alikes: about 900 million, which [issued] keeps from coming round again. */
+    fun taskId() = (1..6).map { ALPHABET.random() }.joinToString("")
   }
 }
 

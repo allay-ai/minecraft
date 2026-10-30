@@ -41,7 +41,7 @@ object TaskTools {
     val task = target(context, player, automation, args.string("id"))
     val text = args.string("text")?.take(500) ?: throw ToolError("text is required")
     val from = context.task?.let { "[parent «${it.name}»]" } ?: "[player]"
-    automation.post(task, "$from $text" + (task.question?.takeIf { context.task == null }?.let { " (you had asked: “${it.take(200)}”)" } ?: ""))
+    automation.post(task, "$from ${Task.oneLine(text)}" + (task.question?.takeIf { context.task == null }?.let { " (you had asked: “${it.take(200)}”)" } ?: ""))
     ToolOutput(buildJsonObject { put("sent", true) }, context.lang.text("summary.task_messaged", "name" to task.name))
   }
 
@@ -62,14 +62,14 @@ object TaskTools {
     automation.say(player, task, text, buttons)
     // Buttons ask for sure; a plain line may be news, which the end of the wake tells apart.
     if (buttons.isNotEmpty()) agent.asked = true
-    agent.said = Legacy.strip(Chat.strip(text))
     ToolOutput(buildJsonObject { put("said", true) }, "")
   }
 
   private val wait = tool("wait") { context, _, _, args ->
     val task = context.requireTask()
     val max = context.services.config().automation.maxWaitSeconds
-    val seconds = args.int("seconds")?.coerceIn(1, max)
+    // At least 10 seconds: a timer that fires every few seconds would pay for a wake each time.
+    val seconds = args.int("seconds")?.coerceIn(MIN_WAIT_SECONDS, max)
     task.waited = true
     task.wakeAt = seconds?.let { System.currentTimeMillis() + it * 1000L }
     ToolOutput(buildJsonObject { put("waiting", true); seconds?.let { put("seconds", it) }; put("note", "end this wake now with a one-line note") }, "")
@@ -92,8 +92,6 @@ object TaskTools {
 
   val all = listOf(start, message, cancel, say, wait, finish)
 
-  /** Plain text out of a line with color codes, for the main chat's prompt. */
-  private object Chat {
-    fun strip(text: String) = text.replace(Regex("&[0-9a-fk-orA-FK-OR]"), "")
-  }
+  /** The shortest `wait` with seconds, as the backend's schema says too. */
+  const val MIN_WAIT_SECONDS = 10
 }
