@@ -1,6 +1,5 @@
 package chat.allay.core.tasks
 
-import chat.allay.core.tools.ReminderBook
 import chat.allay.core.tools.ToolError
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -139,13 +138,17 @@ class Task(
 }
 
 /** Every running automation agent, by owner. A player has at most [maxTasks] at once, of all depths together. */
-class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String = ReminderBook::shortId) {
+class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String = ::taskId) {
   private val tasks = ConcurrentHashMap<UUID, MutableList<Task>>()
+
+  /**
+   * Every id this book ever handed out. Reservations, Reply buttons, and reports go by id, so an id names one agent for
+   * the server's life: a late click or report for an ended agent never reaches a new one.
+   */
+  private val issued = ConcurrentHashMap.newKeySet<String>()
 
   fun start(owner: UUID, kind: Kind, name: String, brief: String, depth: Int, parent: String?, now: Long = System.currentTimeMillis()): Task {
     if (depth > MAX_DEPTH) throw ToolError("an agent this deep may not start another; do it yourself")
-    // Reservations go by id, so no two players' running tasks share one.
-    val taken = all().mapTo(HashSet()) { it.id }
     val list = tasks.computeIfAbsent(owner) { mutableListOf() }
     synchronized(list) {
       list.removeIf(Task::done)
@@ -156,7 +159,7 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
         }
         throw ToolError("the player already has ${list.size} automations running, the most this server allows; wait for one to finish or cancel one")
       }
-      val id = generateSequence(newId).first { candidate -> candidate !in taken && list.none { it.id == candidate } }
+      val id = generateSequence(newId).first(issued::add)
       val clean = name.trim().take(40).ifEmpty { kind.wire }
       return Task(id, owner, clean, kind, depth, parent, brief, now).also { list += it }
     }
@@ -180,6 +183,11 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
   companion object {
     /** The main chat is depth 0; its agents 1; theirs 2, the last. */
     const val MAX_DEPTH = 2
+
+    private const val ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+    /** Six characters without look-alikes: about 900 million, which [issued] keeps from coming round again. */
+    fun taskId() = (1..6).map { ALPHABET.random() }.joinToString("")
   }
 }
 

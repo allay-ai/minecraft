@@ -56,6 +56,15 @@ class AutomationTest {
     assertEquals("bbbb", book.start(UUID.randomUUID(), Kind.CHESTS, "b", "", 1, null).id)
   }
 
+  @Test fun `an ended task's id never names another while the server runs`() {
+    val ids = ArrayDeque(listOf("aaaa", "aaaa", "bbbb"))
+    val book = TaskBook({ 2 }, newId = { ids.removeFirst() })
+    val first = book.start(player, Kind.CHESTS, "a", "", 1, null)
+    book.end(first)
+    assertEquals("bbbb", book.start(player, Kind.CHESTS, "b", "", 1, null).id)
+    assertTrue(Regex("[a-z0-9]{6}").matches(TaskBook.taskId()))
+  }
+
   @Test fun `a wake takes what fits and leaves the rest for the next one`() {
     val task = TaskBook({ 2 }).start(player, Kind.CHESTS, "a", "", 1, null)
     task.inbox += "[job] " + "x".repeat(1500)
