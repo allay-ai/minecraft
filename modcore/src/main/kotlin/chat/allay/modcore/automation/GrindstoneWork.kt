@@ -75,7 +75,8 @@ object GrindstoneWork {
           .maxByOrNull { (_, item) -> enchantments(item).sumOf { it.second } } ?: throw ToolError("the player has no ${chat.allay.modcore.tools.Recipes.id(named)}")
       }
       val second = if (!combine) null else second(player, settings.radius, slot, target)
-      if (combine && !target.isDamageableItem) throw ToolError("${Slots.id(target)} has no durability; a grindstone joins only tools, weapons, and armor")
+      // Unbreakable gear has no durability to join, as the game's grindstone sees it.
+      if (combine && !target.isDamageableItem) throw ToolError("${Slots.id(target)} has no durability to join: it never wears or is unbreakable; a grindstone joins only tools, weapons, and armor")
       if (combine && second == null) throw ToolError("no second ${Slots.id(target)} at hand (inventory, bundles, ender chest, chests near)")
 
       val own = enchantments(target)

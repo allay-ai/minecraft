@@ -75,7 +75,8 @@ object GrindstoneWork {
           .maxByOrNull { enchantments(it.second).values.sum() } ?: throw ToolError("the player has no ${named.key.key}")
       }
       val second = if (!combine) null else second(player, settings.radius, slot, target)
-      if (combine && maxDamage(target) <= 0) throw ToolError("${target.type.key.key} has no durability; a grindstone joins only tools, weapons, and armor")
+      // Unbreakable gear has no durability to join, as the game's grindstone sees it.
+      if (combine && (maxDamage(target) <= 0 || target.itemMeta?.isUnbreakable == true)) throw ToolError("${target.type.key.key} has no durability to join: it never wears or is unbreakable; a grindstone joins only tools, weapons, and armor")
       if (combine && second == null) throw ToolError("no second ${target.type.key.key} at hand (inventory, bundles, ender chest, chests near)")
 
       val own = enchantments(target)
