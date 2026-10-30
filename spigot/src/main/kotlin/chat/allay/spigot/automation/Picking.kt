@@ -83,6 +83,11 @@ class Picking(private val plugin: Plugin, private val locales: Locales, private 
     if (session.kind != Kind.CHESTS) return
     val rooted = LinkedHashMap<Block, List<Entity>>()
     session.picked.forEach { (block, lit) ->
+      // A pick in a chunk that isn't loaded stays as it is: reading it would load the chunk.
+      if (!block.world.isChunkLoaded(block.x shr 4, block.z shr 4)) {
+        if (rooted.putIfAbsent(block, lit) != null) lit.forEach(Entity::remove)
+        return@forEach
+      }
       val root = Blocks.root(block)
       when {
         // Two picks joined into one double chest: one pick stays.

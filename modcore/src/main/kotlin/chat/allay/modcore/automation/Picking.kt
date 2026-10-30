@@ -93,6 +93,11 @@ class Picking(private val scheduler: Scheduler, private val locales: Locales, pr
     if (session.kind != Kind.CHESTS) return
     val rooted = LinkedHashMap<BlockAt, List<Ghosts.Ghost>>()
     session.picked.forEach { (block, lit) ->
+      // A pick in a chunk that isn't loaded stays as it is: reading it would load the chunk.
+      if (block.level.chunkSource.getChunkNow(block.x shr 4, block.z shr 4) == null) {
+        if (rooted.putIfAbsent(block, lit) != null) Ghosts.hide(player, lit)
+        return@forEach
+      }
       val root = Blocks.root(block)
       when {
         // Two picks joined into one double chest: one pick stays.
