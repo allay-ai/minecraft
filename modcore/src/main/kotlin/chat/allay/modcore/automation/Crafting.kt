@@ -78,24 +78,34 @@ object Crafting {
     return bottle(stack)
   }
 
-  /** What a recipe makes, by the id tools give it: a data pack's item by its own id, a potion as `potion water`. */
-  private fun made(stack: ItemStack): String = Catalogs.id(stack).takeIf { it != Slots.id(stack) } ?: bottle(stack) ?: Slots.id(stack)
-
-  /** The server's recipes as data, by result id, with a stack of each result to hand out. */
-  class Book(val recipes: Map<String, List<Workshop.Recipe>>, val results: Map<String, ItemStack>)
+  /**
+   * The server's recipes as data, by result id, with a stack of each result to hand out. An id stands for one item:
+   * [match] takes a stack only when every exact slot asking for that id takes it too, by the slot's own test, so a
+   * data pack's item is never told by its model alone. [ambiguous] holds the ids that name different items here (two
+   * packs' items on one model, recipes that make different things under one id); crafting leaves those out.
+   */
+  class Book(val recipes: Map<String, List<Workshop.Recipe>>, val results: Map<String, ItemStack>, private val exact: Map<String, Set<Ingredient>>, val ambiguous: Set<String>) {
+    fun match(id: String): (ItemStack) -> Boolean = { stack -> key(stack) == id && exact[id].orEmpty().all { it.test(stack) } }
+  }
 
   /**
    * The server's recipes as data: crafting ones, stonecutting ones with [stonecutter], furnace ones for a furnaces agent
-   * to smelt first (never of a tool or armor, which melts to a nugget), and filling a glass bottle when [water] is near. A slot that wants an exact item (the loader's components ingredient: a water bottle) takes what
-   * of [candidates] it accepts, by its [key]; one that accepts none of them is left out.
+   * to smelt first (never of a tool or armor, which melts to a nugget), and filling a glass bottle when [water] is near.
+   * A slot that wants an exact item (the loader's components ingredient: a water bottle) takes what of [candidates] it
+   * accepts, by its [key] and the slot's own test; one that accepts none of them is left out, and so is a recipe whose
+   * result [key] can't name.
    */
   fun book(server: MinecraftServer, candidates: List<ItemStack>, stonecutter: Boolean = false, water: Boolean = false): Book {
     val found = mutableMapOf<String, MutableList<Workshop.Recipe>>()
     val results = mutableMapOf<String, ItemStack>()
+    val exact = mutableMapOf<String, MutableSet<Ingredient>>()
+    val ambiguous = mutableSetOf<String>()
     val holders = Recipes.all(server)
-    // What an exact slot may be: what the player has, a water bottle, and whatever a recipe makes.
+    // What an exact slot may be: what the player has, a water bottle, and whatever a recipe makes; every one, since
+    // stacks with one id may differ.
     val known = (candidates + Water.bottle() + holders.mapNotNull { Recipes.result(it.value())?.takeUnless(ItemStack::isEmpty) })
-      .mapNotNull { stack -> key(stack)?.let { it to stack } }.distinctBy { it.first }
+      .mapNotNull { stack -> key(stack)?.let { it to stack.copyWithCount(1) } }
+      .distinctBy { (id, stack) -> id to ItemStack.hashItemAndComponents(stack) }
     for (holder in holders) {
       val recipe = holder.value()
       val slots: List<Ingredient?> = when (recipe) {
@@ -114,15 +124,35 @@ object Crafting {
       val choices = slots.filterNotNull().map { ids(it, known) }
       if (choices.isEmpty() || choices.any { it.isEmpty() }) continue
       val result = Recipes.result(recipe)?.takeUnless { it.isEmpty } ?: continue
-      val id = made(result)
-      found.getOrPut(id) { mutableListOf() } += Workshop.Recipe(id, result.count, choices, station)
+      val id = key(result) ?: continue
+      // Two recipes that make different items under one id: which of them the player asks for can't be told.
+      if (results[id]?.let { Slots.similar(it, result) } == false) ambiguous += id
       results.putIfAbsent(id, result.copyWithCount(1))
+      found.getOrPut(id) { mutableListOf() } += Workshop.Recipe(id, result.count, choices, station)
+      slots.filterNotNull().filter { chat.allay.modcore.Mod.loader.custom(it) }.forEach { choice -> ids(choice, known).forEach { exact.getOrPut(it) { mutableSetOf() } += choice } }
     }
     if (water) {
       found.getOrPut(Workshop.WATER_BOTTLE) { mutableListOf() } += Workshop.FILL
       results.putIfAbsent(Workshop.WATER_BOTTLE, Water.bottle())
     }
-    return Book(found, results)
+    return finish(found, results, exact, ambiguous, known)
+  }
+
+  /**
+   * Leaves out what an id can't tell apart: an id whose exact slots take none of the [known] stacks it names in common,
+   * or whose crafted result one of its slots refuses, joins [ambiguous], and its recipes and every slot asking for it go.
+   */
+  private fun finish(found: MutableMap<String, MutableList<Workshop.Recipe>>, results: Map<String, ItemStack>, exact: Map<String, Set<Ingredient>>, ambiguous: MutableSet<String>, known: List<Pair<String, ItemStack>>): Book {
+    exact.forEach { (id, choices) ->
+      val made = results[id]
+      val samples = known.filter { it.first == id }.map { it.second }
+      if ((made != null && !choices.all { it.test(made) }) || samples.none { sample -> choices.all { it.test(sample) } }) ambiguous += id
+    }
+    if (ambiguous.isEmpty()) return Book(found, results, exact, ambiguous)
+    val kept = found.filterKeys { it !in ambiguous }.mapValues { (_, list) ->
+      list.mapNotNull { recipe -> recipe.copy(slots = recipe.slots.map { it - ambiguous }).takeIf { it.slots.none(Set<String>::isEmpty) } }
+    }.filterValues { it.isNotEmpty() }
+    return Book(kept, results.filterKeys { it !in ambiguous }, exact, ambiguous)
   }
 
   /** The items an ingredient takes; for the loader's own kind, those of [known] it accepts. */
@@ -249,12 +279,13 @@ object Crafting {
     val book = book(server, stacks, stonecutter = cutter != null, water = water != null || task == null)
     val recipes = book.recipes
     val smithing = item?.let { smithing(server, it) }
+    if (itemId in book.ambiguous) throw ToolError("$itemId names different items on this server (plugins' or data packs' items that share it), so crafting can't tell which one to make")
     if (smithing == null && recipes[itemId].isNullOrEmpty()) throw ToolError(
       if (itemId == Workshop.WATER_BOTTLE) "no water source or filled cauldron within ${Water.REACH} blocks of the player to fill glass bottles at"
       else "$itemId has no crafting${if (cutter == null) "" else " or stonecutter"} recipe on this server",
     )
     val have = stacks.mapNotNull(::key).distinct()
-      .associateWith { id -> sources.free({ key(it) == id }, id, holds, task?.id ?: "") - (spent[id] ?: 0) }
+      .associateWith { id -> sources.free(book.match(id), id, holds, task?.id ?: "") - (spent[id] ?: 0) }
       .filterValues { it > 0 }.toMutableMap()
 
     // Smithing: the template and the ingot come through the planner, which crafts an ingot from scrap and gold. The
@@ -385,7 +416,7 @@ object Crafting {
       if (plan.smelts.isNotEmpty()) {
         val first = plan.beforeSmelting()
         if (first.steps.isNotEmpty()) {
-          takeAll(player, task, planned.sources, holds, first.takes)
+          takeAll(player, task, planned.sources, holds, first.takes, planned.book::match)
           give(player, stacks(planned.book, first.makes) + remains(first.takes))
         }
         return ToolOutput(buildJsonObject {
@@ -396,7 +427,7 @@ object Crafting {
         }, lang.text("summary.craft_plan"))
       }
 
-      takeAll(player, task, planned.sources, holds, planned.takes)
+      takeAll(player, task, planned.sources, holds, planned.takes, planned.book::match)
       if (plan.fills > 0) Water.drain(planned.water!!, plan.fills)
       val extra = plan.makes.filterKeys { it != planned.upgrade?.result }
       // The player's own pieces stay where they were, on the player too, with their enchantments, name, and wear; the
@@ -469,7 +500,7 @@ object Crafting {
       table?.let { put("crafting_table", spot(it)) }
     }
     if (args.bool("dry_run") == true) return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(false))), lang.text("summary.craft_plan"))
-    takeAll(player, task, sources, holds, takes)
+    takeAll(player, task, sources, holds, takes) { id -> { key(it) == id } }
     val made = FireworkItems.of(id, spec, 1)
     give(player, generateSequence(needs.makes) { (it - 64).takeIf { left -> left > 0 } }.map { made.copyWithCount(minOf(it, 64)) }.toList())
     task.report("crafted ${needs.makes} × $id into the player's inventory (at their feet when it was full)")
@@ -477,10 +508,10 @@ object Crafting {
     return ToolOutput(JsonObject(described + ("crafted" to JsonPrimitive(true))), lang.text("summary.crafted", "count" to needs.makes, "item" to id))
   }
 
-  private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>) {
+  private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
     val taken = mutableListOf<ItemStack>()
     for ((id, n) in takes) {
-      val match = { stack: ItemStack -> key(stack) == id }
+      val match = match(id)
       if (!sources.reserve(match, id, n, holds, task.id)) {
         give(player, taken)
         holds.release(task.id)
