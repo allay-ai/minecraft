@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.23.1
+
+- 📦 **Fresh dependencies.** Built against Paper API 26.3 build 237, NeoForge 26.3.0.101, and GriefPrevention 16.18.8. Nothing changes for players.
+
 ## 6.23.0
 
 - 🧭 **The way lasts while you walk it.** A way trail nobody timed, a way button’s too, now stays while you get closer and goes out a minute after you stop (`tools.point_to.idle_seconds`, 60), or after `max_seconds` at most. Detours, fights, and a mine on the way no longer end it. A length Allay names still holds exactly, and every trail ends the moment you arrive. `tools.point_to.default_seconds` is gone.
