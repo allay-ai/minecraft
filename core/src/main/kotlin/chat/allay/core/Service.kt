@@ -232,8 +232,9 @@ class Service<C>(
   private fun answerTool(run: Run, call: Protocol.ToolCall, listener: Listener) {
     val tool = tools.find(call.name)
     val context = host.context(run)
-    val result = if (expansions != null && expansions.isExpansionTool(call.name)) {
-      expansionTool(run, call, context, listener)
+    val clock = ToolClock()
+    val answer = if (expansions != null && expansions.isExpansionTool(call.name)) {
+      expansionTool(run, call, context, listener, clock)
     } else if (tool == null) {
       Protocol.ToolResult(ok = false, error = "the tool ${call.name} is switched off on this server")
     } else if (tool.operator && (!isOperator(run.asker) || run.task != null)) {
@@ -241,7 +242,7 @@ class Service<C>(
       Protocol.ToolResult(ok = false, error = NOT_OPERATOR)
     } else {
       try {
-        val output = if (tool.offMain) tool.run(context, call.args) else host.onMain(config.http.toolTimeout) { tool.run(context, call.args) }
+        val output = if (tool.offMain) clock.run { tool.run(context, call.args) } else host.onMain(config.http.toolTimeout) { clock.run { tool.run(context, call.args) } }
         listener.toolFinished(call.call_id, output.summary, failed = false, refused = output.refused)
         Protocol.ToolResult(ok = true, result = output.result)
       } catch (error: Exception) {
@@ -256,6 +257,7 @@ class Service<C>(
         Protocol.ToolResult(ok = false, error = reason.take(2000))
       }
     }
+    val result = answer.copy(timing = clock.timing())
     val runId = run.runId ?: return
     if (run.cancelled) return
     runCatching {
@@ -269,15 +271,15 @@ class Service<C>(
   }
 
   /** An expansion's tool, only one this run offered, on the server thread like any other; one that answers later is awaited here, off it. */
-  private fun expansionTool(run: Run, call: Protocol.ToolCall, context: C, listener: Listener): Protocol.ToolResult {
+  private fun expansionTool(run: Run, call: Protocol.ToolCall, context: C, listener: Listener, clock: ToolClock): Protocol.ToolResult {
     val scope = context as? chat.allay.core.tools.ToolScope
     if (scope == null || run.expansionTools.none { it.name == call.name }) {
       listener.toolFinished(call.call_id, "off", failed = true)
       return Protocol.ToolResult(ok = false, error = "the tool ${call.name} isn't offered in this run")
     }
     return try {
-      val started = host.onMain(config.http.toolTimeout) { expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
-      val output = expansions!!.finish(started, config.http.toolTimeout)
+      val started = host.onMain(config.http.toolTimeout) { clock.start(); expansions!!.run(call.name, scope, run.mode, run.public, call.args) }
+      val output = expansions!!.finish(started, config.http.toolTimeout).also { clock.stop() }
       listener.toolFinished(call.call_id, output.summary, failed = false, refused = output.refused)
       Protocol.ToolResult(ok = true, result = output.result)
     } catch (error: Exception) {
@@ -290,6 +292,30 @@ class Service<C>(
       }
       listener.toolFinished(call.call_id, reason, failed = true)
       Protocol.ToolResult(ok = false, error = reason.take(2000))
+    }
+  }
+
+  /**
+   * How long a tool waited for the server thread and then ran, for the backend's trace (6.24). A tool that never
+   * started reports nothing; one that failed reports what it took until then.
+   */
+  private class ToolClock {
+    private val received = System.nanoTime()
+    @Volatile private var began = 0L
+    @Volatile private var ended = 0L
+
+    fun start() { began = System.nanoTime() }
+    fun stop() { ended = System.nanoTime() }
+
+    fun <T> run(block: () -> T): T {
+      start()
+      try { return block() } finally { stop() }
+    }
+
+    fun timing(): Protocol.Timing? {
+      if (began == 0L) return null
+      val end = if (ended == 0L) System.nanoTime() else ended
+      return Protocol.Timing(queued_ms = (began - received) / 1_000_000, run_ms = (end - began) / 1_000_000)
     }
   }
 

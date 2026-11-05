@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.24.0
+
+- ⏱️ **Tools say how long they took.** Each tool result tells the backend how long the tool waited for the server thread and how long it ran there. Allay Server 6.24 with OpenTelemetry on shows it in the run's trace and in its metrics, so a busy main thread is easy to spot. Older backends ignore it.
+
 ## 6.23.1
 
 - 📦 **Fresh dependencies.** Built against Paper API 26.3 build 237, NeoForge 26.3.0.101, and GriefPrevention 16.18.8. Nothing changes for players.

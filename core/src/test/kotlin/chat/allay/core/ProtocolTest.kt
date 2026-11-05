@@ -75,5 +75,7 @@ class ProtocolTest {
     assertEquals("""{"ok":true,"result":{"day":3}}""", Protocol.json.encodeToString(Protocol.ToolResult.serializer(), ok))
     val failed = Protocol.ToolResult(ok = false, error = "no player")
     assertEquals("""{"ok":false,"error":"no player"}""", Protocol.json.encodeToString(Protocol.ToolResult.serializer(), failed))
+    val timed = ok.copy(timing = Protocol.Timing(queued_ms = 3, run_ms = 12))
+    assertEquals("""{"ok":true,"result":{"day":3},"timing":{"queued_ms":3,"run_ms":12}}""", Protocol.json.encodeToString(Protocol.ToolResult.serializer(), timed))
   }
 }

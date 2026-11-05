@@ -124,7 +124,10 @@ object Protocol {
     val retry_after: Long? = null,
   )
 
-  @Serializable data class ToolResult(val ok: Boolean, val result: JsonElement? = null, val error: String? = null)
+  @Serializable data class ToolResult(val ok: Boolean, val result: JsonElement? = null, val error: String? = null, val timing: Timing? = null)
+
+  /** Since backend 6.24: how long a tool waited for the server thread and ran there, for the run's trace. */
+  @Serializable data class Timing(val queued_ms: Long, val run_ms: Long)
 
   /** One server-sent event after decoding; unknown event names are ignored. */
   sealed interface Event {
