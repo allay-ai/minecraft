@@ -31,5 +31,8 @@ class TrailClock private constructor(private val pulses: Int, private val patien
 
     /** While the player gets closer, ending [idleSeconds] after they last did, and after [maxSeconds] at most. */
     fun walking(idleSeconds: Int, maxSeconds: Int) = TrailClock(maxSeconds * PULSES, idleSeconds * PULSES)
+
+    /** While the player gets closer, ending [idleSeconds] after they last did, however long the way takes. */
+    fun untimed(idleSeconds: Int) = TrailClock(Int.MAX_VALUE, idleSeconds * PULSES)
   }
 }

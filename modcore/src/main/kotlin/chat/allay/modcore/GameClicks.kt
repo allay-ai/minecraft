@@ -99,7 +99,7 @@ class GameClicks(private val features: Features) : Clicks.Game {
     val config = features.config()
     val audience = player.audience
     val dimension = Dimensions.id(player.level())
-    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target), config.tools.trailClock(null), bar = Trails.bar(config, player, lang),
+    Trails.show(features.scheduler, player, Trails.Target(player.level().dimension(), target), config.tools.wayClock(), bar = Trails.bar(config, player, lang),
       ended = { TrailNotes.ended(lang, audience, it, features.clicks(), button.x, button.y, button.z, dimension) }) { TrailNotes.arrived(lang, audience, it) }
     val dx = target.x - player.x
     val dz = target.z - player.z

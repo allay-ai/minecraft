@@ -87,7 +87,7 @@ class GameClicks(
     val config = features.config()
     val audience = player.audience
     val dimension = Dimensions.id(player.world)
-    Trails.show(plugin, player, target, config.tools.trailClock(null), bar = Trails.bar(config, player, lang),
+    Trails.show(plugin, player, target, config.tools.wayClock(), bar = Trails.bar(config, player, lang),
       ended = { TrailNotes.ended(lang, audience, it, features.clicks(), button.x, button.y, button.z, dimension) }) { TrailNotes.arrived(lang, audience, it) }
     val dx = target.x - player.location.x
     val dz = target.z - player.location.z

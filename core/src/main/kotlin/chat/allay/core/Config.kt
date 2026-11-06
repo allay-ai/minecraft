@@ -100,12 +100,14 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val structureRadius = config.int("tools.locate_structure_radius", 64).coerceIn(1, 128)
     val maxReminders = config.int("tools.reminders.max_pending", 10).coerceIn(1, 100)
     val maxGoals = config.int("tools.goals.max_per_player", 5).coerceIn(1, 20)
-    /** The longest trail `point_to` may draw, and the longest any trail lasts when nobody names a length. */
-    val trailMaxSeconds = config.int("tools.point_to.max_seconds", 600).coerceIn(10, 3600)
+    /** The longest trail `point_to` may draw, and the longest its trail lasts when the model names no length. */
+    val trailMaxSeconds = config.int("tools.point_to.max_seconds", 720).coerceIn(10, 3600)
     /** A trail to a spot nobody named a length for goes out once the player hasn't got closer for this long. */
     val trailIdleSeconds = config.int("tools.point_to.idle_seconds", 60).coerceIn(10, trailMaxSeconds)
     /** The clock of a trail to a spot: [seconds] when the model named them, else while the player gets closer. */
     fun trailClock(seconds: Int?): TrailClock = seconds?.let(TrailClock::fixed) ?: TrailClock.walking(trailIdleSeconds, trailMaxSeconds)
+    /** The clock of a way button's trail: the player pressed it to walk there, so no cap, however far home is. */
+    fun wayClock(): TrailClock = TrailClock.untimed(trailIdleSeconds)
     /** A trail to another player when nobody names a length, also for their way buttons: they move, so it lasts longer. */
     val followSeconds = config.int("tools.point_to.follow_seconds", 180).coerceIn(1, trailMaxSeconds)
     /**

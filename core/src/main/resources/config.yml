@@ -218,7 +218,7 @@ tools:
   point_to:
     idle_seconds: 60          # A trail to a spot nobody timed (way buttons too) lasts while you get closer, and goes out this long after you stop
     follow_seconds: 180       # How long a trail to another player lasts when nobody says; it follows them as they move
-    max_seconds: 600          # The longest any trail lasts (10–3600)
+    max_seconds: 720          # The longest a trail from point_to lasts (10–3600); a way button's has no cap
     # What shows the way besides the particles, each with an arrow, the blocks left, and how far up or down:
     # boss_bar (a bar that shrinks as you get there; an answer's status leaves it be), action_bar (a line
     # above the hotbar, which an answer's status takes while it runs), both, or off.

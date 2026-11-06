@@ -17,8 +17,8 @@ class TrailClockTest {
   }
 
   @Test fun `a trail nobody timed lasts while the player gets closer`() {
-    // A base 1200 blocks off at a walk, 2 blocks a pulse: 10 minutes, the cap, never the idle limit.
-    assertEquals(1200, tools().trailClock(null).lasts { 2400.0 - 2.0 * it })
+    // A base 1440 blocks off at a walk, 2 blocks a pulse: 12 minutes, the cap, never the idle limit.
+    assertEquals(1440, tools().trailClock(null).lasts { 2400.0 - 2.0 * it })
   }
 
   @Test fun `and goes out a minute after they stop`() {
@@ -34,7 +34,17 @@ class TrailClockTest {
   @Test fun `a detour doesn't end it while the way goes on`() {
     // Away for 20 seconds, around a ravine, then back and on toward the spot.
     val far = { it: Int -> if (it < 40) 300.0 + it else 340.0 - 3.0 * (it - 40) }
-    assertEquals(1200, tools().trailClock(null).lasts(far))
+    assertEquals(1440, tools().trailClock(null).lasts(far))
+  }
+
+  @Test fun `a way button's trail has no cap`() {
+    // 48 000 blocks home at a sprint, 3 blocks a pulse: over two hours, then a minute standing at the door.
+    val home = { it: Int -> 48_000.0 - 3.0 * minOf(it, 15_999) }
+    assertEquals(16_000 + 120, tools().wayClock().lasts(home))
+  }
+
+  @Test fun `but goes out a minute after the player stops`() {
+    assertEquals(1 + 120, tools().wayClock().lasts { 300.0 })
   }
 
   @Test fun `idle_seconds and max_seconds come from the config`() {

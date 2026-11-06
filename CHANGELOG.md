@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.25.0
+
+- 🏠 **The way home has no clock.** A way button's trail, [Continue the way] too, no longer goes out after 10 minutes, so a walk of 50 000 blocks keeps it to the door. It still goes out a minute after you stop getting closer (`tools.point_to.idle_seconds`). A trail Allay draws with `point_to` now lasts up to 12 minutes (`tools.point_to.max_seconds`, 720 instead of 600). A server whose `config.yml` already says `600` keeps it.
+
 ## 6.24.0
 
 - ⏱️ **Tools say how long they took.** Each tool result tells the backend how long the tool waited for the server thread and how long it ran there. Allay Server 6.24 with OpenTelemetry on shows it in the run's trace and in its metrics, so a busy main thread is easy to spot. Older backends ignore it.
