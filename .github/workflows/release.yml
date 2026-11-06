@@ -86,11 +86,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: Publish to Modrinth
         if: inputs.modrinth
-        # The plugin through Minotaur, which reads the project while it runs, so not with the configuration cache; the
-        # mods through Modrinth's v3 API, which takes the environment Minotaur can't set.
+        # The description through Minotaur, which reads the project while it runs, so not with the configuration cache;
+        # every jar through Modrinth's v3 API, which takes the environment Minotaur can't set.
         run: |
-          ./gradlew :spigot:modrinth -PreleaseVersion="$VERSION" -PchangelogFile="$NOTES" --no-configuration-cache
-          python3 -I tools/modrinth_mods.py --version "$VERSION" --notes "$NOTES"
+          ./gradlew :spigot:modrinthSyncBody -PreleaseVersion="$VERSION" -PchangelogFile="$NOTES" --no-configuration-cache
+          python3 -I tools/modrinth.py --version "$VERSION" --notes "$NOTES"
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
       - name: Publish to Hangar
