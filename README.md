@@ -98,4 +98,12 @@ The [wiki](https://github.com/allay-ai/minecraft/wiki) holds the manual.
 
 [IP Geolocation by DB-IP](https://db-ip.com), licensed under CC BY 4.0.
 
+## Content disclosures
+
+- 🤖 **AI-generated code.** AI agents wrote much of the code.
+- ✨ **Generative AI.** Allay is an AI helper: `/ask` sends the question to a language model, which answers from the asker’s inventory and surroundings.
+- 📡 **Data, with consent.** Before a first question, each player reads what Allay sends and agrees: the question with their game context, how long the game tools ran, and the server’s id and license.
+- 💳 **Paid features.** Answers through allay.chat need a subscription. Your own OpenRouter key or a self-hosted Allay Server work without one.
+- No ads, no one else’s work, and no flashing lights.
+
 > 🫡 Made by Pavel Erokhin (Павел Ерохин), aka mairwunnx.
