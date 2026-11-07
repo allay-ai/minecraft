@@ -160,7 +160,10 @@ object PlayerTools {
         counts.entries.sortedByDescending { it.value }.take(12).forEach { (block, count) -> put(Worlds.key(BuiltInRegistries.BLOCK.getKey(block)), count) }
       }
       put("notable", buildJsonArray {
-        found.sortedBy { it.second }.take(15).forEach { (block, _) ->
+        // The nearest of every kind first, so a dozen chests never hide the one ender chest or spawner.
+        val near = found.sortedBy { it.second }
+        val firsts = near.distinctBy { it.first.key }
+        (firsts + (near - firsts.toSet())).take(15).sortedBy { it.second }.forEach { (block, _) ->
           add(buildJsonObject {
             put("id", block.key)
             place(block.x, block.y, block.z, player)
