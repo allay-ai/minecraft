@@ -13,14 +13,27 @@ class TrailLineTest {
 
   @Test fun `a near spot gets a line that ends there`() {
     val points = TrailLine.points(from, Point(0.5, 65.1, 6.5), air)
-    assertEquals(12, points.size)
+    assertEquals(9, points.size)
     assertEquals(6.5, points.last().z, 1e-9)
+  }
+
+  @Test fun `nothing shows right in front of the eyes`() {
+    // A boat on still water, the spot straight ahead at the same height: the old line ran level with the camera.
+    val start = TrailLine.start(0.5, 62.5, 64.1, 0.5)
+    assertTrue(start.y <= 64.1 - 1.0, "the line starts at ${start.y}")
+    val points = TrailLine.points(start, Point(0.5, start.y, 300.5), air)
+    assertTrue(points.all { it.z - 0.5 >= TrailLine.CLEAR - 1e-9 }, "a point closer than ${TrailLine.CLEAR} blocks")
+  }
+
+  @Test fun `a gliding player's line stays under their eyes`() {
+    val start = TrailLine.start(0.5, 100.0, 100.4, 0.5)
+    assertEquals(99.4, start.y, 1e-9)
   }
 
   @Test fun `a far spot far below doesn't dive into the ground`() {
     // A base 80 blocks down and 200 away: over twelve blocks the line drops three at most.
     val points = TrailLine.points(from, Point(0.5, -15.0, 200.5), air)
-    assertEquals(24, points.size)
+    assertEquals(21, points.size)
     assertTrue(from.y - points.last().y <= 3.0 + 1e-9, "the line drops ${from.y - points.last().y}")
   }
 

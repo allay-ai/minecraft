@@ -221,11 +221,11 @@ object Trails {
   fun particles(player: ServerPlayer, particle: ParticleOptions, at: Vec3, count: Int, dx: Double, dy: Double, dz: Double, speed: Double, force: Boolean = false) =
     player.connection.send(ClientboundLevelParticlesPacket(particle, force, false, at.x, at.y, at.z, dx.toFloat(), dy.toFloat(), dz.toFloat(), speed.toFloat(), count))
 
-  /** The line from the player's chest toward the target, over the ground in its way ([TrailLine]). */
+  /** The line from low in front of the player toward the target, over the ground in its way ([TrailLine]). */
   private fun line(player: ServerPlayer, target: Vec3, particle: ParticleOptions) {
-    val from = player.eyePosition.subtract(0.0, 0.4, 0.0)
+    val at = player.position()
     val level = player.level()
-    TrailLine.points(TrailLine.Point(from.x, from.y, from.z), TrailLine.Point(target.x, target.y, target.z)) { x, y, z -> Blocks.occluding(level.getBlockState(BlockPos(x, y, z))) }
+    TrailLine.points(TrailLine.start(at.x, at.y, player.eyeY, at.z), TrailLine.Point(target.x, target.y, target.z)) { x, y, z -> Blocks.occluding(level.getBlockState(BlockPos(x, y, z))) }
       .forEach { particles(player, particle, Vec3(it.x, it.y, it.z), 1, 0.0, 0.0, 0.0, 0.0, force = true) }
   }
 

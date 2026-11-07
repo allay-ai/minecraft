@@ -183,11 +183,11 @@ object Trails {
     trail.cleanup()
   }
 
-  /** The line from the player's chest toward the target, over the ground in its way ([TrailLine]). */
+  /** The line from low in front of the player toward the target, over the ground in its way ([TrailLine]). */
   private fun line(player: Player, target: Location, particle: Particle) {
-    val from = player.eyeLocation.subtract(0.0, 0.4, 0.0)
+    val at = player.location
     val world = player.world
-    TrailLine.points(TrailLine.Point(from.x, from.y, from.z), TrailLine.Point(target.x, target.y, target.z)) { x, y, z -> world.getBlockAt(x, y, z).type.isOccluding }
+    TrailLine.points(TrailLine.start(at.x, at.y, player.eyeLocation.y, at.z), TrailLine.Point(target.x, target.y, target.z)) { x, y, z -> world.getBlockAt(x, y, z).type.isOccluding }
       .forEach { seen(player, particle, Location(world, it.x, it.y, it.z), 1, 0.0, 0.0, 0.0, 0.0) }
   }
 
