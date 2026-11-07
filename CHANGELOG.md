@@ -2,6 +2,13 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.26.0
+
+- 🟪 **Agents reach your ender chest.** “Make iron blocks and put them into my ender chest” now ends with the blocks in it, not with “move them yourself”. A chests agent puts things into it, takes them out, sorts it, and stashes into it, and furnaces and brewing stands can deliver there, while you stand by an ender chest, as in the game. **[All nearby]** never sweeps it into a plan; a click on an ender chest while picking adds it, and **[Put back]** undoes it like any chest. Needs Allay Server 6.25.
+- 👀 **The way stays out of your face.** The trail runs about knee-high and starts two blocks ahead of you. It no longer flies into the camera, even in a boat on still water.
+- 🧾 **Crafting says what it made.** A craft's `makes` now names the item and how many, not only what's left over, so “30 iron blocks” no longer reads as “nothing made”.
+- 🔎 **Rare blocks stay in view.** `get_surroundings` lists the nearest block of every notable kind before more of the same, so a wall of chests no longer hides the ender chest or a spawner.
+
 ## 6.25.0
 
 - 🏠 **The way home has no clock.** A way button's trail, [Continue the way] too, no longer goes out after 10 minutes, so a walk of 50 000 blocks keeps it to the door. It still goes out a minute after you stop getting closer (`tools.point_to.idle_seconds`). A trail Allay draws with `point_to` now lasts up to 12 minutes (`tools.point_to.max_seconds`, 720 instead of 600). A server whose `config.yml` already says `600` keeps it.
