@@ -294,10 +294,10 @@ object Crafting {
     if (plan.smelts.isNotEmpty() && listOf(Material.FURNACE, Material.BLAST_FURNACE).all { find(it) == null }) needs += "furnace"
     val takes = plan.takes.filterKeys { it != Workshop.base(itemId) }
     val upgraded = bases.take(plan.takes[Workshop.base(itemId)] ?: 0)
-    val extra = plan.makes.filterKeys { it != target }
     val described = buildJsonObject {
       putJsonObject("takes") { takes.forEach { (id, n) -> put(id, n) } }
-      putJsonObject("makes") { extra.forEach { (id, n) -> put(id, n) }; if (upgrade != null) put(itemId, count) }
+      // The item itself and what the recipes leave over: without the item, makes read as “nothing made”.
+      putJsonObject("makes") { plan.makes.forEach { (id, n) -> put(if (id == target) itemId else id, n) } }
       put("steps", buildJsonArray {
         plan.steps.forEach { step ->
           when {
