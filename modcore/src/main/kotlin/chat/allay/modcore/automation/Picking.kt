@@ -28,7 +28,8 @@ import java.util.UUID
  */
 class Picking(private val scheduler: Scheduler, private val locales: Locales, private val automation: Automation) {
   enum class Kind(val wire: String, val accepts: (BlockState) -> Boolean) {
-    CHESTS("chests", Blocks::storage),
+    // An ender chest is picked by a click alone: All never sweeps the player's own into a plan.
+    CHESTS("chests", { Blocks.storage(it) || it.`is`(GameBlocks.ENDER_CHEST) }),
     FURNACES("furnaces", Blocks::furnace),
     BREWING_STANDS("brewing_stands", { it.`is`(GameBlocks.BREWING_STAND) });
 

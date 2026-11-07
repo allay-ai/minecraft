@@ -183,14 +183,15 @@ object Jobs {
     var left = items
     val settings = automation.settings()
     val chests = when (to) {
-      is Output.Chests -> to.blocks.filter { Sources.fits(player, it, settings.pauseDistance, adding = true) }
+      // The player's ender chest only while they're here: a gone player's would lose it.
+      is Output.Chests -> to.blocks.filter { Sources.fits(player, it, settings.pauseDistance, adding = true) && (!Blocks.ender(it) || present(player)) }
       // The chests around that already hold each item, nearest first, as a player would put it away.
       Output.Auto -> if (!present(player)) emptyList() else Blocks.near(player, settings.radius) { Blocks.storage(it.state) }.map(Blocks::root).distinct()
         .filter { Blocks.unsuitable(player, it, adding = true) == null }
       Output.Inventory -> emptyList()
     }
     for (block in chests) {
-      val inventory = Blocks.inventory(block) ?: continue
+      val inventory = Blocks.inventory(player, block) ?: continue
       val box = Blocks.box(block)
       left = left.flatMap { item ->
         val holds = to !is Output.Auto || (0 until inventory.containerSize).any { inventory.getItem(it).let { there -> !there.isEmpty && Slots.similar(there, item) } }

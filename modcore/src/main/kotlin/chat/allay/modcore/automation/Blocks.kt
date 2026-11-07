@@ -10,7 +10,9 @@ import chat.allay.modcore.tools.at
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -40,6 +42,9 @@ import java.util.WeakHashMap
 
 /** What automation needs to know about blocks: which may be used, what's written on them, and who could see them. */
 object Blocks {
+  /** How a tool's argument names the player's ender chest in place of coordinates. */
+  const val ENDER_CHEST = "ender_chest"
+
   private val SIDES = listOf(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST)
 
   /** A container's address for reservations and plans: `world:x,y,z`. */
@@ -53,6 +58,15 @@ object Blocks {
 
   /** A placed shulker box, which takes no shulker box, as in the game. */
   fun box(block: BlockAt) = block.state.`is`(BlockTags.SHULKER_BOXES)
+
+  /** An ender chest: the way to the player's own ender chest, which is no container of the block's. */
+  fun ender(block: BlockAt) = block.state.`is`(GameBlocks.ENDER_CHEST)
+
+  /** What a chest holds for [player]: their own ender chest behind an ender chest block, else [inventory]. */
+  fun inventory(player: ServerPlayer, block: BlockAt): Container? = if (ender(block)) player.enderChestInventory else inventory(block)
+
+  /** The player has their ender chest open, behind any ender chest block. */
+  private fun enderOpen(player: ServerPlayer) = player.containerMenu.slots.any { it.container === player.enderChestInventory }
 
   fun furnace(state: BlockState) = state.`is`(GameBlocks.FURNACE) || state.`is`(GameBlocks.BLAST_FURNACE) || state.`is`(GameBlocks.SMOKER)
 
@@ -151,7 +165,7 @@ object Blocks {
   }
 
   /** A hopper feeds the block or pulls from it: a farm's output or a sorting machine, which automation leaves alone. */
-  fun hopperLinked(block: BlockAt): Boolean = halves(block).any { half ->
+  fun hopperLinked(block: BlockAt): Boolean = !ender(block) && halves(block).any { half ->
     if (half.relative(Direction.DOWN).state.`is`(GameBlocks.HOPPER)) return@any true
     (SIDES + Direction.UP).any { face ->
       val next = half.relative(face).state
@@ -160,7 +174,7 @@ object Blocks {
   }
 
   /** A hopper under the block pulls from it: taking from it would race the machine draining it. */
-  fun drained(block: BlockAt): Boolean = halves(block).any { it.relative(Direction.DOWN).state.`is`(GameBlocks.HOPPER) }
+  fun drained(block: BlockAt): Boolean = !ender(block) && halves(block).any { it.relative(Direction.DOWN).state.`is`(GameBlocks.HOPPER) }
 
   /** Someone has the container open, the player included: the client would undo or race what automation writes. */
   fun open(block: BlockAt): Boolean {
@@ -261,9 +275,11 @@ object Blocks {
   /**
    * Why a storage container can't be used, or null when it can. With [adding] a hopper is fine: putting things into a
    * sorter's input chest is what it's for, only rearranging or taking from one would race the machine. With [taking]
-   * only a hopper draining it counts: a sorter's output chest, which hoppers fill, is where the player takes from.
+   * only a hopper draining it counts: a sorter's output chest, which hoppers fill, is where the player takes from. An
+   * ender chest is the player's own anywhere, as in the game: only their having it open stops it.
    */
   fun unsuitable(player: ServerPlayer, block: BlockAt, adding: Boolean = false, taking: Boolean = false): Unfit? {
+    if (ender(block)) return if (enderOpen(player)) Unfit.OPEN else null
     if (!storage(block.state)) return Unfit.TYPE
     container(block) ?: return Unfit.TYPE
     if (!Claims.mayOpen(player, block.level, block.pos)) return Unfit.CLAIM
@@ -290,8 +306,13 @@ object Blocks {
   /**
    * The blocks an argument names: `[{x, y, z}, …]` in the player's world, each within [limit] blocks of them. Checked
    * before the block is touched, so a far spot never loads a chunk and no base across the map can be reached.
+   * `"ender_chest"` names the nearest ender chest within [limit], the way to the player's own.
    */
   fun list(player: ServerPlayer, value: Any?, limit: Int): List<BlockAt> = (value as? JsonArray)?.mapNotNull { element ->
+    if ((element as? JsonPrimitive)?.contentOrNull == ENDER_CHEST) {
+      return@mapNotNull near(player, limit) { ender(it) }.minByOrNull { it.corner.distanceToSqr(player.position()) }
+        ?: throw ToolError("no ender chest within $limit blocks of the player: ask them to stand by one, then wait")
+    }
     val spot = element as? JsonObject ?: return@mapNotNull null
     val x = spot.int("x") ?: throw ToolError("each block needs x, y, and z")
     val y = spot.int("y") ?: throw ToolError("each block needs x, y, and z")

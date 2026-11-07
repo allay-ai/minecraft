@@ -12,7 +12,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.bukkit.Tag
 import org.bukkit.block.Block
-import org.bukkit.block.Container
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -164,14 +163,15 @@ object Jobs : Listener {
     var left = items
     val settings = automation.settings()
     val chests = when (to) {
-      is Output.Chests -> to.blocks.filter { Sources.fits(player, it, settings.pauseDistance, adding = true) }
+      // The player's ender chest only while they're here: a gone player's would lose it.
+      is Output.Chests -> to.blocks.filter { Sources.fits(player, it, settings.pauseDistance, adding = true) && (!Blocks.ender(it) || present(player)) }
       // The chests around that already hold each item, nearest first, as a player would put it away.
       Output.Auto -> if (!present(player)) emptyList() else Blocks.near(player.location, settings.radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct()
         .filter { Blocks.unsuitable(player, it, adding = true) == null }
       Output.Inventory -> emptyList()
     }
     for (block in chests) {
-      val inventory = (block.state as? Container)?.inventory ?: continue
+      val inventory = Blocks.inventory(player, block) ?: continue
       val box = Blocks.box(block)
       left = left.flatMap { item ->
         val holds = to !is Output.Auto || inventory.contents.any { it != null && it.isSimilar(item) }

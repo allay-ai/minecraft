@@ -311,6 +311,46 @@ class AutomationGameTests {
   }
 
   @GameTest(padding = 48)
+  fun theEnderChestTakesAndGivesThePlayersOwn(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    val ender = kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive("ender_chest")) }
+    val none = refused { run(player, task, "chests", buildJsonObject { put("action", "read"); put("chests", ender) }) }
+    helper.assertTrue(none?.contains("no ender chest") == true, "without an ender chest near, it's out of reach: $none")
+
+    helper.level.setBlockAndUpdate(helper.absolutePos(BlockPos(3, 2, 1)), Blocks.ENDER_CHEST.defaultBlockState())
+    player.enderChestInventory.setItem(0, ItemStack(Items.IRON_BLOCK, 10))
+    player.inventory.setItem(9, ItemStack(Items.IRON_BLOCK, 30))
+    player.inventory.setItem(10, ItemStack(Items.GOLD_BLOCK, 14))
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "move")
+      put("to", ender)
+      putJsonArray("from") { add(kotlinx.serialization.json.JsonPrimitive("inventory")) }
+      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_block")); add(kotlinx.serialization.json.JsonPrimitive("gold_block")) }
+    })
+    run(player, task, "chests", buildJsonObject { put("action", "apply") })
+    val stored = (0 until player.enderChestInventory.containerSize).map { player.enderChestInventory.getItem(it) }
+    equal(helper, count(stored, Items.IRON_BLOCK), 40, "the iron blocks went into the player's ender chest")
+    equal(helper, count(stored, Items.GOLD_BLOCK), 14, "and the gold blocks")
+    equal(helper, carried(player, Items.IRON_BLOCK) + carried(player, Items.GOLD_BLOCK), 0, "and out of the inventory")
+
+    run(player, task, "chests", buildJsonObject { put("action", "undo") })
+    equal(helper, carried(player, Items.IRON_BLOCK), 30, "undo puts them back")
+
+    run(player, task, "chests", buildJsonObject {
+      put("action", "plan")
+      put("mode", "take")
+      put("chests", ender)
+      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_block")) }
+    })
+    run(player, task, "chests", buildJsonObject { put("action", "apply") })
+    equal(helper, carried(player, Items.IRON_BLOCK), 40, "a take reaches the ender chest too")
+    done(player, task)
+    helper.succeed()
+  }
+
+  @GameTest(padding = 48)
   fun hoppersClaimsAndOpenWindowsKeepChestsOut(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)
@@ -497,6 +537,7 @@ class AutomationGameTests {
     val crafted = run(player, task, "craft", chest).result.jsonObject
     equal(helper, crafted["crafted"]!!.jsonPrimitive.boolean, true, "crafted: $crafted")
     equal(helper, crafted["table"]!!.jsonObject["z"]!!.jsonPrimitive.int, table.z, "the table it used")
+    equal(helper, crafted["makes"]!!.jsonObject["chest"]?.jsonPrimitive?.int, 1, "makes names the chest it made: $crafted")
     equal(helper, carried(player, Items.CHEST), 1, "the chest")
     equal(helper, carried(player, Items.OAK_PLANKS), 0, "the planks it took")
     done(player, task)

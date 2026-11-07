@@ -32,7 +32,8 @@ import java.util.UUID
  */
 class Picking(private val plugin: Plugin, private val locales: Locales, private val automation: Automation) : Listener {
   enum class Kind(val wire: String, val accepts: (Material) -> Boolean) {
-    CHESTS("chests", Blocks::storage),
+    // An ender chest is picked by a click alone: All never sweeps the player's own into a plan.
+    CHESTS("chests", { Blocks.storage(it) || it == Material.ENDER_CHEST }),
     FURNACES("furnaces", Blocks::furnace),
     BREWING_STANDS("brewing_stands", { it == Material.BREWING_STAND });
 
