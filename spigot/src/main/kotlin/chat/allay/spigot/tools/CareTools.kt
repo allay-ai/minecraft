@@ -4,6 +4,7 @@ import chat.allay.core.*
 import chat.allay.core.tools.*
 
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -235,6 +236,7 @@ object CareTools {
       val unused = sources.indices.filter { it !in plan.used }
       if (unused.isNotEmpty()) put("unused", names(unused))
       if (planned.skipped > 0) put("not_considered", planned.skipped)
+      if (planned.unfit.isNotEmpty()) put("unfit_slots", buildJsonArray { planned.unfit.forEach { add(JsonPrimitive(it)) } })
     }
     val summary = if (plan.tooExpensive) context.lang.text("summary.anvil_too_expensive") else context.lang.text("summary.anvil", "levels" to plan.total, "steps" to plan.steps.size)
     return ToolOutput(result, summary)

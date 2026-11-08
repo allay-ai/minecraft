@@ -270,6 +270,30 @@ class AutomationGameTests {
     helper.succeed()
   }
 
+  @GameTest
+  fun applyPlansFirstAndOtherAgentsHearWhatToCall(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val task = agent(player, Kind.CHESTS)
+    val store = chest(helper, BlockPos(3, 2, 1), ItemStack(Items.APPLE, 16))
+    // An apply with the plan's arguments and no plan yet plans first, as the model meant.
+    val applied = run(player, task, "chests", buildJsonObject {
+      put("action", "apply")
+      put("mode", "take")
+      put("chests", spots(store))
+      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("apple")) }
+    }).result.jsonObject
+    equal(helper, applied["applied"]!!.jsonPrimitive.boolean, true, "applied: $applied")
+    equal(helper, carried(player, Items.APPLE), 16, "the apples")
+    Players.features.automation.end(task, null)
+    // A crafting agent only reads chests, and hears that craft takes what it needs itself.
+    val crafting = agent(player, Kind.CRAFTING)
+    val reason = refused { run(player, crafting, "chests", buildJsonObject { put("action", "plan"); put("mode", "take"); put("chests", spots(store)) }) }
+    helper.assertTrue(reason?.contains("craft takes what it needs") == true, "a refusal that names the tool to call: $reason")
+    Players.features.automation.end(crafting, null)
+    player.discard()
+    helper.succeed()
+  }
+
   @GameTest(padding = 48)
   fun aTakeEmptiesASortersOutputChest(helper: GameTestHelper) {
     val player = survivor(helper)

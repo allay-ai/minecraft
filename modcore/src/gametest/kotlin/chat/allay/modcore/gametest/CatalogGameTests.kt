@@ -127,6 +127,10 @@ class CatalogGameTests {
     equal(helper, plan["slot"]!!.jsonPrimitive.int, 12, "for the sword in the inventory")
     equal(helper, plan["target"]!!.jsonPrimitive.content, "inventory row 1 column 4", "where it lies")
     equal(helper, result(asker, "get_anvil_plan", buildJsonObject { put("item", "diamond sword") })["slot"]!!.jsonPrimitive.int, 12, "the sword by name")
+    // A slot given that holds nothing for the sword is passed over, not a reason to plan nothing.
+    asker.inventory.setItem(7, ItemStack(Items.COBBLESTONE, 4))
+    val unfit = result(asker, "get_anvil_plan", buildJsonObject { put("slot", 12); put("slots", kotlinx.serialization.json.JsonArray(listOf(5, 7).map(::JsonPrimitive))) })
+    equal(helper, unfit["unfit_slots"]!!.jsonArray.map { it.jsonPrimitive.int }, listOf(7), "the cobblestone passed over: $unfit")
     // A bow the player wears nothing for, and a book for it too: two items gain, and the player picks.
     asker.inventory.setItem(20, ItemStack(Items.BOW))
     asker.inventory.setItem(6, enchanted(asker, ItemStack(Items.ENCHANTED_BOOK), true, Enchantments.POWER to 5))

@@ -248,6 +248,7 @@ object CareTools {
       val unused = sources.indices.filter { it !in plan.used }
       if (unused.isNotEmpty()) put("unused", names(unused))
       if (planned.skipped > 0) put("not_considered", planned.skipped)
+      if (planned.unfit.isNotEmpty()) put("unfit_slots", buildJsonArray { planned.unfit.forEach { add(JsonPrimitive(it)) } })
     }
     val summary = if (plan.tooExpensive) context.lang.text("summary.anvil_too_expensive") else context.lang.text("summary.anvil", "levels" to plan.total, "steps" to plan.steps.size)
     return ToolOutput(result, summary)

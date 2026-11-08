@@ -99,8 +99,19 @@ class Agents(
    * permission away meanwhile). A chests agent can't smelt, so one permission never opens another.
    */
   fun require(player: Audience, task: Task, kind: Kind) {
-    if (task.kind != kind) throw ToolError("this is a ${task.kind.wire} agent; ${kind.wire} needs its own, started with start_task")
+    if (task.kind != kind) throw ToolError(mismatch(task.kind, kind))
     allowed(player, kind)?.let { throw ToolError(it) }
+  }
+
+  /**
+   * Why an agent of [mine] can't do [asked]'s work, and what to do instead. Crafting and brewing agents kept taking
+   * ingredients out of chests by hand, which their own tools already do.
+   */
+  private fun mismatch(mine: Kind, asked: Kind): String = when {
+    asked == Kind.CHESTS && mine == Kind.CRAFTING -> "a crafting agent only reads chests: craft takes what it needs from the chests around by itself, so call craft; to move things for the player, start a chests sub-agent with start_task"
+    asked == Kind.CHESTS && mine == Kind.BREWING -> "a brewing agent only reads chests: brew takes its ingredients, bottles, and fuel from the chests around by itself, so call brew; to move things for the player, start a chests sub-agent with start_task"
+    asked == Kind.CHESTS && mine == Kind.FURNACES -> "a furnaces agent only reads chests: smelt takes what it cooks and its fuel from the chests around by itself, so call smelt; to move things for the player, start a chests sub-agent with start_task"
+    else -> "this is a ${mine.wire} agent; ${asked.wire} needs its own, started with start_task"
   }
 
   /** Whether [player] may run automations of [kind] here: the switches in config.yml, then the permissions. */

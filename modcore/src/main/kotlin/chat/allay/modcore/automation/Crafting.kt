@@ -241,9 +241,15 @@ object Crafting {
    */
   private fun target(context: ToolContext, name: String): Pair<String, Item?> {
     if (Workshop.water(name)) return Workshop.WATER_BOTTLE to null
-    val custom = Catalogs.build(context).find(name.trim().lowercase(), Catalog.Kind.CUSTOM)
+    val catalog = Catalogs.build(context)
+    val custom = catalog.find(name.trim().lowercase(), Catalog.Kind.CUSTOM)
     if (custom != null) return custom.id to null
-    return InteractTools.item(name).let { Recipes.id(it) to it }
+    runCatching { InteractTools.item(name).let { Recipes.id(it) to it } }.getOrNull()?.let { return it }
+    // A name in any language, or one a step from the id (“iron bucket”, «ведро»), as get_recipes reads it.
+    val kinds = setOf(Catalog.Kind.ITEM, Catalog.Kind.CUSTOM)
+    val entry = catalog.resolve(name, context.nameLocale, kinds) ?: throw ToolError(catalog.missing(name, context.nameLocale, kinds))
+    if (entry.kind == Catalog.Kind.CUSTOM) return entry.id to null
+    return entry.id to InteractTools.item(entry.id)
   }
 
   /** A plan for one item and what carrying it out needs: the stations near the player, the water, the pieces to upgrade. */
