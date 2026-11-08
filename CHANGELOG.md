@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.27.0
+
+- 🧮 **A count for each item.** `get_recipes` takes `counts`, how many of each item in its place, so “one redstone torch and six repeaters” plans one and six, not the same number of both. Needs Allay Server 6.26 to ask for it.
+
 ## 6.26.0
 
 - 🟪 **Agents reach your ender chest.** “Make iron blocks and put them into my ender chest” now ends with the blocks in it, not with “move them yourself”. A chests agent puts things into it, takes them out, sorts it, and stashes into it, and furnaces and brewing stands can deliver there, while you stand by an ender chest, as in the game. **[All nearby]** never sweeps it into a plan; a click on an ender chest while picking adds it, and **[Put back]** undoes it like any chest. Needs Allay Server 6.25.
