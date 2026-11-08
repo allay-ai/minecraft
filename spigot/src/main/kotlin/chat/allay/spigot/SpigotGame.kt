@@ -57,6 +57,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun tools() = Tools.all()
 
   override fun names(locale: String) = chat.allay.spigot.tools.Catalogs.names(locale)
+  override fun itemName(id: String, locale: String?) = chat.allay.spigot.tools.Catalogs.build(features.expansions, features.names()).label(id, locale)
   override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task, run.others)
   override val buttons = GameClicks(plugin, features)
   override fun effects(config: Config): Effects = BukkitEffects(plugin, config)

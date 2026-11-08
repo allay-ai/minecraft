@@ -78,6 +78,13 @@ class CatalogTest {
     assertEquals("Diamond Sword", catalog.name(hit.entry, "de_de"))
   }
 
+  @Test fun `a tool line names an exact id and never guesses`() {
+    assertEquals("Алмазный меч", catalog.label("minecraft:Diamond_Sword", "ru_ru"))
+    assertEquals("Ruby", catalog.label("mypack:ruby", "ru_ru"))
+    assertEquals(null, catalog.label("diamond", "ru_ru"))
+    assertEquals(null, catalog.label("алмазный меч", "ru_ru"))
+  }
+
   @Test fun `mods', plugins', and data packs' things are found by name and id`() {
     assertEquals("mymod:copper_wrench", catalog.resolve("copper wrench", "en_us")?.id)
     assertEquals("mymod:copper_wrench", catalog.resolve("mymod:copper_wrench", null)?.id)

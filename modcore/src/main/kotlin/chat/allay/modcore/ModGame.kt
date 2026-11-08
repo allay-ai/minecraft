@@ -81,6 +81,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   override fun loaded(player: UUID, state: PlayerState) = goals.loaded(player, state)
 
   override fun names(locale: String) = chat.allay.modcore.tools.Catalogs.names(locale)
+  override fun itemName(id: String, locale: String?) = chat.allay.modcore.tools.Catalogs.build(server, features.expansions, features.names()).label(id, locale)
 
   /** On the server thread, where boss bars live. */
   override fun forget(player: UUID) {

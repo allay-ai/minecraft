@@ -114,6 +114,10 @@ class ToolsTest {
     // Several names show together where the label names one.
     assertEquals("Ищу рецепт: beacon, anvil", ToolLabels.label(lang, "get_recipes", buildJsonObject { put("item", "beacon"); put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("beacon"), JsonPrimitive("anvil")))) }))
     // Tools with an action label each action, and list when the call names none.
+    // Item ids read in the player's language; what the catalog doesn't know stays as the model wrote it.
+    val names = mapOf("diamond" to "Алмаз", "torch" to "Факел")
+    assertEquals("Ищу рецепт: Алмаз", ToolLabels.label(lang, "get_recipes", buildJsonObject { put("item", "diamond") }, names::get))
+    assertEquals("Ищу рецепт: Факел, блестяшка", ToolLabels.label(lang, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("torch"), JsonPrimitive("блестяшка")))) }, names::get))
     assertEquals("Ставлю напоминание", ToolLabels.label(lang, "reminders", buildJsonObject { put("action", "add") }))
     assertEquals("Смотрю напоминания", ToolLabels.label(lang, "reminders", null))
   }

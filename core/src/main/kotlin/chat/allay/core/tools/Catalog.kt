@@ -54,6 +54,16 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     return entry.names[GameNames.ENGLISH] ?: lookup(entry, GameNames.ENGLISH) ?: entry.names.values.firstOrNull()
   }
 
+  /**
+   * What a tool line calls [id]: the thing's name in [locale] when [id] is exactly an id here (`diamond`, `minecraft:torch`,
+   * `redbull:original`), else null and the line keeps what the model wrote. Never a guess: a near name could be another thing.
+   */
+  fun label(id: String, locale: String?): String? {
+    val plain = id.trim().lowercase().removePrefix("$MINECRAFT:")
+    val entry = Kind.entries.firstNotNullOfOrNull { find(plain, it) } ?: return null
+    return name(entry, locale)
+  }
+
   private fun lookup(entry: Entry, locale: String): String? {
     val table = names?.table(locale) ?: return null
     return entry.keys.firstNotNullOfOrNull { table[it] }?.let(::plain)

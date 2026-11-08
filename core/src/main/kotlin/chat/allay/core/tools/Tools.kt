@@ -84,15 +84,20 @@ class ToolRegistry<C>(tools: List<ClientTool<C>>, private val enabled: (String) 
   fun find(name: String): ClientTool<C>? = byName[name]?.takeIf { enabled(it.name) }
 }
 
-/** Chat labels for tools from `tools.<name>` in the reader's language, with `{arg}` placeholders filled from the call's arguments. */
+/**
+ * Chat labels for tools from `tools.<name>` in the reader's language, with `{arg}` placeholders filled from the call's
+ * arguments. [items] names an item id in the reader's language (“Алмаз”, not `diamond`), null where it knows no such id.
+ */
 object ToolLabels {
   private val LISTS = mapOf("items" to "item", "queries" to "query")
+  private val ITEMS = setOf("item", "items")
 
-  fun label(lang: Lang, name: String, args: JsonObject?): String {
-    val plain = args.orEmpty().mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.take(60)?.let { key to it } }
+  fun label(lang: Lang, name: String, args: JsonObject?, items: (String) -> String? = { null }): String {
+    fun shown(key: String, value: String) = if (key in ITEMS) items(value) ?: value else value
+    val plain = args.orEmpty().mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.let { key to shown(key, it).take(60) } }
     // A lookup of several names (since 6.13) shows them all where the label names one: “beacon, anvil”.
     val listed = LISTS.mapNotNull { (many, one) ->
-      (args?.get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.ifEmpty { null }?.let { one to it.joinToString().take(60) }
+      (args?.get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let { value -> shown(many, value) } }?.ifEmpty { null }?.let { one to it.joinToString().take(60) }
     }
     val values = plain.filter { (key, _) -> listed.none { it.first == key } } + listed
     // Tools with an action (reminders, goals) take a label per action, list when the call names none: tools.reminders.add.

@@ -10,7 +10,13 @@ import kotlin.random.Random
  * The live display, modeled on Claude Code: a spinner with a changing verb, elapsed time, and tokens in the action bar,
  * and one chat line per tool the assistant uses. The platform plays the sounds and draws the particles ([Effects]).
  */
-class Animator(private val platform: Platform, config: Config, private val effects: Effects) {
+class Animator(
+  private val platform: Platform,
+  config: Config,
+  private val effects: Effects,
+  /** An item id's name in the language the asker reads the game's names in, for tool lines; null for an unknown id. */
+  private val itemName: (run: Run, id: String) -> String? = { _, _ -> null },
+) {
   private val active = ConcurrentHashMap<UUID, AutoCloseable>()
   private val ui = config.ui
   private val spinner = Spinner(ui.spinnerFrames)
@@ -62,7 +68,7 @@ class Animator(private val platform: Platform, config: Config, private val effec
   fun toolStarted(run: Run, to: Audience, name: String, args: JsonObject?) {
     if (!ui.toolLines) return
     // Another plugin's tool says whose it is; its own words are for the model.
-    val label = run.expansionNames[name]?.let { run.lang.text("tool_lines.expansion", "name" to it) } ?: ToolLabels.label(run.lang, name, args)
+    val label = run.expansionNames[name]?.let { run.lang.text("tool_lines.expansion", "name" to it) } ?: ToolLabels.label(run.lang, name, args) { itemName(run, it) }
     run.lang.send(to, "tool_lines.started", "label" to label)
   }
 

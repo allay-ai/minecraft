@@ -88,6 +88,9 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
      * and plugin's language files. The game's other languages come from [GameNames]' downloads.
      */
     fun names(locale: String): Map<String, String> = emptyMap()
+
+    /** An item id's name in the game's [locale] from the platform's catalog, like `Алмаз` for `diamond`; null for an unknown id. Server thread. */
+    fun itemName(id: String, locale: String?): String? = null
   }
 
   val scope = CoroutineScope(Dispatchers.Unconfined + SupervisorJob())
@@ -191,7 +194,9 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     if (::handler.isInitialized) handler.cancelAll()
     if (::animator.isInitialized) animator.stopAll()
     effects = game.effects(config)
-    animator = Animator(platform, config, effects)
+    animator = Animator(platform, config, effects) { run, id ->
+      runCatching { game.itemName(id, run.asker.uuid?.let(platform::player)?.let(locales::names)) }.getOrNull()
+    }
     val tools = ToolRegistry(game.tools(), config.tools::enabled)
     val licenses = Billing(client, config, license, game.loader, game.side)
     val identity = Identity(licenses, config, { platform.motd }, log)
