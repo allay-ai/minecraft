@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.30.0
+
+- 🏷️ **Tool lines name things in your language.** “Searching for Diamond”, «Ищу рецепт: Факел» instead of `diamond` and `torch`, from the same catalog as the chests' labels. A name the catalog doesn't know exactly stays as Allay asked for it.
+
 ## 6.29.0
 
 - 🗣️ **New wording reaches your server.** Allay used to copy `lang/` once and never touch it again, so a better line in a release reached only new servers. It now remembers what each bundled file said (`lang/.bundled/`) and takes the release's text for every line you never changed; the lines you edited stay yours. Copies from before 6.29 start following with the next release.
