@@ -228,6 +228,14 @@ class InfoGameTests {
     val (helmet, boots) = set["results"]!!.jsonArray.map { it.jsonObject["plan"]!!.jsonObject }
     equal(helper, helmet["takes"]?.jsonObject?.get("iron_ingot")?.jsonPrimitive?.int, 5, "the helmet's ingots: $helmet")
     helper.assertTrue("missing" in boots, "the boots get what's left: $boots")
+    // counts says how many of each: one helmet takes the five ingots, and the three left make no two boots.
+    val counted = result(asker, "get_recipes", buildJsonObject {
+      put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true)
+      put("counts", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(1), JsonPrimitive(2))))
+    })
+    val (one, pair) = counted["results"]!!.jsonArray.map { it.jsonObject["plan"]!!.jsonObject }
+    equal(helper, one["takes"]?.jsonObject?.get("iron_ingot")?.jsonPrimitive?.int, 5, "one helmet: $one")
+    equal(helper, pair["missing"]?.jsonObject?.get("raw_iron")?.jsonPrimitive?.int, 5, "two boots lack five of their eight ingots, as raw iron: $pair")
     val advancements = result(asker, "get_advancements", buildJsonObject { put("filter", "all") })
     val todo = advancements["todo"]!!.jsonArray.map { it.jsonObject }
     helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 15, "the list is capped, the count isn't: $advancements")

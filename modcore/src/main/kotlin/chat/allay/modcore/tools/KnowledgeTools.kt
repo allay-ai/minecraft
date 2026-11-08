@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import net.minecraft.core.registries.BuiltInRegistries
@@ -38,18 +39,20 @@ object KnowledgeTools {
       val locale = context.nameLocale
       // With plan, each item also comes with what crafting it would take from the player's things, parts on the way.
       // Items in one call share the player's things: a set of armor counts the same ingots once.
-      val plan = if (args.bool("plan") == true) (args.int("count") ?: 1).coerceIn(1, chat.allay.modcore.automation.Crafting.MAX_COUNT) else null
+      // counts, since 6.27, says how many of each item in its place («1 факел и 6 повторителей»); count is for the rest.
+      val counts = (args["counts"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.intOrNull }
+      val plan = { at: Int -> if (args.bool("plan") == true) (counts.getOrNull(at) ?: args.int("count") ?: 1).coerceIn(1, chat.allay.modcore.automation.Crafting.MAX_COUNT) else null }
       val spent = mutableMapOf<String, Int>()
       read(context)
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
       if (args["items"] == null) {
-        val result = recipes(context, catalog, locale, asked.single(), MAX_RECIPES, plan, spent)
+        val result = recipes(context, catalog, locale, asked.single(), MAX_RECIPES, plan(0), spent)
         return ToolOutput(result, summary(context, listOf(result)))
       }
       val each = if (asked.size == 1) MAX_RECIPES else MAX_RECIPES_EACH
-      val results = asked.map { name ->
+      val results = asked.mapIndexed { at, name ->
         try {
-          buildJsonObject { put("query", name); recipes(context, catalog, locale, name, each, plan, spent).forEach { (key, value) -> put(key, value) } }
+          buildJsonObject { put("query", name); recipes(context, catalog, locale, name, each, plan(at), spent).forEach { (key, value) -> put(key, value) } }
         } catch (error: ToolError) {
           buildJsonObject { put("query", name); put("error", error.message.orEmpty()) }
         }
