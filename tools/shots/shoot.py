@@ -413,9 +413,10 @@ def clip(lang: str, name: str):
     out.mkdir(parents=True, exist_ok=True)
     source = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(LEAD - 0.4), "-i", str(video)]
     hold = "tpad=stop_mode=clone:stop_duration=2"
-    # A world in motion (water, petals, clouds) changes most pixels of every frame: its GIF goes smaller and slower.
-    width, fps = (640, 12) if CLIPS[name] != WORLD else (560, 10)
-    gif = (f"{crop_to},fps={fps},scale={width}:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];"
+    # As wide as status.gif, since the READMEs show them one under another. A world in motion (water, petals, clouds)
+    # changes most pixels of every frame, so its GIF goes slower.
+    fps = 12 if CLIPS[name] != WORLD else 10
+    gif = (f"{crop_to},fps={fps},scale=760:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];"
            "[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle")
     subprocess.run(source + ["-vf", gif, str(out / f"{name}.gif")], check=True)
     subprocess.run(source + ["-vf", f"{crop_to},scale=1000:-2:flags=lanczos,{hold},format=yuv420p", "-c:v", "libx264", "-crf", "24", "-movflags", "+faststart", "-an",

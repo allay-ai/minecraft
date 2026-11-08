@@ -6,17 +6,17 @@
 
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/status.gif" width="760" alt="Allay answering: the status above the hotbar, the tools it uses, then the answer with buttons"></p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.gif" width="49%" alt="A player asks Allay to ask the others for diamonds politely, clicks Send under the answer, and the line goes out in chat as theirs">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.gif" width="49%" alt="A player asks how to craft a beacon, clicks Recipe in the answer, and the recipe window opens">
-  <br><sub>Allay writes to the others for you, and nothing goes out until you press Send · Ask for a recipe, press Recipe, and the server’s own recipe opens</sub>
-</p>
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.gif" width="760" alt="A player asks Allay to ask the others for diamonds politely, clicks Send under the answer, and the line goes out in chat as theirs">
+  <br><sub>Allay writes to the others for you, and nothing goes out until you press Send</sub></p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/trail.gif" width="49%" alt="A player asks the way to the village; a trail of cherry petals appears across the river, and the bar on top counts the blocks down as they walk">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.gif" width="49%" alt="A player asks where their diamonds are, and three chests by the river glow with labels Diamond ×12, ×14, and ×8">
-  <br><sub>Ask for the way, and a trail leads there with an arrow on top · Ask where something lies, and its chests glow, even through the ground</sub>
-</p>
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.gif" width="760" alt="A player asks how to craft a beacon, clicks Recipe in the answer, and the recipe window opens">
+  <br><sub>Ask for a recipe, press Recipe, and the server’s own recipe opens</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/trail.gif" width="760" alt="A player asks the way to the village; a trail of cherry petals appears across the river, and the bar on top counts the blocks down as they walk">
+  <br><sub>Ask for the way, and a trail leads there with an arrow on top</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.gif" width="760" alt="A player asks where their diamonds are, and three chests by the river glow with labels Diamond ×12, ×14, and ×8">
+  <br><sub>Ask where something lies, and its chests glow, even through the ground</sub></p>
 
 ### Screenshots
 

@@ -24,17 +24,17 @@ Allay работает на Moonlands — моём хардкорном выжи
 
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/status.gif" width="760" alt="Allay отвечает: статус над хотбаром, его инструменты и ответ с кнопками"></p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.gif" width="49%" alt="Игрок просит Allay вежливо попросить у других алмазы, нажимает «Отправить» под ответом, и строка уходит в чат от его имени">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.gif" width="49%" alt="Игрок спрашивает, как скрафтить маяк, нажимает «Рецепт» в ответе, и открывается окно рецепта">
-  <br><sub>Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить» · Спросите рецепт, нажмите «Рецепт», и откроется рецепт этого сервера</sub>
-</p>
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.gif" width="760" alt="Игрок просит Allay вежливо попросить у других алмазы, нажимает «Отправить» под ответом, и строка уходит в чат от его имени">
+  <br><sub>Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить»</sub></p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/trail.gif" width="49%" alt="Игрок спрашивает дорогу к деревне: через реку появляется тропа из вишнёвых лепестков, а полоса сверху считает блоки, пока он идёт">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chests.gif" width="49%" alt="Игрок спрашивает, где его алмазы, и три сундука у реки подсвечиваются с подписями «Алмаз ×12», «×14» и «×8»">
-  <br><sub>Спросите дорогу, и к месту поведёт тропа со стрелкой сверху · Спросите, где что лежит, и сундуки подсветятся даже сквозь землю</sub>
-</p>
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.gif" width="760" alt="Игрок спрашивает, как скрафтить маяк, нажимает «Рецепт» в ответе, и открывается окно рецепта">
+  <br><sub>Спросите рецепт, нажмите «Рецепт», и откроется рецепт этого сервера</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/trail.gif" width="760" alt="Игрок спрашивает дорогу к деревне: через реку появляется тропа из вишнёвых лепестков, а полоса сверху считает блоки, пока он идёт">
+  <br><sub>Спросите дорогу, и к месту поведёт тропа со стрелкой сверху</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chests.gif" width="760" alt="Игрок спрашивает, где его алмазы, и три сундука у реки подсвечиваются с подписями «Алмаз ×12», «×14» и «×8»">
+  <br><sub>Спросите, где что лежит, и сундуки подсветятся даже сквозь землю</sub></p>
 
 ### Скриншоты
 
