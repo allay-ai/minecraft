@@ -1,0 +1,30 @@
+{
+  "about": "The way to the village across the river: point_to draws the particle trail and the boss bar's arrow; the shot looks along the trail.",
+  "question": {
+    "en": "take me to the village",
+    "ru": "проведи меня к деревне",
+    "es": "llévame a la aldea"
+  },
+  "tools": [
+    {
+      "name": "point_to",
+      "args": {
+        "x": 128,
+        "z": 160,
+        "label": "__label__",
+        "style": "cherry",
+        "bar_color": "pink"
+      }
+    }
+  ],
+  "label": {
+    "en": "Village",
+    "ru": "Деревня",
+    "es": "Aldea"
+  },
+  "answer": {
+    "en": "Follow the cherry petals across the river: the village is &6100&r blocks south-east. The bar on top turns with you.",
+    "ru": "Иди по лепесткам через реку: до деревни &6100&r блоков на юго-восток. Стрелка сверху поворачивается вместе с тобой.",
+    "es": "Sigue los pétalos al otro lado del río: la aldea está a &6100&r bloques al sureste. La barra de arriba gira contigo."
+  }
+}

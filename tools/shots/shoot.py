@@ -7,8 +7,9 @@ the stills and record.swift (ScreenCaptureKit) the animation, both of the game's
     ./gradlew build
     python3 -I tools/shots/shoot.py [--langs en,ru,es] [--keep ru]
 
-Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, privacy.webp, and status.gif with
-status.mp4 and status.webp, its last frame. --keep leaves the server, the stub, and the client in that language
+Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, memory-one.webp, privacy.webp,
+chests.webp (find_item's glowing chests), trail.webp (the way to a village), recipe.webp (the recipe window), and
+status.gif with status.mp4 and status.webp, its last frame. --keep leaves the server, the stub, and the client in that language
 running afterwards, to press the buttons by hand; --stop ends them. --remake crops and encodes the last run again.
 """
 from __future__ import annotations
@@ -17,6 +18,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -49,7 +51,15 @@ CHAT = (0.007, 0.52, 0.67, 1.0)
 # The animation keeps to the chat and the hotbar: the world above them moves (clouds, mobs) and costs a GIF its size.
 STATUS = (0.007, 0.52, 0.80, 1.0)
 # Each window as tall as it is.
-DIALOGS = {"consent": (0.17, 0.0, 0.83, 0.70), "memory": (0.17, 0.0, 0.83, 0.70), "privacy": (0.17, 0.0, 0.83, 1.0)}
+DIALOGS = {"consent": (0.17, 0.0, 0.83, 0.70), "memory": (0.17, 0.0, 0.83, 0.84), "memory-one": (0.17, 0.0, 0.83, 0.80), "privacy": (0.17, 0.0, 0.83, 1.0)}
+# The world with the chat and the bars: the trail, the glowing chests.
+WORLD = (0.007, 0.0, 1.0, 1.0)
+# Where the player stands on the ground for the world's shots: x z, the surface found there.
+GROUND = "40 112"
+# The chests find_item lights up, set into the ground in front of the player: x z diamonds.
+CHESTS = [(38, 109, 12), (42, 108, 14), (40, 106, 8)]
+# The recipe window in the middle of the screen.
+MENU = (0.25, 0.20, 0.75, 0.80)
 # What the player holds, so the hotbar looks lived in; the coal and sticks are what the torches answer counts.
 HOTBAR = ["torch 24", "diamond_pickaxe", "iron_sword", "coal 7", "stick 4", "bread 12", "compass", "oak_log 48", "crafting_table"]
 # How long the recording runs before the question, so the animation starts on a quiet screen.
@@ -90,6 +100,9 @@ def prepare_server() -> pathlib.Path:
     plugin = REPO / "spigot" / "build" / "libs" / "allay-spigot-dev.jar"
     if not plugin.exists():
         sys.exit("Build the plugin first: ./gradlew build")
+    # A fresh world from SEED every run, so nothing a scene placed before stays in the next shots.
+    for folder in ("world", "world_nether", "world_the_end"):
+        shutil.rmtree(server / folder, ignore_errors=True)
     shutil.copy(paper_jar(), server / "paper.jar")
     shutil.copy(plugin, plugins / "allay-spigot-dev.jar")
     driver_jar(plugins / "ShotDriver.jar")
@@ -98,6 +111,8 @@ def prepare_server() -> pathlib.Path:
         "online-mode=false", f"server-port={SERVER_PORT}", "white-list=false", "difficulty=peaceful", "spawn-protection=0",
         f"level-seed={SEED}", "motd=Allay", "view-distance=12", "",
     ]))
+    # The lang files a run before unpacked would keep their old texts: the plugin never overwrites them.
+    shutil.rmtree(plugins / "Allay" / "lang", ignore_errors=True)
     (plugins / "Allay").mkdir(exist_ok=True)
     (plugins / "Allay" / "config.yml").write_text(f'server:\n  url: "http://127.0.0.1:{STUB_PORT}"\n  name: "Moonlands"\n')
     return server
@@ -266,8 +281,76 @@ def film(lang: str, name: str, start_lines: list[str], seconds: float):
     log(f"{lang}: {name}")
 
 
+def press(*args: str, wait: float = 0.0):
+    """Keys and the pointer through press.swift: escape, chat, move fx fy, click fx fy."""
+    subprocess.run([str(compiled("press")), *args], check=True)
+    time.sleep(wait)
+
+
+def last_button() -> tuple[float, float]:
+    """
+    Where the chat's last green button is, as fractions of the window: the lowest line's rightmost run of &a text.
+    Only the chat's corner is searched, and only that exact green, so the grass never counts: &a's 85 255 85 as the
+    capture keeps it, in the display's Display P3.
+    """
+    raw = WORK / "raw" / "button.png"
+    raw.parent.mkdir(parents=True, exist_ok=True)
+    grab(raw)
+    w, h = (int(v) for v in subprocess.run(["magick", "identify", "-format", "%w %h", str(raw)], capture_output=True, text=True, check=True).stdout.split())
+    # The chat's lines: left of the hotbar (its icons hold that green too) and above the line being typed.
+    x0, y0, x1, y1 = 0, round(h * 0.45), round(w * 0.35), round(h * 0.94)
+    found = subprocess.run([
+        "magick", str(raw), "-crop", f"{x1 - x0}x{y1 - y0}+{x0}+{y0}", "+repage", "-alpha", "off", "-fuzz", "2%", "-fill", "black", "+opaque", "rgb(137,252,110)",
+        "-fill", "white", "-opaque", "rgb(137,252,110)", "-morphology", "Dilate", "Rectangle:15x7", "-define", "connected-components:verbose=true",
+        "-define", "connected-components:area-threshold=400", "-connected-components", "8", "null:",
+    ], capture_output=True, text=True).stdout
+    runs = []
+    for line in found.splitlines():
+        m = re.match(r"\s*\d+: (\d+)x(\d+)\+(\d+)\+(\d+) [\d.]+,[\d.]+ \d+ srgb\(255,255,255\)", line)
+        if m:
+            left = int(m.group(3)) + x0
+            runs.append((left, left + int(m.group(1)), int(m.group(4)) + int(m.group(2)) / 2 + y0))
+    if not runs:
+        sys.exit("No green button in the chat")
+    # The lowest line's runs, joined across letters but not across spaces, make its buttons; the last one is it.
+    lowest = max(y for _, _, y in runs)
+    buttons: list[list[float]] = []
+    for left, right, y in sorted(r for r in runs if lowest - r[2] < 20):
+        # The dilation already joins a word's letters; a space between two buttons still leaves about 11 pixels.
+        if buttons and left - buttons[-1][1] < 6:
+            buttons[-1][1] = max(buttons[-1][1], right)
+        else:
+            buttons.append([left, right, y])
+    left, right, y = buttons[-1]
+    return (left + right) / 2 / w, y / h
+
+
+def click_last_button():
+    """
+    Opens the chat and clicks its last button, as a player does. The first click after the window comes forward can go
+    to focusing it, so the server's log says whether the button ran, and the click repeats if it didn't.
+    """
+    log_file = WORK / "server.log"
+    press("chat", wait=1.5)
+    for _ in range(3):
+        # The open chat lifts its lines over the field it types into; a capture taken before that aims a line too low.
+        fx, fy = last_button()
+        for _ in range(5):
+            time.sleep(0.5)
+            again = last_button()
+            if abs(again[1] - fy) < 0.003:
+                break
+            fx, fy = again
+        since = len(log_file.read_text(errors="ignore"))
+        press("click", f"{fx:.4f}", f"{fy:.4f}", wait=1.5)
+        # A say button sends its line as the player's chat, a recipe button runs /allay do.
+        if re.search(r"issued server command: /allay do|<Steve>", log_file.read_text(errors="ignore")[since:]):
+            return
+    sys.exit("The button in the chat didn't take the click")
+
+
 def compiled(name: str) -> pathlib.Path:
-    """record.swift or type.swift, compiled once: the interpreter takes seconds to start, and the animation would lag."""
+    """record.swift, type.swift, or press.swift, compiled once: the interpreter takes seconds to start, and the animation would lag."""
     binary = WORK / name
     if not binary.exists() or binary.stat().st_mtime < (HERE / f"{name}.swift").stat().st_mtime:
         subprocess.run(["swiftc", "-O", str(HERE / f"{name}.swift"), "-o", str(binary)], check=True)
@@ -307,7 +390,9 @@ def render(lang: str, name: str):
 
 def remake(lang: str):
     """Crops and encodes again from what the last run grabbed, after a change to the boxes or the encoding."""
-    for name, box in {"consent": DIALOGS["consent"], "say": CHAT, "memory": DIALOGS["memory"], "privacy": DIALOGS["privacy"]}.items():
+    boxes = {"consent": DIALOGS["consent"], "say": CHAT, "memory": DIALOGS["memory"], "memory-one": DIALOGS["memory-one"], "privacy": DIALOGS["privacy"],
+             "chests": WORLD, "trail": WORLD, "recipe": MENU}
+    for name, box in boxes.items():
         crop(WORK / "raw" / lang / f"{name}.png", OUT / lang / f"{name}.webp", box, 1400)
     render(lang, "status")
     log(f"{lang}: remade")
@@ -336,18 +421,52 @@ def scenes(lang: str):
     drive("!clear", wait=FADE)
     film(lang, "status", [f"ask {torches['question'][lang]}"], 14)
 
-    # A message to send: the answer with Send, and the line the button sends.
+    # A message to send: the player opens the chat and clicks Send under the answer, and the line goes out as theirs.
     time.sleep(FADE)
     drive(f"ask {diamonds['question'][lang]}", wait=6.5)
-    drive(f"!chat {diamonds['say'][lang]}", wait=1.5)
+    click_last_button()
     shot(lang, "say", CHAT)
+    press("escape", wait=0.5)
 
-    # The windows: memory, then privacy.
-    drive(*[f"allay memory {how} {text}" for how, text in memories["memories"][lang]], wait=2)
-    drive("allay memory", wait=2)
-    shot(lang, "memory", DIALOGS["memory"])
-    drive("allay privacy", wait=2)
-    shot(lang, "privacy", DIALOGS["privacy"])
+    # The windows: memory, one memory, then privacy.
+    # A window puts the pointer at its middle, over a button; it goes to a corner first, so no button lights up.
+    stub("memories", {"memories": memories["memories"][lang]})
+    for command, name in (("allay memory", "memory"), ("allay memory show farm", "memory-one"), ("allay privacy", "privacy")):
+        drive(command, wait=2)
+        press("move", "0.99", "0.99", wait=0.6)
+        shot(lang, name, DIALOGS[name])
+    # The last window stays until it's closed, and would cover the world's shots. Escape would press its Back.
+    drive(f"@dialog clear {PLAYER}", wait=1)
+    world(lang)
+
+
+def stand(yaw: float, pitch: float):
+    """On the ground at GROUND, looking [yaw] [pitch]; the chat's old lines fade first."""
+    drive("!clear", f"@execute positioned {GROUND.split()[0]} 0 {GROUND.split()[1]} positioned over motion_blocking_no_leaves run tp {PLAYER} ~ ~ ~ {yaw} {pitch}", wait=FADE)
+
+
+def world(lang: str):
+    """The world's shots by the river: the glowing chests, the way to the village across it, the recipe window."""
+    chests, trail, recipe = fixture("chests"), fixture("trail"), fixture("recipe")
+    drive(*[
+        f'@execute positioned {x} 0 {z} positioned over motion_blocking_no_leaves run setblock ~ ~-1 ~ chest{{Items:[{{Slot:0b,id:"minecraft:diamond",count:{n}}}]}}'
+        for x, z, n in CHESTS
+    ])
+    stand(178, 48)
+    drive(f"ask {chests['question'][lang]}", wait=7)
+    shot(lang, "chests", WORLD)
+    drive("allay cancel")
+    stand(292, 4)
+    drive(f"ask {trail['question'][lang]}", wait=7)
+    shot(lang, "trail", WORLD)
+    drive("allay cancel")
+    # The recipe opens from the answer's button, clicked as a player does.
+    stand(292, 4)
+    drive(f"ask {recipe['question'][lang]}", wait=6.5)
+    click_last_button()
+    press("move", "0.99", "0.99", wait=0.6)
+    shot(lang, "recipe", MENU)
+    press("escape", wait=0.5)
 
 
 def main():

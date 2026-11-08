@@ -1,0 +1,21 @@
+{
+  "about": "Where are my diamonds: find_item lights the chests on the river bank up, with a label each.",
+  "question": {
+    "en": "where are my diamonds?",
+    "ru": "где мои алмазы?",
+    "es": "¿dónde están mis diamantes?"
+  },
+  "tools": [
+    {
+      "name": "find_item",
+      "args": {
+        "item": "diamond"
+      }
+    }
+  ],
+  "answer": {
+    "en": "&634&r diamonds in three chests by the river; they glow now. The nearest has &612&r.",
+    "ru": "&634&r алмаза в трёх сундуках у реки, они подсвечены. В ближнем &612&r.",
+    "es": "&634&r diamantes en tres cofres junto al río; ahora brillan. El más cercano tiene &612&r."
+  }
+}

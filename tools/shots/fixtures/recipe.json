@@ -1,0 +1,23 @@
+{
+  "about": "How a beacon is made: the player clicks Recipe, the answer's last button, and the recipe window opens.",
+  "question": {
+    "en": "how do I craft a beacon?",
+    "ru": "как скрафтить маяк?",
+    "es": "¿cómo fabrico un faro?"
+  },
+  "tools": [
+    {
+      "name": "get_recipes",
+      "args": {
+        "items": [
+          "beacon"
+        ]
+      }
+    }
+  ],
+  "answer": {
+    "en": "A beacon takes &e5 glass&r, &e3 obsidian&r, and a &eNether Star&r from the Wither. <button action=\"recipe\" item=\"beacon\">Recipe</button>",
+    "ru": "Маяк — это &e5 стекла&r, &e3 обсидиана&r и &eзвезда Незера&r с иссушителя. <button action=\"recipe\" item=\"beacon\">Рецепт</button>",
+    "es": "Un faro lleva &e5 de cristal&r, &e3 de obsidiana&r y una &eestrella del Nether&r del Wither. <button action=\"recipe\" item=\"beacon\">Receta</button>"
+  }
+}

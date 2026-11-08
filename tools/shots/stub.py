@@ -8,6 +8,7 @@ pieces, paced so the live status has something to show.
 
 `POST /shots/consent` with {"given": true|false} sets whether the player has agreed; it starts as false.
 `POST /shots/reset` forgets the memories and the consent, before the next language.
+`POST /shots/memories` with {"memories": [...]} puts memories in as the backend keeps them: kind, title, tags, pin, place.
 """
 from __future__ import annotations
 
@@ -30,6 +31,19 @@ def fixture(question: str) -> tuple[dict, str] | None:
             if text.strip().lower() == question.strip().lower():
                 return item, lang
     return None
+
+
+def localized(args: dict, item: dict, lang: str) -> dict:
+    """A tool's arguments with "__key__" put as the fixture's item[key] in [lang]: a trail's label, a draft's title."""
+    def fill(value):
+        if isinstance(value, str) and value.startswith("__") and value.endswith("__"):
+            return item[value.strip("_")][lang]
+        if isinstance(value, dict):
+            return {k: fill(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [fill(v) for v in value]
+        return value
+    return fill(args)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -69,6 +83,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             STATE["consent"] = {"version": body.get("version", 2), "hash": body.get("hash"), "accepted_at": "2026-10-23T10:00:00Z", "age_confirmed": True}
         self.reply({})
 
+    def do_PATCH(self):
+        body = self.body()
+        tail = self.path.rsplit("/", 1)[-1]
+        for memory in MEMORIES:
+            if memory["id"] == tail:
+                memory.update({k: v for k, v in body.items() if k != "title"})
+                if "title" in body:
+                    memory["title"] = body["title"] or None
+                return self.reply({"memory": memory})
+        self.send_response(404)
+        self.end_headers()
+
     def do_DELETE(self):
         if "/memories" in self.path:
             tail = self.path.rsplit("/", 1)[-1]
@@ -90,12 +116,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == "/shots/consent":
             STATE["given"] = bool(body.get("given"))
             return self.reply({})
+        if self.path == "/shots/memories":
+            MEMORIES[:] = [{"tags": [], "pinned": False, **memory} for memory in body.get("memories", [])]
+            return self.reply({})
         if self.path.endswith("/memories"):
-            memory = {"id": uuid.uuid4().hex[:8], "text": body.get("text", ""), "place": body.get("place")}
+            memory = {"id": uuid.uuid4().hex[:8], "text": body.get("text", ""), "place": body.get("place"), "title": body.get("title"),
+                      "tags": body.get("tags") or [], "pinned": False, "kind": "place" if body.get("place") else "fact"}
             MEMORIES.append(memory)
             return self.reply({"memory": memory})
         if self.path.endswith("/chat"):
             return self.chat(body)
+        if "/tools/" in self.path:
+            # What the plugin's tools answered, for when a scene shows nothing: stub.log in shoot.py's folder.
+            print(f"tool {self.path.rsplit('/', 1)[-1]}: {json.dumps(body, ensure_ascii=False)[:600]}", flush=True)
         self.reply({})
 
     def chat(self, body: dict):
@@ -112,7 +145,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.event("reasoning", {"delta": word}, 0.35)
         read = 2100
         for n, tool in enumerate(item.get("tools", [])):
-            self.event("tool_call", {"call_id": f"c{n}", "name": tool["name"], "args": tool.get("args", {})}, 0.2)
+            self.event("tool_call", {"call_id": f"c{n}", "name": tool["name"], "args": localized(tool.get("args", {}), item, lang)}, 0.2)
             read += 1900 + 700 * n
             self.event("usage", {"input_tokens": read, "output_tokens": 40 * (n + 1)}, 1.2)
         pieces = [answer[i:i + 24] for i in range(0, len(answer), 24)]

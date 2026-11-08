@@ -31,9 +31,21 @@ Allay работает на Moonlands — моём хардкорном выжи
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" width="49%" alt="Окно памяти">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" width="49%" alt="Окно памяти с тегами для фильтра, двумя закреплёнными записями со звездой и местами со значками">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" width="49%" alt="Окно с уведомлением о данных">
   <br><sub>Что помнит Allay, в окне самой игры · Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/trail.webp" width="49%" alt="Тропа из вишнёвых лепестков ведёт через реку к деревне в саванне, сверху полоса «Деревня · 100 блоков»">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chests.webp" width="49%" alt="Три сундука у реки подсвечены жёлтым с подписями «Алмаз ×12», «×14» и «×8»">
+  <br><sub>Спросите дорогу, и к месту поведёт тропа со стрелкой сверху · Спросите, где что лежит, и сундуки подсветятся даже сквозь землю</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.webp" width="49%" alt="Окно рецепта маяка: стекло, звезда Незера и обсидиан на верстаке">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory-one.webp" width="49%" alt="Одна запись: железная ферма с тегами, местом, расстоянием и кнопками «Показать путь», «Закрепить», «Изменить» и «Забыть»">
+  <br><sub>Кнопка «Рецепт» открывает рецепт этого сервера · Запись с тегами и путём к месту: закрепите, измените или забудьте её</sub>
 </p>
 
 ## Что вы получаете

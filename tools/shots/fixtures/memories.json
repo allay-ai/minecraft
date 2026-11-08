@@ -1,59 +1,272 @@
 {
-  "about": "What the memory window lists: added by hand before the shot, the first with the player's place. Four, so no button sits at the window's middle, where the game puts the pointer and would light one up.",
+  "about": "What the memory window lists, as the backend keeps it since 6.27: two pinned, places near the player first, tags on top. Places lie around where the player stands for the shots (40 118 110).",
   "memories": {
     "en": [
-      [
-        "here",
-        "My base by the cherry grove"
-      ],
-      [
-        "add",
-        "Village with a librarian at -212 71 348"
-      ],
-      [
-        "add",
-        "I build in a Japanese style"
-      ],
-      [
-        "add",
-        "My friend Alex lives across the river"
-      ]
+      {
+        "id": "base",
+        "kind": "place",
+        "pinned": true,
+        "category": "base",
+        "title": "Base by the cherry grove",
+        "text": "Japanese-style house, chests in the cellar",
+        "tags": [
+          "base"
+        ],
+        "place": {
+          "x": 58,
+          "y": 72,
+          "z": 150,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "short",
+        "kind": "preference",
+        "pinned": true,
+        "title": "Short answers",
+        "text": "Likes short answers with buttons",
+        "tags": []
+      },
+      {
+        "id": "farm",
+        "kind": "place",
+        "category": "farm",
+        "title": "Iron farm",
+        "text": "Three layers, 20 by 20, by the river",
+        "tags": [
+          "farm",
+          "iron"
+        ],
+        "place": {
+          "x": 96,
+          "y": 66,
+          "z": 72,
+          "dimension": "overworld",
+          "radius": 10
+        }
+      },
+      {
+        "id": "portal",
+        "kind": "place",
+        "category": "portal",
+        "title": "Nether portal",
+        "text": "The portal to the fortress",
+        "tags": [
+          "base",
+          "nether"
+        ],
+        "place": {
+          "x": 12,
+          "y": 70,
+          "z": 64,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "cleric",
+        "kind": "place",
+        "category": "villager",
+        "title": "Mending librarian",
+        "text": "Sells Mending for 14 emeralds",
+        "tags": [
+          "villagers",
+          "trades"
+        ],
+        "place": {
+          "x": -212,
+          "y": 71,
+          "z": 348,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "beacon",
+        "kind": "goal",
+        "title": "Full beacon",
+        "text": "164 iron blocks to go",
+        "tags": [
+          "iron",
+          "goals"
+        ]
+      }
     ],
     "ru": [
-      [
-        "here",
-        "Моя база у вишнёвой рощи"
-      ],
-      [
-        "add",
-        "Деревня с библиотекарем: -212 71 348"
-      ],
-      [
-        "add",
-        "Я строю в японском стиле"
-      ],
-      [
-        "add",
-        "Мой друг Алекс живёт за рекой"
-      ]
+      {
+        "id": "base",
+        "kind": "place",
+        "pinned": true,
+        "category": "base",
+        "title": "База у вишнёвой рощи",
+        "text": "Дом в японском стиле, сундуки в подвале",
+        "tags": [
+          "база"
+        ],
+        "place": {
+          "x": 58,
+          "y": 72,
+          "z": 150,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "short",
+        "kind": "preference",
+        "pinned": true,
+        "title": "Короткие ответы",
+        "text": "Любит короткие ответы с кнопками",
+        "tags": []
+      },
+      {
+        "id": "farm",
+        "kind": "place",
+        "category": "farm",
+        "title": "Железная ферма",
+        "text": "Три слоя, 20 на 20, у реки",
+        "tags": [
+          "ферма",
+          "железо"
+        ],
+        "place": {
+          "x": 96,
+          "y": 66,
+          "z": 72,
+          "dimension": "overworld",
+          "radius": 10
+        }
+      },
+      {
+        "id": "portal",
+        "kind": "place",
+        "category": "portal",
+        "title": "Портал в Незер",
+        "text": "Портал к крепости",
+        "tags": [
+          "база",
+          "незер"
+        ],
+        "place": {
+          "x": 12,
+          "y": 70,
+          "z": 64,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "cleric",
+        "kind": "place",
+        "category": "villager",
+        "title": "Библиотекарь с починкой",
+        "text": "Продаёт Починку за 14 изумрудов",
+        "tags": [
+          "жители",
+          "торговля"
+        ],
+        "place": {
+          "x": -212,
+          "y": 71,
+          "z": 348,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "beacon",
+        "kind": "goal",
+        "title": "Полный маяк",
+        "text": "Осталось 164 железных блока",
+        "tags": [
+          "железо",
+          "цели"
+        ]
+      }
     ],
     "es": [
-      [
-        "here",
-        "Mi base junto al bosque de cerezos"
-      ],
-      [
-        "add",
-        "Aldea con bibliotecario en -212 71 348"
-      ],
-      [
-        "add",
-        "Construyo en estilo japonés"
-      ],
-      [
-        "add",
-        "Mi amigo Alex vive al otro lado del río"
-      ]
+      {
+        "id": "base",
+        "kind": "place",
+        "pinned": true,
+        "category": "base",
+        "title": "Base junto a los cerezos",
+        "text": "Casa de estilo japonés, cofres en el sótano",
+        "tags": [
+          "base"
+        ],
+        "place": {
+          "x": 58,
+          "y": 72,
+          "z": 150,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "short",
+        "kind": "preference",
+        "pinned": true,
+        "title": "Respuestas cortas",
+        "text": "Prefiere respuestas cortas con botones",
+        "tags": []
+      },
+      {
+        "id": "farm",
+        "kind": "place",
+        "category": "farm",
+        "title": "Granja de hierro",
+        "text": "Tres pisos, 20 por 20, junto al río",
+        "tags": [
+          "granja",
+          "hierro"
+        ],
+        "place": {
+          "x": 96,
+          "y": 66,
+          "z": 72,
+          "dimension": "overworld",
+          "radius": 10
+        }
+      },
+      {
+        "id": "portal",
+        "kind": "place",
+        "category": "portal",
+        "title": "Portal al Nether",
+        "text": "El portal a la fortaleza",
+        "tags": [
+          "base",
+          "nether"
+        ],
+        "place": {
+          "x": 12,
+          "y": 70,
+          "z": 64,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "cleric",
+        "kind": "place",
+        "category": "villager",
+        "title": "Bibliotecario con Reparación",
+        "text": "Vende Reparación por 14 esmeraldas",
+        "tags": [
+          "aldeanos",
+          "comercio"
+        ],
+        "place": {
+          "x": -212,
+          "y": 71,
+          "z": 348,
+          "dimension": "overworld"
+        }
+      },
+      {
+        "id": "beacon",
+        "kind": "goal",
+        "title": "Faro completo",
+        "text": "Faltan 164 bloques de hierro",
+        "tags": [
+          "hierro",
+          "metas"
+        ]
+      }
     ]
   }
 }

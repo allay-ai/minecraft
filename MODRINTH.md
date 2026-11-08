@@ -13,9 +13,21 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory.webp" width="49%" alt="The memory window">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory.webp" width="49%" alt="The memory window with tags to filter by, two pinned memories with a star, and places marked by kind">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/consent.webp" width="49%" alt="The data notice window">
   <br><sub>What Allay remembers, in the game’s own window · Every player reads what Allay sends and keeps before the first question</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/trail.webp" width="49%" alt="A trail of cherry petals runs across a river to a savanna village, and the bar at the top reads Village, 100 blocks">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.webp" width="49%" alt="Three chests by a river glow yellow with labels Diamond ×12, ×14, and ×8">
+  <br><sub>Ask for the way, and a trail leads there with an arrow on top · Ask where something lies, and its chests glow, even through the ground</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.webp" width="49%" alt="The recipe window for a beacon: glass, a Nether Star, and obsidian on a crafting table">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory-one.webp" width="49%" alt="One memory: the iron farm with its tags, place, distance, and buttons to show the way, pin, edit, or forget it">
+  <br><sub>The Recipe button opens the server’s own recipe · A memory with its tags and the way there, to pin, edit, or forget</sub>
 </p>
 
 ## What you get
