@@ -6,6 +6,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -319,13 +320,30 @@ class Service<C>(
     }
   }
 
-  /** A remembered fact; since backend 6.9 one may have a [place], as notes once did. */
-  @Serializable data class Memory(val id: String, val text: String, val place: Place? = null, val created_at: String? = null)
-  @Serializable data class Place(val x: Int, val y: Int, val z: Int, val dimension: String, val world: String? = null)
+  /**
+   * A remembered fact; since backend 6.9 one may have a [place], as notes once did. Since 6.27 it has a [kind]
+   * (fact, preference, goal, place), a [title] for the list, [tags], a [pinned] flag, and a place a [category].
+   */
+  @Serializable data class Memory(
+    val id: String, val text: String, val place: Place? = null, val created_at: String? = null,
+    val kind: String? = null, val title: String? = null, val tags: List<String> = emptyList(), val pinned: Boolean = false, val category: String? = null,
+  ) {
+    /** What the list shows: the title, or the text. */
+    val label get() = title ?: text
+  }
+  @Serializable data class Place(val x: Int, val y: Int, val z: Int, val dimension: String, val world: String? = null, val radius: Int? = null)
   @Serializable private data class Memories(val memories: List<Memory> = emptyList())
   @Serializable private data class Deleted(val deleted: Int = 0)
-  @Serializable private data class Remember(val text: String, val place: Place? = null)
+  @Serializable private data class Remember(val text: String, val place: Place? = null, val title: String? = null, val tags: List<String>? = null)
   @Serializable private data class Remembered(val memory: Memory)
+
+  /**
+   * The memory window's edits (backend 6.27): what [changes] holds replaces what was, an empty title removes it.
+   * Too many pinned answers `MEMORY_PINS_FULL`.
+   */
+  suspend fun change(userId: String, id: String, changes: JsonObject): Memory = withContext(IO) {
+    json.decodeFromString<Remembered>(send("/api/v2/users/${path(userId)}/memories/${path(id)}", "PATCH", changes.toString())).memory
+  }
 
   /** `/allay new`: the backend forgets the conversation but keeps the memories. */
   suspend fun resetSession(userId: String) = withContext(IO) { send("/api/v2/users/${path(userId)}/session", "DELETE") }
@@ -338,8 +356,8 @@ class Service<C>(
    * `/allay memory add <text>` (the memory window) and the note button: saves a fact as the memories tool would, with a [place] (backend 6.9;
    * an older one drops it). A full memory answers `MEMORY_FULL`.
    */
-  suspend fun remember(userId: String, text: String, place: Place? = null): Memory = withContext(IO) {
-    val body = json.encodeToString(Remember.serializer(), Remember(text, place))
+  suspend fun remember(userId: String, text: String, place: Place? = null, title: String? = null, tags: List<String> = emptyList()): Memory = withContext(IO) {
+    val body = json.encodeToString(Remember.serializer(), Remember(text, place, title, tags.ifEmpty { null }))
     json.decodeFromString<Remembered>(send("/api/v2/users/${path(userId)}/memories", "POST", body)).memory
   }
 

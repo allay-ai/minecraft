@@ -90,7 +90,9 @@ class Commands(private val allay: Allay<*>) {
 
   /**
    * `/allay memory` opens the window; its buttons run the rest: `new` (the field to add one), `add` and `here` with
-   * the text, `show` and `forget` with a memory's id, and `clear`, which asks once more before `clear confirm`.
+   * the text, `show` and `forget` with a memory's id, and `clear`, which asks once more before `clear confirm`. Since
+   * 6.28 also `tag` with a tag to filter by, `pin`, `unpin`, and `edit` with an id, and `change` with an id and the
+   * edit window's fields.
    */
   private fun memory(sender: Audience, player: PlayerAudience?, args: List<String>) {
     val memory = allay.memory
@@ -103,6 +105,11 @@ class Commands(private val allay: Allay<*>) {
       word == "here" -> memory.remember(player, rest, here = true)
       word == "new" -> memory.create(player)
       word == "show" && args.size == 2 -> memory.show(player, args[1])
+      word == "tag" && args.size == 2 -> memory.open(player, args[1].lowercase())
+      word == "pin" && args.size == 2 -> memory.pin(player, args[1], true)
+      word == "unpin" && args.size == 2 -> memory.pin(player, args[1], false)
+      word == "edit" && args.size == 2 -> memory.edit(player, args[1])
+      word == "change" && args.size >= 2 -> memory.change(player, args[1], args.drop(2).joinToString(" "))
       word == "forget" && args.size == 2 -> memory.forget(player, args[1])
       word == "clear" && args.size == 1 -> memory.confirmClear(player)
       word == "clear" && args.getOrNull(1) == PrivacyCommands.CONFIRM -> memory.forget(player, null)
