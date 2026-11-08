@@ -30,6 +30,9 @@ class Locales(private val platform: Platform) {
   /** Reads the language files and starts the GeoIP refresh; `/allay reload` runs it again. */
   fun load(config: Config) {
     val folder = File(platform.shared, "lang")
+    // What each bundled file said when the server's copy was last brought up to date (since 6.29).
+    val snapshots = File(folder, ".bundled")
+    val previous = Texts.BUNDLED.associateWith { code -> File(snapshots, "$code.yml").takeIf(File::exists)?.let { runCatching { Texts.read(it) }.getOrNull() } }
     Texts.BUNDLED.forEach { code ->
       val file = File(folder, "$code.yml")
       if (!file.exists()) platform.resource("lang/$code.yml")?.use { stream -> folder.mkdirs(); file.outputStream().use(stream::copyTo) }
@@ -38,10 +41,13 @@ class Locales(private val platform: Platform) {
       folder.listFiles { file -> file.extension == "yml" }.orEmpty().sortedBy { it.name }.forEach { file ->
         val code = LocaleResolver.normalize(file.nameWithoutExtension)
         val texts = runCatching { Texts.read(file) }.onFailure { platform.log.warning("Can't read lang/${file.name}: ${it.message}") }.getOrNull() ?: return@forEach
-        // Keys a release added come from the bundled file until the server's copy has them.
-        put(code, bundled(code) + texts)
+        put(code, current(texts, previous[code], bundled(code)))
       }
       Texts.BUNDLED.forEach { code -> if (code !in this) put(code, bundled(code)) }
+    }
+    // The next release compares with what this one bundled.
+    Texts.BUNDLED.forEach { code ->
+      platform.resource("lang/$code.yml")?.use { stream -> snapshots.mkdirs(); File(snapshots, "$code.yml").outputStream().use(stream::copyTo) }
     }
     val default = LocaleResolver.normalize(config.locales.default)
     if (default !in languages) platform.log.warning("locales.default: there is no lang/$default.yml; using ${Texts.FALLBACK}")
@@ -67,6 +73,17 @@ class Locales(private val platform: Platform) {
         platform.players.forEach { player -> geoIp.country(player.address)?.let { countries[player.uuid] = it } }
       }
     }
+  }
+
+  companion object {
+    /**
+     * A server's texts as they read now: keys a release added come from [bundled] until the server's copy has them,
+     * and so do keys the operator never changed, the ones still as [previous] (the bundled file the copy was last
+     * brought up to date with) said them, so a release's better wording reaches every server. A key they edited stays
+     * theirs. Without [previous] (a copy from before 6.29) nothing tells edited from untouched, and the copy wins.
+     */
+    fun current(server: Map<String, Any>, previous: Map<String, Any>?, bundled: Map<String, Any>): Map<String, Any> =
+      bundled + server.mapValues { (key, value) -> if (previous != null && previous[key] == value) bundled[key] ?: value else value }
   }
 
   private fun bundled(code: String): Map<String, Any> =

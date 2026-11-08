@@ -76,4 +76,13 @@ class LangTest {
     val PLACEHOLDER = Regex("\\{(\\w+)")
     val KEY = Regex("\"((?:status|tool_lines|summary|messages|memory|buttons|goals|menus|errors|chat_mode|public|billing|locale)\\.[a-z_.]+[a-z_])\"")
   }
+
+  @Test fun `a release's better wording reaches a server that never changed it, and an operator's own stays`() {
+    val previous = mapOf("a" to "6 facts", "b" to "Back", "c" to "Old")
+    val bundled = mapOf("a" to "6 memories", "b" to "Back", "c" to "New", "d" to "Added")
+    val server = mapOf("a" to "6 facts", "b" to "Go back", "c" to "Mine")
+    assertEquals(mapOf("a" to "6 memories", "b" to "Go back", "c" to "Mine", "d" to "Added"), Locales.current(server, previous, bundled))
+    // A copy from before snapshots keeps every text it has; only new keys come in.
+    assertEquals(mapOf("a" to "6 facts", "b" to "Go back", "c" to "Mine", "d" to "Added"), Locales.current(server, null, bundled))
+  }
 }
