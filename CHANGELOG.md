@@ -2,6 +2,15 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.29.0
+
+- 🗣️ **New wording reaches your server.** Allay used to copy `lang/` once and never touch it again, so a better line in a release reached only new servers. It now remembers what each bundled file said (`lang/.bundled/`) and takes the release's text for every line you never changed; the lines you edited stay yours. Copies from before 6.29 start following with the next release.
+- 🗂️ **A tidier memory window.** Only tags two or more memories share get a filter button, and the window counts memories as memories, not facts.
+- 🏷️ **Glowing chests speak your language.** The label over a chest `find_item` lights up names the item in the player's language (“Алмаз ×12”), not its id.
+- 🔎 **`find_item` finds more, in one call.** It reads names in any language and plugins' items (“eye of ender”, «око эндера», `redbull:empty_can`) the way `get_recipes` does, and takes `items` to look for up to 8 at once, each answered in its place; a chest holding several gets one label. Needs Allay Server 6.28 to ask for several.
+- ✋ **`inventory` says what's in hand.** `selected_slot` is the hotbar slot the player holds, so “where's my shovel and what am I holding” is one call.
+- 🧰 **Tools that forgive.** `craft` reads names in any language too (“iron bucket” finds the bucket's close names). `chests` `apply` with a mode and no plan yet plans first, then applies. `get_anvil_plan` passes over slots that hold nothing for the item (`unfit_slots`) instead of planning nothing. A crafting, brewing, or furnaces agent that tries to move chests hears that its own tool takes ingredients from them.
+
 ## 6.28.0
 
 - 🗂️ **A memory window with order.** `/allay memory` shows pinned memories first with a ★, then places nearest first, then the rest, each marked by its kind: a farm ☘, a portal ◎, a base ⌂. Your most used tags sit on top and filter the list. A memory opens with its title, kind, tags, and distance, and buttons to pin it, edit its text, title, and tags, or forget it. Adding one by hand takes a title and tags too. Needs Allay Server 6.27; with an older one the window looks as before.
