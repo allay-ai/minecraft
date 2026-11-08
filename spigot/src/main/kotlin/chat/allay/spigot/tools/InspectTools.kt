@@ -3,10 +3,12 @@ package chat.allay.spigot.tools
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Nameable
@@ -103,20 +105,95 @@ object InspectTools {
   /** Places listed by find_item at most; the total counts them all. */
   private const val MAX_PLACES = 30
 
-  private val findItem = tool("find_item") { context, player, args ->
-    val asked = args.string("item") ?: throw ToolError("item is required, such as diamond or log")
+  /** Items one find_item call looks for (since 6.28's items). */
+  private const val MAX_FIND = 8
+
+  /**
+   * What find_item looks for: an exact id, a plugin's or data pack's item by its id ([custom]), every id holding a
+   * word of the query (“log” finds oak_log and birch_log, “torches” the torch), or failing those the item a name in
+   * any language means (“eye of ender”, «око эндера»).
+   */
+  private class Wanted(val query: String, val exact: Boolean, val custom: String? = null, val match: (String) -> Boolean = { false }) {
+    /** What the chests' labels call it: the item's name in the player's language, set once it's known. */
+    var label: String = query.substringAfter(':').replace('_', ' ')
+  }
+
+  private fun wanted(context: ToolContext, catalog: Lazy<Catalog>, asked: String): Wanted = read(context, catalog, asked).also { wanted ->
+    // An exact item is labeled by its name (“Алмаз ×12”), a part of ids by what the player asked.
+    if (wanted.exact) {
+      val entry = catalog.value.find(wanted.custom ?: wanted.query, if (wanted.custom != null) Catalog.Kind.CUSTOM else Catalog.Kind.ITEM)
+      entry?.let { catalog.value.name(it, context.nameLocale) }?.let { wanted.label = it }
+    } else wanted.label = asked.trim()
+  }
+
+  private fun read(context: ToolContext, catalog: Lazy<Catalog>, asked: String): Wanted {
     val query = Names.normalize(asked)
-    val radius = (args.int("radius") ?: 32).coerceIn(1, 52)
-    // An exact id finds that item, a plural its singular; anything else finds every item whose id contains it: “log”
-    // finds oak_log and birch_log, “torches” the torch.
+    catalog.value.find(asked.trim().lowercase(), Catalog.Kind.CUSTOM)?.let { return Wanted(it.id, true, it.id) }
     val exact = runCatching { InteractTools.material(asked).key.key }.getOrNull()?.takeIf { it in Names.forms(query) }
+    if (exact != null) return Wanted(query, true) { it == exact }
     val parts = Names.forms(query).filter { part -> InteractTools.itemIds.any { part in it } }.take(1)
-    if (exact == null && parts.isEmpty()) throw ToolError(Names.missing(asked, InteractTools.itemIds))
-    val match: (String) -> Boolean = if (exact != null) { id -> id == exact } else { id -> parts.any { it in id } }
+    if (parts.isNotEmpty()) return Wanted(query, false) { id -> parts.any { it in id } }
+    val kinds = setOf(Catalog.Kind.ITEM, Catalog.Kind.CUSTOM)
+    val entry = catalog.value.resolve(asked, context.nameLocale, kinds) ?: throw ToolError(catalog.value.missing(asked, context.nameLocale, kinds))
+    return if (entry.kind == Catalog.Kind.CUSTOM) Wanted(entry.id, true, entry.id) else Wanted(entry.id, true) { it == entry.id }
+  }
+
+  private val findItem = tool("find_item") { context, player, args ->
+    val radius = (args.int("radius") ?: 32).coerceIn(1, 52)
+    val catalog = lazy { Catalogs.build(context) }
+    val reach = containersNear(player, radius)
+    val several = (args["items"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }?.distinct()?.take(MAX_FIND)?.ifEmpty { null }
+    if (several == null) {
+      val asked = args.string("item") ?: throw ToolError("item is required, such as diamond or log")
+      val (result, found) = find(player, wanted(context, catalog, asked), radius, reach)
+      val highlighted = highlight(context, player, found)
+      val total = result.int("total") ?: 0
+      val places = (result["places"] as JsonArray).size + (result.int("more_places") ?: 0)
+      return@tool ToolOutput(buildJsonObject {
+        put("query", result["query"]!!)
+        if (highlighted) put("highlighted", HIGHLIGHTED)
+        result.forEach { (key, value) -> if (key != "query") put(key, value) }
+        reach.report(this)
+      }, if (total == 0) context.lang.text("summary.find_none") else context.lang.text("summary.find", "total" to total, "places" to places))
+    }
+    // Several items in one call, each answered in its place; the chests of all of them glow at once.
+    val found = mutableListOf<Pair<Container, String>>()
+    var total = 0
+    val results = several.map { asked ->
+      try {
+        val (result, chests) = find(player, wanted(context, catalog, asked), radius, reach)
+        found += chests
+        total += result.int("total") ?: 0
+        // query is what was asked, item what it was read as (ender_eye for “eye of ender”).
+        buildJsonObject { put("query", asked); put("item", result["query"]!!); result.forEach { (key, value) -> if (key != "query") put(key, value) } }
+      } catch (error: ToolError) {
+        buildJsonObject { put("query", asked); put("error", error.message.orEmpty()) }
+      }
+    }
+    val highlighted = highlight(context, player, found)
+    ToolOutput(buildJsonObject {
+      if (highlighted) put("highlighted", HIGHLIGHTED)
+      put("radius", radius)
+      put("results", JsonArray(results))
+      reach.report(this)
+    }, if (total == 0) context.lang.text("summary.find_none") else context.lang.text("summary.find", "total" to total, "places" to found.size))
+  }
+
+  private const val HIGHLIGHTED = "the chests glow with a label for the player; a way button is under the answer when the nearest is far or out of sight"
+
+  /**
+   * Where [wanted] lies: the player's inventory (where inventory, with the slot), offhand, armor, ender chest, and the
+   * containers in [reach]. The inventory is searched whatever the radius; it bounds only the containers.
+   */
+  private fun find(player: Player, wanted: Wanted, radius: Int, reach: Reach): Pair<JsonObject, List<Pair<Container, String>>> {
     val ids = sortedSetOf<String>()
     val places = mutableListOf<JsonObject>()
     var total = 0
-    fun count(item: ItemStack?): Pair<Int, Int> = Items.matching(item.data()) { id -> match(id).also { if (it) ids += id } }
+    fun count(item: ItemStack?): Pair<Int, Int> {
+      if (item == null) return 0 to 0
+      wanted.custom?.let { id -> return (if (Catalogs.id(item) == id) item.amount else 0) to 0 }
+      return Items.matching(item.data()) { id -> wanted.match(id).also { if (it) ids += id } }
+    }
     fun stack(where: String, slot: Any, item: ItemStack?) {
       val (direct, nested) = count(item)
       if (direct + nested == 0) return
@@ -137,15 +214,15 @@ object InspectTools {
     listOf("head" to EquipmentSlot.HEAD, "chest" to EquipmentSlot.CHEST, "legs" to EquipmentSlot.LEGS, "feet" to EquipmentSlot.FEET)
       .forEach { (name, slot) -> stack("armor", name, inventory.getItem(slot)) }
     player.enderChest.contents.forEachIndexed { slot, item -> stack("enderchest", slot, item) }
-    val found = mutableListOf<Pair<Container, Int>>()
-    val reach = containersNear(player, radius)
+    val found = mutableListOf<Pair<Container, String>>()
+    val name = wanted.label
     reach.containers.forEach { container ->
       var direct = 0
       var nested = 0
       container.inventory.contents.forEach { item -> count(item).let { (d, n) -> direct += d; nested += n } }
       if (direct + nested == 0) return@forEach
       total += direct + nested
-      found += container to direct + nested
+      found += container to "$name ×${direct + nested}"
       places += buildJsonObject {
         put("where", "container")
         put("type", container.type.key.key)
@@ -155,33 +232,30 @@ object InspectTools {
         if (nested > 0) put("inside_boxes", nested)
       }
     }
-    val highlighted = highlight(context, player, found, query)
-    val result = buildJsonObject {
-      put("query", query)
-      if (highlighted) put("highlighted", "the chests glow with a label for the player; a way button is under the answer when the nearest is far or out of sight")
-      if (exact == null) put("matched_ids", buildJsonArray { ids.take(20).forEach { add(JsonPrimitive(it)) } })
+    return buildJsonObject {
+      put("query", wanted.query)
+      if (!wanted.exact) put("matched_ids", buildJsonArray { ids.take(20).forEach { add(JsonPrimitive(it)) } })
       put("total", total)
       put("radius", radius)
       put("places", buildJsonArray { places.take(MAX_PLACES).forEach(::add) })
       if (places.size > MAX_PLACES) put("more_places", places.size - MAX_PLACES)
-      reach.report(this)
-    }
-    ToolOutput(result, if (total == 0) context.lang.text("summary.find_none") else context.lang.text("summary.find", "total" to total, "places" to places.size))
+    } to found
   }
 
   /**
    * The chests find_item found glow for the asker with “diamond ×12” over them, so the model needn't call show_marks;
    * when the nearest is far or behind a wall, a way button goes under the answer. False when marks are switched off.
    */
-  private fun highlight(context: ToolContext, player: Player, found: List<Pair<Container, Int>>, query: String): Boolean {
+  private fun highlight(context: ToolContext, player: Player, found: List<Pair<Container, String>>): Boolean {
     val settings = context.features.config().tools
     if (found.isEmpty() || !settings.enabled("show_marks")) return false
-    val name = query.replace('_', ' ')
-    val marks = found.take(settings.maxMarks).flatMap { (container, count) ->
-      chat.allay.spigot.automation.Blocks.halves(container.block).mapIndexed { index, half -> Marks.Mark(half, null, if (index == 0) "$name ×$count" else null, Marks.Hue.YELLOW) }
+    // A chest that holds several of the items asked for gets one mark with every label.
+    val byChest = found.groupBy({ it.first.block }, { it.second })
+    val marks = byChest.entries.take(settings.maxMarks).flatMap { (block, labels) ->
+      chat.allay.spigot.automation.Blocks.halves(block).mapIndexed { index, half -> Marks.Mark(half, null, if (index == 0) labels.joinToString(", ") else null, Marks.Hue.YELLOW) }
     }
     Marks.show(context.plugin, player, marks, settings.marksSeconds)
-    val nearest = found.first().first.block
+    val nearest = byChest.keys.minBy { it.location.distanceSquared(player.location) }
     if (nearest.location.distance(player.location) > 12 || !chat.allay.spigot.automation.Blocks.sees(player, nearest)) {
       if (context.buttons.size < 6) context.buttons += Button.Point(context.lang.text("buttons.way_to_chest"), nearest.x, nearest.y, nearest.z, Dimensions.id(player.world))
     }

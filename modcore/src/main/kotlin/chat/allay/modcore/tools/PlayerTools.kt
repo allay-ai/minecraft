@@ -84,6 +84,8 @@ object PlayerTools {
     val main = storage.mapIndexedNotNull { slot, item -> item.compact(slot) }
     val result = buildJsonObject {
       put("main", buildJsonArray { main.forEach(::add) })
+      // The hotbar slot in hand (0–8): “which slot has the shovel, and what do I hold” in one call (since 6.28).
+      put("selected_slot", player.inventory.selectedSlot)
       putJsonObject("armor") {
         player.getItemBySlot(EquipmentSlot.HEAD).compact()?.let { put("head", it) }
         player.getItemBySlot(EquipmentSlot.CHEST).compact()?.let { put("chest", it) }

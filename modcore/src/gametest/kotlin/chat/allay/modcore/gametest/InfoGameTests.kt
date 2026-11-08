@@ -17,6 +17,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.putJsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.core.component.DataComponents
@@ -84,6 +86,7 @@ class InfoGameTests {
     equal(helper, main[0].jsonObject["count"]!!.jsonPrimitive.int, 12, "torches")
     equal(helper, inventory["offhand"]!!.jsonObject["id"]!!.jsonPrimitive.content, "shield", "off hand")
     helper.assertTrue(inventory["enderchest"]!!.jsonArray.isEmpty(), "an empty ender chest")
+    equal(helper, inventory["selected_slot"]!!.jsonPrimitive.int, asker.inventory.selectedSlot, "the slot in hand")
     val stats = result(asker, "get_statistics")
     equal(helper, stats["deaths"]!!.jsonPrimitive.int, 0, "deaths of a new player")
     equal(helper, stats.keys.size, 10, "the statistics Bukkit lists")
@@ -147,6 +150,19 @@ class InfoGameTests {
     helper.assertTrue(places.any { it["where"]!!.jsonPrimitive.content == "container" && it["x"]!!.jsonPrimitive.int == open.x && it["count"]!!.jsonPrimitive.int == 5 }, "the open chest's: $places")
     helper.assertTrue(places.none { it["where"]!!.jsonPrimitive.content == "container" && it["x"]!!.jsonPrimitive.int == shut.x && it["z"]!!.jsonPrimitive.int == shut.z }, "never the loot chest's: $places")
     helper.assertTrue("highlighted" in find, "the chests glow for the asker")
+    // A name finds the item it means, and several items go in one call, each in its place.
+    asker.inventory.setItem(1, ItemStack(Items.ENDER_EYE, 3))
+    val eye = result(asker, "find_item", buildJsonObject { put("item", "eye of ender"); put("radius", 6) })
+    equal(helper, eye["query"]!!.jsonPrimitive.content, "ender_eye", "“eye of ender” is the ender eye: $eye")
+    equal(helper, eye["total"]!!.jsonPrimitive.int, 3, "the asker's three")
+    val several = result(asker, "find_item", buildJsonObject {
+      putJsonArray("items") { listOf("diamond", "eye of ender", "zzqqxx").forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+      put("radius", 6)
+    })["results"]!!.jsonArray.map { it.jsonObject }
+    equal(helper, several.map { it["query"]!!.jsonPrimitive.content }, listOf("diamond", "eye of ender", "zzqqxx"), "each in its place")
+    equal(helper, several[0]["total"]!!.jsonPrimitive.int, 7, "the asker's and the open chest's diamonds")
+    equal(helper, several[1]["item"]!!.jsonPrimitive.content, "ender_eye", "read as the ender eye")
+    helper.assertTrue("error" in several[2], "a name nothing matches answers in its place: ${several[2]}")
     chat.allay.modcore.tools.Marks.clear(asker)
     asker.discard()
     helper.succeed()
