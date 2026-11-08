@@ -288,9 +288,13 @@ class MemoryCommands(
     return pinned + near.sortedBy { distance(it) } + other
   }
 
-  /** The tags the player uses most, with how many memories have each. */
+  /**
+   * The tags the player uses most, with how many memories have each. A tag on one memory filters to that memory alone,
+   * which its own button already opens, so only tags shared by two or more get a button.
+   */
   private fun tags(memories: List<Service.Memory>) =
-    memories.flatMap { it.tags }.groupingBy { it }.eachCount().entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key }).take(TAG_BUTTONS).map { it.key to it.value }
+    memories.flatMap { it.tags }.groupingBy { it }.eachCount().entries.filter { it.value > 1 }
+      .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key }).take(TAG_BUTTONS).map { it.key to it.value }
 
   /** What the window and `/allay memory edit` send: tags, a title, and the text, split by bars. */
   object Form {
@@ -308,7 +312,7 @@ class MemoryCommands(
     const val LABEL = 40
     const val MAX_TEXT = 500
     const val MAX_TITLE = 40
-    const val TAG_BUTTONS = 6
+    const val TAG_BUTTONS = 4
     /** The fields as the window's buttons send them: tags | title | text. */
     const val FORM = "\$(tags) | \$(title) | \$(text)"
 

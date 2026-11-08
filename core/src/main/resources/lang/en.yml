@@ -320,7 +320,7 @@ memory:
   remember_usage: "&7Usage: &f/allay memory add <what to remember>&7. With coordinates, I remember the place too."
   window:
     title: "What Allay remembers"
-    about: "Allay remembers {count} {count|thing|things} about you. Click one to see it, find its place, or forget it."
+    about: "Allay remembers {count} {count|thing|things} about you. Click one to see it, find its place, pin it, or forget it."
     add: "+ Remember something"
     add_hover: "&7Write down what Allay should remember"
     open_hover: "&f{text}"

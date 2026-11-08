@@ -317,7 +317,7 @@ memory:
   remember_usage: "&7Uso: &f/allay memory add <o que lembrar>&7. Com coordenadas, lembro do lugar também."
   window:
     title: "O que o Allay lembra"
-    about: "O Allay lembra {count} {count|coisa|coisas} sobre você. Clique numa para ver, achar o lugar ou esquecer."
+    about: "O Allay lembra {count} {count|coisa|coisas} sobre você. Clique numa para ver, achar o lugar, fixar ou esquecer."
     add: "+ Lembrar algo"
     add_hover: "&7Escreva o que o Allay deve lembrar"
     open_hover: "&f{text}"
