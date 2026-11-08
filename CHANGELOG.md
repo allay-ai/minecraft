@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.28.0
+
+- 🗂️ **A memory window with order.** `/allay memory` shows pinned memories first with a ★, then places nearest first, then the rest, each marked by its kind: a farm ☘, a portal ◎, a base ⌂. Your most used tags sit on top and filter the list. A memory opens with its title, kind, tags, and distance, and buttons to pin it, edit its text, title, and tags, or forget it. Adding one by hand takes a title and tags too. Needs Allay Server 6.27; with an older one the window looks as before.
+
 ## 6.27.0
 
 - 🧮 **A count for each item.** `get_recipes` takes `counts`, how many of each item in its place, so “one redstone torch and six repeaters” plans one and six, not the same number of both. Needs Allay Server 6.26 to ask for it.
