@@ -1,6 +1,8 @@
-// Records the game's window alone, at 30 frames a second in sRGB, for shoot.py's animation:
-//   swift record.swift <seconds> <out.mov>
-// ScreenCaptureKit takes that window and nothing else on the screen, as screencapture -l does for a still.
+// Records the game's window alone, at 30 frames a second in sRGB, for shoot.py's animations:
+//   swift record.swift <seconds> <out.mov> [cursor]
+// ScreenCaptureKit takes that window and nothing else on the screen, as screencapture -l does for a still. It stops
+// after <seconds>, or sooner once <out.mov>.stop appears: a scene with clicks in it can't tell its length beforehand.
+// With cursor, the pointer shows, so the clicks can be seen.
 import AppKit
 import ScreenCaptureKit
 
@@ -9,7 +11,10 @@ _ = NSApplication.shared
 
 let seconds = Double(CommandLine.arguments[1])!
 let out = URL(fileURLWithPath: CommandLine.arguments[2])
+let stop = CommandLine.arguments[2] + ".stop"
+let cursor = CommandLine.arguments.count > 3 && CommandLine.arguments[3] == "cursor"
 try? FileManager.default.removeItem(at: out)
+try? FileManager.default.removeItem(atPath: stop)
 
 Task {
   do {
@@ -22,7 +27,7 @@ Task {
     config.width = Int(window.frame.width * 2)
     config.height = Int(window.frame.height * 2)
     config.minimumFrameInterval = CMTime(value: 1, timescale: 30)
-    config.showsCursor = false
+    config.showsCursor = cursor
     config.colorSpaceName = CGColorSpace.sRGB
     let stream = SCStream(filter: filter, configuration: config, delegate: nil)
     let recording = SCRecordingOutputConfiguration()
@@ -31,7 +36,11 @@ Task {
     let output = SCRecordingOutput(configuration: recording, delegate: Recorder())
     try stream.addRecordingOutput(output)
     try await stream.startCapture()
-    try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+    let end = Date().addingTimeInterval(seconds)
+    while Date() < end && !FileManager.default.fileExists(atPath: stop) {
+      try await Task.sleep(nanoseconds: 100_000_000)
+    }
+    try? FileManager.default.removeItem(atPath: stop)
     try await stream.stopCapture()
     try await Task.sleep(nanoseconds: 500_000_000)
   } catch {

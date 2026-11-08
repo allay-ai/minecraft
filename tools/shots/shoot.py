@@ -9,7 +9,8 @@ the stills and record.swift (ScreenCaptureKit) the animation, both of the game's
 
 Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, memory-one.webp, privacy.webp,
 chests.webp (find_item's glowing chests), trail.webp (the way to a village), recipe.webp (the recipe window), and
-status.gif with status.mp4 and status.webp, its last frame. --keep leaves the server, the stub, and the client in that language
+status.gif with status.mp4 and status.webp, its last frame. say, recipe, chests, and trail are also recorded whole, from
+the question typed to what it brings, as <name>.gif for the READMEs and <name>.mp4 for the site, with <name>-end.webp, its last frame, as the poster. --keep leaves the server, the stub, and the client in that language
 running afterwards, to press the buttons by hand; --stop ends them. --remake crops and encodes the last run again.
 """
 from __future__ import annotations
@@ -62,6 +63,8 @@ CHESTS = [(38, 109, 12), (42, 108, 14), (40, 106, 8)]
 MENU = (0.25, 0.20, 0.75, 0.80)
 # What the player holds, so the hotbar looks lived in; the coal and sticks are what the torches answer counts.
 HOTBAR = ["torch 24", "diamond_pickaxe", "iron_sword", "coal 7", "stick 4", "bread 12", "compass", "oak_log 48", "crafting_table"]
+# What each scene's clip keeps: the chat and the hotbar where only the chat moves, the whole window where the world does.
+CLIPS = {"say": STATUS, "recipe": WORLD, "chests": WORLD, "trail": WORLD}
 # How long the recording runs before the question, so the animation starts on a quiet screen.
 LEAD = 1.0
 # The chat shows a line for ten seconds; a scene waits that long first, so only its own lines show.
@@ -109,12 +112,14 @@ def prepare_server() -> pathlib.Path:
     (server / "eula.txt").write_text("eula=true\n")
     (server / "server.properties").write_text("\n".join([
         "online-mode=false", f"server-port={SERVER_PORT}", "white-list=false", "difficulty=peaceful", "spawn-protection=0",
-        f"level-seed={SEED}", "motd=Allay", "view-distance=12", "",
+        # The scenes' own commands would show in the player's chat as [Server: …] once it opens.
+        f"level-seed={SEED}", "motd=Allay", "view-distance=12", "broadcast-console-to-ops=false", "",
     ]))
     # The lang files a run before unpacked would keep their old texts: the plugin never overwrites them.
     shutil.rmtree(plugins / "Allay" / "lang", ignore_errors=True)
     (plugins / "Allay").mkdir(exist_ok=True)
-    (plugins / "Allay" / "config.yml").write_text(f'server:\n  url: "http://127.0.0.1:{STUB_PORT}"\n  name: "Moonlands"\n')
+    # The particles over the player's head drift across a camera looking down as large glyphs, like a glitch.
+    (plugins / "Allay" / "config.yml").write_text(f'server:\n  url: "http://127.0.0.1:{STUB_PORT}"\n  name: "Moonlands"\nui:\n  particles:\n    enabled: false\n')
     return server
 
 
@@ -281,6 +286,31 @@ def film(lang: str, name: str, start_lines: list[str], seconds: float):
     log(f"{lang}: {name}")
 
 
+def record(lang: str, name: str, act, cursor: bool = False, most: float = 60):
+    """
+    Records the window while [act] plays a scene out, typing and clicking as a player does, then makes its clip. The
+    recording ends when the scene does; [cursor] shows the pointer, for scenes with clicks in them.
+    """
+    frames = WORK / "raw" / lang
+    frames.mkdir(parents=True, exist_ok=True)
+    movie = frames / f"{name}.mov"
+    recording = subprocess.Popen([str(compiled("record")), str(most), str(movie)] + (["cursor"] if cursor else []))
+    time.sleep(LEAD)
+    try:
+        act()
+    finally:
+        pathlib.Path(f"{movie}.stop").touch()
+    if recording.wait() != 0:
+        sys.exit("Couldn't record the game's window")
+    clip(lang, name)
+    log(f"{lang}: {name} recorded")
+
+
+def typed(text: str):
+    """Types a line into the chat as a player does, through type.swift."""
+    subprocess.run([str(compiled("type")), text], check=True)
+
+
 def press(*args: str, wait: float = 0.0):
     """Keys and the pointer through press.swift: escape, chat, move fx fy, click fx fy."""
     subprocess.run([str(compiled("press")), *args], check=True)
@@ -331,18 +361,18 @@ def click_last_button():
     to focusing it, so the server's log says whether the button ran, and the click repeats if it didn't.
     """
     log_file = WORK / "server.log"
-    press("chat", wait=1.5)
+    press("chat", wait=0.6)
     for _ in range(3):
         # The open chat lifts its lines over the field it types into; a capture taken before that aims a line too low.
         fx, fy = last_button()
         for _ in range(5):
-            time.sleep(0.5)
+            time.sleep(0.2)
             again = last_button()
             if abs(again[1] - fy) < 0.003:
                 break
             fx, fy = again
         since = len(log_file.read_text(errors="ignore"))
-        press("click", f"{fx:.4f}", f"{fy:.4f}", wait=1.5)
+        press("click", f"{fx:.4f}", f"{fy:.4f}", wait=1)
         # A say button sends its line as the player's chat, a recipe button runs /allay do.
         if re.search(r"issued server command: /allay do|<Steve>", log_file.read_text(errors="ignore")[since:]):
             return
@@ -357,6 +387,46 @@ def compiled(name: str) -> pathlib.Path:
     return binary
 
 
+def frame_size(video: pathlib.Path) -> tuple[int, int]:
+    w, h = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(video)],
+                          capture_output=True, text=True, check=True).stdout.strip().split(",")
+    return int(w), int(h)
+
+
+def area(size: tuple[int, int], box: tuple) -> str:
+    """ffmpeg's crop for [box] of a recording, its title bar left out."""
+    w, h = size
+    bar = round(h * 28 / (HEIGHT + 28))
+    inner = h - bar
+    x0, y0, x1, y1 = round(w * box[0]), bar + round(inner * box[1]), round(w * box[2]), bar + round(inner * box[3])
+    return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+
+
+def clip(lang: str, name: str):
+    """
+    A scene's clip from its recording: a GIF for the READMEs and an MP4 for the site, its last frame held for two
+    seconds and kept as the MP4's poster. The GIF is smaller and slower than the MP4, since a world in motion costs a GIF dearly.
+    """
+    video = WORK / "raw" / lang / f"{name}.mov"
+    crop_to = area(frame_size(video), CLIPS[name])
+    out = OUT / lang
+    out.mkdir(parents=True, exist_ok=True)
+    source = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(LEAD - 0.4), "-i", str(video)]
+    hold = "tpad=stop_mode=clone:stop_duration=2"
+    # A world in motion (water, petals, clouds) changes most pixels of every frame: its GIF goes smaller and slower.
+    width, fps = (640, 12) if CLIPS[name] != WORLD else (560, 10)
+    gif = (f"{crop_to},fps={fps},scale={width}:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];"
+           "[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle")
+    subprocess.run(source + ["-vf", gif, str(out / f"{name}.gif")], check=True)
+    subprocess.run(source + ["-vf", f"{crop_to},scale=1000:-2:flags=lanczos,{hold},format=yuv420p", "-c:v", "libx264", "-crf", "24", "-movflags", "+faststart", "-an",
+                             str(out / f"{name}.mp4")], check=True)
+    # The last frame, as the MP4's poster on the site, cropped the same.
+    frame = WORK / "raw" / lang / f"{name}-end.png"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-sseof", "-0.2", "-i", str(video), "-frames:v", "1", "-update", "1",
+                    "-vf", f"{crop_to},scale=1000:-2:flags=lanczos", str(frame)], check=True)
+    subprocess.run(["magick", str(frame), "-quality", "88", str(out / f"{name}-end.webp")], check=True)
+
+
 def render(lang: str, name: str):
     """
     The animation from its recording: a GIF for the READMEs, an MP4 for the site, the last frame as the video's
@@ -364,27 +434,20 @@ def render(lang: str, name: str):
     can be read.
     """
     video = WORK / "raw" / lang / f"{name}.mov"
-    w, h = (int(v) for v in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(video)],
-                                           capture_output=True, text=True, check=True).stdout.strip().split(","))
-
-    def area(box: tuple) -> str:
-        bar = round(h * 28 / (HEIGHT + 28))
-        inner = h - bar
-        x0, y0, x1, y1 = round(w * box[0]), bar + round(inner * box[1]), round(w * box[2]), bar + round(inner * box[3])
-        return f"crop={x1 - x0}:{y1 - y0}:{x0}:{y0}"
+    size = frame_size(video)
 
     out = OUT / lang
     out.mkdir(parents=True, exist_ok=True)
     clip = ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(LEAD - 0.4), "-i", str(video)]
     hold = "tpad=stop_mode=clone:stop_duration=2.5"
-    gif = f"{area(STATUS)},fps=15,scale=760:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=192[p];[b][p]paletteuse=dither=bayer:bayer_scale=5"
+    gif = f"{area(size, STATUS)},fps=15,scale=760:-1:flags=lanczos,{hold},split[a][b];[a]palettegen=max_colors=192[p];[b][p]paletteuse=dither=bayer:bayer_scale=5"
     subprocess.run(clip + ["-vf", gif, str(out / f"{name}.gif")], check=True)
-    subprocess.run(clip + ["-vf", f"{area(STATUS)},scale=1000:-2:flags=lanczos,{hold},format=yuv420p", "-c:v", "libx264", "-crf", "22", "-movflags", "+faststart", "-an", str(out / f"{name}.mp4")], check=True)
+    subprocess.run(clip + ["-vf", f"{area(size, STATUS)},scale=1000:-2:flags=lanczos,{hold},format=yuv420p", "-c:v", "libx264", "-crf", "22", "-movflags", "+faststart", "-an", str(out / f"{name}.mp4")], check=True)
     # ffmpeg here may have no WebP encoder: the frame goes through a PNG and ImageMagick.
     for box, width, target in ((STATUS, 1000, out / f"{name}.webp"), (CHAT, 1400, out / "answer.webp")):
         frame = WORK / "raw" / lang / f"{target.stem}-last.png"
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-sseof", "-0.2", "-i", str(video), "-frames:v", "1", "-update", "1",
-                        "-vf", f"{area(box)},scale={width}:-2:flags=lanczos", str(frame)], check=True)
+                        "-vf", f"{area(size, box)},scale={width}:-2:flags=lanczos", str(frame)], check=True)
         subprocess.run(["magick", str(frame), "-quality", "90", str(target)], check=True)
 
 
@@ -395,6 +458,8 @@ def remake(lang: str):
     for name, box in boxes.items():
         crop(WORK / "raw" / lang / f"{name}.png", OUT / lang / f"{name}.webp", box, 1400)
     render(lang, "status")
+    for name in CLIPS:
+        clip(lang, name)
     log(f"{lang}: remade")
 
 
@@ -404,7 +469,8 @@ def scenes(lang: str):
     memories = fixture("memories")
     drive(
         "!respawn", f"@gamemode survival {PLAYER}", "@time set 6000", "@weather clear", f"@clear {PLAYER}",
-        *[f"@give {PLAYER} {item}" for item in HOTBAR], f"@setblock {FLOOR} barrier", f"@tp {PLAYER} {VIEW}", "allay hints off", wait=FADE,
+        # Every recipe known up front: a new one's toast would pop up mid-scene.
+        *[f"@give {PLAYER} {item}" for item in HOTBAR], f"@recipe give {PLAYER} *", f"@setblock {FLOOR} barrier", f"@tp {PLAYER} {VIEW}", "allay hints off", wait=FADE,
     )
 
     stub("reset", {})
@@ -421,12 +487,17 @@ def scenes(lang: str):
     drive("!clear", wait=FADE)
     film(lang, "status", [f"ask {torches['question'][lang]}"], 14)
 
-    # A message to send: the player opens the chat and clicks Send under the answer, and the line goes out as theirs.
-    time.sleep(FADE)
-    drive(f"ask {diamonds['question'][lang]}", wait=6.5)
-    click_last_button()
-    shot(lang, "say", CHAT)
-    press("escape", wait=0.5)
+    # A message to send: the player asks, opens the chat, and clicks Send under the answer; the line goes out as theirs.
+    drive("!clear", wait=FADE)
+
+    def say():
+        typed(f"ask {diamonds['question'][lang]}")
+        time.sleep(7)
+        click_last_button()
+        shot(lang, "say", CHAT)
+        press("escape", wait=1.5)
+
+    record(lang, "say", say, cursor=True)
 
     # The windows: memory, one memory, then privacy.
     # A window puts the pointer at its middle, over a button; it goes to a corner first, so no button lights up.
@@ -453,20 +524,38 @@ def world(lang: str):
         for x, z, n in CHESTS
     ])
     stand(178, 48)
-    drive(f"ask {chests['question'][lang]}", wait=7)
-    shot(lang, "chests", WORLD)
+
+    def glow():
+        typed(f"ask {chests['question'][lang]}")
+        time.sleep(8)
+        shot(lang, "chests", WORLD)
+        time.sleep(1.5)
+
+    record(lang, "chests", glow)
     drive("allay cancel")
     stand(292, 4)
-    drive(f"ask {trail['question'][lang]}", wait=7)
-    shot(lang, "trail", WORLD)
+
+    # The trail appears, then the player follows it a few steps and the bar counts down.
+    def way():
+        typed(f"ask {trail['question'][lang]}")
+        time.sleep(8)
+        shot(lang, "trail", WORLD)
+        press("hold", "w", "2.5", wait=1)
+
+    record(lang, "trail", way)
     drive("allay cancel")
     # The recipe opens from the answer's button, clicked as a player does.
     stand(292, 4)
-    drive(f"ask {recipe['question'][lang]}", wait=6.5)
-    click_last_button()
-    press("move", "0.99", "0.99", wait=0.6)
-    shot(lang, "recipe", MENU)
-    press("escape", wait=0.5)
+
+    def book():
+        typed(f"ask {recipe['question'][lang]}")
+        time.sleep(7)
+        click_last_button()
+        press("move", "0.99", "0.99", wait=0.8)
+        shot(lang, "recipe", MENU)
+        time.sleep(0.5)
+
+    record(lang, "recipe", book, cursor=True)
 
 
 def main():

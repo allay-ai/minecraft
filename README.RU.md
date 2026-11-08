@@ -25,27 +25,41 @@ Allay работает на Moonlands — моём хардкорном выжи
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/status.gif" width="760" alt="Allay отвечает: статус над хотбаром, его инструменты и ответ с кнопками"></p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.gif" width="49%" alt="Игрок просит Allay вежливо попросить у других алмазы, нажимает «Отправить» под ответом, и строка уходит в чат от его имени">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.gif" width="49%" alt="Игрок спрашивает, как скрафтить маяк, нажимает «Рецепт» в ответе, и открывается окно рецепта">
+  <br><sub>Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить» · Спросите рецепт, нажмите «Рецепт», и откроется рецепт этого сервера</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/trail.gif" width="49%" alt="Игрок спрашивает дорогу к деревне: через реку появляется тропа из вишнёвых лепестков, а полоса сверху считает блоки, пока он идёт">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chests.gif" width="49%" alt="Игрок спрашивает, где его алмазы, и три сундука у реки подсвечиваются с подписями «Алмаз ×12», «×14» и «×8»">
+  <br><sub>Спросите дорогу, и к месту поведёт тропа со стрелкой сверху · Спросите, где что лежит, и сундуки подсветятся даже сквозь землю</sub>
+</p>
+
+### Скриншоты
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/answer.webp" width="49%" alt="Ответ Allay с кнопками «Рецепт», «Путь», «Копировать», «Запомнить» и «Да» в тексте">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.webp" width="49%" alt="Вежливое сообщение с кнопкой «Отправить» и строка, которую она отправила">
-  <br><sub>Кнопки стоят прямо в ответе · Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить»</sub>
+  <br><sub>Кнопки прямо в ответе · Сообщение, которое написал Allay, отправлено кнопкой</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory.webp" width="49%" alt="Окно памяти с тегами для фильтра, двумя закреплёнными записями со звездой и местами со значками">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" width="49%" alt="Окно с уведомлением о данных">
-  <br><sub>Что помнит Allay, в окне самой игры · Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит</sub>
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory-one.webp" width="49%" alt="Одна запись: железная ферма с тегами, местом, расстоянием и кнопками «Показать путь», «Закрепить», «Изменить» и «Забыть»">
+  <br><sub>Что помнит Allay, в окне самой игры · Запись с тегами и дорогой к месту: закрепить, изменить или забыть</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/trail.webp" width="49%" alt="Тропа из вишнёвых лепестков ведёт через реку к деревне в саванне, сверху полоса «Деревня · 100 блоков»">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chests.webp" width="49%" alt="Три сундука у реки подсвечены жёлтым с подписями «Алмаз ×12», «×14» и «×8»">
-  <br><sub>Спросите дорогу, и к месту поведёт тропа со стрелкой сверху · Спросите, где что лежит, и сундуки подсветятся даже сквозь землю</sub>
+  <br><sub>Тропа к деревне · Подсвеченные сундуки с алмазами</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.webp" width="49%" alt="Окно рецепта маяка: стекло, звезда Незера и обсидиан на верстаке">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/memory-one.webp" width="49%" alt="Одна запись: железная ферма с тегами, местом, расстоянием и кнопками «Показать путь», «Закрепить», «Изменить» и «Забыть»">
-  <br><sub>Кнопка «Рецепт» открывает рецепт этого сервера · Запись с тегами и путём к месту: закрепите, измените или забудьте её</sub>
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/consent.webp" width="49%" alt="Окно с уведомлением о данных">
+  <br><sub>Окно рецепта · Перед первым вопросом каждый игрок читает, что Allay отправляет и хранит</sub>
 </p>
 
 ## Что вы получаете

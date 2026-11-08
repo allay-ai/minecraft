@@ -25,27 +25,41 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/status.gif" width="760" alt="Allay answering: the status above the hotbar, the tools it uses, then the answer with buttons"></p>
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.gif" width="49%" alt="A player asks Allay to ask the others for diamonds politely, clicks Send under the answer, and the line goes out in chat as theirs">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.gif" width="49%" alt="A player asks how to craft a beacon, clicks Recipe in the answer, and the recipe window opens">
+  <br><sub>Allay writes to the others for you, and nothing goes out until you press Send · Ask for a recipe, press Recipe, and the server’s own recipe opens</sub>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/trail.gif" width="49%" alt="A player asks the way to the village; a trail of cherry petals appears across the river, and the bar on top counts the blocks down as they walk">
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.gif" width="49%" alt="A player asks where their diamonds are, and three chests by the river glow with labels Diamond ×12, ×14, and ×8">
+  <br><sub>Ask for the way, and a trail leads there with an arrow on top · Ask where something lies, and its chests glow, even through the ground</sub>
+</p>
+
+### Screenshots
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/answer.webp" width="49%" alt="Allay’s answer with Recipe, Way, Copy, Remember, and Yes buttons in the text">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.webp" width="49%" alt="A polite message with a Send button, and the line it sent">
-  <br><sub>Buttons sit right in the answer · Allay writes to the others for you, and nothing goes out until you press Send</sub>
+  <br><sub>Buttons sit right in the answer · The message Allay wrote, sent by its button</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory.webp" width="49%" alt="The memory window with tags to filter by, two pinned memories with a star, and places marked by kind">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/consent.webp" width="49%" alt="The data notice window">
-  <br><sub>What Allay remembers, in the game’s own window · Every player reads what Allay sends and keeps before the first question</sub>
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory-one.webp" width="49%" alt="One memory: the iron farm with its tags, place, distance, and buttons to show the way, pin, edit, or forget it">
+  <br><sub>What Allay remembers, in the game’s own window · A memory with its tags and the way there, to pin, edit, or forget</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/trail.webp" width="49%" alt="A trail of cherry petals runs across a river to a savanna village, and the bar at the top reads Village, 100 blocks">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.webp" width="49%" alt="Three chests by a river glow yellow with labels Diamond ×12, ×14, and ×8">
-  <br><sub>Ask for the way, and a trail leads there with an arrow on top · Ask where something lies, and its chests glow, even through the ground</sub>
+  <br><sub>The trail to the village · Chests that hold diamonds, lit up</sub>
 </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.webp" width="49%" alt="The recipe window for a beacon: glass, a Nether Star, and obsidian on a crafting table">
-  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/memory-one.webp" width="49%" alt="One memory: the iron farm with its tags, place, distance, and buttons to show the way, pin, edit, or forget it">
-  <br><sub>The Recipe button opens the server’s own recipe · A memory with its tags and the way there, to pin, edit, or forget</sub>
+  <img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/consent.webp" width="49%" alt="The data notice window">
+  <br><sub>The recipe window · Every player reads what Allay sends and keeps before the first question</sub>
 </p>
 
 ## What you get
