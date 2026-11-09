@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.31.0
+
+- 📊 **bStats.** The Paper and Spigot plugin reports to bStats how servers run Allay: players' languages and how Allay picked them, hosted or byok and whose API, allay.chat or a backend of your own, and questions, tokens, cost, and answer times. `metrics: false` in `config.yml` turns it off.
+
 ## 6.30.1
 
 - 📦 **Fresher dependencies.** Built with Gradle 9.9.0, Fabric Loom 1.19.4, Fabric API 0.165.2, and Paper API 26.3 build 245.

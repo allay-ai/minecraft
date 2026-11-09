@@ -29,6 +29,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   private val menus = MenuListener(plugin)
   private var placeholders: AutoCloseable? = null
   private var plan: AutoCloseable? = null
+  private var stats: AutoCloseable? = null
 
   private val features = Features(
     plugin = plugin,
@@ -118,6 +119,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     Jobs.automation = automation
     automation.start()
     goals.start()
+    stats = Stats.start(plugin, { allay.config }, allay.usage.tally)
     // Allay loads at STARTUP, before PlaceholderAPI and Plan; by the first tick every plugin is on.
     server.scheduler.runTask(plugin, Runnable {
       if (Placeholders.available) placeholders = Placeholders.register(plugin, allay.settings, goals, locales) { allay.handler }
@@ -131,6 +133,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     chat.allay.spigot.tools.Catalogs.reloaded()
     placeholders?.close()
     plan?.close()
+    stats?.close()
     automation.stop()
     server.onlinePlayers.forEach { goals.save(it.uniqueId) }
     goals.stop()

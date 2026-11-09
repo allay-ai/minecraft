@@ -17,6 +17,8 @@ dependencies {
   implementation(paper.output)
   implementation(project(":core"))
   compileOnly("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")
+  // Shaded and relocated: bStats refuses to run from its own package.
+  implementation("org.bstats:bstats-bukkit:3.2.1")
   compileOnly("me.clip:placeholderapi:2.12.3")
   compileOnly("com.djrapitops:plan-api:5.9-R1.3")
   compileOnly("com.github.GriefPrevention:GriefPrevention:16.18.8") { isTransitive = false }
@@ -42,6 +44,7 @@ tasks {
     archiveClassifier = ""
     // Relocated so other plugins that ship their own Kotlin, OkHttp, MaxMind reader, or SnakeYAML can't clash with ours.
     listOf("kotlin", "kotlinx", "okhttp3", "okio", "com.maxmind", "org.yaml.snakeyaml").forEach { relocate(it, "chat.allay.libs.$it") }
+    relocate("org.bstats", "chat.allay.libs.bstats")
     mergeServiceFiles()
     exclude("META-INF/*.kotlin_module", "META-INF/versions/*/module-info.class", "module-info.class")
     dependencies { exclude(dependency("org.jetbrains:annotations")) }

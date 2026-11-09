@@ -337,6 +337,9 @@ askall:
 time:
   zone: "Europe/Moscow"       # An IANA time zone, such as Europe/Berlin or America/New_York
 
+# false turns off bStats metrics (bstats.org) at the next start. Paper and Spigot only.
+metrics: true
+
 # Commands /askx may never run, whatever the request. Who may use the commands is up to
 # permissions: allay.ask, allay.askall, allay.chat, and allay.automation (everyone by default),
 # allay.askx, allay.askall.nocooldown, and allay.reload (operators).

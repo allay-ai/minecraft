@@ -207,6 +207,9 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val zone = config.string("time.zone", "Europe/Moscow").let { zone -> zone.takeIf { TimeZones.parse(it) != null } ?: "UTC" }
   }
 
+  /** bStats on Paper and Spigot, read when the plugin starts; the mods have none. */
+  val metrics = config.boolean("metrics", true)
+
   val blockedCommands: Set<String> = config.strings("blocked_commands").map(String::lowercase).toSet()
 
   class Locales(val default: String, val sources: List<String>, val countries: Map<String, List<String>>)
