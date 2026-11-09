@@ -22,7 +22,6 @@ object Stats {
 
   /** Starts bStats unless `metrics: false`; returns a handle that stops it. */
   fun start(plugin: JavaPlugin, config: () -> Config, tally: Tally): AutoCloseable? {
-    if (!config().metrics) return null
     val warned = AtomicBoolean()
     fun <T> soft(fallback: T, read: () -> T) = Callable {
       try {
@@ -33,6 +32,7 @@ object Stats {
       }
     }
     return try {
+      if (!config().metrics) return null
       val metrics = Metrics(plugin, BSTATS_ID)
       fun pie(id: String, read: () -> String?) = metrics.addCustomChart(SimplePie(id, soft(null, read)))
       fun pies(id: String, read: () -> Map<String, Int>) = metrics.addCustomChart(AdvancedPie(id, soft(emptyMap(), read)))

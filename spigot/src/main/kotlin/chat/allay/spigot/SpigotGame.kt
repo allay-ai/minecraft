@@ -120,12 +120,13 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     Jobs.automation = automation
     automation.start()
     goals.start()
-    stats = Stats.start(plugin, { allay.config }, allay.usage.tally)
     // Allay loads at STARTUP, before PlaceholderAPI and Plan; by the first tick every plugin is on.
     server.scheduler.runTask(plugin, Runnable {
       if (Placeholders.available) placeholders = Placeholders.register(plugin, allay.settings, goals, locales) { allay.handler }
       if (Plan.available) plan = Plan.register(plugin, Plan.Sources(allay.settings, goals, allay.reminders, locales, allay.license, { allay.config }, { allay.watch?.status }, allay.usage.book))
       worldApi.connect()
+      // config.yml is read only after start(), so bStats waits for the first tick too.
+      stats = Stats.start(plugin, { allay.config }, allay.usage.tally)
       expansions.scanAll()
     })
   }
