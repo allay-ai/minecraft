@@ -7,8 +7,8 @@ import java.util.UUID
 
 /**
  * Allay's numbers in WorldAPI, when it runs: the `allay` namespace with questions, tokens, cost, and answer times,
- * for the server and each player. [UsageExpansion] speaks WorldAPI's expansion API; this class holds no type of it, so
- * Allay loads without WorldAPI. Allay keeps the numbers; WorldAPI reads them on request.
+ * for the server and each player. [UsageExpansion] speaks WorldAPI's expansion API 2: this class holds no type of it, so
+ * Allay loads without WorldAPI or with one older than 4.5.0. Allay keeps the numbers; WorldAPI reads them on request.
  */
 class WorldApiLink(private val plugin: JavaPlugin, val book: UsageBook) {
   @Volatile var connected = false
@@ -20,10 +20,12 @@ class WorldApiLink(private val plugin: JavaPlugin, val book: UsageBook) {
     try {
       UsageExpansion.register(this)
       connected = true
-      plugin.logger.info("WorldAPI found: questions, tokens, and answer times at /extensions/${UsageExpansion.ID}")
+      plugin.logger.info("WorldAPI found: questions, tokens, and answer times at /extensions/$NAMESPACE")
+    } catch (error: NoClassDefFoundError) {
+      // WorldAPI before 4.5.0 has no expansion API 2.
+      plugin.logger.warning("WorldAPI is too old for Allay's numbers: it needs 4.5.0 or newer")
     } catch (error: LinkageError) {
-      // WorldAPI before 3.4.0 has no expansion API.
-      plugin.logger.warning("WorldAPI is too old for Allay's numbers; it needs 3.4.0 or newer")
+      plugin.logger.warning("WorldAPI didn't take Allay's numbers: ${error.cause?.message ?: error.message}")
     } catch (error: Exception) {
       plugin.logger.warning("WorldAPI didn't take Allay's numbers: ${error.message}")
     }
@@ -55,13 +57,9 @@ class WorldApiLink(private val plugin: JavaPlugin, val book: UsageBook) {
 
   fun name(id: UUID): String? = runCatching { Bukkit.getOfflinePlayer(id).name }.getOrNull()
 
-  /** A UUID, or the name of a player with numbers here. */
-  fun player(raw: String): UUID = runCatching { UUID.fromString(raw) }.getOrNull()
-    ?: book.players().keys.firstOrNull { name(it).equals(raw, ignoreCase = true) }
-    ?: throw NoSuchElementException("No player named $raw has asked Allay here")
-
   companion object {
     const val WORLD_API = "WorldAPI"
+    const val NAMESPACE = "allay"
     val COMMANDS = listOf("ask", "askall", "askx")
   }
 }
