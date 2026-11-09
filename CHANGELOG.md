@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.33.0
+
+- 🧩 **Expansion API 2.** Plugins and mods add tools to Allay through `chat.allay:allay-expansion` 2.0.0: an expansion declares its arguments and tools as fields, answers with typed records, and names other players in a way that keeps vanished ones hidden. Allay checks every argument before a plugin's tool runs, so the model learns at once what to fix. Plugins built against API 1 keep working.
+
 ## 6.32.0
 
 - 🌐 **Allay in WorldAPI needs WorldAPI 4.5.0.** Allay now shares its numbers through WorldAPI's expansion API 2. `GET /extensions` lists what each path takes (`limit`, a player, the boards) and the shape of a leaderboard, so clients and the MCP server ask right the first time, and a bad value answers 400 before Allay reads it. `players/{player}` finds any player WorldAPI knows, by name or UUID. Paths and fields stay the same, so `grafana/allay.json` keeps working. Leaderboards return 50 players without `?limit`, as `players` does. With an older WorldAPI, Allay logs one line asking for 4.5.0 and runs on without it.
