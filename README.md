@@ -67,7 +67,7 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.
 - 🔎 **It knows this server’s things.** Mods’ items, data packs’ recipes and brews, and plugins’ own items count: Allay finds them by name in any language or by id, and never says a thing doesn’t exist before it looked. It knows the commands you may run here too, and whose each is, so `/askx` writes a plugin’s command the way the plugin wants it.
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
-- 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar; glowing marks on the chests that hold what you look for.
+- 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar. Glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
 - 🧹 **A tidy inventory.** “Sword first, food in the last row”, and **[Put back]** undoes it.
 - 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game’s own windows.
@@ -85,7 +85,7 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 - ⏳ **Kept for:** a conversation 30 days; memories, places, deaths, and settings a year after the player’s last question; records of questions 30 days; the numbers and the players directory 2 years.
 - 🌐 **Every question goes through OpenRouter in the USA** to the AI provider that writes the answer.
 - ✋ **Age and agreement first.** Before the first question a window asks a player from the EU or the US their age, which must reach their country’s age of consent (13 to 16 in the EU, 14 in Spain, 13 in the US), and every player agrees to a short notice, again whenever it changes. Below that age, Allay answers nothing and sends nothing. With allay.chat no setting in `config.yml` switches this off.
-- 📦 **Players control their data.** `/allay privacy` shows what’s kept, gives a 24-hour download link, and erases it; `/allay privacy withdraw` takes the agreement back and erases what it covered.
+- 📦 **Players control their data.** `/allay privacy` shows what’s kept, gives a 24-hour download link, and erases it. `/allay privacy withdraw` takes the agreement back and erases what it covered.
 - 👥 **Other players stay unnamed.** A player who didn’t agree reaches the AI only as “Player 1”, “Player 2”.
 - 🧹 **Your server keeps almost nothing:** a player’s data stays in memory while they play, and Allay’s folder holds only sealed lists of who agreed and who was too young.
 
@@ -93,8 +93,8 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 
 1. Put Allay in, on Java 25:
    - **Spigot or Paper 26.3:** [`allay-spigot.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-spigot.jar) into `plugins/`, then restart the server.
-   - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
-   - **NeoForge 26.3:** [`allay-neoforge.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-neoforge.jar) into `mods/` of a server or of your own game. Kotlin is inside; nothing else is needed.
+   - **Fabric 26.3:** [`allay-fabric.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-fabric.jar) and [Fabric API](https://modrinth.com/mod/fabric-api) into `mods/` of a server or of your own game. Kotlin is inside, so nothing else is needed.
+   - **NeoForge 26.3:** [`allay-neoforge.jar`](https://github.com/allay-ai/minecraft/releases/latest/download/allay-neoforge.jar) into `mods/` of a server or of your own game. Kotlin is inside, so nothing else is needed.
 
    The plugin is on [Hangar](https://hangar.papermc.io/MairwunNx/AllayAI) too, and the plugin and both mods on Modrinth once its review there ends.
 2. As an operator, run `/allay link` for a subscription, or put your own OpenRouter key into `provider.byok` and run `/allay reload`. In singleplayer the world’s owner can do it, cheats or not.
