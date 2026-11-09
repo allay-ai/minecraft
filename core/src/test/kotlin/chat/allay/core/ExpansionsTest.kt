@@ -106,7 +106,7 @@ class ExpansionsTest {
   @Test fun `broken expansions stay out and say why`() {
     expansions.register(expansion("Red Bull"))
     expansions.register(expansion("future", api = "1.9.0"))
-    expansions.register(expansion("major", api = "2.0.0"))
+    expansions.register(expansion("major", api = "3.0.0"))
     expansions.register(expansion("tools", tools = listOf(tool("Bad Name"))))
     expansions.register(expansion("twice", tools = listOf(tool("same"), tool("same"))))
     assertEquals(emptyList(), expansions.active())

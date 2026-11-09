@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package chat.allay.core
 
 import chat.allay.core.tools.Catalog
@@ -33,7 +35,8 @@ import java.util.concurrent.TimeoutException
 import java.util.logging.Logger
 
 /**
- * Other plugins' and mods' expansions (the `chat.allay.expansion` API): their tools, offered to the model as
+ * Other plugins' and mods' expansions (API 2 in `chat.allay.expansion.v2`, which reaches Allay as API 1's interfaces,
+ * and API 1 in `chat.allay.expansion`, kept for plugins built against it): their tools, offered to the model as
  * `x_<id>_<name>` under the same checks as Allay's own, their items and recipes for the [Catalog], and their prompt
  * lines. An expansion is checked once when it registers; a broken one stays out with a line in the log, and never
  * breaks a question.
@@ -201,11 +204,14 @@ class Expansions(
 
   /** What an expansion's tool sees of the call; made on the server thread, so the asker is read there. */
   private inner class Call(private val asker: Player, private val args: Args, private val mode: ToolCall.Mode, private val public: Boolean, private val scope: ToolScope) : ToolCall {
+    /** The online players the asker mustn't learn about, taken now so a result that comes later reads it anywhere. */
+    private val hidden: Set<UUID> = platform()?.let { platform -> platform.players.filter { !platform.visible(asker.audience, it) }.map { it.uuid }.toSet() }.orEmpty()
     override fun asker(): chat.allay.expansion.Asker = asker
     override fun args() = args
     override fun mode() = mode
     override fun isPublic() = public
     override fun nameOf(player: UUID, name: String) = scope.nameOf(player, name)
+    override fun hides(player: UUID) = player in hidden
     override fun canSee(player: UUID): Boolean {
       val other = platform()?.player(player) ?: return false
       return platform()?.visible(asker.audience, other) == true
@@ -237,7 +243,7 @@ class Expansions(
     val id = expansion.id()
     if (id == null || !ID.matches(id)) throw IllegalArgumentException("its id must be 1–24 lower-case letters, digits, or underscores, not “$id”")
     val required = expansion.requiresApi()
-    if (!AllayApi.satisfies(AllayApi.VERSION, required)) throw IllegalArgumentException("it needs expansion API $required, and this Allay has ${AllayApi.VERSION}; update Allay")
+    if (!AllayApi.satisfies(AllayApi.VERSION, required) && !AllayApi.satisfies(LAST_FIRST, required)) throw IllegalArgumentException("it needs expansion API $required, and this Allay has ${AllayApi.VERSION}; update Allay")
     val name = expansion.name()?.trim()?.take(40)?.ifEmpty { null } ?: id
     val tools = expansion.tools().orEmpty()
     if (tools.size > MAX_TOOLS) throw IllegalArgumentException("it has ${tools.size} tools; at most $MAX_TOOLS")
@@ -274,6 +280,8 @@ class Expansions(
     const val MAX_RESULT = 8000
     const val MAX_ITEMS = 500
     private val ID = Regex("[a-z0-9_]{1,24}")
+    /** The last version of API 1: its expansions still run. */
+    private const val LAST_FIRST = "1.3.0"
     private val TOOL = Regex("[a-z0-9_]{1,32}")
 
     /** JSON as the plain values the API hands an expansion: strings, Long or Double numbers, booleans, lists, and maps. */

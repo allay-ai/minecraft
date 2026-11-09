@@ -1,6 +1,9 @@
+@file:Suppress("DEPRECATION")
+
 package chat.allay.spigot
 
 import chat.allay.expansion.AllayExpansion
+import chat.allay.core.ExpansionServices
 import chat.allay.expansion.AllayExpansions
 
 import org.bukkit.event.EventHandler
@@ -13,7 +16,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 /**
- * Expansions plugins name in `META-INF/services/chat.allay.expansion.AllayExpansion`, found in each plugin's own jar
+ * Expansions plugins name in `META-INF/services/chat.allay.expansion.v2.Expansion` (API 2, see [ExpansionServices]) or
+ * `META-INF/services/chat.allay.expansion.AllayExpansion` (API 1), found in each plugin's own jar
  * when it's enabled (and in every plugin already on at the first tick, since Allay loads before them), and taken out
  * again when it's disabled. A plugin that registers in code needs none of this.
  */
@@ -38,6 +42,14 @@ class Expansions(private val self: Plugin, private val log: Logger) : Listener {
     if (found.containsKey(plugin.name)) return
     val loader = plugin.javaClass.classLoader
     val ids = mutableListOf<String>()
+    runCatching { ExpansionServices.find(loader) { it.classLoader == loader } }
+      .onFailure { log.warning("❌ Couldn't read ${plugin.name}'s expansions: ${it.message ?: it.javaClass.simpleName}") }
+      .getOrDefault(emptyList())
+      .forEach { found ->
+        found.expansion.mapCatching { it.also { expansion -> expansion.register() } }
+          .onSuccess { ids += it.id() }
+          .onFailure { log.warning("❌ Couldn't start ${plugin.name}'s expansion ${found.name}: ${it.message ?: it.javaClass.simpleName}") }
+      }
     ServiceLoader.load(AllayExpansion::class.java, loader).stream()
       // The plugin's own classes only: the server's class loader above it is everyone's.
       .filter { it.type().classLoader == loader }

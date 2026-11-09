@@ -2,17 +2,12 @@ package chat.allay.modcore.gametest
 
 import chat.allay.core.Run
 import chat.allay.core.tools.ToolError
-import chat.allay.expansion.AllayApi
-import chat.allay.expansion.AllayExpansion
-import chat.allay.expansion.AllayExpansions
-import chat.allay.expansion.AllayTool
 import chat.allay.expansion.Ingredient
 import chat.allay.expansion.ItemInfo
 import chat.allay.expansion.Recipe
-import chat.allay.expansion.Schema
-import chat.allay.expansion.ToolCall
 import chat.allay.expansion.ToolException
-import chat.allay.expansion.ToolResult
+import chat.allay.expansion.v2.Call
+import chat.allay.expansion.v2.Expansion
 import chat.allay.modcore.ModPlayer
 import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
@@ -147,39 +142,9 @@ class CatalogGameTests {
     helper.succeed()
   }
 
-  /** An expansion as another mod would write it: a tool, an operator tool, an item with a brew, and a prompt. */
-  private val expansion = object : AllayExpansion {
-    override fun id() = "gametest"
-    override fun requiresApi() = AllayApi.VERSION
-    override fun name() = "Game Test"
-    override fun tools() = listOf(
-      object : AllayTool {
-        override fun name() = "caffeine"
-        override fun description() = "The asker's caffeine level"
-        override fun parameters(): Schema = Schema.arguments().string("can", "A can's id", false)
-        override fun run(call: ToolCall): ToolResult {
-          val player = call.asker().unwrap(ServerPlayer::class.java) ?: throw ToolException("no player")
-          if (call.args().string("can") == "bad") throw ToolException("no such can")
-          return ToolResult.of(mapOf("player" to player.gameProfile.name, "level" to 64, "locale" to call.asker().locale(), "language" to call.asker().language())).summary("caffeine 64")
-        }
-      },
-      object : AllayTool {
-        override fun name() = "give_can"
-        override fun description() = "Gives the operator a can"
-        override fun access() = AllayTool.Access.OPERATOR
-        override fun run(call: ToolCall): ToolResult = ToolResult.text("given")
-      },
-    )
-    override fun items() = listOf(
-      ItemInfo.of("gametest:energy").name("en_us", "Energy Drink").name("ru_ru", "Энергетик").description("A test drink").base("potion")
-        .recipe(Recipe.brewing(Ingredient.potion("awkward"), Ingredient.item("sugar_cane"))),
-    )
-    override fun promptExpansion() = "Energy drinks come from sugar cane."
-  }
-
   @GameTest
   fun anExpansionsToolItemAndPromptReachTheModel(helper: GameTestHelper) {
-    AllayExpansions.register(expansion)
+    GameTestExpansion.register()
     try {
       val asker = survivor(helper)
       val expansions = Players.features.expansions!!
@@ -212,8 +177,33 @@ class CatalogGameTests {
       Players.features.locales.chose(audience)
       asker.discard()
     } finally {
-      AllayExpansions.unregister("gametest")
+      GameTestExpansion.unregister()
     }
     helper.succeed()
   }
+}
+
+@JvmRecord private data class Caffeine(val player: String, val level: Int, val locale: String, val language: String)
+
+/** An expansion as another mod would write it: a tool, an operator tool, an item with a brew, and a prompt. */
+private object GameTestExpansion : Expansion("gametest", "Game Test") {
+  val can = string("can", "A can's id")
+
+  val caffeine = tool("caffeine", "The asker's caffeine level", ::caffeine).args(can).summary { "caffeine ${it.level}" }
+  val giveCan = tool("give_can", "Gives the operator a can", ::giveCan).operator()
+
+  override fun items() = listOf(
+    ItemInfo.of("gametest:energy").name("en_us", "Energy Drink").name("ru_ru", "Энергетик").description("A test drink").base("potion")
+      .recipe(Recipe.brewing(Ingredient.potion("awkward"), Ingredient.item("sugar_cane"))),
+  )
+
+  override fun prompt() = "Energy drinks come from sugar cane."
+
+  private fun caffeine(call: Call): Caffeine {
+    val player = call.player(ServerPlayer::class.java)
+    if (call[can] == "bad") throw ToolException("no such can")
+    return Caffeine(player.gameProfile.name, 64, call.asker().locale(), call.asker().language())
+  }
+
+  private fun giveCan(call: Call) = "given"
 }
