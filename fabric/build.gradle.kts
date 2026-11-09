@@ -9,7 +9,7 @@ plugins {
 
 val minecraft = "26.3"
 val loader = "0.20.1"
-val fabricApi = "0.165.0+26.3"
+val fabricApi = "0.165.2+26.3"
 
 base {
   archivesName = "allay-fabric"

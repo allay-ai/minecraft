@@ -13,7 +13,7 @@ val paper: SourceSet by sourceSets.creating
 
 dependencies {
   "paperCompileOnly"(project(":core"))
-  "paperCompileOnly"("io.papermc.paper:paper-api:26.3.build.237-stable")
+  "paperCompileOnly"("io.papermc.paper:paper-api:26.3.build.245-stable")
   implementation(paper.output)
   implementation(project(":core"))
   compileOnly("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")

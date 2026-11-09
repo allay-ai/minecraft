@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.30.1
+
+- 📦 **Fresher dependencies.** Built with Gradle 9.9.0, Fabric Loom 1.19.4, Fabric API 0.165.2, and Paper API 26.3 build 245.
+
 ## 6.30.0
 
 - 🏷️ **Tool lines name things in your language.** “Searching for Diamond”, «Ищу рецепт: Факел» instead of `diamond` and `torch`, from the same catalog as the chests' labels. A name the catalog doesn't know exactly stays as Allay asked for it.
