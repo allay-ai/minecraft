@@ -30,6 +30,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   private var placeholders: AutoCloseable? = null
   private var plan: AutoCloseable? = null
   private var stats: AutoCloseable? = null
+  private val worldApi = WorldApiLink(plugin, allay.usage.book)
 
   private val features = Features(
     plugin = plugin,
@@ -124,6 +125,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     server.scheduler.runTask(plugin, Runnable {
       if (Placeholders.available) placeholders = Placeholders.register(plugin, allay.settings, goals, locales) { allay.handler }
       if (Plan.available) plan = Plan.register(plugin, Plan.Sources(allay.settings, goals, allay.reminders, locales, allay.license, { allay.config }) { allay.watch?.status })
+      worldApi.connect()
       expansions.scanAll()
     })
   }
@@ -134,6 +136,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     placeholders?.close()
     plan?.close()
     stats?.close()
+    worldApi.disconnect()
     automation.stop()
     server.onlinePlayers.forEach { goals.save(it.uniqueId) }
     goals.stop()

@@ -21,6 +21,8 @@ dependencies {
   implementation("org.bstats:bstats-bukkit:3.2.1")
   compileOnly("me.clip:placeholderapi:2.12.3")
   compileOnly("com.djrapitops:plan-api:5.9-R1.3")
+  // WorldAPI brings these classes; Allay's numbers show at /extensions/allay when it runs.
+  compileOnly("com.mairwunnx:worldapi-expansion:1.0.0")
   compileOnly("com.github.GriefPrevention:GriefPrevention:16.18.8") { isTransitive = false }
 
   testImplementation("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")

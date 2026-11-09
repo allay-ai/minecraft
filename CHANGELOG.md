@@ -5,6 +5,7 @@ The “Release” workflow takes the notes for a version from its section here, 
 ## 6.31.0
 
 - 📊 **bStats.** The Paper and Spigot plugin reports to bStats how servers run Allay: players' languages and how Allay picked them, hosted or byok and whose API, allay.chat or a backend of your own, and questions, tokens, cost, and answer times. `metrics: false` in `config.yml` turns it off.
+- 🌐 **Allay in WorldAPI.** With WorldAPI 3.4 or newer, `/extensions/allay` serves questions by command, tokens, and answer times (average and median), for the server and each player, with leaderboards shaped as WorldAPI's own. Cost shows only to tokens with `players:private`. `grafana/allay.json`, attached to each release, is a Grafana dashboard over it.
 
 ## 6.30.1
 
