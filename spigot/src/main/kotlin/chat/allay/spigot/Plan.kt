@@ -5,6 +5,7 @@ import chat.allay.core.Locales
 import chat.allay.core.License
 import chat.allay.core.LicenseStatus
 import chat.allay.core.PlayerSettings
+import chat.allay.core.UsageBook
 import chat.allay.core.tools.Goal
 import chat.allay.spigot.tools.Goals
 import chat.allay.core.tools.Reminders
@@ -32,10 +33,12 @@ import java.time.Instant
 import java.util.UUID
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
- * Allay in Plan, when Plan is there: a block on each player's page (chat mode, goals, reminders, language)
- * and one in the server's “Plugins Overview” (who pays for the model, chat mode across players). Plan calls these
+ * Allay in Plan, when Plan is there: a block on each player's page (chat mode, goals, reminders, language, questions,
+ * tokens, answer times) and one in the server's “Plugins Overview” (who pays for the model, chat mode across players,
+ * the same numbers for everyone). Plan calls these
  * methods off the server thread, so everything here reads thread-safe state. Plan's labels are English: its
  * panel is for the server's admins, not for players.
  */
@@ -50,6 +53,8 @@ object Plan {
     val license: License,
     val config: () -> Config,
     val subscription: () -> LicenseStatus?,
+    /** Questions, tokens, and answer times, all time. */
+    val usage: UsageBook,
   )
 
   /** Registers the extension, again after `/plan reload`. Call only when [available]. Returns a handle that unregisters it. */
@@ -102,6 +107,50 @@ object Plan {
       iconName = "bell", iconColor = Color.AMBER)
     fun reminders(playerUUID: UUID): Long = sources.reminders.pending(playerUUID).toLong()
 
+    @NumberProvider(text = "Questions", description = "Questions the player asked Allay with /ask, /askall, /askx, or in chat mode", priority = 55,
+      iconName = "question", iconColor = Color.LIGHT_BLUE, showInPlayerTable = true)
+    fun questions(playerUUID: UUID): Long = sources.usage.player(playerUUID)?.asked ?: 0
+
+    @StringProvider(text = "Questions by command", description = "ask, askall, askx", priority = 54, iconName = "terminal", iconColor = Color.LIGHT_BLUE)
+    fun questionsByCommand(playerUUID: UUID): String = byCommand(sources.usage.player(playerUUID) ?: throw NotReadyException())
+
+    @NumberProvider(text = "Tokens read", description = "What the model read for the player's questions and agents", priority = 53,
+      iconName = "arrow-up", iconColor = Color.GREY)
+    fun inputTokens(playerUUID: UUID): Long = sources.usage.player(playerUUID)?.input_tokens ?: 0
+
+    @NumberProvider(text = "Tokens written", description = "What the model wrote and reasoned for the player", priority = 52,
+      iconName = "arrow-down", iconColor = Color.GREY)
+    fun outputTokens(playerUUID: UUID): Long = sources.usage.player(playerUUID)?.output_tokens ?: 0
+
+    @NumberProvider(text = "Average answer time", description = "From asking to the last word", priority = 51, format = FormatType.TIME_MILLISECONDS,
+      iconName = "stopwatch", iconColor = Color.AMBER)
+    fun averageAnswer(playerUUID: UUID): Long = millis(sources.usage.player(playerUUID)?.averageSeconds)
+
+    @NumberProvider(text = "Median answer time", description = "From asking to the last word, to the second", priority = 50, format = FormatType.TIME_MILLISECONDS,
+      iconName = "stopwatch", iconColor = Color.AMBER)
+    fun medianAnswer(playerUUID: UUID): Long = millis(sources.usage.player(playerUUID)?.medianSeconds)
+
+    @NumberProvider(text = "Questions", description = "Questions to Allay on this server, all time", priority = 45,
+      iconName = "question", iconColor = Color.LIGHT_BLUE)
+    fun allQuestions(): Long = sources.usage.total().asked
+
+    @StringProvider(text = "Questions by command", description = "ask, askall, askx", priority = 44, iconName = "terminal", iconColor = Color.LIGHT_BLUE)
+    fun allQuestionsByCommand(): String = byCommand(sources.usage.total())
+
+    @NumberProvider(text = "Tokens read", description = "What the model read, all time", priority = 43, iconName = "arrow-up", iconColor = Color.GREY)
+    fun allInputTokens(): Long = sources.usage.total().input_tokens
+
+    @NumberProvider(text = "Tokens written", description = "What the model wrote and reasoned, all time", priority = 42, iconName = "arrow-down", iconColor = Color.GREY)
+    fun allOutputTokens(): Long = sources.usage.total().output_tokens
+
+    @NumberProvider(text = "Average answer time", description = "From asking to the last word", priority = 41, format = FormatType.TIME_MILLISECONDS,
+      iconName = "stopwatch", iconColor = Color.AMBER)
+    fun allAverageAnswer(): Long = millis(sources.usage.total().averageSeconds)
+
+    @NumberProvider(text = "Median answer time", description = "From asking to the last word, to the second", priority = 40, format = FormatType.TIME_MILLISECONDS,
+      iconName = "stopwatch", iconColor = Color.AMBER)
+    fun allMedianAnswer(): Long = millis(sources.usage.total().medianSeconds)
+
     @NumberProvider(text = "Players in chat mode", description = "Players who have chat mode on", priority = 100,
       iconName = "comments", iconColor = Color.LIGHT_BLUE)
     fun playersInChatMode(): Long = sources.settings.chatModeCount().toLong()
@@ -142,6 +191,11 @@ object Plan {
     private fun subscription(): LicenseStatus = current() ?: throw NotReadyException()
 
     private fun current(): LicenseStatus? = sources.subscription()?.takeIf { it.billing && !sources.config().provider.byok }
+
+    private fun byCommand(totals: UsageBook.Totals): String = listOf("ask", "askall", "askx").joinToString(" · ") { "/$it ${totals.questions[it] ?: 0}" }
+
+    /** Seconds as Plan's milliseconds; not ready before the first answer. */
+    private fun millis(seconds: Double?): Long = ((seconds ?: throw NotReadyException()) * 1000).roundToLong()
 
     /** Where the player stands, as the boss bar puts it, in numbers only. */
     private fun progress(goal: Goal): String = when (goal.kind) {
