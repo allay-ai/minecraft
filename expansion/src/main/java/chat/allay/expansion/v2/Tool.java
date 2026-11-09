@@ -58,6 +58,8 @@ public final class Tool<T> {
   private final Handler<T> handler;
   private final LaterHandler<T> later;
   private final List<Arg<?>> args = new ArrayList<>();
+  private final java.util.Set<Arg<?>> required = new java.util.HashSet<>();
+  private final java.util.Map<Arg<?>, Object> fallbacks = new java.util.HashMap<>();
   private Access access = Access.READ;
   private String permission;
   private boolean inPublic;
@@ -85,6 +87,37 @@ public final class Tool<T> {
       this.args.add(arg);
     }
     return this;
+  }
+
+  /**
+   * The model must send these to this tool, though other tools may take them as optional:
+   * {@code tool("spawn", "…", ::spawn).args(type, level).required(type)}.
+   */
+  public Tool<T> required(Arg<?>... args) {
+    expansion.checkOpen();
+    for (Arg<?> arg : args) {
+      if (!this.args.contains(arg)) throw new IllegalArgumentException(name + " doesn't take " + (arg == null ? "null" : arg.name()) + ": list it in args first");
+      required.add(arg);
+    }
+    return this;
+  }
+
+  /** What a missing value reads as in this tool, whatever the argument's own fallback: {@code .orElse(radius, 16)}. */
+  public <A> Tool<T> orElse(Arg<A> arg, A fallback) {
+    expansion.checkOpen();
+    if (!args.contains(arg)) throw new IllegalArgumentException(name + " doesn't take " + (arg == null ? "null" : arg.name()) + ": list it in args first");
+    fallbacks.put(arg, fallback);
+    return this;
+  }
+
+  /** Whether the model must send {@code arg} to this tool. */
+  public boolean requires(Arg<?> arg) {
+    return arg.isRequired() || required.contains(arg);
+  }
+
+  /** What a missing {@code arg} reads as in this tool. */
+  public Object fallbackOf(Arg<?> arg) {
+    return fallbacks.containsKey(arg) ? fallbacks.get(arg) : arg.fallback();
   }
 
   /** It changes only the asker's own things: never offered in {@code /askx}. */

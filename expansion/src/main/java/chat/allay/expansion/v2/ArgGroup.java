@@ -99,9 +99,13 @@ public abstract class ArgGroup {
   }
 
   static Schema schema(List<Arg<?>> args) {
+    return schema(args, Arg::isRequired);
+  }
+
+  static Schema schema(List<Arg<?>> args, java.util.function.Predicate<Arg<?>> required) {
     @SuppressWarnings("deprecation")
     Schema schema = Schema.arguments();
-    args.forEach(arg -> arg.addTo(schema));
+    args.forEach(arg -> arg.addTo(schema, required.test(arg)));
     return schema;
   }
 
@@ -111,10 +115,14 @@ public abstract class ArgGroup {
   }
 
   static Values read(List<Arg<?>> args, Map<?, ?> sent, String prefix) throws ToolException {
+    return read(args, sent, prefix, Arg::isRequired, Arg::fallback);
+  }
+
+  static Values read(List<Arg<?>> args, Map<?, ?> sent, String prefix, java.util.function.Predicate<Arg<?>> required, java.util.function.Function<Arg<?>, Object> fallback) throws ToolException {
     Map<Arg<?>, Object> values = new HashMap<>();
     for (Arg<?> arg : args) {
       try {
-        values.put(arg, arg.read(sent.get(arg.name())));
+        values.put(arg, arg.read(sent.get(arg.name()), required.test(arg), fallback.apply(arg)));
       } catch (ToolException error) {
         throw new ToolException(prefix + error.getMessage());
       }

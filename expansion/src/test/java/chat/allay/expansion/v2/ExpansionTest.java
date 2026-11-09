@@ -120,6 +120,29 @@ class ExpansionTest {
   }
 
   @Test
+  void aToolSetsItsOwnRequiredArgumentsAndFallbacks() throws Exception {
+    Expansion tools = new Expansion("bosses") {
+      final Arg<String> type = string("type", "A boss type");
+      final Arg<Integer> radius = integer("radius", "How far", 8, 128).orElse(64);
+      final Tool<String> spawn = tool("spawn", "Spawns a boss", call -> call.get(type)).args(type).required(type);
+      final Tool<String> loot = tool("loot", "Loot", call -> call.get(type) + " " + call.get(radius)).args(type, radius).orElse(radius, 16);
+    };
+    List<AllayExpansion> seen = new ArrayList<>();
+    AllayExpansions.bind(host(seen));
+    tools.register();
+    List<AllayTool> adapted = seen.stream().filter(it -> it.id().equals("bosses")).reduce((a, b) -> b).orElseThrow().tools();
+    assertTrue(adapted.getFirst().parameters().toJson().contains("\"required\":[\"type\"]"));
+    assertFalse(adapted.get(1).parameters().toJson().contains("required"));
+    assertEquals("type is required", assertThrows(ToolException.class, () -> adapted.getFirst().run(call(Map.of()))).getMessage());
+    assertEquals("null 16", adapted.get(1).run(call(Map.of())).data().get("text"));
+    assertThrows(IllegalArgumentException.class, () -> new Expansion("x") {
+      final Arg<String> q = string("q", "");
+      final Tool<String> t = tool("t", "A tool", call -> "").required(q);
+    });
+    tools.unregister();
+  }
+
+  @Test
   void registeredExpansionsDontChangeAndBrokenOnesFailWhileBuilt() {
     Bosses bosses = new Bosses();
     bosses.register();

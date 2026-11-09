@@ -8,6 +8,7 @@ API 2, in the package `chat.allay.expansion.v2`, with Allay 6.33.0. An expansion
 
 - `Expansion`: an id and a name, then arguments and tools as fields, and `version()`, `prompt()`, and `items()` to override, read again on `/allay reload`. `register()` and `unregister()` on the expansion itself, `requiresApi()` gone.
 - `Arg<T>`: a declared argument, `string`, `integer`, `number`, `flag`, `choice` of an enum, `strings`, and nested objects through `group` and `groups` with an `ArgGroup` of their own fields. Optional until `required()`, with `orElse` for a fallback. Allay reads and checks every argument before the call runs and refuses a wrong one with a reason the model reads.
+- A tool sets its own say on an argument other tools share: `required(arg)` and `orElse(arg, value)`.
 - `Tool<T>`: `tool(name, description, ::method)` or `toolLater(...)` for an answer from another thread, with `args`, `own`, `operator`, `permission`, `inPublic`, `offeredTo`, and `summary` or `localSummary` on the same line. A call answers with a record (written in snake_case), plain values, or a string.
 - `Call`: the arguments (`call[radius]`), the asker, `player(type)` for the platform's own player, `isPublic()`, `askx()`, and `canSee`.
 - `PlayerRef`: another player in a result, written as the name the model may use, and left out while the asker mustn't learn about them.

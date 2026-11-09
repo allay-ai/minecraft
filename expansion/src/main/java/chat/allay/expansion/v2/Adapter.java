@@ -81,7 +81,7 @@ final class Adapter implements AllayExpansion {
 
     @Override
     public Schema parameters() {
-      return ArgGroup.schema(tool.args());
+      return ArgGroup.schema(tool.args(), tool::requires);
     }
 
     @Override
@@ -107,7 +107,7 @@ final class Adapter implements AllayExpansion {
     @Override
     public ToolResult run(ToolCall raw) throws ToolException {
       try {
-        Values values = ArgGroup.read(tool.args(), raw.args().asMap(), "");
+        Values values = ArgGroup.read(tool.args(), raw.args().asMap(), "", tool::requires, tool::fallbackOf);
         Session call = new Session(raw, values);
         if (tool.later() != null) {
           CompletionStage<?> stage = tool.later().run(call);

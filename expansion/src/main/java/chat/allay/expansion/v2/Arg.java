@@ -42,14 +42,14 @@ public final class Arg<T> {
     this.fields = fields;
   }
 
-  /** The model must send it; a call without it is refused with a reason the model reads. */
+  /** The model must send it to every tool that takes it; {@link Tool#required} asks it for one. */
   public Arg<T> required() {
     owner.checkOpen();
     required = true;
     return this;
   }
 
-  /** What a missing value reads as, instead of null. */
+  /** What a missing value reads as, instead of null, for every tool that takes it; {@link Tool#orElse} sets it for one. */
   public Arg<T> orElse(T fallback) {
     owner.checkOpen();
     this.fallback = fallback;
@@ -86,12 +86,17 @@ public final class Arg<T> {
   }
 
   /** Reads what the model sent; a value of the wrong kind refuses the call with a reason the model can act on. */
-  @SuppressWarnings("unchecked")
   T read(Object raw) throws ToolException {
+    return read(raw, required, fallback);
+  }
+
+  /** Reads what the model sent with a tool's own say on whether it's required and what a missing value reads as. */
+  @SuppressWarnings("unchecked")
+  T read(Object raw, boolean required, Object fallback) throws ToolException {
     if (raw instanceof String text && text.isBlank()) raw = null;
     if (raw == null) {
       if (required) throw new ToolException(name + " is required");
-      return fallback;
+      return (T) fallback;
     }
     return (T) switch (kind) {
       case STRING -> {
@@ -138,6 +143,10 @@ public final class Arg<T> {
   }
 
   void addTo(Schema schema) {
+    addTo(schema, required);
+  }
+
+  void addTo(Schema schema, boolean required) {
     switch (kind) {
       case STRING -> {
         if (limit > 0) schema.string(name, description, required, limit);
