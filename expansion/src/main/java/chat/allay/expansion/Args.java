@@ -10,7 +10,10 @@ import java.util.Map;
  * The arguments of a call, as the model sent them: strings, numbers ({@link Long} or {@link Double}), booleans, lists,
  * and maps. The model may leave out what the schema doesn't require, or send the wrong type: each getter answers null
  * then, so check what you need.
+ *
+ * @deprecated Expansion API 1 stays for plugins built against it. New code extends {@link chat.allay.expansion.v2.Expansion}.
  */
+@Deprecated
 public final class Args {
   private final Map<String, Object> values;
 

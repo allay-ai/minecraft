@@ -5,7 +5,10 @@ package chat.allay.expansion;
  * a tool that waits on the network or a database hands its work elsewhere and returns {@link ToolResult#later}.
  * Allay checks {@link #access()} and {@link #permission()} before every call, and calls it only in a run the backend
  * offered it to.
+ *
+ * @deprecated Expansion API 1 stays for plugins built against it. New code extends {@link chat.allay.expansion.v2.Expansion}.
  */
+@Deprecated
 public interface AllayTool {
   /** What a tool may do in the game. Allay offers it only where that's allowed. */
   enum Access {

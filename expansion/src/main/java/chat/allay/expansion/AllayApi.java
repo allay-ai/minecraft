@@ -1,16 +1,18 @@
 package chat.allay.expansion;
 
 /**
- * The version of the expansion API. An expansion returns {@link #VERSION} from {@link AllayExpansion#requiresApi()}:
- * the compiler copies the constant into the expansion's own class, so Allay learns which version it was built against.
+ * The version of the expansion API. A 1.x expansion returns {@link #VERSION} from
+ * {@link AllayExpansion#requiresApi()}: the compiler copies the constant into the expansion's own class, so Allay
+ * learns which version it was built against. Expansions of API 2 ({@link chat.allay.expansion.v2}) don't name a
+ * version: an Allay too old for one misses its classes, and says so.
  *
- * <p>Within a major version the API only grows: new methods on interfaces come with defaults, so an expansion built
- * against 1.0 runs on every Allay with API 1.x. Allay refuses an expansion that needs a newer minor or another major,
- * and says so in its log.
+ * <p>Within a major version the API only grows: new methods come with defaults, and nothing is removed. API 2 keeps
+ * API 1's classes, so an expansion built against 1.x runs on every Allay with API 1.x or 2.x. Allay refuses one that
+ * needs a newer minor or another major, and says so in its log.
  */
 public final class AllayApi {
   /** This API's version, {@code major.minor.patch}. */
-  public static final String VERSION = "1.3.0";
+  public static final String VERSION = "2.0.0";
 
   private AllayApi() {}
 

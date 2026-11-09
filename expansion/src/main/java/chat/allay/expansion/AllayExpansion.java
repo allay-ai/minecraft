@@ -9,7 +9,10 @@ import java.util.List;
  *
  * <p>Allay reads {@link #tools()}, {@link #items()}, and {@link #promptExpansion()} when the expansion registers and
  * again on {@code /allay reload}, so keep them cheap and the same between calls.
+ *
+ * @deprecated Expansion API 1 stays for plugins built against it. New code extends {@link chat.allay.expansion.v2.Expansion}.
  */
+@Deprecated
 public interface AllayExpansion {
   /**
    * A short id of lower-case letters, digits, and underscores, 1 to 24 long, like {@code redbull}. It names the

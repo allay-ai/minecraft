@@ -13,7 +13,10 @@ import java.util.concurrent.CompletionStage;
  * ({@code redbull:original}), absolute coordinates, and numbers rather than prose.
  *
  * <p>A tool that waits on the network or a database returns {@link #later} instead, so the server never waits for it.
+ *
+ * @deprecated Expansion API 1 stays for plugins built against it. New code extends {@link chat.allay.expansion.v2.Expansion}.
  */
+@Deprecated
 public final class ToolResult {
   private final Map<String, Object> data;
   private final String summary;

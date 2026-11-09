@@ -18,7 +18,10 @@ import java.util.Map;
  *     .string("can", "The can's id", true)
  *     .integer("count", "How many", false, 1, 64))
  * }</pre>
+ *
+ * @deprecated Expansion API 1 stays for plugins built against it. New code extends {@link chat.allay.expansion.v2.Expansion}.
  */
+@Deprecated
 public final class Schema {
   private final Map<String, Object> properties = new LinkedHashMap<>();
   private final List<String> required = new ArrayList<>();
