@@ -17,12 +17,12 @@ import java.util.concurrent.atomic.AtomicBoolean
  * never stops Allay.
  */
 object Stats {
-  /** Allay's plugin id on bStats; 0 starts nothing. */
-  const val BSTATS_ID = 0
+  /** Allay's plugin id on bStats: https://bstats.org/plugin/bukkit/AllayAI/35231 */
+  const val BSTATS_ID = 35231
 
-  /** Starts bStats unless `metrics: false` or the id isn't set yet; returns a handle that stops it. */
+  /** Starts bStats unless `metrics: false`; returns a handle that stops it. */
   fun start(plugin: JavaPlugin, config: () -> Config, tally: Tally): AutoCloseable? {
-    if (BSTATS_ID == 0 || !config().metrics) return null
+    if (!config().metrics) return null
     val warned = AtomicBoolean()
     fun <T> soft(fallback: T, read: () -> T) = Callable {
       try {
