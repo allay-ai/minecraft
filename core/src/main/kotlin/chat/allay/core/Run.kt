@@ -65,6 +65,9 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
     reported.set(outputTokens)
   }
 
+  /** Tokens written, reasoning included, as the backend's latest `usage` event counts them; 0 before one. */
+  val reportedOutput get() = reported.get()
+
   /** Tokens written so far: the live estimate until the backend's count catches up or passes it. */
   val output get() = maxOf(estimated.get(), reported.get())
 

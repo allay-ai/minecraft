@@ -116,6 +116,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   lateinit var chat: ChatMode; private set
   lateinit var quota: QuotaGate; private set
   lateinit var reminders: Reminders; private set
+  /** Questions, tokens, cost, and answer times, for bStats, WorldAPI, and Plan; outlives `/allay reload`. */
+  lateinit var usage: Usage; private set
   /** Names the server's shared thread of public questions on the backend. */
   lateinit var serverId: String; private set
 
@@ -165,6 +167,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     zones = TimeZones(data) { config.time.zone }
     serverId = PlayerSettings.serverId(platform.folder)
     locales.choices = { settings.of(it).language }
+    usage = Usage(platform.shared, log)
+    locales.picked = usage::picked
     languages = Languages(locales, settings)
     chat = ChatMode(platform, locales, settings) { handler }
     // Outlives /allay reload, so reminders already set keep their schedule.
@@ -175,6 +179,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     data.loaded = game::loaded
     // load() makes a new Consents each time, so the agents ask for the one of the moment.
     game.agents?.consents = { consents }
+    game.agents?.usage = usage
     game.start()
     load()
     // Expansions registered before Allay started join now; the platform finds the rest in plugins and mods.
@@ -208,7 +213,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     reportProvider()
     executor = Executor(platform, config, locales, animator)
     consents = Consents(service, ::notice, consented, asksAge = { AgeGate.asks(locales.country(it)) })
-    handler = Handler(platform, config, locales, service, animator, executor, scope, { billing }, { clicks }, quota, consents, { privacy }, game.shown, expansions)
+    handler = Handler(platform, config, locales, service, animator, executor, scope, { billing }, { clicks }, quota, consents, { privacy }, game.shown, expansions, usage)
     if (::names.isInitialized) {
       names.forget()
       expansions.reload()
@@ -217,7 +222,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     }
     clicks = Clicks(platform, config, locales, books, chat, buttons, game.buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
     memory = MemoryCommands(platform, locales, service, scope, buttons)
-    privacy = PrivacyCommands(platform, config, locales, service, consents, settings, data, game::forget, ages, scope) { game.stopAgents(it) }
+    privacy = PrivacyCommands(platform, config, locales, service, consents, settings, data, { game.forget(it); usage.forget(it) }, ages, scope) { game.stopAgents(it) }
     registerServer()
   }
 

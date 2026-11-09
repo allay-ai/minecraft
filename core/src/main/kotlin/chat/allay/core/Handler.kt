@@ -33,6 +33,8 @@ class Handler(
   private val shown: Shown,
   /** Other plugins' and mods' expansions, whose tools a run may offer. */
   private val expansions: Expansions? = null,
+  /** Counts each question, what it spent, and how long it took. */
+  private val usage: Usage? = null,
 ) {
   /** What a platform shows for a player outside a question, which `/allay cancel` hides. */
   fun interface Shown {
@@ -132,8 +134,10 @@ class Handler(
     }
 
     scope.launch {
+      var answered: Long? = null
       try {
         val outcome = withRetries(run, sender, lang) { service.chat(run, message, listener) }
+        if (!run.cancelled) answered = run.elapsedMillis
         if (!run.cancelled) platform.scheduler.main { finish(run, sender, outcome) }
       } catch (e: Exception) {
         if (run.cancelled || e is CancellationException) return@launch
@@ -150,6 +154,7 @@ class Handler(
       } finally {
         runs.remove(key(sender), run)
         quota.spent(sender.uuid, run.cost)
+        usage?.ran(sender.uuid, run, Asked.of(mode, public), answered)
       }
     }
     return true

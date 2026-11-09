@@ -63,6 +63,9 @@ class Agents(
   /** The players' agreements to the notice, set by [Allay] once it has them; without them, wakes ask nobody. */
   @Volatile var consents: (() -> Consents)? = null
 
+  /** Counts what each wake spends, set by [Allay] like [consents]. */
+  @Volatile var usage: Usage? = null
+
   val book = TaskBook({ config().automation.maxTasks })
   val reservations = Reservations()
 
@@ -274,6 +277,7 @@ class Agents(
         if (error !is CancellationException) failure = error
       } finally {
         quota().spent(player.uuid, run.cost)
+        usage?.ran(player.uuid, run, command = null, answeredMillis = null)
         onMain { afterWake(task, player, message, failure) }
       }
     }

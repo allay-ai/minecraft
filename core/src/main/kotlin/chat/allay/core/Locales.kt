@@ -23,6 +23,8 @@ class Locales(private val platform: Platform) {
   @Volatile private var sources: List<String> = emptyList()
   /** The language a player chose themself, from their settings; set once the settings are loaded. */
   @Volatile var choices: (UUID) -> String? = { null }
+  /** Hears each language picked at a join and how: `ip`, `client`, `default`, or `choice`, the player's own. */
+  @Volatile var picked: (code: String, source: String) -> Unit = { _, _ -> }
 
   /** What `/allay locale` shows: the language, what picked it (`ip`, `client`, or `default`), and what it was picked from. */
   class Choice(val code: String, val source: String, val country: String?, val client: String, val sources: List<String>)
@@ -141,6 +143,7 @@ class Locales(private val platform: Platform) {
 
   fun joined(player: PlayerAudience) {
     current[player.uuid] = code(player)
+    runCatching { explain(player) }.getOrNull()?.let { picked(it.code, if (it.source == "chosen") "choice" else it.source) }
   }
 
   fun quit(player: UUID) {
