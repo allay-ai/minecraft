@@ -73,7 +73,8 @@ jobs:
         run: ./gradlew build -PreleaseVersion="$VERSION"
       - name: Publish the GitHub release
         # Each jar twice: with its version, and without, so releases/latest/download/allay-spigot.jar,
-        # allay-fabric.jar, and allay-neoforge.jar always fetch the newest one.
+        # allay-fabric.jar, and allay-neoforge.jar always fetch the newest one. The Grafana dashboard over WorldAPI's
+        # /extensions/allay goes along, so releases/latest/download/allay.json is always the newest too.
         run: |
           cp "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar
           cp "fabric/build/libs/allay-fabric-$VERSION.jar" fabric/build/libs/allay-fabric.jar
@@ -81,7 +82,8 @@ jobs:
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Allay $VERSION" --notes-file "$NOTES" \
             "spigot/build/libs/allay-spigot-$VERSION.jar" spigot/build/libs/allay-spigot.jar \
             "fabric/build/libs/allay-fabric-$VERSION.jar" fabric/build/libs/allay-fabric.jar \
-            "neoforge/build/libs/allay-neoforge-$VERSION.jar" neoforge/build/libs/allay-neoforge.jar
+            "neoforge/build/libs/allay-neoforge-$VERSION.jar" neoforge/build/libs/allay-neoforge.jar \
+            grafana/allay.json
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Publish to Modrinth
