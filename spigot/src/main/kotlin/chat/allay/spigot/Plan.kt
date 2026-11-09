@@ -17,6 +17,7 @@ import com.djrapitops.plan.extension.FormatType
 import com.djrapitops.plan.extension.NotReadyException
 import com.djrapitops.plan.extension.annotation.BooleanProvider
 import com.djrapitops.plan.extension.annotation.Conditional
+import com.djrapitops.plan.extension.annotation.DoubleProvider
 import com.djrapitops.plan.extension.annotation.GroupProvider
 import com.djrapitops.plan.extension.annotation.NumberProvider
 import com.djrapitops.plan.extension.annotation.PercentageProvider
@@ -37,8 +38,8 @@ import kotlin.math.roundToLong
 
 /**
  * Allay in Plan, when Plan is there: a block on each player's page (chat mode, goals, reminders, language, questions,
- * tokens, answer times) and one in the server's “Plugins Overview” (who pays for the model, chat mode across players,
- * the same numbers for everyone). Plan calls these
+ * tokens, spend, answer times) and one in the server's “Plugins Overview” (who pays for the model, chat mode across
+ * players, the same numbers for everyone). Spend is in US dollars; a key or a license never shows. Plan calls these
  * methods off the server thread, so everything here reads thread-safe state. Plan's labels are English: its
  * panel is for the server's admins, not for players.
  */
@@ -122,6 +123,10 @@ object Plan {
       iconName = "arrow-down", iconColor = Color.GREY)
     fun outputTokens(playerUUID: UUID): Long = sources.usage.player(playerUUID)?.output_tokens ?: 0
 
+    @DoubleProvider(text = "Spent (USD)", description = "What the model cost for the player's questions and agents, all time", priority = 51,
+      iconName = "dollar-sign", iconColor = Color.GREEN)
+    fun spent(playerUUID: UUID): Double = dollars(sources.usage.player(playerUUID)?.cost ?: 0.0)
+
     @NumberProvider(text = "Average answer time", description = "From asking to the last word", priority = 51, format = FormatType.TIME_MILLISECONDS,
       iconName = "stopwatch", iconColor = Color.AMBER)
     fun averageAnswer(playerUUID: UUID): Long = millis(sources.usage.player(playerUUID)?.averageSeconds)
@@ -142,6 +147,10 @@ object Plan {
 
     @NumberProvider(text = "Tokens written", description = "What the model wrote and reasoned, all time", priority = 42, iconName = "arrow-down", iconColor = Color.GREY)
     fun allOutputTokens(): Long = sources.usage.total().output_tokens
+
+    @DoubleProvider(text = "Spent (USD)", description = "What the model cost on this server, all time", priority = 41,
+      iconName = "dollar-sign", iconColor = Color.GREEN)
+    fun allSpent(): Double = dollars(sources.usage.total().cost)
 
     @NumberProvider(text = "Average answer time", description = "From asking to the last word", priority = 41, format = FormatType.TIME_MILLISECONDS,
       iconName = "stopwatch", iconColor = Color.AMBER)
@@ -193,6 +202,9 @@ object Plan {
     private fun current(): LicenseStatus? = sources.subscription()?.takeIf { it.billing && !sources.config().provider.byok }
 
     private fun byCommand(totals: UsageBook.Totals): String = listOf("ask", "askall", "askx").joinToString(" · ") { "/$it ${totals.questions[it] ?: 0}" }
+
+    /** Dollars to the cent. */
+    private fun dollars(usd: Double): Double = Math.round(usd * 100) / 100.0
 
     /** Seconds as Plan's milliseconds; not ready before the first answer. */
     private fun millis(seconds: Double?): Long = ((seconds ?: throw NotReadyException()) * 1000).roundToLong()
