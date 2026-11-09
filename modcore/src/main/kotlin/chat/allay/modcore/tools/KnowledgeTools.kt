@@ -216,7 +216,8 @@ object KnowledgeTools {
         when {
           progress.isDone -> done += entry
           // Started ones first: they are the nearest next steps. Bukkit has no parent links to go by, so neither do we.
-          progress.completedCriteria.iterator().hasNext() -> todo.add(0, buildJsonObject { entry.forEach { (k, v) -> put(k, v) }; put("started", true) })
+          // An advancement of several steps says how far it is, like 3/26, as the game's own screen does.
+          progress.completedCriteria.iterator().hasNext() -> todo.add(0, buildJsonObject { entry.forEach { (k, v) -> put(k, v) }; put("started", true); progress.progressText?.string?.let { put("progress", it) } })
           else -> todo += entry
         }
       }

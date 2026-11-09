@@ -187,7 +187,7 @@ object KnowledgeTools {
         when {
           progress.isDone -> done += entry
           // Started ones first: they are the nearest next steps. Spigot has no parent links to go by.
-          progress.awardedCriteria.isNotEmpty() -> todo.add(0, buildJsonObject { entry.forEach { (k, v) -> put(k, v) }; put("started", true) })
+          progress.awardedCriteria.isNotEmpty() -> todo.add(0, buildJsonObject { entry.forEach { (k, v) -> put(k, v) }; put("started", true); steps(advancement, progress)?.let { put("progress", it) } })
           else -> todo += entry
         }
       }
@@ -200,6 +200,14 @@ object KnowledgeTools {
       }
       return ToolOutput(result, context.lang.text("summary.advancements", "done" to done.size, "todo" to todo.size))
     }
+  }
+
+  /** How far a started advancement of several steps is, like 3/26, counted as the game's own screen counts it. */
+  private fun steps(advancement: org.bukkit.advancement.Advancement, progress: org.bukkit.advancement.AdvancementProgress): String? {
+    val requirements = advancement.requirements.requirements
+    if (requirements.size < 2) return null
+    val awarded = progress.awardedCriteria
+    return "${requirements.count { requirement -> requirement.requiredCriteria.any { it in awarded } }}/${requirements.size}"
   }
 
   /** Done advancements listed at most, and next steps; the counts cover them all. */

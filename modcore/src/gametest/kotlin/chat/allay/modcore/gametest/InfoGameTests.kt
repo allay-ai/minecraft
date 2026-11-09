@@ -256,6 +256,11 @@ class InfoGameTests {
     val todo = advancements["todo"]!!.jsonArray.map { it.jsonObject }
     helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 15, "the list is capped, the count isn't: $advancements")
     helper.assertTrue(todo.none { it["key"]!!.jsonPrimitive.content.startsWith("recipes/") } && todo.all { "title" in it && "description" in it }, "no recipe unlocks: $todo")
+    // An advancement of several steps says how far it is, as the game's own screen does.
+    val diet = helper.level.server.advancements.get(net.minecraft.resources.Identifier.withDefaultNamespace("husbandry/balanced_diet"))!!
+    asker.advancements.award(diet, "apple")
+    val started = result(asker, "get_advancements", buildJsonObject {})["todo"]!!.jsonArray.map { it.jsonObject }.first { it["key"]!!.jsonPrimitive.content == "husbandry/balanced_diet" }
+    helper.assertTrue(started["started"]?.jsonPrimitive?.content == "true" && started["progress"]?.jsonPrimitive?.content?.startsWith("1/") == true, "a started advancement counts its steps: $started")
     val structure = refused { run(asker, "locate_structure", buildJsonObject { put("structure", "moonbase") }) }
     helper.assertTrue(structure.orEmpty().startsWith("no structure called moonbase; ") && "village_*" in structure.orEmpty(), "an unknown structure names what the server has: $structure")
     helper.assertTrue("found" in result(asker, "locate_biome", buildJsonObject { put("biome", "plains") }), "a biome search answers")

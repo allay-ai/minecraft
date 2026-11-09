@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.33.1
+
+- 🏆 **Allay sees how far you are.** An advancement of several steps you've started comes with its progress, like 3/26 for Red Bull's collection or 347/1000 for Mo’Bosses' kills, as the game's own screen shows it. Ask what's left, and Allay answers with the numbers.
+
 ## 6.33.0
 
 - 🧩 **Expansion API 2.** Plugins and mods add tools to Allay through `chat.allay:allay-expansion` 2.0.0: an expansion declares its arguments and tools as fields, answers with typed records, and names other players in a way that keeps vanished ones hidden. Allay checks every argument before a plugin's tool runs, so the model learns at once what to fix. Plugins built against API 1 keep working.
