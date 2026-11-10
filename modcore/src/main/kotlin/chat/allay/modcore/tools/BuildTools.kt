@@ -162,6 +162,7 @@ object BuildTools {
         put("unobtainable_note", "no survival player gets these: ask the player what to build them with (swap), or skip them")
       }
       if (estimate.free.isNotEmpty()) put("free", buildJsonObject { estimate.free.forEach { (block, n) -> put(block, n) } })
+      if (player.isCreative) put("creative", "the player is in creative: the builder takes nothing, so nothing is short; build it when they say")
     }
     // The player reads it in a window; the model gets the same numbers to talk about.
     val catalog = Catalogs.build(context)
