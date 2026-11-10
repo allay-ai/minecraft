@@ -189,7 +189,9 @@ object Building {
       bar(player, far)
       if (!started || paused || far) return
       if (starved != null) return starve(player)
-      budget = minOf(budget + (if (blocksPerSecond == 0) 1000 else blocksPerSecond) / 20.0, maxOf(1.0, blocksPerSecond.toDouble()))
+      // 0 is as fast as a tick allows: 50 blocks a tick, which a server takes without a stutter.
+      val perSecond = if (blocksPerSecond == 0) 1000 else blocksPerSecond
+      budget = minOf(budget + perSecond / 20.0, maxOf(1.0, perSecond / 20.0))
       val creative = player.gameMode == GameMode.CREATIVE
       if (!creative && (sources == null || ++sourcesAge >= SOURCES_TICKS)) {
         sources = Sources.around(player, automation.settings().radius, task.scope)

@@ -1,0 +1,590 @@
+package chat.allay.modcore.automation
+
+import chat.allay.core.Legacy
+import chat.allay.core.Permissions
+import chat.allay.core.Protocol
+import chat.allay.core.building.Blueprint
+import chat.allay.core.building.Blueprints
+import chat.allay.core.building.BuildSave
+import chat.allay.core.building.Construction
+import chat.allay.core.building.Families
+import chat.allay.core.building.Materials
+import chat.allay.core.building.Placement
+import chat.allay.core.building.Shell
+import chat.allay.core.tasks.Agents
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Task
+import chat.allay.core.tasks.TaskLimits
+import chat.allay.core.tools.Dimensions
+import chat.allay.core.tools.DraftSide
+import chat.allay.core.tools.ToolError
+import chat.allay.core.tools.ToolOutput
+import chat.allay.core.tools.string
+import chat.allay.modcore.Claims
+import chat.allay.modcore.Perms
+import chat.allay.modcore.Texts
+import chat.allay.modcore.tools.OperatorTools
+import chat.allay.modcore.tools.Previews
+import chat.allay.modcore.tools.Tool
+import chat.allay.modcore.tools.ToolContext
+import chat.allay.modcore.tools.Worlds
+import chat.allay.modcore.tools.at
+import chat.allay.modcore.tools.id
+
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import net.minecraft.core.BlockPos
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerBossEvent
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.BossEvent
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.LeavesBlock
+import net.minecraft.world.level.block.entity.SignBlockEntity
+import net.minecraft.world.level.block.entity.SignTextSlot
+import net.minecraft.world.level.block.state.BlockState
+import java.util.UUID
+import java.util.concurrent.CompletableFuture
+
+/**
+ * The builder (since 6.37): an agent of kind building that builds its player's preview from their own blocks, at its
+ * tier's speed, as a player would: each block taken from the inventory, the ender chest when allowed, or the chests
+ * around, and placed only where the player may build ([Claims.mayBuild]). Short of something, it waits and says what,
+ * and goes on by itself once it's there; the model wakes only when the player must decide. What it placed stays when
+ * it stops. Its shape never changes: only where it stands, how it faces, and what it's made of.
+ */
+object Building {
+  private val SAVES = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+  /** How often a waiting builder looks again for what it lacks, in ticks. */
+  private const val LOOK_TICKS = 40L
+
+  /** How often it reads its sources again while it builds, in ticks: chests are found once in a while, not per block. */
+  private const val SOURCES_TICKS = 40
+
+  /** The most blocked cells a job remembers; past that it only counts them. */
+  private const val BLOCKED = 4096
+
+  /** Places a block without telling its neighbors, as the schematic already holds their shapes. */
+  private const val FLAGS = Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
+
+  class Job(
+    override val task: Task,
+    private val owner: UUID,
+    val source: Blueprints.Source,
+    val title: String,
+    val level: ServerLevel,
+    var placement: Placement,
+    val swaps: MutableList<Pair<String, String>>,
+    val skips: MutableSet<String>,
+    /** Blocks a second, from the player's tier; 0 is as fast as each tick allows. */
+    var blocksPerSecond: Int,
+  ) : Jobs.Lasting {
+    /** Null while it downloads again after a restart. */
+    var blueprint: Blueprint? = null
+      private set
+    var states: List<String> = emptyList()
+      private set
+    private var datas: Array<BlockState?> = emptyArray()
+    private var order = IntArray(0)
+    private var signs: Map<Int, List<String>> = emptyMap()
+
+    var next = 0
+    var placed = 0
+    val blocked = mutableListOf<Int>()
+    var blockedMore = 0
+    var started = false
+    var paused = false
+    /** What it waits for now, as the player reads it, and since when. */
+    var starved: String? = null
+    var starvedSince = 0L
+    private var reminded = 0L
+    private var budget = 0.0
+    private var sources: Sources? = null
+    private var sourcesAge = 0
+    private var ticker: AutoCloseable? = null
+    private var bar: ServerBossEvent? = null
+    private var ended = false
+    private var looked = 0L
+
+    override val blocks: Collection<chat.allay.modcore.tools.BlockAt> get() = emptyList()
+
+    val total get() = order.size
+    val done get() = blueprint != null && next >= order.size
+
+    /** Takes [blueprint] on: the palette as swapped, the order, and the signs' text. Server thread. */
+    fun ready(blueprint: Blueprint) {
+      this.blueprint = blueprint
+      var states = blueprint.palette
+      for ((from, to) in swaps) states = Families.apply(states, from, to, Previews::known).first
+      this.states = states
+      resolve()
+      signs = blueprint.blockEntities.filter { it.text.isNotEmpty() }.associate { Shell.pack(it.x, it.y, it.z) to it.text }
+      run()
+    }
+
+    /** Ticks it, unless it already does or it ended. */
+    private fun run() {
+      if (ticker == null && !ended && blueprint != null) ticker = Jobs.every(1L) { tick() }
+    }
+
+    private fun resolve() {
+      val blueprint = blueprint ?: return
+      datas = Previews.datas(blueprint, states, placement)
+      val stage = IntArray(states.size) { index ->
+        val data = datas[index]
+        when {
+          data == null -> Construction.SOLID
+          data.block == net.minecraft.world.level.block.Blocks.WATER || data.block == net.minecraft.world.level.block.Blocks.LAVA -> Construction.LIQUID
+          @Suppress("DEPRECATION") data.isSolid -> Construction.SOLID
+          else -> Construction.ATTACHED
+        }
+      }
+      order = Construction.order(blueprint, stage)
+    }
+
+    /** Swaps [from] for [to] in what's still to build; returns the shapes [to] lacks. */
+    fun swap(from: String, to: String): Set<String> {
+      val (swapped, missing) = Families.apply(states, from, to, Previews::known)
+      states = swapped
+      swaps += from to to
+      val blueprint = blueprint ?: return missing
+      datas = Previews.datas(blueprint, states, placement)
+      return missing
+    }
+
+    /** Cells left to build of each kind of block, for the agent. */
+    fun remaining(): Map<String, Int> {
+      val blueprint = blueprint ?: return emptyMap()
+      val counts = HashMap<String, Int>()
+      for (i in next until order.size) {
+        val cell = order[i]
+        val kind = Construction.kind(states[blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))])
+        if (kind !in skips) counts.merge(kind, 1, Int::plus)
+      }
+      return counts
+    }
+
+    /** What's left and nobody can get, by kind, unless swapped or skipped. */
+    fun unobtainable(): Map<String, Int> = remaining().filterKeys { kind ->
+      Materials.of("minecraft:$kind").unobtainable || !Previews.known(kind)
+    }
+
+    private fun player(): ServerPlayer? = level.server.playerList.getPlayer(owner)?.takeUnless { it.hasDisconnected() }
+
+    private fun tick() {
+      if (ended || blueprint == null) return
+      val player = player() ?: return
+      Previews.blueprints.touch(source.sha256)
+      val automation = Jobs.automation
+      val limits = task.limits
+      val (low, high) = placement.bounds(blueprint!!)
+      val far = player.level() != level || distance(player, low, high) > (limits?.pause_distance ?: automation.settings().pauseDistance)
+      bar(player, far)
+      if (!started || paused || far) return
+      if (starved != null) return starve(player)
+      val perTick = if (blocksPerSecond == 0) FAST else blocksPerSecond / 20.0
+      budget = minOf(budget + perTick, maxOf(1.0, perTick, blocksPerSecond.toDouble()))
+      val creative = player.isCreative
+      if (!creative && (sources == null || ++sourcesAge >= SOURCES_TICKS)) {
+        sources = Sources.around(player, automation.settings().radius, task.scope)
+        sourcesAge = 0
+      }
+      while (budget >= 1.0 && (again.isNotEmpty() || next < order.size)) {
+        val retrying = again.isNotEmpty()
+        val cell = if (retrying) again.first() else order[next]
+        // Moves past this cell, whichever queue it came from.
+        val step = { if (retrying) again.removeFirst() else next++ }
+        val bp = blueprint!!
+        val index = bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
+        val state = states[index]
+        val data = datas[index]
+        if (data == null || Construction.kind(state) in skips) {
+          step()
+          continue
+        }
+        val (x, y, z) = placement.world(bp, Shell.x(cell), Shell.y(cell), Shell.z(cell))
+        // An unloaded chunk waits for someone to come near, as the game does.
+        if (level.chunkSource.getChunkNow(x shr 4, z shr 4) == null) break
+        val block = level.at(x, y, z)
+        if (block.state == data) {
+          step()
+          placed++
+          continue
+        }
+        if (!Previews.open(block)) {
+          block(cell)
+          step()
+          continue
+        }
+        val cost = Materials.of(state)
+        if (cost.unobtainable) {
+          step()
+          continue
+        }
+        if (!creative) {
+          val lacking = lacking(player, cost)
+          if (lacking != null) {
+            starved = lacking
+            starvedSince = System.currentTimeMillis()
+            reminded = starvedSince
+            automation.say(player, task, automation.text(task, "building.waiting", "items" to lacking))
+            automation.changed(task)
+            return
+          }
+        }
+        if (place(player, block.pos, data, cell)) {
+          if (!creative) pay(player, cost)
+          placed++
+        } else {
+          block(cell)
+        }
+        step()
+        budget -= 1.0
+      }
+      if (next >= order.size && again.isEmpty()) finish()
+    }
+
+    /** Waits for what it lacks: it looks again every two seconds, reminds now and then, and gives up after its hours. */
+    private fun starve(player: ServerPlayer) {
+      if (++looked % LOOK_TICKS != 0L) return
+      val automation = Jobs.automation
+      val now = System.currentTimeMillis()
+      if (now - starvedSince > automation.agents.parkHours(task) * 3_600_000L) {
+        return automation.end(task, automation.text(task, "automation.park_expired", "hours" to automation.agents.parkHours(task)))
+      }
+      if (now - reminded >= automation.settings().remindMinutes * 60_000L) {
+        reminded = now
+        automation.say(player, task, automation.text(task, "building.still_waiting", "items" to starved))
+      }
+      sources = Sources.around(player, automation.settings().radius, task.scope)
+      sourcesAge = 0
+      val bp = blueprint ?: return
+      val cell = again.firstOrNull() ?: order.getOrNull(next) ?: return
+      if (!player.isCreative && lacking(player, Materials.of(states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))])) != null) return
+      starved = null
+      starvedSince = 0L
+      automation.say(player, task, automation.text(task, "building.going_on"))
+      automation.changed(task)
+    }
+
+    /** What the player lacks for [cost], as they read it; null when it's all there. */
+    private fun lacking(player: ServerPlayer, cost: Materials.Cost): String? {
+      val sources = sources ?: return null
+      val automation = Jobs.automation
+      for ((item, count) in cost.items) {
+        if (sources.count { Crafting.key(it) == item } < count) return automation.itemName(player, item) + " ×${rest(item)}"
+      }
+      if (cost.water && sources.count { it.`is`(Items.WATER_BUCKET) } < 1) return automation.itemName(player, "water_bucket")
+      cost.tool?.let { kind -> if (tool(kind) == null) return automation.text(task, "building.tool_$kind") }
+      return null
+    }
+
+    /** How many of [item] the rest of the build takes, for the player's line. */
+    private fun rest(item: String): Int {
+      val bp = blueprint ?: return 0
+      var count = 0
+      for (i in next until order.size) {
+        val cell = order[i]
+        val state = states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))]
+        if (Construction.kind(state) in skips) continue
+        count += Materials.of(state).items[item] ?: 0
+      }
+      return count
+    }
+
+    /** Takes what [cost] says from the sources: items, a tool's wear; a lava bucket's bucket comes back. */
+    private fun pay(player: ServerPlayer, cost: Materials.Cost) {
+      val sources = sources ?: return
+      for ((item, count) in cost.items) {
+        var left = count
+        for (source in sources.list) {
+          if (left == 0) break
+          left -= source.take({ Crafting.key(it) == item }, left).sumOf { it.count }
+        }
+        if (item == "lava_bucket") give(player, listOf(ItemStack(Items.BUCKET)))
+      }
+      cost.tool?.let(::wear)
+    }
+
+    /** The hoe or shovel to wear next: the worst tier first, then the most worn. */
+    private fun tool(kind: String): Pair<Sources.Source, ItemStack>? {
+      val sources = sources ?: return null
+      return sources.list.flatMap { source -> source.slots().filterNotNull().filterNot { it.isEmpty }.map { source to it } }
+        .mapNotNull { (source, stack) -> Construction.wearOrder(Worlds.key(BuiltInRegistries.ITEM.getKey(stack.item)), kind)?.let { Triple(source, stack, it) } }
+        .sortedWith(compareBy<Triple<Sources.Source, ItemStack, Int>> { it.third }.thenByDescending { it.second.damageValue })
+        .firstOrNull()?.let { it.first to it.second }
+    }
+
+    private fun wear(kind: String) {
+      val (source, stack) = tool(kind) ?: return
+      val taken = source.take({ ItemStack.isSameItemSameComponents(it, stack) }, 1).firstOrNull() ?: return
+      if (taken.isDamageableItem) {
+        taken.damageValue = taken.damageValue + 1
+        if (taken.damageValue >= taken.maxDamage) return
+      }
+      source.add(taken)?.let { give(player() ?: return, listOf(it)) }
+    }
+
+    /** Places [data] at [pos] where [player] may build, without telling the neighbors; false when a claim refuses it. */
+    private fun place(player: ServerPlayer, pos: BlockPos, data: BlockState, cell: Int): Boolean {
+      if (!Claims.mayBuild(player, level, pos)) return false
+      // Leaves of a build stay: the player placed them, as the game marks leaves a player places.
+      val placing = if (data.hasProperty(LeavesBlock.PERSISTENT)) data.setValue(LeavesBlock.PERSISTENT, true) else data
+      if (!level.setBlock(pos, placing, FLAGS)) return false
+      signs[cell]?.let { lines ->
+        val sign = level.getBlockEntity(pos) as? SignBlockEntity ?: return@let
+        val text = sign.getText(SignTextSlot.FRONT).asMutable()
+        lines.take(4).forEachIndexed { i, line -> text.setLine(i, Component.literal(line.take(90))) }
+        sign.setText(text.asImmutable(), SignTextSlot.FRONT)
+        level.sendBlockUpdated(pos, placing, placing, Block.UPDATE_CLIENTS)
+      }
+      return true
+    }
+
+    private fun block(cell: Int) {
+      if (blocked.size < BLOCKED) blocked += cell else blockedMore++
+    }
+
+    /** Spots something stood in the way of, as the world has them. */
+    fun blockedSpots(limit: Int): List<Triple<Int, Int, Int>> {
+      val bp = blueprint ?: return emptyList()
+      return blocked.take(limit).map { placement.world(bp, Shell.x(it), Shell.y(it), Shell.z(it)) }
+    }
+
+    /** Spots in the way to try again before it goes on from [next]: the player cleared them. */
+    val again = ArrayDeque<Int>()
+
+    /** Goes over the spots that were in the way again. */
+    fun retry() {
+      again.addAll(blocked)
+      blocked.clear()
+      blockedMore = 0
+      run()
+    }
+
+    /** The cell at [i] of the order. */
+    fun cellAt(i: Int) = order[i]
+
+    private fun finish() {
+      ticker?.close()
+      ticker = null
+      val skipped = skips.joinToString().ifEmpty { "nothing" }
+      val blockedNote = if (blocked.isEmpty()) "" else "; ${blocked.size + blockedMore} spots were in the way or a claim refused them, first at " +
+        blockedSpots(5).joinToString("; ") { "${it.first} ${it.second} ${it.third}" } + " (construct retry builds them once the player cleared them)"
+      Jobs.automation.post(task, "[job] the build is done: $placed blocks placed, skipped kinds: $skipped$blockedNote")
+      bar?.removeAllPlayers()
+      bar = null
+    }
+
+    private fun bar(player: ServerPlayer, far: Boolean) {
+      val automation = Jobs.automation
+      val bar = bar ?: ServerBossEvent(UUID.randomUUID(), Component.empty(), BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.NOTCHED_10).also { bar = it }
+      // A respawn makes a new ServerPlayer: the bar follows the one that plays now.
+      bar.players.filter { it !== player }.forEach(bar::removePlayer)
+      if (player !in bar.players) bar.addPlayer(player)
+      val total = order.size.coerceAtLeast(1)
+      bar.progress = (next.toFloat() / total).coerceIn(0f, 1f)
+      val key = when {
+        !started -> "building.bar_ready"
+        paused -> "building.bar_paused"
+        far -> "building.bar_far"
+        starved != null -> "building.bar_waiting"
+        else -> "building.bar"
+      }
+      bar.color = if (starved != null || far || paused) BossEvent.BossBarColor.YELLOW else BossEvent.BossBarColor.GREEN
+      bar.name = Texts.legacy(Legacy.color(automation.text(task, key, "title" to title, "done" to next, "total" to order.size, "items" to (starved ?: ""))))
+    }
+
+    override fun cancel() {
+      ended = true
+      ticker?.close()
+      ticker = null
+      bar?.removeAllPlayers()
+      bar = null
+      Jobs.remove(this)
+    }
+
+    override fun snapshot(): JsonObject = SAVES.encodeToJsonElement(BuildSave.serializer(), BuildSave(
+      id = source.id, url = source.url, sha256 = source.sha256, bytes = source.bytes, title = title, world = Worlds.name(level),
+      x = placement.corner.first, y = placement.corner.second, z = placement.corner.third, facing = placement.facing.name.lowercase(),
+      mirrored = placement.mirrored, swaps = swaps.map { listOf(it.first, it.second) }, skips = skips.toList(), next = next, placed = placed,
+      blocked = blocked.toList(), again = again.toList(), started = started, paused = paused, blocks_per_second = blocksPerSecond, starved_since = starvedSince,
+    )).jsonObject
+
+    override fun describe(): String {
+      val state = when {
+        blueprint == null -> "downloading the build again"
+        !started -> "ready, waiting for construct start"
+        paused -> "paused by construct pause"
+        starved != null -> "waiting for $starved"
+        else -> "building"
+      }
+      return "building «$title»: $next of ${order.size} cells done ($placed placed), $state" +
+        (if (skips.isEmpty()) "" else "; skipping ${skips.joinToString()}") + (if (blocked.isEmpty()) "" else "; ${blocked.size + blockedMore} spots in the way")
+    }
+  }
+
+  /** Blocks a tick at speed 0, as fast as the server takes them without a stutter. */
+  private const val FAST = 50.0
+
+  private fun distance(player: ServerPlayer, low: Triple<Int, Int, Int>, high: Triple<Int, Int, Int>): Double {
+    val at = player.position()
+    val dx = maxOf(low.first - at.x, 0.0, at.x - high.first - 1)
+    val dy = maxOf(low.second - at.y, 0.0, at.y - high.second - 1)
+    val dz = maxOf(low.third - at.z, 0.0, at.z - high.third - 1)
+    return kotlin.math.sqrt(dx * dx + dy * dy + dz * dz)
+  }
+
+  /** The builder's site for a new building agent: the player's preview becomes its job, waiting for the agent's go. */
+  fun site(task: Task, player: ServerPlayer): Agents.Site {
+    val preview = Previews.of(player) ?: throw ToolError("the player has no build in preview: preview one with build first, then start the builder")
+    val config = Jobs.automation.building()
+    val limits = config.tiers.of(OperatorTools.operator(player)) { Perms.check(player, Permissions.build(it)) }
+    val job = Job(task, player.uuid, preview.source, preview.title, preview.level, preview.placement, preview.swaps.toMutableList(), mutableSetOf(), limits.blocksPerSecond)
+    Previews.clear(player)
+    job.ready(preview.blueprint)
+    Jobs.add(job)
+    val (low, high) = preview.placement.bounds(preview.blueprint)
+    val anchor = Protocol.Position((low.first + high.first) / 2, low.second, (low.third + high.third) / 2, Dimensions.id(preview.level), Worlds.name(preview.level))
+    return Agents.Site(anchor, job, TaskLimits(limits.pauseDistance, limits.parkHours))
+  }
+
+  /** A build job from its snapshot: it downloads the build again off the server thread, then goes on where it stood. */
+  fun restore(task: Task, player: ServerPlayer, saved: JsonObject): Jobs.Lasting? {
+    val save = runCatching { SAVES.decodeFromJsonElement(BuildSave.serializer(), saved) }.getOrNull() ?: return null
+    val server = player.level().server
+    val level = server.allLevels.firstOrNull { Worlds.name(it) == save.world } ?: return null
+    val facing = DraftSide.entries.firstOrNull { it.name.equals(save.facing, ignoreCase = true) } ?: return null
+    val source = Blueprints.Source(save.id, save.url, save.sha256, save.bytes)
+    val job = Job(task, player.uuid, source, save.title, level, Placement(Triple(save.x, save.y, save.z), facing, save.mirrored),
+      save.swaps.mapNotNull { if (it.size == 2) it[0] to it[1] else null }.toMutableList(), save.skips.toMutableSet(), save.blocks_per_second)
+    job.next = save.next
+    job.placed = save.placed
+    job.blocked += save.blocked
+    job.again.addAll(save.again)
+    job.started = save.started
+    job.paused = save.paused
+    job.starvedSince = save.starved_since
+    if (save.starved_since > 0) job.starved = "…"
+    Jobs.add(job)
+    CompletableFuture.supplyAsync { runCatching { Previews.blueprints.load(source) } }.thenAccept { blueprint ->
+      server.execute {
+        blueprint.onSuccess(job::ready).onFailure { Jobs.automation.post(task, "[job] the build couldn't be downloaded again (${it.message}); tell the player and finish") }
+      }
+    }
+    return job
+  }
+
+  /** The builder's own tool: what's left, go, pause, swap or skip a kind of block, and the spots in the way again. */
+  val tool = object : Tool {
+    override val name = "construct"
+
+    override fun run(context: ToolContext, args: JsonObject): ToolOutput {
+      val player = context.requirePlayer()
+      val task = context.requireTask()
+      val automation = context.features.automation
+      automation.require(player, task, Kind.BUILDING)
+      val job = automation.agent(task).job as? Job ?: throw ToolError("this builder has no build; finish and tell the player")
+      if (job.blueprint == null) throw ToolError("the build is still downloading; wait a few seconds")
+      val lang = context.lang
+      return when (val action = args.string("action")?.lowercase()) {
+        "status" -> ToolOutput(status(job, player), lang.text("summary.construct_status", "done" to job.next, "total" to job.total))
+        "start" -> {
+          val unobtainable = job.unobtainable()
+          if (unobtainable.isNotEmpty()) throw ToolError("no survival player gets ${unobtainable.entries.joinToString { "${it.key} (${it.value})" }}: ask the player what to build them with (swap) or to leave them out (skip), then start")
+          job.started = true
+          job.paused = false
+          automation.changed(task)
+          ToolOutput(buildJsonObject { put("started", true); put("note", "it builds by itself now and says itself what it waits for; you wake when it's done or the player writes. End this wake with wait, without seconds") }, lang.text("summary.construct_started"))
+        }
+        "pause" -> {
+          job.paused = true
+          automation.changed(task)
+          ToolOutput(buildJsonObject { put("paused", true) }, lang.text("summary.construct_paused"))
+        }
+        "resume" -> {
+          job.paused = false
+          job.started = true
+          automation.changed(task)
+          ToolOutput(buildJsonObject { put("resumed", true) }, lang.text("summary.construct_resumed"))
+        }
+        "swap" -> {
+          val from = args.string("from")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("swap needs from: the block in the build, like cobblestone")
+          val to = args.string("to")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("swap needs to: the block to build with instead")
+          if (!Previews.known(to)) throw ToolError("$to isn't a block this server has; search_items finds its id")
+          if (Materials.of("minecraft:$to").unobtainable) throw ToolError("no survival player gets $to either")
+          val missing = job.swap(from, to)
+          automation.changed(task)
+          ToolOutput(buildJsonObject {
+            put("swapped", "$from → $to")
+            if (missing.isNotEmpty()) put("missing", buildJsonArray { missing.forEach { add(it) } })
+          }, lang.text("summary.build_swapped", "from" to from, "to" to to))
+        }
+        "skip" -> {
+          val block = args.string("block")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("skip needs block: the kind to leave out, like glass_pane")
+          if (block !in job.remaining()) throw ToolError("nothing of $block is left to build")
+          job.skips += block
+          automation.changed(task)
+          ToolOutput(buildJsonObject { put("skipped", block) }, lang.text("summary.construct_skipped", "block" to block))
+        }
+        "retry" -> {
+          val count = job.blocked.size + job.blockedMore
+          job.retry()
+          automation.changed(task)
+          ToolOutput(buildJsonObject { put("again", count) }, lang.text("summary.construct_retry", "count" to count))
+        }
+        else -> throw ToolError("action is status, start, pause, resume, swap, skip, or retry, not $action")
+      }
+    }
+  }
+
+  private fun status(job: Job, player: ServerPlayer) = buildJsonObject {
+    put("title", job.title)
+    put("done", job.next)
+    put("total", job.total)
+    put("placed", job.placed)
+    put("state", when {
+      !job.started -> "ready"
+      job.paused -> "paused"
+      job.starved != null -> "waiting"
+      job.done -> "done"
+      else -> "building"
+    })
+    job.starved?.let { put("waiting_for", it) }
+    val unobtainable = job.unobtainable()
+    if (unobtainable.isNotEmpty()) put("unobtainable", buildJsonObject { unobtainable.forEach { (k, v) -> put(k, v) } })
+    // What's left against what the sources hold, the biggest first: the player brings what's short.
+    val sources = if (player.isCreative) null else Sources.around(player, Jobs.automation.settings().radius, job.task.scope)
+    val needs = HashMap<String, Int>()
+    val bp = job.blueprint!!
+    for (i in job.next until job.total) {
+      // Counted per cell: a double slab takes two.
+      val cell = job.cellAt(i)
+      val state = job.states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))]
+      if (Construction.kind(state) in job.skips) continue
+      Materials.of(state).items.forEach { (item, n) -> needs.merge(item, n, Int::plus) }
+    }
+    if (sources == null) put("creative", "nothing is taken")
+    else put("short", buildJsonArray {
+      needs.entries.sortedByDescending { it.value }.forEach { (item, need) ->
+        val have = sources.count { Crafting.key(it) == item }
+        if (have < need) add(buildJsonObject { put("item", item); put("need", need); put("have", have) })
+      }
+    })
+    if (job.skips.isNotEmpty()) put("skipped", buildJsonArray { job.skips.forEach { add(it) } })
+    if (job.blocked.isNotEmpty()) {
+      put("in_the_way", job.blocked.size + job.blockedMore)
+      put("first_in_the_way", buildJsonArray { job.blockedSpots(5).forEach { (x, y, z) -> add("$x $y $z") } })
+    }
+  }
+}

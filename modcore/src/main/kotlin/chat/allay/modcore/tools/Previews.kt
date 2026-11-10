@@ -145,15 +145,20 @@ object Previews {
    * state the block doesn't have dropped, and a block nobody knows left out (null).
    */
   private fun resolve(preview: Preview) {
-    val rotation = rotation(preview.placement.facing)
-    preview.datas = Array(preview.states.size) { index ->
-      if (preview.blueprint.empty[index]) return@Array null
-      var state = data(preview.states[index]) ?: return@Array null
-      if (preview.placement.mirrored) state = state.mirror(Mirror.FRONT_BACK)
-      state.rotate(rotation)
-    }
+    preview.datas = datas(preview.blueprint, preview.states, preview.placement)
     val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.let(Blocks::occluding) == true }
     preview.shell = Shell.of(preview.blueprint, opaque)
+  }
+
+  /** [states], the palette of [blueprint], as this game's block states turned and mirrored as [placement] stands. */
+  fun datas(blueprint: Blueprint, states: List<String>, placement: Placement): Array<BlockState?> {
+    val rotation = rotation(placement.facing)
+    return Array(states.size) { index ->
+      if (blueprint.empty[index]) return@Array null
+      var state = data(states[index]) ?: return@Array null
+      if (placement.mirrored) state = state.mirror(Mirror.FRONT_BACK)
+      state.rotate(rotation)
+    }
   }
 
   /** [text] as this game's block state, with the states it doesn't know dropped; null for a block it doesn't have. */
@@ -291,7 +296,7 @@ object Previews {
   }
 
   /** A spot a block can go without breaking anything first: air, water, tall grass, snow layers, and the like. */
-  private fun open(block: BlockAt) = block.state.isAir || block.liquid || block.state.`is`(BlockTags.REPLACEABLE)
+  fun open(block: BlockAt) = block.state.isAir || block.liquid || block.state.`is`(BlockTags.REPLACEABLE)
 
   private fun distanceToBox(at: Vec3, low: Triple<Int, Int, Int>, high: Triple<Int, Int, Int>): Double {
     val dx = maxOf(low.first - at.x, 0.0, at.x - high.first - 1)

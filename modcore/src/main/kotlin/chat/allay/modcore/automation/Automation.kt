@@ -64,6 +64,8 @@ class Automation(
     override fun itemName(player: PlayerAudience, item: String) = catalog()?.label(item, locales.names(player)) ?: item
 
     override fun picked(task: Task, player: PlayerAudience) = picking.picked(player.player, task).map(Blocks::place)
+
+    override fun site(task: Task, player: PlayerAudience) = Building.site(task, player.player)
   })
 
   val book get() = agents.book
@@ -113,4 +115,12 @@ class Automation(
   fun later(block: () -> Unit) = agents.later(block)
 
   fun text(task: Task, key: String, vararg values: Pair<String, Any?>): String = agents.text(task, key, *values)
+
+  /** [item] as [player] reads it, in their language. */
+  fun itemName(player: ServerPlayer, item: String): String = catalog()?.label(item, locales.names(player.audience)) ?: item.replace('_', ' ')
+
+  /** The agent's state changed: it goes to the backend a moment later. */
+  fun changed(task: Task) = agents.changed(task)
+
+  fun building() = config().building
 }

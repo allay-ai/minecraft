@@ -53,12 +53,14 @@ object Jobs {
   fun restore(task: Task, player: ServerPlayer, saved: JsonObject): Lasting? = when (saved.string("type")) {
     Furnaces.TYPE -> Furnaces.restore(task, player, saved)
     Stands.TYPE -> Stands.restore(task, player, saved)
+    chat.allay.core.building.BuildSave.TYPE -> Building.restore(task, player, saved)
     else -> null
   }
 
   /** Lets [job] go without undoing anything: the furnaces and stands keep what's in them, and the game carries on. */
   fun detach(job: chat.allay.core.tasks.Agents.Job) {
-    if (job is BlockJob) remove(job)
+    // A build stops ticking; what it placed stays, and its snapshot carries on from there.
+    if (job is Building.Job) job.cancel() else if (job is BlockJob) remove(job)
   }
 
   private val running = mutableListOf<BlockJob>()
@@ -99,6 +101,9 @@ object Jobs {
   fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
 
   private lateinit var scheduler: Scheduler
+
+  /** Runs [block] every [period] ticks on the server thread, for a job that works on its own pace: a build. */
+  fun every(period: Long, block: () -> Unit): AutoCloseable = scheduler.every(period, period, block = block)
 
   fun start(scheduler: Scheduler) {
     this.scheduler = scheduler
@@ -231,5 +236,5 @@ object Jobs {
     give(player, left, at = at)
   }
 
-  val all: List<Tool> = listOf(Furnaces.tool, Stands.tool, Crafting.tool, AnvilWork.tool, GrindstoneWork.tool)
+  val all: List<Tool> = listOf(Furnaces.tool, Stands.tool, Crafting.tool, AnvilWork.tool, GrindstoneWork.tool, Building.tool)
 }
