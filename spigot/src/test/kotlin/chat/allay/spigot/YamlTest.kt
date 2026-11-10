@@ -61,7 +61,7 @@ class YamlTest {
       yaml.getInt("tools.locate_structure_radius", 64).coerceIn(1, 128), yaml.getInt("tools.goals.max_per_player", 5).coerceIn(1, 20),
       yaml.getStringList("tools.server.hidden_plugins").map(String::lowercase).toSet(), switches?.getBoolean("look_at", true) ?: true,
       (operator?.getBoolean("enabled", true) ?: true) && (operator?.getBoolean("give_item", true) ?: true),
-      yaml.getInt("askall.cooldown_seconds", 30).toLong().coerceAtLeast(0), yaml.getString("time.zone", "Europe/Moscow"),
+      yaml.getInt("askall.cooldown_seconds", 30).toLong().coerceAtLeast(0), yaml.getString("time.zone", "auto"),
       yaml.getStringList("blocked_commands").map(String::lowercase).toSet(), yaml.getString("locales.default", "en"),
       yaml.getStringList("locales.sources").map(String::lowercase).ifEmpty { listOf("ip", "client") },
       yaml.getConfigurationSection("locales.countries")?.let { section -> section.getKeys(false).associateWith(section::getStringList) },
@@ -107,7 +107,11 @@ class YamlTest {
       assertEquals(bukkit.size, core.size)
       bukkit.forEachIndexed { index, value ->
         val expected = when (index) {
-          20 -> (value as String).takeIf { chat.allay.core.tools.TimeZones.parse(it) != null } ?: "UTC"
+          // auto is this machine's zone.
+          20 -> (value as String).trim().let { zone ->
+            if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) java.time.ZoneId.systemDefault().id
+            else zone.takeIf { chat.allay.core.tools.TimeZones.parse(it) != null } ?: "UTC"
+          }
           24 -> value ?: core[24]
           else -> value
         }
