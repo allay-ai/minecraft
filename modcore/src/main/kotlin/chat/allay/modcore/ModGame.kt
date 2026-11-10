@@ -1,6 +1,7 @@
 package chat.allay.modcore
 
 import chat.allay.core.*
+import chat.allay.core.building.Blueprints
 import chat.allay.modcore.automation.Automation
 import chat.allay.modcore.menus.Menus
 import chat.allay.modcore.tools.Deaths
@@ -8,6 +9,7 @@ import chat.allay.modcore.tools.Drafts
 import chat.allay.modcore.tools.Features
 import chat.allay.modcore.tools.Goals
 import chat.allay.modcore.tools.Marks
+import chat.allay.modcore.tools.Previews
 import chat.allay.modcore.tools.ToolContext
 import chat.allay.modcore.tools.Tools
 import chat.allay.modcore.tools.Trails
@@ -58,6 +60,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   override fun effects(config: Config): Effects = ModEffects(platform.log, config)
   override val software: String get() = Mod.loader.software
   override val gameVersion: String get() = SharedConstants.getCurrentVersion().name()
+  override val dataVersion: Int? get() = SharedConstants.getCurrentVersion().dataVersion().version()
   override val loader: String get() = Mod.loader.id
   // A singleplayer world, opened to LAN or not, runs on the player's own game.
   override val side: String get() = if (server.isDedicatedServer) "server" else "integrated"
@@ -71,7 +74,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     val player = audience.player
     val trail = Trails.stop(player)
     val marks = Marks.clear(player)
-    val draft = Drafts.clear(player)
+    val draft = Drafts.clear(player) or Previews.clear(player)
     when {
       // Agents say themselves that they stopped.
       automation.cancel(player) -> Handler.Hidden.AGENTS
@@ -105,6 +108,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     chat.allay.modcore.menus.Menu.start()
     Marks.start()
     Drafts.start(platform.scheduler, locales)
+    Previews.start(platform.scheduler, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
     deaths.start()
     automation.start()
     goals.start(server)
@@ -124,6 +128,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     goals.stop()
     Marks.clearAll()
     Drafts.stop()
+    Previews.stop()
     Trails.clearAll()
   }
 }

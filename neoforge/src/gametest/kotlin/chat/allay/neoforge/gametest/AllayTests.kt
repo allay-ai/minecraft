@@ -2,6 +2,7 @@ package chat.allay.neoforge.gametest
 
 import chat.allay.modcore.gametest.AllayGameTests
 import chat.allay.modcore.gametest.AutomationGameTests
+import chat.allay.modcore.gametest.BuildGameTests
 import chat.allay.modcore.gametest.FixesGameTests
 import chat.allay.modcore.gametest.GameTest
 import chat.allay.modcore.gametest.GoalsGameTests
@@ -36,7 +37,7 @@ import java.util.function.Consumer
 class AllayTests(modBus: IEventBus) {
   private class Test(val id: Identifier, val annotation: GameTest, val run: Consumer<GameTestHelper>)
 
-  private val tests = listOf(AllayGameTests(), AutomationGameTests(), GoalsGameTests(), InfoGameTests(), CatalogGameTests(), MenusGameTests(), FixesGameTests(), NeoForgeGameTests())
+  private val tests = listOf(AllayGameTests(), AutomationGameTests(), GoalsGameTests(), InfoGameTests(), CatalogGameTests(), MenusGameTests(), FixesGameTests(), BuildGameTests(), NeoForgeGameTests())
     .flatMap { instance -> instance.javaClass.methods.filter { it.isAnnotationPresent(GameTest::class.java) }.map { test(instance, it) } }
 
   init {
