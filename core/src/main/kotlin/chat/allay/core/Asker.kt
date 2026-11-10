@@ -20,6 +20,9 @@ interface Asker {
   /** The dimension the player stood in when they asked, as `Dimensions` ids; null for the console. */
   val dimension: String? get() = null
 
+  /** The player's game mode when they asked: `survival`, `creative`, `adventure`, or `spectator`; null for the console. */
+  val gameMode: String? get() = null
+
   /** Where the player stood when they asked; null for the console. */
   val position: Protocol.Position? get() = null
 

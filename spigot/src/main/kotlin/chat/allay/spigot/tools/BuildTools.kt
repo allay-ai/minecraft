@@ -166,7 +166,7 @@ object BuildTools {
     // The player reads it in a window; the model gets the same numbers to talk about.
     val catalog = Catalogs.build(context)
     val rows = estimate.items.filterKeys { it !in unknown }.map { (item, need) -> EstimateWindow.Row(item, need, minOf(have[item] ?: 0, need)) }
-    player.audience.show(EstimateWindow.of(context.lang, preview.title, rows, estimate, unobtainable) { catalog.label(it, context.nameLocale) ?: it.replace('_', ' ') })
+    player.audience.show(EstimateWindow.of(context.lang, preview.title, rows, estimate, unobtainable, creative = player.gameMode == org.bukkit.GameMode.CREATIVE) { catalog.label(it, context.nameLocale) ?: it.replace('_', ' ') })
     return ToolOutput(result, context.lang.text("summary.build_estimate", "missing" to short))
   }
 

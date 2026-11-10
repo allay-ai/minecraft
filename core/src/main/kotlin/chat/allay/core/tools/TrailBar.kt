@@ -37,7 +37,9 @@ class TrailBar(private val player: PlayerAudience, private val lang: Lang, priva
     if (boss != null) {
       farthest = maxOf(farthest, blocks.toDouble(), 1.0)
       progress = (blocks / farthest).coerceIn(0.0, 1.0)
-      val title = if (shown == null) lang.text("status.trail_boss", *values) else lang.text("status.trail_boss_to", *values, "name" to shown)
+      // How much of the way is behind the player, as the bar fills.
+      val walked = "percent" to ((1 - progress) * 100).toInt()
+      val title = if (shown == null) lang.text("status.trail_boss", *values, walked) else lang.text("status.trail_boss_to", *values, "name" to shown, walked)
       boss.show(Legacy.color(title), progress)
     }
     if (!actionBar || Animator.showing(player.uuid)) return

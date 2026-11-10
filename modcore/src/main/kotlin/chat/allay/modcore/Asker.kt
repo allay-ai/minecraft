@@ -18,6 +18,7 @@ class SourceAsker(val audience: Audience, private val language: String? = null) 
   override val locale: String? get() = language ?: (audience as? ModPlayer)?.locale
   // Read once here, on the server thread: the request is built off it.
   override val dimension: String? = (audience as? ModPlayer)?.player?.level()?.let(Dimensions::id)
+  override val gameMode: String? = (audience as? ModPlayer)?.player?.gameMode()?.serializedName
   override val position: Protocol.Position? = (audience as? ModPlayer)?.player?.let { Protocol.Position(it.blockX, it.blockY, it.blockZ, Dimensions.id(it.level()), Worlds.name(it.level())) }
   override fun can(permission: String) = audience.can(permission)
 }

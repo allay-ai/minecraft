@@ -14,12 +14,21 @@ object EstimateWindow {
   /** The most rows a window lists; the rest go in one line. */
   private const val ROWS = 40
 
-  fun of(lang: Lang, title: String, rows: List<Row>, estimate: Materials.Estimate, unobtainable: Map<String, Int>, name: (String) -> String): Window {
-    val short = rows.sumOf { (it.need - it.have).coerceAtLeast(0) }
-    val lines = mutableListOf(if (short == 0) lang.text("previews.estimate.enough") else lang.text("previews.estimate.short", "count" to short))
-    val sorted = rows.sortedWith(compareByDescending<Row> { it.need - it.have }.thenByDescending { it.need })
+  /** In [creative] nothing is short: the window lists what the build is made of. */
+  fun of(lang: Lang, title: String, rows: List<Row>, estimate: Materials.Estimate, unobtainable: Map<String, Int>, creative: Boolean = false, name: (String) -> String): Window {
+    val short = if (creative) 0 else rows.sumOf { (it.need - it.have).coerceAtLeast(0) }
+    val lines = mutableListOf(when {
+      creative -> lang.text("previews.estimate.creative")
+      short == 0 -> lang.text("previews.estimate.enough")
+      else -> lang.text("previews.estimate.short", "count" to short)
+    })
+    val sorted = if (creative) rows.sortedByDescending { it.need } else rows.sortedWith(compareByDescending<Row> { it.need - it.have }.thenByDescending { it.need })
     sorted.take(ROWS).forEach { row ->
-      val key = if (row.have >= row.need) "previews.estimate.line_ok" else "previews.estimate.line_short"
+      val key = when {
+        creative -> "previews.estimate.line_creative"
+        row.have >= row.need -> "previews.estimate.line_ok"
+        else -> "previews.estimate.line_short"
+      }
       lines += lang.text(key, "item" to name(row.item), "have" to row.have, "need" to row.need)
     }
     if (sorted.size > ROWS) lines += lang.text("previews.estimate.more", "count" to sorted.size - ROWS)

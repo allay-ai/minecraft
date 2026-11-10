@@ -268,7 +268,8 @@ class Agents(
 
   /** The agent's `finish`: its last line, then it's gone. */
   fun finish(player: PlayerAudience, task: Task, summary: String) {
-    line(player, task, "automation.finished", "text" to summary)
+    // A summary the agent just said word for word isn't said twice.
+    if (agents[key(task)]?.said != Legacy.strip(Legacy.color(summary))) line(player, task, "automation.finished", "text" to summary)
     platform.log.info("✅ Automation agent ${task.name} finished for ${player.name}")
     val agent = agents.remove(key(task))
     book.end(task)

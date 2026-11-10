@@ -80,6 +80,8 @@ object Protocol {
     val dimension: String? = null,
     val private: Boolean? = null,
     val position: Position? = null,
+    /** Since backend 6.33: a player in creative takes nothing for a build, so the model never holds one back. */
+    val game_mode: String? = null,
   )
 
   /** A block in a world; [world] is the world's folder name, which tells two overworlds apart. */
