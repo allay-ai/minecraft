@@ -74,6 +74,20 @@ class PlayerDataTest {
     assertEquals("UTC", zones.of(player))
   }
 
+  @Test fun `a player who never named a zone gets their country's, then the server's`() = runBlocking {
+    val data = data(FakeBackend(), online = false)
+    val countries = mutableMapOf(player to "US")
+    val zones = TimeZones(data, countries::get) { "Europe/Moscow" }
+    // A country of many zones takes its capital's, one of one zone that zone.
+    assertEquals("America/New_York", zones.of(player))
+    countries[player] = "de"
+    assertEquals("Europe/Berlin", zones.of(player))
+    countries[player] = "ZZ"
+    assertEquals("Europe/Moscow", zones.of(player))
+    zones.set(player, "Asia/Yekaterinburg")
+    assertEquals("Asia/Yekaterinburg", zones.of(player))
+  }
+
   @Test fun `a player who didn't agree sends nothing and leaves nothing behind`() = runBlocking {
     val backend = FakeBackend()
     val data = data(backend, online = false)

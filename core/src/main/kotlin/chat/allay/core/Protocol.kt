@@ -85,6 +85,8 @@ object Protocol {
     /** Since backend 6.33: the time of day (0–23999) and the weather where the sky turns, for “when's night?” and mobs. */
     val time: Int? = null,
     val weather: String? = null,
+    /** Since backend 6.33: the world's day, the first one 1. */
+    val day: Long? = null,
   )
 
   /** A block in a world; [world] is the world's folder name, which tells two overworlds apart. */

@@ -21,6 +21,7 @@ class SourceAsker(val audience: Audience, private val language: String? = null) 
   override val gameMode: String? = (audience as? ModPlayer)?.player?.gameMode()?.serializedName
   private val sky = (audience as? ModPlayer)?.player?.level()?.takeIf { it.dimension() == net.minecraft.world.level.Level.OVERWORLD }
   override val time: Int? = sky?.let { Math.floorMod(chat.allay.modcore.tools.WorldTools.fullTime(it), 24_000L).toInt() }
+  override val day: Long? = sky?.let { Math.floorDiv(chat.allay.modcore.tools.WorldTools.fullTime(it), 24_000L) + 1 }
   override val weather: String? = sky?.let { if (it.isThundering) "thunder" else if (it.isRaining) "rain" else "clear" }
   override val position: Protocol.Position? = (audience as? ModPlayer)?.player?.let { Protocol.Position(it.blockX, it.blockY, it.blockZ, Dimensions.id(it.level()), Worlds.name(it.level())) }
   override fun can(permission: String) = audience.can(permission)

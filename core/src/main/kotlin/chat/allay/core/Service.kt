@@ -263,7 +263,7 @@ class Service<C>(
       user_id = uuid?.toString() ?: "console",
       locale = uuid?.let { asker.locale },
       timezone = uuid?.let(zones::of) ?: config.time.zone,
-      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null, position = asker.position, game_mode = asker.gameMode, time = asker.time, weather = asker.weather) },
+      player = uuid?.let { Protocol.PlayerInfo(asker.name, it.toString(), asker.operator, asker.dimension, private = if (fullPrivacy(it)) true else null, position = asker.position, game_mode = asker.gameMode, time = asker.time, weather = asker.weather, day = asker.day) },
       server = Protocol.ServerInfo(serverId, host.software, host.gameVersion, host.pluginVersion, config.server.address.ifEmpty { host.address }, host.port, host.loader, host.side,
         // Only questions use it, so actions and automation agents don't carry it.
         about = config.server.about.takeIf { it.isNotEmpty() && run.mode == Run.Mode.ASK }),

@@ -167,7 +167,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
       online = { platform.player(it) != null },
     )
     settings = PlayerSettings(data)
-    zones = TimeZones(data) { config.time.zone }
+    zones = TimeZones(data, locales::country) { config.time.zone }
     serverId = PlayerSettings.serverId(platform.folder)
     locales.choices = { settings.of(it).language }
     usage = Usage(platform.shared, log)

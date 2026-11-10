@@ -26,6 +26,9 @@ interface Asker {
   /** The game's time of day in the player's world (0–23999, 0 is sunrise), only where the sky turns; else null. */
   val time: Int? get() = null
 
+  /** Which day of the world it is, the first one 1, where the sky turns; else null. */
+  val day: Long? get() = null
+
   /** The weather over the player: `clear`, `rain`, or `thunder`, only where the sky has weather; else null. */
   val weather: String? get() = null
 
