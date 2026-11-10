@@ -126,6 +126,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::reloaded), plugin)
     Drafts.start(plugin, locales)
     Previews.start(plugin, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
+    chat.allay.spigot.automation.Building.plugin = plugin
     Jobs.automation = automation
     automation.start()
     goals.start()

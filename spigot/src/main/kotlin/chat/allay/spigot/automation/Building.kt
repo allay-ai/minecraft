@@ -529,9 +529,10 @@ object Building {
     val config = Jobs.automation.building()
     val limits = config.tiers.of(player.isOp) { player.hasPermission(Permissions.build(it)) }
     val job = Job(task, player.uniqueId, preview.source, preview.title, preview.world, preview.placement, preview.swaps.toMutableList(), mutableSetOf(), limits.blocksPerSecond)
-    Previews.clear(player)
     job.ready(preview.blueprint)
     Jobs.add(job)
+    // The preview goes once the job holds the build: a failure above leaves it for the next try.
+    Previews.clear(player)
     val (low, high) = preview.placement.bounds(preview.blueprint)
     val anchor = Protocol.Position((low.first + high.first) / 2, low.second, (low.third + high.third) / 2, Dimensions.id(preview.world), preview.world.name)
     return Agents.Site(anchor, job, TaskLimits(limits.pauseDistance, limits.parkHours))
