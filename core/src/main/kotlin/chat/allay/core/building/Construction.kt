@@ -34,6 +34,23 @@ object Construction {
     return TIERS.indexOf(item.removeSuffix("_$kind")).takeIf { it >= 0 }
   }
 
+  private val SKIN = Regex("\"url\"\\s*:\\s*\"(https?://textures\\.minecraft\\.net/texture/[0-9a-fA-F]{16,128})\"")
+
+  /** A player head's skin link from its `textures` value; null for anything but the game's own skin server. */
+  fun skin(texture: String): String? {
+    val json = runCatching { String(java.util.Base64.getDecoder().decode(texture.trim()), Charsets.UTF_8) }.getOrNull() ?: return null
+    return SKIN.find(json)?.groupValues?.get(1)?.replaceFirst("http://", "https://")
+  }
+
+  /** A facing as the game numbers it (2 north, 3 south, 4 west, 5 east) as a step on x and z; null for up and down. */
+  fun step(facing: Int): Pair<Int, Int>? = when (facing) {
+    2 -> 0 to -1
+    3 -> 0 to 1
+    4 -> -1 to 0
+    5 -> 1 to 0
+    else -> null
+  }
+
   /** The base block a player names for a whole kind of block in the build: `oak_stairs` for any of its states. */
   fun kind(state: String) = Blueprint.block(state).removePrefix("minecraft:")
 }
@@ -62,6 +79,8 @@ object Construction {
   /** The next cell in [Construction.order]. */
   val next: Int = 0,
   val placed: Int = 0,
+  /** The next of the build's entities, once every block is up. */
+  val entity_next: Int = 0,
   /** Cells something stood in the way of, or a claim refused, as [Shell.pack]s. */
   val blocked: List<Int> = emptyList(),
   /** Blocked cells the player cleared, to try before it goes on. */

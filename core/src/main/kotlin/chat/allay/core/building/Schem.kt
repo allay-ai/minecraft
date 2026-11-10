@@ -19,6 +19,10 @@ object Schem {
   /** The biggest box read: a side past this is no build anyone places. */
   private const val MAX_SIDE = 4096
 
+  /** The entities a build is built with, empty; mobs, minecarts, and the rest stay out. */
+  private val KEPT = setOf("item_frame", "glow_item_frame", "painting", "armor_stand")
+  private const val MAX_ENTITIES = 4096
+
   fun read(file: ByteArray): Blueprint {
     val data = inflate(file)
     val reader = Reader(data)
@@ -75,6 +79,8 @@ object Schem {
     fun byte(): Int = need(1).get().toInt()
     fun short(): Int = need(2).short.toInt()
     fun int(): Int = need(4).int
+    fun float(): Float = need(4).float
+    fun double(): Double = need(8).double
 
     fun string(): String {
       val size = need(2).short.toInt() and 0xFFFF
@@ -131,6 +137,7 @@ object Schem {
     var dataAt = -1
     var dataSize = 0
     val blockEntities = mutableListOf<Blueprint.BlockEntity>()
+    val entities = mutableListOf<Blueprint.Entity>()
     var name = ""
     var author = ""
     val nested = mutableMapOf<String, Fields>()
@@ -158,6 +165,7 @@ object Schem {
           reader.buffer.position(dataAt + dataSize)
         }
         name == "BlockEntities" && kind == LIST -> blockEntities(reader, depth)
+        name == "Entities" && kind == LIST -> entities(reader, depth)
         else -> reader.skip(kind, depth + 1)
       }
     }
@@ -170,17 +178,85 @@ object Schem {
         var pos: IntArray? = null
         var id = ""
         val text = mutableListOf<String>()
+        val texture = arrayOfNulls<String>(1)
         reader.compound { n, k ->
           when {
             n == "Pos" && k == INT_ARRAY && reader.int() == 3 -> pos = intArrayOf(reader.int(), reader.int(), reader.int())
             n == "Pos" && k == INT_ARRAY -> throw Malformed("a block entity's Pos isn't three numbers")
             n == "Id" && k == STRING -> id = reader.string()
-            // v3 keeps the entity's own fields under Data, v2 beside Pos and Id: a sign's lines are all that's read.
-            n == "Data" && k == COMPOUND -> reader.compound { dn, dk -> signText(reader, dn, dk, text, depth + 3) }
-            else -> signText(reader, n, k, text, depth + 2)
+            // v3 keeps the entity's own fields under Data, v2 beside Pos and Id: a sign's lines and a head's skin are all that's read.
+            n == "Data" && k == COMPOUND -> reader.compound { dn, dk -> field(reader, dn, dk, text, texture, depth + 3) }
+            else -> field(reader, n, k, text, texture, depth + 2)
           }
         }
-        pos?.let { blockEntities += Blueprint.BlockEntity(it[0], it[1], it[2], id, text) }
+        pos?.let { blockEntities += Blueprint.BlockEntity(it[0], it[1], it[2], id, text, texture[0]) }
+      }
+    }
+
+    private fun field(reader: Reader, name: String, kind: Int, text: MutableList<String>, texture: Array<String?>, depth: Int) {
+      when {
+        // A head's owner: `profile` since 1.20.5, `SkullOwner` before; its skin is a `textures` property's value.
+        (name == "profile" || name == "SkullOwner") && kind == COMPOUND -> texture[0] = skin(reader, COMPOUND, depth)
+        else -> signText(reader, name, kind, text, depth)
+      }
+    }
+
+    /** The first `value` or `Value` string under a head's profile: its skin, at most 8000 characters. */
+    private fun skin(reader: Reader, kind: Int, depth: Int): String? {
+      if (depth > 64) throw Malformed("the NBT nests too deep")
+      var found: String? = null
+      when (kind) {
+        COMPOUND -> reader.compound { n, k ->
+          if ((n == "value" || n == "Value") && k == STRING) reader.string().takeIf { found == null && it.length <= 8000 }?.let { found = it }
+          else skin(reader, k, depth + 1)?.let { if (found == null) found = it }
+        }
+        LIST -> {
+          val inner = reader.byte()
+          repeat(reader.int()) { skin(reader, inner, depth + 1)?.let { if (found == null) found = it } }
+        }
+        else -> reader.skip(kind, depth)
+      }
+      return found
+    }
+
+    /** The entities a build keeps: frames, paintings, and armor stands, at most [MAX_ENTITIES]; the rest is skipped. */
+    private fun entities(reader: Reader, depth: Int) {
+      val inner = reader.byte()
+      val count = reader.int()
+      if (inner != COMPOUND) return repeat(count) { reader.skip(inner, depth + 1) }
+      repeat(count) {
+        var pos: DoubleArray? = null
+        var id = ""
+        var facing = 2
+        var yaw = 0f
+        var variant: String? = null
+        fun own(n: String, k: Int, d: Int) {
+          when {
+            (n == "Facing" || n == "facing") && k == BYTE -> facing = reader.byte()
+            n == "Rotation" && k == LIST -> {
+              val kind = reader.byte()
+              val size = reader.int()
+              repeat(size) { i -> if (kind == FLOAT) reader.float().let { if (i == 0) yaw = it } else reader.skip(kind, d + 1) }
+            }
+            (n == "variant" || n == "Motive") && k == STRING -> variant = reader.string().removePrefix("minecraft:").take(64)
+            else -> reader.skip(k, d)
+          }
+        }
+        reader.compound { n, k ->
+          when {
+            n == "Pos" && k == LIST -> {
+              val kind = reader.byte()
+              val size = reader.int()
+              if (kind != DOUBLE || size != 3) throw Malformed("an entity's Pos isn't three numbers")
+              pos = doubleArrayOf(reader.double(), reader.double(), reader.double())
+            }
+            n == "Id" && k == STRING -> id = reader.string().removePrefix("minecraft:")
+            n == "Data" && k == COMPOUND -> reader.compound { dn, dk -> own(dn, dk, depth + 3) }
+            else -> own(n, k, depth + 2)
+          }
+        }
+        val at = pos
+        if (at != null && id in KEPT && this.entities.size < MAX_ENTITIES) this.entities += Blueprint.Entity(at[0], at[1], at[2], id, facing, yaw, variant)
       }
     }
 
@@ -248,7 +324,8 @@ object Schem {
       }
       cell++
     }
-    val entities = fields.blockEntities.filter { it.x in 0 until width && it.y in 0 until height && it.z in 0 until length }
-    return builder.build(palette, fields.dataVersion, entities, fields.name, fields.author)
+    val blockEntities = fields.blockEntities.filter { it.x in 0 until width && it.y in 0 until height && it.z in 0 until length }
+    val entities = fields.entities.filter { it.x >= 0 && it.y >= 0 && it.z >= 0 && it.x < width && it.y < height && it.z < length }
+    return builder.build(palette, fields.dataVersion, blockEntities, fields.name, fields.author, entities)
   }
 }

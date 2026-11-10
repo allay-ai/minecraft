@@ -16,6 +16,13 @@ data class Placement(val corner: Triple<Int, Int, Int>, val facing: DraftSide, v
     return Drafting.place(corner, facing, DraftCell(right, y, blueprint.length - 1 - z))
   }
 
+  /** A horizontal direction of the schematic ([dx], [dz]) as it points in the world, turned and mirrored as the build. */
+  fun direction(blueprint: Blueprint, dx: Int, dz: Int): Pair<Int, Int> {
+    val (ox, _, oz) = world(blueprint, 1, 0, 1)
+    val (ax, _, az) = world(blueprint, 1 + dx, 0, 1 + dz)
+    return (ax - ox) to (az - oz)
+  }
+
   /** Moved [right], [up], and [forward] as the build faces; negative goes the other way. */
   fun moved(right: Int, up: Int, forward: Int): Placement {
     val (x, y, z) = corner

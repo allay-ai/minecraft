@@ -15,12 +15,24 @@ class Blueprint(
   /** The game's DataVersion it was saved in: an older one's block names may need the game's own fixes. */
   val dataVersion: Int,
   val blockEntities: List<BlockEntity> = emptyList(),
+  /** Item frames, glow item frames, paintings, and armor stands: built empty, as items without what they hold. */
+  val entities: List<Entity> = emptyList(),
   /** Its title and author, as the schematic names them. */
   val name: String = "",
   val author: String = "",
 ) {
-  /** A block entity's place in the box and its id; what it holds stays behind (a chest comes empty). */
-  data class BlockEntity(val x: Int, val y: Int, val z: Int, val id: String, val text: List<String> = emptyList())
+  /**
+   * A block entity's place in the box and its id; what it holds stays behind (a chest comes empty). [text] is a sign's
+   * front, [texture] a player head's skin as the game's `textures` property (base64 of a textures.minecraft.net link).
+   */
+  data class BlockEntity(val x: Int, val y: Int, val z: Int, val id: String, val text: List<String> = emptyList(), val texture: String? = null)
+
+  /**
+   * An entity of the build: [id] without `minecraft:`, its place in the box ([x], [y], [z], the block it hangs in is
+   * their floor), [facing] as the game numbers directions (2 north, 3 south, 4 west, 5 east, 0 down, 1 up) for a frame
+   * or painting, [yaw] for an armor stand, [variant] a painting's (`kebab`).
+   */
+  data class Entity(val x: Double, val y: Double, val z: Double, val id: String, val facing: Int = 2, val yaw: Float = 0f, val variant: String? = null)
 
   /** Which palette entries are nothing to place: air of any kind, and the blank a structure block leaves alone. */
   val empty: BooleanArray = BooleanArray(palette.size) { block(palette[it]) in EMPTY }
@@ -74,8 +86,8 @@ class Blueprint(
       section[((y and 15) shl 8) or ((z and 15) shl 4) or (x and 15)] = index.toShort()
     }
 
-    fun build(palette: List<String>, dataVersion: Int, blockEntities: List<BlockEntity>, name: String, author: String) =
-      Blueprint(width, height, length, palette, sections, dataVersion, blockEntities, name, author)
+    fun build(palette: List<String>, dataVersion: Int, blockEntities: List<BlockEntity>, name: String, author: String, entities: List<Entity> = emptyList()) =
+      Blueprint(width, height, length, palette, sections, dataVersion, blockEntities, entities, name, author)
   }
 
   companion object {

@@ -109,6 +109,41 @@ object Materials {
 
   private val WALLS = listOf("_wall_hanging_sign" to "_hanging_sign", "_wall_sign" to "_sign", "_wall_banner" to "_banner", "_wall_fan" to "_fan")
 
+  private val COLORS = listOf(
+    "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue",
+    "brown", "green", "red", "black",
+  )
+
+  /** Mob heads by the item a player gets; a player's head is free anyway. */
+  private val MOB_HEADS = setOf("skeleton_skull", "wither_skeleton_skull", "zombie_head", "creeper_head", "dragon_head", "piglin_head")
+
+  /**
+   * [palette] as Allay builds it: a banner goes up plain white, since its patterns would need the loom's order undone.
+   * The preview and the estimate show the same.
+   */
+  fun placed(palette: List<String>): List<String> = palette.map { state ->
+    val block = Blueprint.block(state).removePrefix("minecraft:")
+    val color = COLORS.firstOrNull { block == "${it}_banner" || block == "${it}_wall_banner" } ?: return@map state
+    "minecraft:white" + block.removePrefix(color) + state.substring(Blueprint.block(state).length)
+  }
+
+  /**
+   * A mob head as Steve's: what goes up free when the player has no such head, its rotation or facing kept. Null for
+   * anything but a mob head.
+   */
+  fun steve(state: String): String? {
+    val block = Blueprint.block(state).removePrefix("minecraft:")
+    val item = ITEM[block] ?: block
+    if (item !in MOB_HEADS) return null
+    val wall = "_wall_" in block
+    return "minecraft:" + (if (wall) "player_wall_head" else "player_head") + state.substring(Blueprint.block(state).length)
+  }
+
+  /** The item an entity of a build takes: a frame, a painting, an armor stand; null for what isn't built. */
+  fun item(entity: Blueprint.Entity): String? = entity.id.takeIf { it in ENTITY_ITEMS }
+
+  private val ENTITY_ITEMS = setOf("item_frame", "glow_item_frame", "painting", "armor_stand")
+
   /** What [blueprint] costs in all; [states] is its palette as the platform may have changed it (substitutions). */
   fun estimate(blueprint: Blueprint, states: List<String> = blueprint.palette): Estimate {
     val counts = blueprint.counts()
@@ -130,6 +165,7 @@ object Materials {
       cost.tool?.let { tools.merge(it, n, Int::plus) }
       if (cost.water) water = true
     }
+    blueprint.entities.forEach { entity -> item(entity)?.let { items.merge(it, 1, Int::plus) } }
     return Estimate(items, tools, water, unobtainable, free)
   }
 }

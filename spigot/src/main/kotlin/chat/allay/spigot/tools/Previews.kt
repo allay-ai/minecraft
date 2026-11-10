@@ -59,7 +59,7 @@ object Previews : Listener {
     var placement: Placement,
   ) {
     /** The palette as it'll be built: renamed for this game, swapped as the player asked. */
-    var states: List<String> = blueprint.palette
+    var states: List<String> = chat.allay.core.building.Materials.placed(blueprint.palette)
     /** Swaps so far, in order: from, to. */
     val swaps = mutableListOf<Pair<String, String>>()
     internal var datas: Array<BlockData?> = emptyArray()
@@ -145,6 +145,14 @@ object Previews : Listener {
     preview.datas = datas(preview.blueprint, preview.states, preview.placement)
     val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.material?.isOccluding == true }
     preview.shell = Shell.of(preview.blueprint, opaque)
+  }
+
+  /** One [state] as block data, turned and mirrored as [placement] stands; null for a block this game lacks. */
+  fun turned(state: String, placement: Placement): BlockData? {
+    val data = data(state) ?: return null
+    if (placement.mirrored) data.mirror(Mirror.FRONT_BACK)
+    data.rotate(rotation(placement.facing))
+    return data
   }
 
   /** [states], the palette of [blueprint], as this game's block data turned and mirrored as [placement] stands. */
