@@ -18,6 +18,9 @@
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.gif" width="760" alt="A player asks where their diamonds are, and three chests by the river glow with labels Diamond ×12, ×14, and ×8">
   <br><sub>Ask where something lies, and its chests glow, even through the ground</sub></p>
 
+<p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/build-end.webp" width="760" alt="A medieval house with a tower stands in a savanna; in front of it, the chests whose blocks it was built from"></a>
+  <br><sub>“Find a medieval house with a tower”: the preview, the move, what it takes, then Allay builds it from your chests · <a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4">▶ the video, 2:25</a></sub></p>
+
 ### Screenshots
 
 <p align="center">
@@ -51,7 +54,7 @@
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar. Glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
-- 🏠 **Real builds, built from your blocks.** “Find me a modern villa” brings builds by their authors from Allay's catalog. You see one as a preview only you see, turn it, swap its materials, and Allay builds it block by block from your chests, waiting for what's short.
+- 🏠 **Real builds, built from your blocks.** “Find me a modern villa” brings builds by their authors from Allay's catalog. You see one as a preview only you see, turn it, swap its materials, and Allay builds it block by block from your chests, waiting for what's short. Off until you turn it on (`building.enabled`).
 - 🧹 **A tidy inventory.** “Sword first, food in the last row”, and **[Put back]** undoes it.
 - 🪟 **Buttons and windows.** Buttons sit right in the answer: the way somewhere, a recipe, brewing steps, the cheapest anvil order, enchantments, villager trades, or a message Allay wrote for you to send. Memory and privacy open as the game’s own windows.
 - 🌍 **Every player reads their own language.** English, Russian, Spanish, Portuguese, and German, picked by country or chosen with `/allay language`.
