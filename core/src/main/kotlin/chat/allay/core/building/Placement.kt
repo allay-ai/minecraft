@@ -16,6 +16,20 @@ data class Placement(val corner: Triple<Int, Int, Int>, val facing: DraftSide, v
     return Drafting.place(corner, facing, DraftCell(right, y, blueprint.length - 1 - z))
   }
 
+  /** The schematic's cell at the world spot [x], [y], [z], or null outside the box. */
+  fun local(blueprint: Blueprint, x: Int, y: Int, z: Int): Triple<Int, Int, Int>? {
+    val origin = world(blueprint, 0, 0, 0)
+    val right = world(blueprint, 1, 0, 0)
+    val back = world(blueprint, 0, 0, 1)
+    val dx = x - origin.first
+    val dz = z - origin.third
+    val cx = dx * (right.first - origin.first) + dz * (right.third - origin.third)
+    val cz = dx * (back.first - origin.first) + dz * (back.third - origin.third)
+    val cy = y - origin.second
+    if (cx !in 0 until blueprint.width || cy !in 0 until blueprint.height || cz !in 0 until blueprint.length) return null
+    return Triple(cx, cy, cz)
+  }
+
   /** A horizontal direction of the schematic ([dx], [dz]) as it points in the world, turned and mirrored as the build. */
   fun direction(blueprint: Blueprint, dx: Int, dz: Int): Pair<Int, Int> {
     val (ox, _, oz) = world(blueprint, 1, 0, 1)

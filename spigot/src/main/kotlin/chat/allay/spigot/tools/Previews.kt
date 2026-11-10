@@ -7,6 +7,7 @@ import chat.allay.core.building.Construction
 import chat.allay.core.building.Families
 import chat.allay.core.building.Placement
 import chat.allay.core.building.Renames
+import chat.allay.core.building.Shapes
 import chat.allay.core.building.Shell
 import chat.allay.core.tools.DraftSide
 import chat.allay.spigot.of
@@ -20,6 +21,8 @@ import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.BlockData
+import org.bukkit.block.BlockSupport
+import org.bukkit.block.data.type.Leaves
 import org.bukkit.block.structure.Mirror
 import org.bukkit.block.structure.StructureRotation
 import org.bukkit.boss.BarColor
@@ -64,6 +67,7 @@ object Previews : Listener {
     /** Swaps so far, in order: from, to. */
     val swaps = mutableListOf<Pair<String, String>>()
     internal var datas: Array<BlockData?> = emptyArray()
+    internal var shaped: Map<Int, BlockData> = emptyMap()
     internal var shell: IntArray = IntArray(0)
     internal val drawn = HashMap<Int, Entity>()
     internal var wanted: IntArray = IntArray(0)
@@ -144,6 +148,7 @@ object Previews : Listener {
    */
   private fun resolve(preview: Preview) {
     preview.datas = datas(preview.blueprint, preview.states, preview.placement)
+    preview.shaped = shaped(preview.blueprint, preview.states, preview.placement)
     val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.material?.isOccluding == true }
     preview.shell = Shell.of(preview.blueprint, opaque)
   }
@@ -154,6 +159,24 @@ object Previews : Listener {
     if (placement.mirrored) data.mirror(Mirror.FRONT_BACK)
     data.rotate(rotation(placement.facing))
     return data
+  }
+
+  /**
+   * The cells of [blueprint] the game would settle otherwise once it stands (see [Shapes]), as block data turned and
+   * mirrored as [placement] stands.
+   */
+  fun shaped(blueprint: Blueprint, states: List<String>, placement: Placement): Map<Int, BlockData> {
+    val sturdy = HashMap<String, Boolean>()
+    val settled = Shapes.settle(blueprint, states) { state, face ->
+      sturdy.getOrPut("$state $face") { data(state)?.isFaceSturdy(BlockFace.valueOf(face.uppercase()), BlockSupport.FULL) == true }
+    }
+    return settled.mapNotNull { (cell, state) -> turned(state, placement)?.let { cell to it } }.toMap()
+  }
+
+  /** Whether the builder clears [block] out of a build's way: the world's own ground and plants, and trees. */
+  fun clearable(block: Block): Boolean {
+    val key = block.type.key.key
+    return Construction.natural(key) || Construction.log(key) || (block.blockData as? Leaves)?.isPersistent == false
   }
 
   /** [states], the palette of [blueprint], as this game's block data turned and mirrored as [placement] stands. */
@@ -257,10 +280,11 @@ object Previews : Listener {
       if (cell in preview.drawn) continue
       val block = block(preview, cell)
       val index = preview.blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
-      val data = preview.datas[index] ?: continue
+      val data = preview.shaped[cell] ?: preview.datas[index] ?: continue
       // The lot's ground where the world has ground needs nothing: neither a ghost nor a red box.
       if (Construction.ground(Construction.kind(preview.states[index])) && Construction.ground(block.type.key.key)) continue
-      val ghost = if (open(block) || block.blockData.matches(data)) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
+      // What the builder clears shows as the block that comes instead.
+      val ghost = if (open(block) || clearable(block) || block.blockData.matches(data)) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
       Marks.reveal(plugin, player, listOf(ghost))
       preview.drawn[cell] = ghost
       spawned++

@@ -34,6 +34,36 @@ object Construction {
   /** Whether [block] (without `minecraft:`) is ground, as a lot or the world has it. */
   fun ground(block: String) = block.removePrefix("minecraft:") in GROUND
 
+  /** What the world grows by itself, besides trees: the builder clears it out of the build's way, as a player would dig it. */
+  private val NATURAL = GROUND + setOf(
+    "snow", "snow_block", "ice", "packed_ice", "blue_ice", "powder_snow", "sandstone", "red_sandstone", "terracotta", "calcite", "dripstone_block",
+    "pointed_dripstone", "smooth_basalt", "basalt", "blackstone", "soul_sand", "soul_soil", "magma_block", "obsidian", "suspicious_sand", "suspicious_gravel",
+    "cobblestone", "mossy_cobblestone", "moss_carpet", "pale_moss_block", "pale_moss_carpet", "cactus", "sugar_cane", "bamboo", "vine", "glow_lichen",
+    "brown_mushroom", "red_mushroom", "brown_mushroom_block", "red_mushroom_block", "mushroom_stem", "sweet_berry_bush", "lily_pad", "big_dripleaf",
+    "big_dripleaf_stem", "small_dripleaf", "spore_blossom", "azalea", "flowering_azalea", "hanging_roots", "mangrove_roots", "muddy_mangrove_roots",
+    "cocoa", "short_grass", "tall_grass", "fern", "large_fern", "dead_bush", "pumpkin", "melon", "kelp", "kelp_plant", "seagrass", "tall_seagrass", "sea_pickle", "firefly_bush", "bush", "leaf_litter",
+    "wildflowers", "cactus_flower", "short_dry_grass", "tall_dry_grass", "pale_hanging_moss", "dandelion", "poppy", "blue_orchid", "allium", "azure_bluet",
+    "oxeye_daisy", "cornflower", "lily_of_the_valley", "torchflower", "pink_petals", "sunflower", "lilac", "rose_bush", "peony", "open_eyeblossom",
+    "closed_eyeblossom",
+  )
+
+  /**
+   * Whether [block] (without `minecraft:`) is the world's own, which the builder may break for the build: ground,
+   * stone, sand, ores, plants, and the like. Leaves and logs only as part of a tree, which the platform tells by
+   * leaves the game lets decay; anything a player could have built stays, and the builder goes around it.
+   */
+  fun natural(block: String): Boolean {
+    val name = block.removePrefix("minecraft:")
+    return name in NATURAL || name.endsWith("_ore") || name.endsWith("_tulip") || name.endsWith("_terracotta") && !name.endsWith("glazed_terracotta") ||
+      name.endsWith("_sapling") || name.endsWith("_coral") || name.endsWith("_coral_block") || name.endsWith("_coral_fan")
+  }
+
+  /** A tree's log or its wood: what a felled tree loses with its leaves. */
+  fun log(block: String): Boolean {
+    val name = block.removePrefix("minecraft:")
+    return !name.startsWith("stripped_") && (name.endsWith("_log") || name.endsWith("_wood") || name == "mangrove_roots")
+  }
+
   /**
    * The layer of [blueprint] its lot's surface lies in: the highest layer that ground covers at least two fifths of,
    * or -1 for a build without a lot. A preview sinks the build so this layer meets the world's ground.
@@ -110,6 +140,8 @@ object Construction {
   val blocked: List<Int> = emptyList(),
   /** Blocked cells the player cleared, to try before it goes on. */
   val again: List<Int> = emptyList(),
+  /** How far it cleared the box of the world's own blocks, top down, before it builds. */
+  val cleared: Int = 0,
   /** The agent said go; before that the job only waits. */
   val started: Boolean = false,
   val paused: Boolean = false,

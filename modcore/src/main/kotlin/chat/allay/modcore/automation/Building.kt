@@ -10,6 +10,7 @@ import chat.allay.core.building.Construction
 import chat.allay.core.building.Families
 import chat.allay.core.building.Materials
 import chat.allay.core.building.Placement
+import chat.allay.core.building.Shapes
 import chat.allay.core.building.Shell
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
@@ -49,6 +50,8 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.LeavesBlock
+import net.minecraft.tags.BlockTags
+import net.minecraft.world.level.block.Blocks as GameBlocks
 import net.minecraft.world.level.block.entity.SignBlockEntity
 import net.minecraft.world.level.block.entity.SignTextSlot
 import net.minecraft.world.level.block.state.BlockState
@@ -74,6 +77,13 @@ object Building {
   /** The most blocked cells a job remembers; past that it only counts them. */
   private const val BLOCKED = 4096
 
+  /** How many cells of its box it looks at a tick while it clears them: looking is cheap, breaking costs the budget. */
+  private const val CHECKS = 4096
+
+  /** The most blocks of one tree it fells, and how far from the log it started at. */
+  private const val TREE = 512
+  private const val TREE_REACH = 12
+
   /** Places a block without telling its neighbors, as the schematic already holds their shapes. */
   private const val FLAGS = Block.UPDATE_CLIENTS or Block.UPDATE_KNOWN_SHAPE
 
@@ -95,6 +105,14 @@ object Building {
     var states: List<String> = emptyList()
       private set
     private var datas: Array<BlockState?> = emptyArray()
+    /** Cells whose block the game would settle otherwise (fences joined, stairs turned, doors whole), as placed. */
+    private var shaped: Map<Int, BlockState> = emptyMap()
+    /** The lot's surface layer: below it, air of the build leaves the world's ground alone. */
+    private var surface = -1
+    /** How far it cleared the box, top down, as cells of [clearing]. */
+    var cleared = 0
+    /** What it broke this tick, for the player. */
+    private val loot = mutableListOf<ItemStack>()
     private var order = IntArray(0)
     private var signs: Map<Int, List<String>> = emptyMap()
     /** Player heads' skins by cell, as links to the game's skin server. */
@@ -137,6 +155,7 @@ object Building {
       var states = Materials.placed(blueprint.palette, Previews::known)
       for ((from, to) in swaps) states = Families.apply(states, from, to, Previews::known).first
       this.states = states
+      surface = Construction.surface(blueprint)
       resolve()
       signs = blueprint.blockEntities.filter { it.text.isNotEmpty() }.associate { Shell.pack(it.x, it.y, it.z) to it.text }
       skins = blueprint.blockEntities.mapNotNull { entity -> entity.texture?.let(Construction::skin)?.let { Shell.pack(entity.x, entity.y, entity.z) to it } }.toMap()
@@ -151,6 +170,7 @@ object Building {
     private fun resolve() {
       val blueprint = blueprint ?: return
       datas = Previews.datas(blueprint, states, placement)
+      shape()
       val stage = IntArray(states.size) { index ->
         val data = datas[index]
         when {
@@ -170,8 +190,16 @@ object Building {
       swaps += from to to
       val blueprint = blueprint ?: return missing
       datas = Previews.datas(blueprint, states, placement)
+      shape()
       return missing
     }
+
+    private fun shape() {
+      shaped = Previews.shaped(blueprint ?: return, states, placement)
+    }
+
+    /** What goes at [cell] of palette entry [index], as placed. */
+    private fun data(cell: Int, index: Int) = shaped[cell] ?: datas[index]
 
     /** Cells left to build of each kind of block, for the agent. */
     fun remaining(): Map<String, Int> {
@@ -210,6 +238,130 @@ object Building {
         sources = Sources.around(player, automation.settings().radius, task.scope)
         sourcesAge = 0
       }
+      try {
+        if (!clear(player)) return
+        build(player, creative)
+      } finally {
+        hand(player)
+      }
+    }
+
+    /** The box's volume: every cell it walks while it clears. */
+    private val volume get() = blueprint?.let { it.width * it.height * it.length } ?: 0
+
+    val clearing get() = cleared < volume
+
+    /**
+     * Clears the box of what the world grew there where the build has air, top down, so nothing falls into a hole:
+     * ground above the lot, trees, plants. What a player built stays. True once it's through.
+     */
+    private fun clear(player: ServerPlayer): Boolean {
+      val bp = blueprint ?: return false
+      val layer = bp.width * bp.length
+      var checks = 0
+      while (cleared < volume && budget >= 1.0 && checks++ < CHECKS) {
+        val i = cleared
+        val y = bp.height - 1 - i / layer
+        // Under the lot's surface the world's ground stays, air of the build or not.
+        if (y <= surface) {
+          cleared = volume
+          break
+        }
+        val z = (i % layer) / bp.width
+        val x = i % bp.width
+        if (!bp.filled(x, y, z)) {
+          val (wx, wy, wz) = placement.world(bp, x, y, z)
+          if (level.chunkSource.getChunkNow(wx shr 4, wz shr 4) == null) return false
+          val block = level.at(wx, wy, wz)
+          if (!block.state.isAir && !block.liquid && dig(player, block)) budget -= 1.0
+        }
+        cleared++
+      }
+      return cleared >= volume
+    }
+
+    /** Puts what it broke this tick into the inventory, then its chests, then at the player's feet. */
+    private fun hand(player: ServerPlayer) {
+      if (loot.isEmpty()) return
+      val chests = sources?.list.orEmpty().filter { !it.place.contains('#') }
+      val left = loot.mapNotNull { item ->
+        player.inventory.add(item)
+        var rest: ItemStack? = item.takeIf { !it.isEmpty }
+        for (chest in chests) rest = rest?.let(chest::add) ?: break
+        rest
+      }
+      loot.clear()
+      if (left.isNotEmpty()) give(player, left)
+    }
+
+    /**
+     * Breaks [block] for the build if the world grew it: ground, stone, plants, and whole trees, where [player] may
+     * build; what drops goes to the player. False when it stays.
+     */
+    private fun dig(player: ServerPlayer, block: chat.allay.modcore.tools.BlockAt): Boolean {
+      val key = block.key
+      val state = block.state
+      return when {
+        Construction.log(key) -> fell(player, block.pos)
+        state.`is`(BlockTags.LEAVES) -> state.hasProperty(LeavesBlock.PERSISTENT) && !state.getValue(LeavesBlock.PERSISTENT) && crack(player, block.pos)
+        Construction.natural(key) -> crack(player, block.pos)
+        else -> false
+      }
+    }
+
+    private fun crack(player: ServerPlayer, pos: BlockPos): Boolean {
+      if (!Claims.mayBuild(player, level, pos)) return false
+      val state = level.getBlockState(pos)
+      // As with the plainest pickaxe: dirt is dirt, stone cobblestone, and a diamond needs a better one than that.
+      loot += Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, ItemStack(Items.WOODEN_PICKAXE))
+      level.setBlock(pos, GameBlocks.AIR.defaultBlockState(), FLAGS)
+      return true
+    }
+
+    private fun leafy(state: BlockState) = state.`is`(BlockTags.LEAVES) && state.hasProperty(LeavesBlock.PERSISTENT) && !state.getValue(LeavesBlock.PERSISTENT) &&
+      state.getValue(LeavesBlock.DISTANCE) <= 4
+
+    /**
+     * Fells the tree [log] belongs to: its logs, and the leaves around them that the game lets decay. A log without
+     * such leaves is a player's and stays; so does anything of the build already standing.
+     */
+    private fun fell(player: ServerPlayer, log: BlockPos): Boolean {
+      val logs = linkedSetOf(log)
+      val leaves = linkedSetOf<BlockPos>()
+      val queue = ArrayDeque(listOf(log))
+      while (queue.isNotEmpty() && logs.size + leaves.size < TREE) {
+        val at = queue.removeFirst()
+        val fromLog = Construction.log(chat.allay.modcore.tools.Worlds.key(BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).block)))
+        for (dx in -1..1) for (dy in -1..1) for (dz in -1..1) {
+          val next = at.offset(dx, dy, dz)
+          if (next in logs || next in leaves || kotlin.math.abs(next.x - log.x) > TREE_REACH || kotlin.math.abs(next.z - log.z) > TREE_REACH) continue
+          if (built(next)) continue
+          val state = level.getBlockState(next)
+          when {
+            fromLog && Construction.log(chat.allay.modcore.tools.Worlds.key(BuiltInRegistries.BLOCK.getKey(state.block))) -> { logs += next; queue += next }
+            // Leaves only as far as the logs reach, so a neighbour's crown stays.
+            leafy(state) -> { leaves += next; queue += next }
+          }
+        }
+      }
+      if (leaves.isEmpty()) return false
+      if (!crack(player, log)) return false
+      // Top down, so nothing of it is left hanging.
+      (logs - log + leaves).sortedByDescending { it.y }.forEach { crack(player, it) }
+      return true
+    }
+
+    /** Whether [pos] is part of the build already standing: the builder never fells its own. */
+    private fun built(pos: BlockPos): Boolean {
+      val bp = blueprint ?: return false
+      val (x, y, z) = placement.local(bp, pos.x, pos.y, pos.z) ?: return false
+      val index = bp.at(x, y, z)
+      if (bp.empty[index]) return false
+      return data(Shell.pack(x, y, z), index) == level.getBlockState(pos)
+    }
+
+    /** Places the build's blocks, then its entities, as far as this tick's budget goes. */
+    private fun build(player: ServerPlayer, creative: Boolean) {
       while (budget >= 1.0 && (again.isNotEmpty() || next < order.size)) {
         val retrying = again.isNotEmpty()
         val cell = if (retrying) again.first() else order[next]
@@ -218,7 +370,7 @@ object Building {
         val bp = blueprint!!
         val index = bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
         val state = states[index]
-        val data = datas[index]
+        val data = data(cell, index)
         if (data == null || Construction.kind(state) in skips) {
           step()
           continue
@@ -235,7 +387,8 @@ object Building {
           placed++
           continue
         }
-        if (!Previews.open(block)) {
+        // The world's own ground, plants, and trees make way; what a player built stays in the way.
+        if (!Previews.open(block) && !dig(player, block)) {
           block(cell)
           step()
           continue
@@ -474,6 +627,7 @@ object Building {
         paused -> "building.bar_paused"
         far -> "building.bar_far"
         starved != null -> "building.bar_waiting"
+        clearing -> "building.bar_clearing"
         else -> "building.bar"
       }
       bar.color = if (starved != null || far || paused) BossEvent.BossBarColor.YELLOW else BossEvent.BossBarColor.GREEN
@@ -492,7 +646,7 @@ object Building {
     override fun snapshot(): JsonObject = SAVES.encodeToJsonElement(BuildSave.serializer(), BuildSave(
       id = source.id, url = source.url, sha256 = source.sha256, bytes = source.bytes, title = title, world = Worlds.name(level),
       x = placement.corner.first, y = placement.corner.second, z = placement.corner.third, facing = placement.facing.name.lowercase(),
-      mirrored = placement.mirrored, swaps = swaps.map { listOf(it.first, it.second) }, skips = skips.toList(), next = next, placed = placed, entity_next = entityNext,
+      mirrored = placement.mirrored, swaps = swaps.map { listOf(it.first, it.second) }, skips = skips.toList(), next = next, placed = placed, entity_next = entityNext, cleared = cleared,
       blocked = blocked.toList(), again = again.toList(), started = started, paused = paused, blocks_per_second = blocksPerSecond, starved_since = starvedSince,
     )).jsonObject
 
@@ -502,6 +656,7 @@ object Building {
         !started -> "ready, waiting for construct start"
         paused -> "paused by construct pause"
         starved != null -> "waiting for $starved"
+        clearing -> "clearing the site of ground, plants, and trees"
         else -> "building"
       }
       return "building «$title»: $next of ${order.size} cells done ($placed placed), $state" +
@@ -545,6 +700,7 @@ object Building {
     val job = Job(task, player.uuid, source, save.title, level, Placement(Triple(save.x, save.y, save.z), facing, save.mirrored),
       save.swaps.mapNotNull { if (it.size == 2) it[0] to it[1] else null }.toMutableList(), save.skips.toMutableSet(), save.blocks_per_second)
     job.next = save.next
+    job.cleared = save.cleared
     job.placed = save.placed
     job.entityNext = save.entity_next
     job.blocked += save.blocked

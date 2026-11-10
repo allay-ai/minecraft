@@ -1023,6 +1023,7 @@ building:
   tool_shovel: "una pala (para caminos)"
   bar: "Construyendo {title}: {done}/{total}"
   bar_ready: "{title}: listo para construir"
+  bar_clearing: "{title}: despejando el terreno"
   bar_paused: "{title}: en pausa"
   bar_far: "{title}: vuelve a la obra"
   bar_waiting: "{title}: espero {items}"

@@ -104,10 +104,12 @@ class BuilderGameTests {
   /** Whether every block of the hut stands in the world as the builder placed it. */
   private fun built(helper: GameTestHelper, job: Building.Job): String? {
     val datas = Previews.datas(blueprint, blueprint.palette, job.placement)
+    // Joined, turned, and whole as the game settles them, not as the schematic says.
+    val shaped = Previews.shaped(blueprint, blueprint.palette, job.placement)
     var wrong: String? = null
     blueprint.forEach { x, y, z, index ->
       if (wrong != null) return@forEach
-      var want = datas[index] ?: return@forEach
+      var want = shaped[chat.allay.core.building.Shell.pack(x, y, z)] ?: datas[index] ?: return@forEach
       if (want.hasProperty(LeavesBlock.PERSISTENT)) want = want.setValue(LeavesBlock.PERSISTENT, true)
       val (wx, wy, wz) = job.placement.world(blueprint, x, y, z)
       val have = helper.level.getBlockState(BlockPos(wx, wy, wz))

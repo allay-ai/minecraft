@@ -9,6 +9,7 @@ import chat.allay.core.building.Construction
 import chat.allay.core.building.Families
 import chat.allay.core.building.Placement
 import chat.allay.core.building.Renames
+import chat.allay.core.building.Shapes
 import chat.allay.core.building.Shell
 import chat.allay.core.tools.DraftSide
 import chat.allay.modcore.Hooks
@@ -18,6 +19,8 @@ import chat.allay.modcore.of
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException
 import net.minecraft.commands.arguments.blocks.BlockStateParser
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.particles.DustParticleOptions
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
@@ -27,6 +30,8 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.BossEvent
+import net.minecraft.world.level.EmptyBlockGetter
+import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.state.BlockState
@@ -66,6 +71,7 @@ object Previews {
     /** Swaps so far, in order: from, to. */
     val swaps = mutableListOf<Pair<String, String>>()
     internal var datas: Array<BlockState?> = emptyArray()
+    internal var shaped: Map<Int, BlockState> = emptyMap()
     internal var shell: IntArray = IntArray(0)
     internal val drawn = HashMap<Int, Ghosts.Ghost>()
     internal var wanted: IntArray = IntArray(0)
@@ -147,6 +153,7 @@ object Previews {
    */
   private fun resolve(preview: Preview) {
     preview.datas = datas(preview.blueprint, preview.states, preview.placement)
+    preview.shaped = shaped(preview.blueprint, preview.states, preview.placement)
     val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.let(Blocks::occluding) == true }
     preview.shell = Shell.of(preview.blueprint, opaque)
   }
@@ -156,6 +163,28 @@ object Previews {
     var state = data(text) ?: return null
     if (placement.mirrored) state = state.mirror(Mirror.FRONT_BACK)
     return state.rotate(rotation(placement.facing))
+  }
+
+  /**
+   * The cells of [blueprint] the game would settle otherwise once it stands (see [Shapes]), as block states turned and
+   * mirrored as [placement] stands.
+   */
+  fun shaped(blueprint: Blueprint, states: List<String>, placement: Placement): Map<Int, BlockState> {
+    val sturdy = HashMap<String, Boolean>()
+    val settled = Shapes.settle(blueprint, states) { text, face ->
+      sturdy.getOrPut("$text $face") {
+        val direction = Direction.entries.first { it.serializedName == face }
+        data(text)?.isFaceSturdy(EmptyBlockGetter.INSTANCE, BlockPos.ZERO, direction) == true
+      }
+    }
+    return settled.mapNotNull { (cell, text) -> turned(text, placement)?.let { cell to it } }.toMap()
+  }
+
+  /** Whether the builder clears [block] out of a build's way: the world's own ground and plants, and trees. */
+  fun clearable(block: BlockAt): Boolean {
+    val state = block.state
+    return Construction.natural(block.key) || Construction.log(block.key) ||
+      (state.`is`(BlockTags.LEAVES) && state.hasProperty(LeavesBlock.PERSISTENT) && !state.getValue(LeavesBlock.PERSISTENT))
   }
 
   /** [states], the palette of [blueprint], as this game's block states turned and mirrored as [placement] stands. */
@@ -265,10 +294,11 @@ object Previews {
       if (cell in preview.drawn) continue
       val block = block(preview, cell)
       val index = preview.blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
-      val data = preview.datas[index] ?: continue
+      val data = preview.shaped[cell] ?: preview.datas[index] ?: continue
       // The lot's ground where the world has ground needs nothing: neither a ghost nor a red box.
       if (Construction.ground(Construction.kind(preview.states[index])) && Construction.ground(block.key)) continue
-      val ghost = if (open(block) || block.state == data) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
+      // What the builder clears shows as the block that comes instead.
+      val ghost = if (open(block) || clearable(block) || block.state == data) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
       made += ghost
       preview.drawn[cell] = ghost
       sent++

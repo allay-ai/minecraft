@@ -1023,6 +1023,7 @@ building:
   tool_shovel: "eine Schaufel (für Pfade)"
   bar: "Baue {title}: {done}/{total}"
   bar_ready: "{title}: bereit zum Bauen"
+  bar_clearing: "{title}: räume den Bauplatz frei"
   bar_paused: "{title}: pausiert"
   bar_far: "{title}: komm zur Baustelle zurück"
   bar_waiting: "{title}: warte auf {items}"

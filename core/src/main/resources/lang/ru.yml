@@ -1023,6 +1023,7 @@ building:
   tool_shovel: "лопату (для троп)"
   bar: "Строю «{title}»: {done}/{total}"
   bar_ready: "«{title}»: готов строить"
+  bar_clearing: "«{title}»: расчищаю место"
   bar_paused: "«{title}»: на паузе"
   bar_far: "«{title}»: вернись к стройке"
   bar_waiting: "«{title}»: жду {items}"
