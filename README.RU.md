@@ -28,19 +28,19 @@ Allay работает на Moonlands — моём хардкорном выжи
 
 <p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/build-end.webp" width="760" alt="Средневековый дом с башней в саванне, а перед ним сундуки, из которых он построен"></a>
   <br><sub>«Найди средневековый дом с башней»: превью, сдвиг, смета, и Allay строит его из сундуков перед вами.</sub>
-  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
+  <br><br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
 
 #### Печи, коптильни и зелья разом
 
 <p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/kitchen.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/kitchen-end.webp" width="760" alt="Ряд доменных печей, коптилен и варочных стоек за работой"></a>
   <br><sub>Одна просьба запускает агентов параллельно: доменные печи плавят, коптильни жарят, стойки варят, а из слитков выходят блоки. Ожидание ускорено.</sub>
-  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/kitchen.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
+  <br><br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/kitchen.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
 
 #### Порядок в сундуках
 
 <p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/sort.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/sort-end.webp" width="760" alt="Сундуки с подписями категорий над ними"></a>
   <br><sub>Шесть сундуков вперемешку: Allay показывает план над ними и после вашего «да» раскладывает всё по местам.</sub>
-  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/sort.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
+  <br><br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/ru/sort.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-ru.png" height="40" alt="Смотреть видео"></a></p>
 
 <p align="center"><a href="https://allay.chat/ru/gallery/"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/gallery-ru.png" height="40" alt="Все видео на allay.chat"></a></p>
 
