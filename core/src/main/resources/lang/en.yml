@@ -554,6 +554,8 @@ goals:
 windows:
   back: "Back"
   back_hover: "&7The previous window"
+  close: "Close"
+  close_hover: "&7Close this window"
 
 # The recipe, enchanting, and villager windows. The game names items in the player's language itself.
 menus:
@@ -994,3 +996,15 @@ items:
 # Previews of builds from the catalog: {title}, {size} as width×height×depth.
 previews:
   bar: "{title} · {size} · {blocks} {blocks|block|blocks}"
+  estimate:
+    title: "What {title} takes"
+    enough: "&aEverything is here: inventory, ender chest, and chests around."
+    short: "&eShort by {count} {count|block|blocks} in all."
+    line_ok: "&f{item}: &a{have}&7/{need}"
+    line_short: "&f{item}: &c{have}&7/{need}"
+    more: "&7…and {count} more"
+    hoe: "&fHoe: &7{count} {count|use|uses} (farmland)"
+    shovel: "&fShovel: &7{count} {count|use|uses} (paths)"
+    water: "&fWater bucket: &7one, kept"
+    unobtainable: "&cNobody can get: &f{blocks}&7. Allay asks what to build them with."
+    free: "&7Free: {count} player {count|head|heads}"

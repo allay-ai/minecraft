@@ -551,6 +551,8 @@ goals:
 windows:
   back: "Voltar"
   back_hover: "&7A janela anterior"
+  close: "Fechar"
+  close_hover: "&7Fechar esta janela"
 
 # As janelas de receitas, encantamentos e aldeões. O jogo mostra os nomes dos itens no idioma do jogador.
 menus:
@@ -991,3 +993,15 @@ items:
 # Previews of builds from the catalog: {title}, {size} as width×height×depth.
 previews:
   bar: "{title} · {size} · {blocks} {blocks|bloco|blocos}"
+  estimate:
+    title: "O que {title} precisa"
+    enough: "&aTem tudo: inventário, baú do End e baús por perto."
+    short: "&eFaltam {count} {count|bloco|blocos} no total."
+    line_ok: "&f{item}: &a{have}&7/{need}"
+    line_short: "&f{item}: &c{have}&7/{need}"
+    more: "&7…e mais {count}"
+    hoe: "&fEnxada: &7{count} {count|uso|usos} (cultivos)"
+    shovel: "&fPá: &7{count} {count|uso|usos} (caminhos)"
+    water: "&fBalde de água: &7um, não se gasta"
+    unobtainable: "&cNinguém consegue: &f{blocks}&7. O Allay pergunta com o que substituir."
+    free: "&7Grátis: {count} {count|cabeça|cabeças} de jogador"

@@ -552,6 +552,8 @@ goals:
 windows:
   back: "Atrás"
   back_hover: "&7La ventana anterior"
+  close: "Cerrar"
+  close_hover: "&7Cerrar esta ventana"
 
 # Las ventanas de recetas, encantamientos y aldeanos. El juego muestra los nombres de los objetos en el idioma del jugador.
 menus:
@@ -992,3 +994,15 @@ items:
 # Previews of builds from the catalog: {title}, {size} as width×height×depth.
 previews:
   bar: "{title} · {size} · {blocks} {blocks|bloque|bloques}"
+  estimate:
+    title: "Qué necesita {title}"
+    enough: "&aEstá todo: inventario, cofre de Ender y cofres cercanos."
+    short: "&eFaltan {count} {count|bloque|bloques} en total."
+    line_ok: "&f{item}: &a{have}&7/{need}"
+    line_short: "&f{item}: &c{have}&7/{need}"
+    more: "&7…y {count} más"
+    hoe: "&fAzada: &7{count} {count|uso|usos} (cultivos)"
+    shovel: "&fPala: &7{count} {count|uso|usos} (caminos)"
+    water: "&fCubo de agua: &7uno, no se gasta"
+    unobtainable: "&cNadie puede conseguir: &f{blocks}&7. Allay pregunta con qué sustituirlos."
+    free: "&7Gratis: {count} {count|cabeza|cabezas} de jugador"

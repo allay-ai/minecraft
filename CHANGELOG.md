@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.37.0
+
+- 🏠 **Builds from Allay's catalog.** Ask for “a modern villa” or «домик у озера», and Allay finds real builds by their authors in [allay-ai/schematics](https://github.com/allay-ai/schematics), then shows one in front of you as a preview only you see: its outside, nearest blocks first, a frame of particles around the whole box, and red boxes where something of the world stands in the way. Move it, turn it, mirror it, or build it of other blocks: cobblestone into stone bricks takes the stairs, slabs, and walls along.
+- 📋 **What a build takes.** The estimate opens as a window: each material with how many you have in your inventory, ender chest, and chests around, what's short, the hoe and shovel uses, the water bucket, and blocks no survival player can get.
+- ⚙️ `building` in config.yml: tiers by `allay.build.<tier>` with the biggest build, its longest side, its speed, and how long it waits; `allay.build.unlimited` lifts the size limits. Needs Allay Server 6.33.
+
 ## 6.36.0
 
 - 🔌 **A stop button while Allay can't reach its server.** A short blip passes unnoticed; after the third failed try the chat says the server isn't answering yet, that Allay keeps trying for a few minutes, and offers **[Cancel]**.

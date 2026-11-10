@@ -552,6 +552,8 @@ goals:
 windows:
   back: "Zurück"
   back_hover: "&7Das vorige Fenster"
+  close: "Schließen"
+  close_hover: "&7Dieses Fenster schließen"
 
 # Die Fenster für Rezepte, Verzauberungen und Dorfbewohner. Gegenstandsnamen zeigt das Spiel selbst in der Sprache des Spielers.
 menus:
@@ -992,3 +994,15 @@ items:
 # Previews of builds from the catalog: {title}, {size} as width×height×depth.
 previews:
   bar: "{title} · {size} · {blocks} {blocks|Block|Blöcke}"
+  estimate:
+    title: "Was {title} braucht"
+    enough: "&aAlles da: Inventar, Endertruhe und Truhen in der Nähe."
+    short: "&eEs fehlen {count} {count|Block|Blöcke} insgesamt."
+    line_ok: "&f{item}: &a{have}&7/{need}"
+    line_short: "&f{item}: &c{have}&7/{need}"
+    more: "&7…und {count} weitere"
+    hoe: "&fHacke: &7{count} {count|Einsatz|Einsätze} (Ackerboden)"
+    shovel: "&fSchaufel: &7{count} {count|Einsatz|Einsätze} (Pfade)"
+    water: "&fWassereimer: &7einer, wird nicht verbraucht"
+    unobtainable: "&cNiemand bekommt: &f{blocks}&7. Allay fragt, womit du sie ersetzen willst."
+    free: "&7Kostenlos: {count} {count|Spielerkopf|Spielerköpfe}"

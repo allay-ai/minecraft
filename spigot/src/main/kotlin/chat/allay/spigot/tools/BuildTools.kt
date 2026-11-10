@@ -1,7 +1,9 @@
 package chat.allay.spigot.tools
 
+import chat.allay.spigot.audience
 import chat.allay.core.Permissions
 import chat.allay.core.building.Blueprints
+import chat.allay.core.building.EstimateWindow
 import chat.allay.core.building.Materials
 import chat.allay.core.building.Placement
 import chat.allay.core.tasks.SourceScope
@@ -137,6 +139,7 @@ object BuildTools {
     }
     var short = 0
     val unknown = estimate.items.keys.filter { Material.matchMaterial(it)?.isItem != true }.toSet()
+    val unobtainable = estimate.unobtainable + unknown.associateWith { estimate.items.getValue(it) }
     val result = buildJsonObject {
       put("needs", buildJsonArray {
         estimate.items.entries.sortedByDescending { it.value }.forEach { (item, need) ->
@@ -149,13 +152,16 @@ object BuildTools {
       put("missing_in_all", short)
       if (estimate.tools.isNotEmpty()) put("tool_uses", buildJsonObject { estimate.tools.forEach { (tool, n) -> put(tool, n) } })
       if (estimate.water) put("water_bucket", "one, kept: water sources and waterlogged blocks")
-      val unobtainable = estimate.unobtainable + unknown.associateWith { estimate.items.getValue(it) }
       if (unobtainable.isNotEmpty()) {
         put("unobtainable", buildJsonObject { unobtainable.forEach { (block, n) -> put(block, n) } })
         put("unobtainable_note", "no survival player gets these: ask the player what to build them with (swap), or skip them")
       }
       if (estimate.free.isNotEmpty()) put("free", buildJsonObject { estimate.free.forEach { (block, n) -> put(block, n) } })
     }
+    // The player reads it in a window; the model gets the same numbers to talk about.
+    val catalog = Catalogs.build(context)
+    val rows = estimate.items.filterKeys { it !in unknown }.map { (item, need) -> EstimateWindow.Row(item, need, minOf(have[item] ?: 0, need)) }
+    player.audience.show(EstimateWindow.of(context.lang, preview.title, rows, estimate, unobtainable) { catalog.label(it, context.nameLocale) ?: it.replace('_', ' ') })
     return ToolOutput(result, context.lang.text("summary.build_estimate", "missing" to short))
   }
 

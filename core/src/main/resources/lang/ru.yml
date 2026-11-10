@@ -552,6 +552,8 @@ goals:
 windows:
   back: "Назад"
   back_hover: "&7Предыдущее окно"
+  close: "Закрыть"
+  close_hover: "&7Закрыть окно"
 
 # Окна рецептов, чар и жителей. Названия предметов игра показывает на языке игрока сама.
 menus:
@@ -992,3 +994,15 @@ items:
 # Previews of builds from the catalog: {title}, {size} as width×height×depth.
 previews:
   bar: "{title} · {size} · {blocks} {blocks|блок|блока|блоков}"
+  estimate:
+    title: "Что нужно: {title}"
+    enough: "&aВсё есть: в инвентаре, эндер-сундуке и сундуках рядом."
+    short: "&eНе хватает {count} {count|блока|блоков|блоков} в сумме."
+    line_ok: "&f{item}: &a{have}&7/{need}"
+    line_short: "&f{item}: &c{have}&7/{need}"
+    more: "&7…и ещё {count}"
+    hoe: "&fМотыга: &7{count} {count|использование|использования|использований} (грядки)"
+    shovel: "&fЛопата: &7{count} {count|использование|использования|использований} (тропы)"
+    water: "&fВедро воды: &7одно, не тратится"
+    unobtainable: "&cНе добыть: &f{blocks}&7. Allay спросит, чем их заменить."
+    free: "&7Бесплатно: {count} {count|голова|головы|голов} игроков"

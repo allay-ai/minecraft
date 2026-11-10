@@ -82,6 +82,8 @@ class Commands(private val allay: Allay<*>) {
       }
       !asker -> lang.send(sender, "messages.no_permission")
       word == "cancel" && args.size == 1 -> allay.handler.cancel(sender)
+      // A window's Close button: dialogs that stay open after a click close only by a command (not completed).
+      word == "close" && args.size == 1 -> (sender as? PlayerAudience)?.closeWindow()
       word == "new" && args.size == 1 -> allay.memory.newSession(sender)
       word == "memory" -> memory(sender, player, args.drop(1))
       else -> usage(sender, lang)
