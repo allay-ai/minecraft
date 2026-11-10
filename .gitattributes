@@ -1,2 +1,4 @@
-# The build scene is a full-size video: kept in LFS, so it never weighs on every clone of the history.
+# The recorded scenes are full-size videos: kept in LFS, so they never weigh on every clone of the history.
 media/screenshots/*/build.mp4 filter=lfs diff=lfs merge=lfs -text
+media/screenshots/*/sort.mp4 filter=lfs diff=lfs merge=lfs -text
+media/screenshots/*/kitchen.mp4 filter=lfs diff=lfs merge=lfs -text

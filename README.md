@@ -22,6 +22,30 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 
 ## In the game
 
+### Videos
+
+#### A house from your chests
+
+<p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/build-end.webp" width="760" alt="A medieval house with a tower in a savanna, the chests it was built from in front of it"></a>
+  <br><sub>“Find a medieval house with a tower”: the preview, a move, what it takes, then Allay builds it from the chests in front of you.</sub>
+  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-en.png" height="40" alt="Watch the video"></a></p>
+
+#### Furnaces, smokers, and potions at once
+
+<p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/kitchen.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/kitchen-end.webp" width="760" alt="A row of blast furnaces, smokers, and brewing stands at work"></a>
+  <br><sub>One request starts agents side by side: blast furnaces smelt, smokers cook, stands brew, and the ingots become blocks. The wait is sped up.</sub>
+  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/kitchen.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-en.png" height="40" alt="Watch the video"></a></p>
+
+#### Chests in order
+
+<p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/sort.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/sort-end.webp" width="760" alt="Chests with labels of their categories over them"></a>
+  <br><sub>Six messy chests: Allay shows the plan over them, and on your yes every item moves to its place.</sub>
+  <br><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/sort.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/watch-en.png" height="40" alt="Watch the video"></a></p>
+
+<p align="center"><a href="https://allay.chat/gallery/"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/buttons/gallery-en.png" height="40" alt="All videos on allay.chat"></a></p>
+
+### Short clips
+
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/status.gif" width="760" alt="Allay answering: the status above the hotbar, the tools it uses, then the answer with buttons"></p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.gif" width="760" alt="A player asks Allay to ask the others for diamonds politely, clicks Send under the answer, and the line goes out in chat as theirs">
@@ -36,8 +60,6 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chests.gif" width="760" alt="A player asks where their diamonds are, and three chests by the river glow with labels Diamond ×12, ×14, and ×8">
   <br><sub>Ask where something lies, and its chests glow, even through the ground</sub></p>
 
-<p align="center"><a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/build-end.webp" width="760" alt="A medieval house with a tower stands in a savanna; in front of it, the chests whose blocks it was built from"></a>
-  <br><sub>“Find a medieval house with a tower”: the preview, the move, what it takes, then Allay builds it from your chests · <a href="https://github.com/allay-ai/minecraft/blob/master/media/screenshots/en/build.mp4">▶ the video, 2:25</a></sub></p>
 
 ### Screenshots
 
