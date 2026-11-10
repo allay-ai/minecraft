@@ -46,7 +46,7 @@ object Permissions {
         chat.allay.core.building.BuildTiers.parse(it).tiers.keys.filter { tier -> tier != chat.allay.core.building.BuildTiers.DEFAULT }.map(::build)
     }.orEmpty()
     return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION, BUILD, build(chat.allay.core.building.BuildTiers.UNLIMITED)) +
-      chat.allay.core.tasks.Kind.entries.map(::automation) + tiers).distinct()
+      chat.allay.core.tasks.Kind.entries.filterNot { it.solo }.map(::automation) + tiers).distinct()
   }
 }
 

@@ -142,17 +142,25 @@ object Previews : Listener {
    * state the block doesn't have dropped, and a block nobody knows left out (null).
    */
   private fun resolve(preview: Preview) {
-    val rotation = rotation(preview.placement.facing)
-    preview.datas = Array(preview.states.size) { index ->
-      if (preview.blueprint.empty[index]) return@Array null
-      val data = data(preview.states[index]) ?: return@Array null
-      if (preview.placement.mirrored) data.mirror(Mirror.FRONT_BACK)
-      data.rotate(rotation)
-      data
-    }
+    preview.datas = datas(preview.blueprint, preview.states, preview.placement)
     val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.material?.isOccluding == true }
     preview.shell = Shell.of(preview.blueprint, opaque)
   }
+
+  /** [states], the palette of [blueprint], as this game's block data turned and mirrored as [placement] stands. */
+  fun datas(blueprint: Blueprint, states: List<String>, placement: Placement): Array<BlockData?> {
+    val rotation = rotation(placement.facing)
+    return Array(states.size) { index ->
+      if (blueprint.empty[index]) return@Array null
+      val data = data(states[index]) ?: return@Array null
+      if (placement.mirrored) data.mirror(Mirror.FRONT_BACK)
+      data.rotate(rotation)
+      data
+    }
+  }
+
+  /** A spot a block can go without breaking anything first: air, water, tall grass, snow layers, and the like. */
+  fun open(block: Block) = block.isEmpty || block.isLiquid || Tag.REPLACEABLE.isTagged(block.type)
 
   /** [state] as this game's block data, with the states it doesn't know dropped; null for a block it doesn't have. */
   fun data(state: String): BlockData? {
@@ -274,8 +282,6 @@ object Previews : Listener {
     preview.drawn.clear()
   }
 
-  /** A spot a block can go without breaking anything first: air, water, tall grass, snow layers, and the like. */
-  private fun open(block: Block) = block.isEmpty || block.isLiquid || Tag.REPLACEABLE.isTagged(block.type)
 
   private fun distanceToBox(at: Location, low: Triple<Int, Int, Int>, high: Triple<Int, Int, Int>): Double {
     val dx = maxOf(low.first - at.x, 0.0, at.x - high.first - 1)

@@ -194,6 +194,7 @@ tools:
     pick_blocks: true             # The player picks chests, furnaces, or brewing stands with left clicks
     chests: true                  # Sort, group, and move items between chests, with a preview and undo
     smelt: true                   # Load furnaces evenly with exactly the fuel needed
+    construct: true               # The builder: builds the previewed build from the player's blocks (see building)
     brew: true                    # Brew a potion in brewing stands, step by step
     craft: true                   # Craft from what the player has around: 2×2 by hand, a table, a stonecutter, a smithing table
     anvil: true                   # Put books on an item and rename it on an anvil, for the player's levels

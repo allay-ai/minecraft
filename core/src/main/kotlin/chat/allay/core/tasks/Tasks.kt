@@ -8,7 +8,15 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 /** What an automation agent works on; each has its own switch and permission. */
 enum class Kind(val wire: String) {
-  CHESTS("chests"), FURNACES("furnaces"), BREWING("brewing"), CRAFTING("crafting");
+  CHESTS("chests"), FURNACES("furnaces"), BREWING("brewing"), CRAFTING("crafting"),
+  /**
+   * Builds the build its player previews (since 6.37): one per player, outside `max_tasks`, `max_minutes`, and
+   * `max_wakes`, since a build takes hours and wakes only when something needs the player; its tier bounds it instead.
+   */
+  BUILDING("building");
+
+  /** One of these at most per player, beside the others and not counted with them. */
+  val solo get() = this == BUILDING
 
   companion object {
     fun parse(name: String?): Kind = entries.firstOrNull { it.wire.equals(name?.trim(), ignoreCase = true) }
@@ -68,6 +76,9 @@ class Task(
 
   /** Where it may take things from, as its player said. */
   @Volatile var scope = SourceScope()
+
+  /** Its own bounds in place of `automation`'s: a builder's, from its player's tier. */
+  @Volatile var limits: TaskLimits? = null
 
   /** It waits for its player to bring items; it holds no slot meanwhile ([TaskBook]). */
   @Volatile var parked: Parked? = null
@@ -188,7 +199,12 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
     val list = tasks.computeIfAbsent(owner) { mutableListOf() }
     synchronized(list) {
       list.removeIf(Task::done)
-      val working = list.filter { it.parked == null }
+      if (kind.solo) {
+        list.firstOrNull { it.kind == kind }?.let { throw ToolError("the player has a ${kind.wire} agent already, «${it.name}» (${it.id}): one at a time; message it, or cancel it first") }
+        val id = generateSequence(newId).first(issued::add)
+        return Task(id, owner, name.trim().take(40).ifEmpty { kind.wire }, kind, depth, parent, brief, now).also { list += it }
+      }
+      val working = list.filter { it.parked == null && !it.kind.solo }
       if (working.size >= maxTasks()) {
         val mine = working.filter { parent != null && it.parent == parent }
         if (mine.isNotEmpty()) {

@@ -36,6 +36,9 @@ import java.util.logging.Logger
   val note: String? = null,
 )
 
+/** An agent's own bounds: how far its player may go before it pauses, and how long it waits for them. */
+@Serializable data class TaskLimits(val pause_distance: Int, val park_hours: Int)
+
 /** Items a task holds at a place, kept with the agent so a restart doesn't hand them to another. */
 @Serializable data class HeldItems(val place: String, val item: String, val count: Int)
 
@@ -64,6 +67,7 @@ import java.util.logging.Logger
   val parked: Parked? = null,
   val held: List<HeldItems> = emptyList(),
   val job: JsonObject? = null,
+  val limits: TaskLimits? = null,
   /** A wake was out when it stopped: its tools may have run, so it reads the world again first. */
   val broke: String? = null,
 )

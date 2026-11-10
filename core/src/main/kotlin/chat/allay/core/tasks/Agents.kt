@@ -68,7 +68,16 @@ class Agents(
 
     /** The chests the player picked for [task] right now, as `world:x,y,z`. */
     fun picked(task: Task, player: PlayerAudience): List<String> = emptyList()
+
+    /**
+     * A builder's site: it takes over [player]'s preview as its job, which waits for the agent's go. Throws a
+     * [ToolError] when there's nothing to build.
+     */
+    fun site(task: Task, player: PlayerAudience): Site = throw ToolError("building isn't available on this server")
   }
+
+  /** Where a builder works and its job there; [limits] from its player's tier. */
+  class Site(val anchor: Protocol.Position, val job: Job, val limits: TaskLimits)
 
   /** Something an agent left running in the world: a furnace load, a brew. */
   interface Job {
@@ -172,6 +181,9 @@ class Agents(
 
   /** Whether [player] may run automations of [kind] here: the switches in config.yml, then the permissions. */
   fun allowed(player: Audience, kind: Kind): String? = when {
+    kind == Kind.BUILDING && !config().building.enabled -> "building is switched off on this server"
+    kind == Kind.BUILDING && !player.can(Permissions.BUILD) -> "the player has no permission to build from the catalog"
+    kind == Kind.BUILDING -> null
     !config().automation.on(kind) -> "automation of ${kind.wire} is switched off on this server"
     !player.can(Permissions.AUTOMATION) || !player.can(Permissions.automation(kind)) -> "the player has no permission for automation of ${kind.wire}"
     else -> null
@@ -184,7 +196,16 @@ class Agents(
     val task = book.start(player.uuid, kind, name, brief.take(2000), (parent?.depth ?: 0) + 1, parent?.id)
     // A sub-agent takes from where its parent may.
     parent?.let { task.scope = it.scope }
-    agents[key(task)] = Agent(task, player.position)
+    val site = if (kind == Kind.BUILDING) {
+      try {
+        world.site(task, player)
+      } catch (error: Throwable) {
+        book.end(task)
+        throw error
+      }
+    } else null
+    task.limits = site?.limits
+    agents[key(task)] = Agent(task, site?.anchor ?: player.position).also { it.job = site?.job }
     say(player, task, locales.of(player).text("automation.started"))
     platform.log.info("⚙️ Automation agent ${task.name} (${task.kind.wire}) started for ${player.name}")
     post(task, brief.take(2000))
@@ -352,7 +373,7 @@ class Agents(
       id = task.id, name = task.name, kind = task.kind.wire, depth = task.depth, parent = task.parent, brief = task.brief,
       started_at = task.startedAt, active_ms = task.activeMs, wakes = task.wakes, state = task.state.wire, question = task.question,
       wake_at = task.wakeAt, inbox = task.inbox.toList(), results = task.results(), anchor = agent.anchor, scope = task.scope,
-      parked = task.parked, held = reservations.export(task.id), job = agent.job?.let(world::snapshot),
+      parked = task.parked, held = reservations.export(task.id), job = agent.job?.let(world::snapshot), limits = task.limits,
       broke = task.current?.takeIf { task.running },
     )
     return SNAPSHOTS.encodeToJsonElement(AgentSnapshot.serializer(), snapshot).jsonObject
@@ -382,6 +403,7 @@ class Agents(
       task.wakeAt = snapshot.wake_at
       task.scope = snapshot.scope
       task.parked = snapshot.parked
+      task.limits = snapshot.limits
       task.restore(snapshot.results)
       snapshot.inbox.forEach { task.inbox += it }
       // A wake that was out when it stopped may have run tools: it reads the world again before acting.
@@ -413,7 +435,7 @@ class Agents(
     allowed(player, task.kind)?.let { refusal -> return close(task, locales.of(player).text("automation.not_allowed"), "stopped: $refusal") }
     if (!consented(task, agent, player)) return
     val settings = config().automation
-    if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
+    if (!task.kind.solo && task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
     // The gate has told the player already; the agent that started this one still hears why.
     if (!quota().allows(player)) return close(task, null, "stopped: ${locales.of(player).text("automation.quota")}")
     // Anything that wakes a parked agent ends its wait: the player wrote, so it decides again, and parks again if it must.
@@ -425,7 +447,7 @@ class Agents(
     task.running = true
     task.current = message
     task.card = card(task, agent, settings)
-    task.keepUntil = System.currentTimeMillis() + settings.parkHours * 3_600_000L
+    task.keepUntil = System.currentTimeMillis() + parkHours(task) * 3_600_000L
     // Whatever woke it, an old timer has nothing left to say.
     task.wakeAt = null
     task.begin(message)
@@ -545,7 +567,7 @@ class Agents(
       agent.offlineSince = now
       task.offline = true
       waiting(player, task, "automation.offline")
-    } else if (now - agent.offlineSince > config().automation.parkHours * 3_600_000L) {
+    } else if (now - agent.offlineSince > parkHours(task) * 3_600_000L) {
       return end(task, locales.of(player).text("automation.unreachable"))
     }
     retry(task, Retry.after(failure) ?: 0, "the backend couldn't take the wake ($failure)")
@@ -554,7 +576,8 @@ class Agents(
 
   /** What the backend reads as the agent's state: everything it needs to carry on, even with its thread gone. */
   private fun card(task: Task, agent: Agent, settings: Config.Automation): String = buildString {
-    append("Kind: ${task.kind.wire}. Worked ${task.activeMs / 60_000} of ${settings.maxMinutes} min; wake ${task.wakes} of ${settings.maxWakes}.")
+    if (task.kind.solo) append("Kind: ${task.kind.wire}. Worked ${task.activeMs / 60_000} min; wake ${task.wakes}; waits up to ${parkHours(task)} h for its player.")
+    else append("Kind: ${task.kind.wire}. Worked ${task.activeMs / 60_000} of ${settings.maxMinutes} min; wake ${task.wakes} of ${settings.maxWakes}.")
     append("\nBrief: ").append(task.brief.take(800))
     val scope = task.scope
     append("\nSources: the inventory; the ender chest ${if (scope.ender_chest) "allowed" else "not allowed (ask the player first)"}; ")
@@ -577,7 +600,7 @@ class Agents(
     val have = world.count(task, player, needs)
     if (needs.all { (have[it.item] ?: 0) >= it.count }) return false
     val now = System.currentTimeMillis()
-    task.parked = Parked(needs, now, now + config().automation.parkHours * 3_600_000L, now, note?.take(200))
+    task.parked = Parked(needs, now, now + parkHours(task) * 3_600_000L, now, note?.take(200))
     task.waited = true
     task.wakeAt = null
     waiting(player, task, "automation.parked", "items" to missing(player, needs, have))
@@ -602,7 +625,7 @@ class Agents(
   /** A parked agent looks at what its player brought, while they're at the base; once it's all there, it goes on. */
   private fun watch(task: Task, agent: Agent, player: PlayerAudience, parked: Parked, now: Long) {
     val settings = config().automation
-    if (now > parked.until) return end(task, locales.of(player).text("automation.park_expired", "hours" to settings.parkHours))
+    if (now > parked.until) return end(task, locales.of(player).text("automation.park_expired", "hours" to parkHours(task)))
     if (now - parked.reminded >= settings.remindMinutes * 60_000L) {
       val have = world.count(task, player, parked.needs)
       task.parked = parked.copy(reminded = now)
@@ -636,11 +659,11 @@ class Agents(
       // Only work counts toward the time limit: a pause, a wait for items, or a lost backend doesn't.
       if (!agent.paused && parked == null && agent.offlineSince == 0L && agent.ticked > 0) task.activeMs += (now - agent.ticked).coerceIn(0, 5_000)
       agent.ticked = now
-      if (task.activeMs > settings.maxMinutes * 60_000L) {
+      if (!task.kind.solo && task.activeMs > settings.maxMinutes * 60_000L) {
         end(task, locales.of(player).text("automation.timed_out", "minutes" to settings.maxMinutes))
         continue
       }
-      val away = away(player.position, agent.anchor, settings.pauseDistance)
+      val away = away(player.position, agent.anchor, task.limits?.pause_distance ?: settings.pauseDistance)
       if (away != agent.paused) {
         agent.paused = away
         // A parked agent just waits; it says so in its own lines.
@@ -663,6 +686,9 @@ class Agents(
     }
     world.tick(now)
   }
+
+  /** How long [task] waits for its player: its tier's hours for a builder, `automation.park_hours` for the rest. */
+  fun parkHours(task: Task): Int = task.limits?.park_hours ?: config().automation.parkHours
 
   /** Runs [block] on the next tick. */
   fun later(block: () -> Unit) = platform.scheduler.main(block)
