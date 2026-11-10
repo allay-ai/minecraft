@@ -9,10 +9,10 @@ import java.util.concurrent.TimeUnit
 /**
  * Builds from Allay's catalog, downloaded only from allay-ai/schematics at a commit the backend named, checked against
  * the SHA-256 its index gives, and kept in memory while a player previews or builds them, then a while longer
- * ([keepMillis]). Nothing goes on disk, and no other source exists: a server can't bring builds of its own.
+ * ([keepMillis], read on use, so `/allay reload` applies it). Nothing goes on disk, and no other source exists: a server can't bring builds of its own.
  * Never on the server thread: [load] waits for the network.
  */
-class Blueprints(private val keepMillis: Long = 30 * 60_000L, private val download: (String) -> ByteArray = ::fetch) {
+class Blueprints(private val keepMillis: () -> Long = { 30 * 60_000L }, private val download: (String) -> ByteArray = ::fetch) {
   /** A build as the backend names it, from its catalog. */
   data class Source(val id: String, val url: String, val sha256: String, val bytes: Int)
 
@@ -49,7 +49,8 @@ class Blueprints(private val keepMillis: Long = 30 * 60_000L, private val downlo
 
   /** Drops what nobody used for [keepMillis]. */
   fun forget(now: Long = System.currentTimeMillis()) {
-    kept.entries.removeIf { now - it.value.used > keepMillis }
+    val keep = keepMillis()
+    kept.entries.removeIf { now - it.value.used > keep }
   }
 
   companion object {

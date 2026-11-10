@@ -47,14 +47,14 @@ class SchemTest {
     val sha = MessageDigest.getInstance("SHA-256").digest(villa).joinToString("") { "%02x".format(it) }
     val url = "https://raw.githubusercontent.com/allay-ai/schematics/${"c".repeat(40)}/catalog/planetminecraft/modern-villa-1201476/build.schem"
     var downloads = 0
-    val blueprints = Blueprints { downloads++; villa }
+    val blueprints = Blueprints(download = { downloads++; villa })
     assertEquals(10373, blueprints.load(Blueprints.Source("planetminecraft/modern-villa-1201476", url, sha, villa.size)).blocks)
     blueprints.load(Blueprints.Source("planetminecraft/modern-villa-1201476", url, sha, villa.size))
     assertEquals(1, downloads, "kept in memory while it's in use")
     assertFailsWith<Blueprints.Refused> { blueprints.load(Blueprints.Source("x/y", "https://example.com/catalog/x/y/build.schem", sha, villa.size)) }
     assertFailsWith<Blueprints.Refused> { blueprints.load(Blueprints.Source("x/y", url.replace("allay-ai", "someone"), sha, villa.size)) }
-    assertFailsWith<Blueprints.Refused> { Blueprints { villa }.load(Blueprints.Source("x/y", url, "0".repeat(64), villa.size)) }
-    assertFailsWith<Blueprints.Refused> { Blueprints { villa }.load(Blueprints.Source("x/y", url, sha, villa.size + 1)) }
+    assertFailsWith<Blueprints.Refused> { Blueprints(download = { villa }).load(Blueprints.Source("x/y", url, "0".repeat(64), villa.size)) }
+    assertFailsWith<Blueprints.Refused> { Blueprints(download = { villa }).load(Blueprints.Source("x/y", url, sha, villa.size + 1)) }
     // Kept while used, gone after.
     blueprints.forget(System.currentTimeMillis() + 31 * 60_000L)
     blueprints.load(Blueprints.Source("planetminecraft/modern-villa-1201476", url, sha, villa.size))

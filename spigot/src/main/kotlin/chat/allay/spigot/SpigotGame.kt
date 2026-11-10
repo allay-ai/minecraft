@@ -125,7 +125,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     listOf(goals, deaths, menus, Marks, Drafts, Previews, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
     if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::reloaded), plugin)
     Drafts.start(plugin, locales)
-    Previews.start(plugin, locales, Blueprints(allay.config.building.keepMinutes * 60_000L))
+    Previews.start(plugin, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
     Jobs.automation = automation
     automation.start()
     goals.start()
