@@ -8,13 +8,11 @@ import chat.allay.core.tools.DraftBlock
 import chat.allay.core.tools.DraftCell
 import chat.allay.core.tools.DraftSide
 import chat.allay.core.tools.Drafting
-import chat.allay.core.tools.ToolError
 import chat.allay.modcore.Hooks
 import chat.allay.modcore.Sounds
 import chat.allay.modcore.Texts
 import chat.allay.modcore.of
 
-import com.mojang.brigadier.exceptions.CommandSyntaxException
 import net.minecraft.commands.arguments.blocks.BlockStateParser
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
@@ -29,10 +27,9 @@ import net.minecraft.world.level.block.state.BlockState
 import java.util.UUID
 
 /**
- * Drafts: a build of up to 20×15×20 blocks ([Drafting]) drawn as glowing ghosts that only its player sees ([Ghosts]),
- * one layer at a time from the bottom. Every half second the mod compares the layer with the world: a block in place
- * goes out, a wrong one gets a red box saying what belongs there, and once the layer is done the next one lights up.
- * A boss bar counts. The draft lives in memory: it goes on `/allay cancel`, when the player leaves, or on a restart.
+ * Drafts: a build drawn as glowing ghosts that only its player sees ([Ghosts]), one layer at a time from the bottom.
+ * Every half second the mod compares the layer with the world: a block in place goes out, a wrong one gets a red box
+ * saying what belongs there, and once the layer is done the next one lights up. A boss bar counts. The draft lives in memory: it goes on `/allay cancel`, when the player leaves, or on a restart.
  *
  * Cells are in the draft's own frame ([DraftCell]); block states are written as if the player faced north (north is
  * forward, east is right) and turn with the draft.
@@ -213,18 +210,4 @@ object Drafts {
 
   /** The way the player looks, to the nearest side of the world. */
   fun cardinal(player: ServerPlayer): DraftSide = DraftSide.of(player.yRot)
-
-  /** Reads one palette entry: a block id with states, like `repeater[facing=north,delay=2]`, or `air` for a cell that must stay empty. */
-  fun parse(text: String, label: String?): DraftBlock<BlockState> {
-    val clean = Drafting.clean(text)
-    if (clean == "air") return DraftBlock(null, label, emptySet())
-    val data = try {
-      BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, "minecraft:$clean", false).blockState()
-    } catch (_: CommandSyntaxException) {
-      throw ToolError("$text is not a block the game knows; write ids with states like repeater[facing=north,delay=2]")
-    }
-    if (data.isAir) return DraftBlock(null, label, emptySet())
-    // Dust's connections and power follow what's around it; only the states the draft spells out are checked.
-    return DraftBlock(data, label, Drafting.spelled(clean))
-  }
 }

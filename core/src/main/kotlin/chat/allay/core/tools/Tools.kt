@@ -51,8 +51,8 @@ interface ClientTool<in C> {
   fun run(context: C, args: JsonObject): ToolOutput
 }
 
-/** Tools still being worked on: off unless `tools.enabled` turns them on. Drafts cost many tokens and often come out wrong. */
-val EXPERIMENTAL_TOOLS = setOf("show_draft")
+/** Tools still being worked on: off unless `tools.enabled` turns them on. None right now. */
+val EXPERIMENTAL_TOOLS = emptySet<String>()
 
 /** Tools that change the game: items, teleports, and the like. Only operators get them. */
 val OPERATOR_TOOLS = setOf("give_item", "teleport", "set_gamemode", "heal", "apply_effect", "set_time", "set_weather")
@@ -62,7 +62,7 @@ val OPERATOR_TOOLS = setOf("give_item", "teleport", "set_gamemode", "heal", "app
  * so the model can't tell where it runs. `ToolsTest` holds Bukkit to it, the game tests Fabric.
  */
 val CLIENT_TOOLS = setOf(
-  "get_player_status", "get_inventory", "get_surroundings", "look_at", "get_world", "get_statistics", "get_advancements", "get_recipes", "search_items", "search_commands", "locate_structure", "get_server", "get_locations", "get_nearby_players", "show_marks", "show_draft", "inspect_redstone",
+  "get_player_status", "get_inventory", "get_surroundings", "look_at", "get_world", "get_statistics", "get_advancements", "get_recipes", "search_items", "search_commands", "locate_structure", "get_server", "get_locations", "get_nearby_players", "show_marks", "inspect_redstone",
   "point_to", "sort_inventory", "reminders", "scan_nearby_containers", "find_item", "get_brewing_items", "get_brewing_recipe",
   "get_item_durability", "get_xp_info", "get_food_options", "ping_me",
   "locate_biome", "get_death_info", "find_villagers", "get_anvil_plan", "write_book", "set_timezone", "goals", "inspect_item",

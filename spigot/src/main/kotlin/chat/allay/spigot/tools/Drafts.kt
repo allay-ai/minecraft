@@ -8,7 +8,6 @@ import chat.allay.core.Lang
 import chat.allay.core.tools.DraftBlock
 import chat.allay.core.tools.DraftCell
 import chat.allay.core.tools.Drafting
-import chat.allay.core.tools.ToolError
 import chat.allay.core.Locales
 import chat.allay.spigot.send
 
@@ -33,20 +32,14 @@ import org.bukkit.scheduler.BukkitTask
 import java.util.UUID
 
 /**
- * Drafts: a build of up to [WIDTH]×[HEIGHT]×[DEPTH] blocks drawn as glowing ghosts that only its player sees, one
- * layer at a time from the bottom. Every half second the plugin compares the layer with the world: a block in place
- * goes out, a wrong one gets a red box saying what belongs there, and once the layer is done the next one lights up.
- * A boss bar counts. The draft lives in memory: it goes on `/allay cancel`, when the player leaves, or on a restart.
+ * Drafts: a build drawn as glowing ghosts that only its player sees, one layer at a time from the bottom. Every half
+ * second the plugin compares the layer with the world: a block in place goes out, a wrong one gets a red box saying
+ * what belongs there, and once the layer is done the next one lights up. A boss bar counts. The draft lives in memory: it goes on `/allay cancel`, when the player leaves, or on a restart.
  *
  * Cells are in the draft's own frame: `right` from the player's left to right, `up`, and `forward` away from them;
  * block states are written as if the player faced north (north is forward, east is right) and turn with the draft.
  */
 object Drafts : Listener {
-  const val WIDTH = Drafting.WIDTH
-  const val HEIGHT = Drafting.HEIGHT
-  const val DEPTH = Drafting.DEPTH
-  const val MAX_SHOWN = Drafting.MAX_SHOWN
-
   class Draft(val owner: UUID, val title: String, val world: World, var corner: Triple<Int, Int, Int>, var facing: BlockFace, val cells: MutableMap<DraftCell, DraftBlock<BlockData>>) {
     /** The layer shown, or -1 for all of them at once. */
     var layer = 0
@@ -241,19 +234,4 @@ object Drafts : Listener {
       else -> BlockFace.EAST
     }
   }
-
-  /** Reads one palette entry: a block id with states, like `repeater[facing=north,delay=2]`, or `air` for a cell that must stay empty. */
-  fun parse(text: String, label: String?): DraftBlock<BlockData> {
-    val clean = Drafting.clean(text)
-    if (clean == "air") return DraftBlock<BlockData>(null, label, emptySet())
-    val data = try {
-      Bukkit.createBlockData("minecraft:$clean")
-    } catch (_: IllegalArgumentException) {
-      throw ToolError("$text is not a block the game knows; write ids with states like repeater[facing=north,delay=2]")
-    }
-    if (data.material.isAir) return DraftBlock<BlockData>(null, label, emptySet())
-    // Dust's connections and power follow what's around it; only the states the draft spells out are checked.
-    return DraftBlock(data, label, Drafting.spelled(clean))
-  }
-
 }

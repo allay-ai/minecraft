@@ -1,6 +1,9 @@
 package chat.allay.modcore.gametest
 
 import chat.allay.core.Handler
+import chat.allay.core.tools.DraftBlock
+import chat.allay.core.tools.DraftCell
+import chat.allay.core.tools.DraftSide
 import chat.allay.core.tools.ToolError
 import chat.allay.modcore.Mod
 import chat.allay.modcore.ModGame
@@ -17,8 +20,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
@@ -196,16 +197,11 @@ class GoalsGameTests {
     helper.succeed()
   }
 
-  private fun stoneDraft(at: BlockPos) = buildJsonObject {
-    put("title", "Pillar")
-    put("x", at.x)
-    put("y", at.y)
-    put("z", at.z)
-    putJsonObject("palette") { put("s", "stone") }
-    putJsonArray("layers") {
-      add(kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive("s")) })
-      add(kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive("s")) })
-    }
+  /** A pillar of two stones with its foot at [at], shown to [player] as the preview of a build would be. */
+  private fun stoneDraft(helper: GameTestHelper, player: ServerPlayer, at: BlockPos) {
+    val stone = DraftBlock(Blocks.STONE.defaultBlockState(), null, emptySet())
+    val cells = hashMapOf(DraftCell(0, 0, 0) to stone, DraftCell(0, 1, 0) to stone)
+    Drafts.begin(player, Drafts.Draft(player.uuid, "Pillar", helper.level, Triple(at.x, at.y, at.z), DraftSide.NORTH, cells))
   }
 
   @GameTest(environment = ENVIRONMENT, maxTicks = 100)
@@ -215,15 +211,12 @@ class GoalsGameTests {
     val at = helper.absolutePos(BlockPos(1, 2, 4))
     player.packets()
     other.packets()
-    val shown = run(player, "show_draft", stoneDraft(at)).result.jsonObject
-    equal(helper, shown["blocks"]!!.jsonPrimitive.int, 2, "blocks in the draft")
-    equal(helper, shown["layer"]!!.jsonPrimitive.content, "1/2", "the layer shown")
+    stoneDraft(helper, player, at)
+    val draft = Drafts.of(player)!!
+    equal(helper, draft.layers, 2, "layers in the draft")
+    equal(helper, draft.layer, 0, "the layer shown")
     helper.assertTrue(player.packets().count { it is ClientboundAddEntityPacket } >= 1, "the player sees the ghost")
     equal(helper, other.packets().count { it is ClientboundAddEntityPacket }, 0, "what anyone else sees")
-    val checked = run(player, "show_draft", buildJsonObject { put("action", "check") }).result.jsonObject
-    equal(helper, checked["total"]!!.jsonPrimitive.int, 2, "the check counts every block")
-    equal(helper, refused { run(player, "show_draft", stoneDraft(at).let { JsonObject(it + ("layers" to kotlinx.serialization.json.buildJsonArray { repeat(16) { add(kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive("s")) }) } })) }) }?.substringBefore(" (")?.substringAfter("would be "),
-      "1×16×1", "the size limit")
     helper.level.setBlockAndUpdate(at, Blocks.STONE.defaultBlockState())
     helper.level.setBlockAndUpdate(at.above(), Blocks.STONE.defaultBlockState())
     helper.succeedWhen {
@@ -237,7 +230,7 @@ class GoalsGameTests {
   @GameTest(environment = ENVIRONMENT)
   fun cancelHidesTheDraft(helper: GameTestHelper) {
     val player = survivor(helper)
-    run(player, "show_draft", stoneDraft(helper.absolutePos(BlockPos(1, 2, 4))))
+    stoneDraft(helper, player, helper.absolutePos(BlockPos(1, 2, 4)))
     val game = Mod.allay!!.game as ModGame
     equal(helper, game.shown.hide(ModPlayer(player)), Handler.Hidden.DRAFT, "what /allay cancel hides")
     helper.assertTrue(Drafts.of(player) == null, "the draft is gone")
@@ -265,13 +258,11 @@ class GoalsGameTests {
   }
 
   @GameTest(environment = ENVIRONMENT)
-  fun draftsAndRedstoneStayOutOfSomeoneElsesClaim(helper: GameTestHelper) {
+  fun redstoneStaysOutOfSomeoneElsesClaim(helper: GameTestHelper) {
     val player = survivor(helper)
     val claim = helper.bounds.inflate(1.0)
     Claim.areas += claim
     try {
-      equal(helper, refused { run(player, "show_draft", stoneDraft(helper.absolutePos(BlockPos(1, 2, 4)))) },
-        "that's someone else's claim where the player may not build; drafts go only where they could build", "a draft in a claim")
       equal(helper, refused { run(player, "inspect_redstone", buildJsonObject { put("around", "player") }) },
         "this is someone else's claim where the player may not build: Allay reads redstone only where the player could build it", "redstone in a claim")
     } finally {

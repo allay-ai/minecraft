@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.34.0
+
+- 🧱 **Allay no longer draws builds block by block.** The experimental `show_draft` is gone: the model's builds came out wrong too often to be worth their tokens. Drafts come back as the preview of a real schematic you place, turn, and build from your own blocks. A `tools.enabled.show_draft` line left in an old `config.yml` does nothing.
+
 ## 6.33.1
 
 - 🏆 **Allay sees how far you are.** An advancement of several steps you've started comes with its progress, like 3/26 for Red Bull's collection or 347/1000 for Mo’Bosses' kills, as the game's own screen shows it. Ask what's left, and Allay answers with the numbers.
