@@ -752,7 +752,7 @@ object Stands {
     for (load in loads) if (!job.feed(load)) return ToolOutput(buildJsonObject { put("started", false) }, "")
     automation.agent(task).job = job
     Jobs.add(job)
-    Marks.show(context.scheduler, player, loads.map { Marks.Mark(it.block, null, chains[it.work.potion].last().to.potion.replace('_', ' '), Marks.Hue.PURPLE) }, context.features.config().tools.marksSeconds)
+    Marks.show(context.scheduler, player, loads.map { Marks.Mark(it.block, null, Jobs.automation.itemName(player, chains[it.work.potion].last().to.potion), Marks.Hue.PURPLE) }, context.features.config().tools.marksSeconds)
     val result = buildJsonObject {
       put("started", true)
       put("stands", buildJsonArray {

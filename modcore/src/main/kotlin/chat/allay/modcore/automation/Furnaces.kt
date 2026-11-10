@@ -612,7 +612,7 @@ object Furnaces {
     job.synced += loads.map { it.block }
     automation.agent(task).job = job
     Jobs.add(job)
-    Marks.show(context.scheduler, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${id(it.item).replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
+    Marks.show(context.scheduler, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${Jobs.automation.itemName(player, id(it.item))}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
     val out = buildJsonObject {
       put("smelting", total)
       if (missing.isNotEmpty()) put("not_at_hand", buildJsonArray { missing.forEach { add(JsonPrimitive(it)) } })

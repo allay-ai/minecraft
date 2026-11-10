@@ -423,14 +423,16 @@ object Chests {
     }
   }
 
-  /** Labels over the chests, only the player sees them: “Ores: iron ingot ×192”. */
+  /** Labels over the chests, only the player sees them: “Ores” over “Iron Ingot ×192”. */
   private fun labels(context: ToolContext, player: Player, planned: Planned, lang: chat.allay.core.Lang, categories: Map<String, Storage.Category?> = emptyMap()) {
     val settings = context.features.config().tools
     val marks = planned.blocks.map { block ->
       val after = planned.after[Blocks.place(block)]!!
-      val top = Storage.top(after, stacks, 2).joinToString(", ") { (id, n) -> "${id.replace('_', ' ')} ×$n" }
+      // Short, in two lines, so the labels of chests side by side don't run into each other: the category, then
+      // what the chest holds most of, named in the player's language.
+      val top = Storage.top(after, stacks, 1).firstOrNull()?.let { (id, n) -> "${Jobs.automation.itemName(player, id)} ×$n" }
       val category = categories[Blocks.place(block)]?.let { lang.text("automation.category.${it.wire}") }
-      val text = listOfNotNull(category, top.ifEmpty { lang.text("automation.empty") }).joinToString(": ")
+      val text = listOfNotNull(category, top ?: lang.text("automation.empty")).joinToString("\n")
       Marks.Mark(block, null, text, Marks.Hue.AQUA)
     }
     Marks.show(context.plugin, player, marks, settings.marksSeconds)

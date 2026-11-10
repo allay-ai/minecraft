@@ -584,7 +584,7 @@ object Furnaces {
     job.synced += loads.map { it.block }
     automation.agent(task).job = job
     Jobs.add(job)
-    Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${it.item.key.key.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
+    Marks.show(context.plugin, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${Jobs.automation.itemName(player, it.item.key.key)}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
     val out = buildJsonObject {
       put("smelting", total)
       if (missing.isNotEmpty()) put("not_at_hand", buildJsonArray { missing.forEach { add(JsonPrimitive(it)) } })
@@ -739,7 +739,7 @@ object Furnaces {
       val inventory = furnace(furnaces[index])!!.inventory
       inventory.fuel = ItemStack(type, (inventory.fuel?.amount ?: 0) + shares[index])
     }
-    Marks.show(context.plugin, player, filled.map { Marks.Mark(furnaces[it], null, "+${shares[it]} ${id.replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
+    Marks.show(context.plugin, player, filled.map { Marks.Mark(furnaces[it], null, "+${shares[it]} ${Jobs.automation.itemName(player, id)}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
     val ticks = Workshop.burnTicks(id) ?: 0
     val out = buildJsonObject {
       put("fuel", id)

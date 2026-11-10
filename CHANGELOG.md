@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.37.1
+
+- 🏷️ **Labels in your language.** The labels over chests, furnaces, and brewing stands name things in the player's language (“Iron Ingot”, «Железный слиток»), not by the game's ids. A chest's label is two short lines now, its category over what it holds most of, so the labels of chests side by side no longer run into each other.
+
 ## 6.37.0
 
 - 🏠 **Builds from Allay's catalog.** Ask for “a modern villa” or «домик у озера», and Allay finds real builds by their authors in [allay-ai/schematics](https://github.com/allay-ai/schematics), then shows one in front of you as a preview only you see: its outside, nearest blocks first, a frame of particles around the whole box, and red boxes where something of the world stands in the way. Move it, turn it, mirror it, or build it of other blocks: cobblestone into stone bricks takes the stairs, slabs, and walls along.
