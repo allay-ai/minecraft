@@ -634,7 +634,7 @@ menus:
     unavailable: "&8Indisponível para você"
     zone: "&eFuso horário"
     zone_now: "&f{zone}&7, lá são {time}"
-    zone_change: "&7Para mudar, me diga onde você mora"
+    zone_change: "&7Clique para escolher o seu"
     memory: "&eO que eu lembro"
     memory_click: "&7Clique para abrir"
     new: "&eRecomeçar"
@@ -663,6 +663,20 @@ menus:
     auto_what: "&7Pelo país do seu IP, depois pelo idioma do jogo"
     current: "&a✔ O atual"
     pick: "&7Clique para escolher"
+  zone:
+    title: "Fuso horário"
+    countries: "País"
+    auto: "&eAutomático"
+    auto_what: "&7Pelo país de onde você joga: {zone}"
+    current: "&a✔ Este agora"
+    pick: "&7Clique para escolher"
+    zone_lore: "&7{offset}, lá são {time}"
+    other: "&eOutro país"
+    other_what: "&7Agora: {country}"
+    country_lore: "&7{count} {count|fuso horário|fusos horários}"
+    prev: "&7Página anterior"
+    next: "&7Próxima página"
+    page: "&8Página {page} de {pages}"
 
 # O que o jogador lê quando uma pergunta falha.
 errors:

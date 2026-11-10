@@ -88,6 +88,17 @@ class PlayerDataTest {
     assertEquals("Asia/Yekaterinburg", zones.of(player))
   }
 
+  @Test fun `the zones to pick from come by country, named in the player's language`() {
+    val russia = TimeZones.zonesOf("RU")
+    assertEquals("Europe/Moscow", russia.first())
+    assertTrue("Asia/Yekaterinburg" in russia)
+    val ru = java.util.Locale.forLanguageTag("ru")
+    assertEquals("Россия", TimeZones.countryName("RU", ru))
+    assertTrue(TimeZones.countries(ru).size > 200)
+    val label = TimeZones.label("Asia/Yekaterinburg", ru, java.time.Instant.parse("2026-11-10T12:00:00Z"))
+    assertEquals(Triple("Yekaterinburg", "UTC+05:00", "17:00"), Triple(label.city, label.offset, label.time))
+  }
+
   @Test fun `a player who didn't agree sends nothing and leaves nothing behind`() = runBlocking {
     val backend = FakeBackend()
     val data = data(backend, online = false)

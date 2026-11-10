@@ -98,7 +98,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
 
   override fun stopAgents(player: PlayerAudience) = automation.cancel(player.player)
 
-  override fun settings(player: PlayerAudience): Unit = Menus.settings(player, allay, features) { languages(player) }
+  override fun settings(player: PlayerAudience): Unit =
+    Menus.settings(player, allay, features, { languages(player) }) { Menus.zones(player, allay, features) { settings(player) } }
 
   override fun languages(player: PlayerAudience): Unit = Menus.languages(player, allay) { settings(player) }
 

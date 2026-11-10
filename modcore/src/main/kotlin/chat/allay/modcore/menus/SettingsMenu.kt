@@ -34,6 +34,7 @@ class SettingsMenu(
   private val languages: Languages,
   private val admin: Admin,
   private val chooseLanguage: () -> Unit,
+  private val chooseZone: () -> Unit,
 ) : Menu(player, 45, lang.text("menus.settings.title")) {
   /** What the admins' row does; [pay] says whether there's anything to pay for. */
   class Admin(val reload: () -> Unit, val status: () -> Unit, val pay: () -> Boolean, val link: () -> Unit)
@@ -117,6 +118,7 @@ class SettingsMenu(
         privacy.info(player.audience)
       }
       LANGUAGE -> { press(); chooseLanguage() }
+      ZONE -> { press(); chooseZone() }
       RELOAD -> if (reloadAllowed) {
         admin.reload()
         changed()

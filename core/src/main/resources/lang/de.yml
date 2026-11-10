@@ -635,7 +635,7 @@ menus:
     unavailable: "&8Für dich nicht verfügbar"
     zone: "&eZeitzone"
     zone_now: "&f{zone}&7, dort ist es {time}"
-    zone_change: "&7Zum Ändern sag mir, wo du wohnst"
+    zone_change: "&7Klick, um deine zu wählen"
     memory: "&eWas ich weiß"
     memory_click: "&7Klick zum Öffnen"
     new: "&eNeu anfangen"
@@ -664,6 +664,20 @@ menus:
     auto_what: "&7Nach dem Land deiner IP, dann nach der Spielsprache"
     current: "&a✔ Gerade diese"
     pick: "&7Klick zum Wählen"
+  zone:
+    title: "Zeitzone"
+    countries: "Land"
+    auto: "&eAutomatisch"
+    auto_what: "&7Nach dem Land, aus dem du spielst: {zone}"
+    current: "&a✔ Gerade diese"
+    pick: "&7Klick zum Auswählen"
+    zone_lore: "&7{offset}, dort ist es {time}"
+    other: "&eAnderes Land"
+    other_what: "&7Jetzt: {country}"
+    country_lore: "&7{count} {count|Zeitzone|Zeitzonen}"
+    prev: "&7Vorige Seite"
+    next: "&7Nächste Seite"
+    page: "&8Seite {page} von {pages}"
 
 # Was ein Spieler liest, wenn eine Frage scheitert.
 errors:

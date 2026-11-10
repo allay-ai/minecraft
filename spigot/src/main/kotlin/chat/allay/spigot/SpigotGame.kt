@@ -6,6 +6,7 @@ import chat.allay.spigot.automation.Jobs
 import chat.allay.spigot.menus.LanguageMenu
 import chat.allay.spigot.menus.MenuListener
 import chat.allay.spigot.menus.SettingsMenu
+import chat.allay.spigot.menus.ZoneMenu
 import chat.allay.spigot.tools.Deaths
 import chat.allay.spigot.tools.Drafts
 import chat.allay.spigot.tools.Previews
@@ -114,8 +115,11 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
       // Nothing to pay with a key of your own, a backend without billing, or a subscription that runs.
       pay = { !allay.config.provider.byok && allay.watch?.status?.let { it.billing && it.active } != true },
       link = { allay.billing.link(player) },
-    )) { languages(player) }.open()
+    ), { languages(player) }, { zones(player) }).open()
   }
+
+  /** The time zones to pick from, back to the settings after. */
+  private fun zones(player: PlayerAudience): Unit = ZoneMenu(player.player, locales, features.zones) { settings(player) }.open()
 
   override fun languages(player: PlayerAudience): Unit = LanguageMenu(player.player, locales, allay.languages) { settings(player) }.open()
 

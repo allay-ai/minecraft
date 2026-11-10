@@ -637,7 +637,7 @@ menus:
     unavailable: "&8Not available to you"
     zone: "&eTime zone"
     zone_now: "&f{zone}&7, it's {time} there"
-    zone_change: "&7To change it, tell me where you live"
+    zone_change: "&7Click to pick yours"
     memory: "&eWhat I remember"
     memory_click: "&7Click to open"
     new: "&eStart over"
@@ -666,6 +666,20 @@ menus:
     auto_what: "&7By your IP's country, then your game's language"
     current: "&a✔ Yours now"
     pick: "&7Click to choose"
+  zone:
+    title: "Time zone"
+    countries: "Country"
+    auto: "&eAutomatic"
+    auto_what: "&7By the country you play from: {zone}"
+    current: "&a✔ This one now"
+    pick: "&7Click to pick"
+    zone_lore: "&7{offset}, it's {time} there"
+    other: "&eAnother country"
+    other_what: "&7Now: {country}"
+    country_lore: "&7{count} {count|time zone|time zones}"
+    prev: "&7Previous page"
+    next: "&7Next page"
+    page: "&8Page {page} of {pages}"
 
 # What a player reads when a question fails.
 errors:

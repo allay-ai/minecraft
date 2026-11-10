@@ -1,5 +1,5 @@
-# Each country's time zone, by ISO code, for players who never named theirs: from tzdata's zone.tab, the capital's
-# where a country has several. Allay picks a player's by the country of their address (GeoIP).
+# Each country's time zones by ISO code, from tzdata's zone.tab. The first is the one most of its people live in (the
+# capital's), which a player gets until they pick theirs in /allay; the rest are there to pick from.
 AD Europe/Andorra
 AE Asia/Dubai
 AF Asia/Kabul
@@ -8,11 +8,11 @@ AI America/Anguilla
 AL Europe/Tirane
 AM Asia/Yerevan
 AO Africa/Luanda
-AQ Antarctica/McMurdo
-AR America/Argentina/Buenos_Aires
+AQ Antarctica/McMurdo Antarctica/Casey Antarctica/Davis Antarctica/DumontDUrville Antarctica/Mawson Antarctica/Palmer Antarctica/Rothera Antarctica/Syowa Antarctica/Troll Antarctica/Vostok
+AR America/Argentina/Buenos_Aires America/Argentina/Cordoba America/Argentina/Salta America/Argentina/Jujuy America/Argentina/Tucuman America/Argentina/Catamarca America/Argentina/La_Rioja America/Argentina/San_Juan America/Argentina/Mendoza America/Argentina/San_Luis America/Argentina/Rio_Gallegos America/Argentina/Ushuaia
 AS Pacific/Pago_Pago
 AT Europe/Vienna
-AU Australia/Sydney
+AU Australia/Sydney Australia/Lord_Howe Antarctica/Macquarie Australia/Hobart Australia/Melbourne Australia/Broken_Hill Australia/Brisbane Australia/Lindeman Australia/Adelaide Australia/Darwin Australia/Perth Australia/Eucla
 AW America/Aruba
 AX Europe/Mariehamn
 AZ Asia/Baku
@@ -30,48 +30,48 @@ BM Atlantic/Bermuda
 BN Asia/Brunei
 BO America/La_Paz
 BQ America/Kralendijk
-BR America/Sao_Paulo
+BR America/Sao_Paulo America/Noronha America/Belem America/Fortaleza America/Recife America/Araguaina America/Maceio America/Bahia America/Campo_Grande America/Cuiaba America/Santarem America/Porto_Velho America/Boa_Vista America/Manaus America/Eirunepe America/Rio_Branco
 BS America/Nassau
 BT Asia/Thimphu
 BW Africa/Gaborone
 BY Europe/Minsk
 BZ America/Belize
-CA America/Toronto
+CA America/Toronto America/St_Johns America/Halifax America/Glace_Bay America/Moncton America/Goose_Bay America/Blanc-Sablon America/Iqaluit America/Atikokan America/Winnipeg America/Resolute America/Rankin_Inlet America/Regina America/Swift_Current America/Edmonton America/Cambridge_Bay America/Inuvik America/Vancouver America/Creston America/Dawson_Creek America/Fort_Nelson America/Whitehorse America/Dawson
 CC Indian/Cocos
-CD Africa/Kinshasa
+CD Africa/Kinshasa Africa/Lubumbashi
 CF Africa/Bangui
 CG Africa/Brazzaville
 CH Europe/Zurich
 CI Africa/Abidjan
 CK Pacific/Rarotonga
-CL America/Santiago
+CL America/Santiago America/Coyhaique America/Punta_Arenas Pacific/Easter
 CM Africa/Douala
-CN Asia/Shanghai
+CN Asia/Shanghai Asia/Urumqi
 CO America/Bogota
 CR America/Costa_Rica
 CU America/Havana
 CV Atlantic/Cape_Verde
 CW America/Curacao
 CX Indian/Christmas
-CY Asia/Nicosia
+CY Asia/Nicosia Asia/Famagusta
 CZ Europe/Prague
-DE Europe/Berlin
+DE Europe/Berlin Europe/Busingen
 DJ Africa/Djibouti
 DK Europe/Copenhagen
 DM America/Dominica
 DO America/Santo_Domingo
 DZ Africa/Algiers
-EC America/Guayaquil
+EC America/Guayaquil Pacific/Galapagos
 EE Europe/Tallinn
 EG Africa/Cairo
 EH Africa/El_Aaiun
 ER Africa/Asmara
-ES Europe/Madrid
+ES Europe/Madrid Africa/Ceuta Atlantic/Canary
 ET Africa/Addis_Ababa
 FI Europe/Helsinki
 FJ Pacific/Fiji
 FK Atlantic/Stanley
-FM Pacific/Pohnpei
+FM Pacific/Pohnpei Pacific/Chuuk Pacific/Kosrae
 FO Atlantic/Faroe
 FR Europe/Paris
 GA Africa/Libreville
@@ -82,7 +82,7 @@ GF America/Cayenne
 GG Europe/Guernsey
 GH Africa/Accra
 GI Europe/Gibraltar
-GL America/Nuuk
+GL America/Nuuk America/Danmarkshavn America/Scoresbysund America/Thule
 GM Africa/Banjul
 GN Africa/Conakry
 GP America/Guadeloupe
@@ -98,7 +98,7 @@ HN America/Tegucigalpa
 HR Europe/Zagreb
 HT America/Port-au-Prince
 HU Europe/Budapest
-ID Asia/Jakarta
+ID Asia/Jakarta Asia/Pontianak Asia/Makassar Asia/Jayapura
 IE Europe/Dublin
 IL Asia/Jerusalem
 IM Europe/Isle_of_Man
@@ -115,14 +115,14 @@ JP Asia/Tokyo
 KE Africa/Nairobi
 KG Asia/Bishkek
 KH Asia/Phnom_Penh
-KI Pacific/Tarawa
+KI Pacific/Tarawa Pacific/Kanton Pacific/Kiritimati
 KM Indian/Comoro
 KN America/St_Kitts
 KP Asia/Pyongyang
 KR Asia/Seoul
 KW Asia/Kuwait
 KY America/Cayman
-KZ Asia/Almaty
+KZ Asia/Almaty Asia/Qyzylorda Asia/Qostanay Asia/Aqtobe Asia/Aqtau Asia/Atyrau Asia/Oral
 LA Asia/Vientiane
 LB Asia/Beirut
 LC America/St_Lucia
@@ -140,11 +140,11 @@ MD Europe/Chisinau
 ME Europe/Podgorica
 MF America/Marigot
 MG Indian/Antananarivo
-MH Pacific/Majuro
+MH Pacific/Majuro Pacific/Kwajalein
 MK Europe/Skopje
 ML Africa/Bamako
 MM Asia/Yangon
-MN Asia/Ulaanbaatar
+MN Asia/Ulaanbaatar Asia/Hovd
 MO Asia/Macau
 MP Pacific/Saipan
 MQ America/Martinique
@@ -154,8 +154,8 @@ MT Europe/Malta
 MU Indian/Mauritius
 MV Indian/Maldives
 MW Africa/Blantyre
-MX America/Mexico_City
-MY Asia/Kuala_Lumpur
+MX America/Mexico_City America/Cancun America/Merida America/Monterrey America/Matamoros America/Chihuahua America/Ciudad_Juarez America/Ojinaga America/Mazatlan America/Bahia_Banderas America/Hermosillo America/Tijuana
+MY Asia/Kuala_Lumpur Asia/Kuching
 MZ Africa/Maputo
 NA Africa/Windhoek
 NC Pacific/Noumea
@@ -168,27 +168,27 @@ NO Europe/Oslo
 NP Asia/Kathmandu
 NR Pacific/Nauru
 NU Pacific/Niue
-NZ Pacific/Auckland
+NZ Pacific/Auckland Pacific/Chatham
 OM Asia/Muscat
 PA America/Panama
 PE America/Lima
-PF Pacific/Tahiti
-PG Pacific/Port_Moresby
+PF Pacific/Tahiti Pacific/Marquesas Pacific/Gambier
+PG Pacific/Port_Moresby Pacific/Bougainville
 PH Asia/Manila
 PK Asia/Karachi
 PL Europe/Warsaw
 PM America/Miquelon
 PN Pacific/Pitcairn
 PR America/Puerto_Rico
-PS Asia/Gaza
-PT Europe/Lisbon
+PS Asia/Gaza Asia/Hebron
+PT Europe/Lisbon Atlantic/Madeira Atlantic/Azores
 PW Pacific/Palau
 PY America/Asuncion
 QA Asia/Qatar
 RE Indian/Reunion
 RO Europe/Bucharest
 RS Europe/Belgrade
-RU Europe/Moscow
+RU Europe/Moscow Europe/Kaliningrad Europe/Kirov Europe/Volgograd Europe/Astrakhan Europe/Saratov Europe/Ulyanovsk Europe/Samara Asia/Yekaterinburg Asia/Omsk Asia/Novosibirsk Asia/Barnaul Asia/Tomsk Asia/Novokuznetsk Asia/Krasnoyarsk Asia/Irkutsk Asia/Chita Asia/Yakutsk Asia/Khandyga Asia/Vladivostok Asia/Ust-Nera Asia/Magadan Asia/Sakhalin Asia/Srednekolymsk Asia/Kamchatka Asia/Anadyr
 RW Africa/Kigali
 SA Asia/Riyadh
 SB Pacific/Guadalcanal
@@ -227,12 +227,12 @@ TT America/Port_of_Spain
 TV Pacific/Funafuti
 TW Asia/Taipei
 TZ Africa/Dar_es_Salaam
-UA Europe/Kyiv
+UA Europe/Kyiv Europe/Simferopol
 UG Africa/Kampala
-UM Pacific/Wake
-US America/New_York
+UM Pacific/Wake Pacific/Midway
+US America/New_York America/Detroit America/Kentucky/Louisville America/Kentucky/Monticello America/Indiana/Indianapolis America/Indiana/Vincennes America/Indiana/Winamac America/Indiana/Marengo America/Indiana/Petersburg America/Indiana/Vevay America/Chicago America/Indiana/Tell_City America/Indiana/Knox America/Menominee America/North_Dakota/Center America/North_Dakota/New_Salem America/North_Dakota/Beulah America/Denver America/Boise America/Phoenix America/Los_Angeles America/Anchorage America/Juneau America/Sitka America/Metlakatla America/Yakutat America/Nome America/Adak Pacific/Honolulu
 UY America/Montevideo
-UZ Asia/Tashkent
+UZ Asia/Tashkent Asia/Samarkand
 VA Europe/Vatican
 VC America/St_Vincent
 VE America/Caracas

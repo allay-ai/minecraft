@@ -228,7 +228,7 @@ class MenusGameTests {
     give(player)
     val audience = ModPlayer(player)
     player.packets()
-    Menus.settings(audience, allay, Players.features) {}
+    Menus.settings(audience, allay, Players.features, {}) {}
     helper.assertTrue(view(player)?.menu is SettingsMenu, "the settings window opens")
     equal(helper, title(player), text(player, "menus.settings.title"), "the title")
     val view = view(player)!!
@@ -251,7 +251,31 @@ class MenusGameTests {
     equal(helper, settings.of(player.uuid).hints, !hints, "the tip switched")
     click(player, 10, 0, ContainerInput.QUICK_MOVE)
     equal(helper, settings.of(player.uuid).chat_mode, chat, "chat mode back")
-    takesNothing(helper, player, 13, "the time zone")
+    // The clock opens the zones: theZoneWindowPicksACountrysZoneAndGoesBackToAutomatic.
+    done(helper, player)
+  }
+
+  @GameTest
+  fun theZoneWindowPicksACountrysZoneAndGoesBackToAutomatic(helper: GameTestHelper) {
+    val player = survivor(helper)
+    give(player)
+    val audience = ModPlayer(player)
+    player.packets()
+    val zones = Players.features.zones
+    zones.forget(player.uuid)
+    var back = 0
+    Menus.zones(audience, allay, Players.features) { back++ }
+    helper.assertTrue(view(player)?.menu is chat.allay.modcore.menus.ZoneMenu, "the zone window opens")
+    // The test player plays from nowhere GeoIP knows, so the countries show first, each a map.
+    equal(helper, view(player)!!.getSlot(0).item.item, Items.MAP, "a country")
+    click(player, 0, 0, ContainerInput.PICKUP)
+    equal(helper, view(player)!!.getSlot(0).item.item, Items.CLOCK, "its zones")
+    click(player, 0, 0, ContainerInput.PICKUP)
+    helper.assertTrue(zones.chosen(player.uuid) != null, "a zone picked")
+    equal(helper, back, 1, "back to the settings")
+    Menus.zones(audience, allay, Players.features) { back++ }
+    click(player, 47, 0, ContainerInput.PICKUP)
+    equal(helper, zones.chosen(player.uuid), null, "automatic again")
     done(helper, player)
   }
 
