@@ -63,3 +63,9 @@ permissions:
   allay.automation.crafting:
     description: Automation agents that craft at a crafting table
     default: true
+  allay.build:
+    description: Builds from Allay's catalog, previewed and built from the player's own blocks
+    default: true
+  allay.build.unlimited:
+    description: Builds of any size, past building.tiers' limits
+    default: op

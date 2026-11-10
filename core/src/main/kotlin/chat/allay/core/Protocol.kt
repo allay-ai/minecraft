@@ -44,6 +44,8 @@ object Protocol {
     val expansions: List<ExpansionInfo>? = null,
     /** Since 6.35, for backend 6.31: the question's own name, so its run outlives a dropped connection and never runs twice. */
     val request_id: String? = null,
+    /** Since 6.37, for backend 6.33: what the asker may build from the catalog here, and the server's game. */
+    val building: Building? = null,
   )
 
   /** [name] is `x_<expansion>_<tool>`; [parameters] a JSON Schema object; [access] `read`, `own`, or `operator`. */
@@ -55,6 +57,9 @@ object Protocol {
    * Since 6.35, for backend 6.31: [card] is the agent's state as the plugin keeps it, so it carries on when its thread is
    * gone, and [keep_until] (epoch milliseconds) how long it may still need its thread: it may wait for items that long.
    */
+  /** The biggest build the asker may build here, its longest side, and the server's DataVersion. */
+  @Serializable data class Building(val max_blocks: Int? = null, val max_size: Int? = null, val data_version: Int? = null)
+
   @Serializable data class TaskInfo(val id: String, val name: String, val depth: Int, val kind: String, val card: String? = null, val keep_until: Long? = null)
 
   /** [state] is working, waiting, or asking; [question] what an asking agent wants to know. */

@@ -8,6 +8,8 @@ import chat.allay.spigot.menus.MenuListener
 import chat.allay.spigot.menus.SettingsMenu
 import chat.allay.spigot.tools.Deaths
 import chat.allay.spigot.tools.Drafts
+import chat.allay.spigot.tools.Previews
+import chat.allay.core.building.Blueprints
 import chat.allay.spigot.tools.Features
 import chat.allay.spigot.tools.Goals
 import chat.allay.spigot.tools.Marks
@@ -69,6 +71,8 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun effects(config: Config): Effects = BukkitEffects(plugin, config)
   override val software: String get() = server.name
   override val gameVersion: String get() = WorldTools.version(server.bukkitVersion)
+  @Suppress("DEPRECATION")
+  override val dataVersion: Int? get() = runCatching { server.unsafe.dataVersion }.getOrNull()
   override val loader = "spigot"
   // server-ip is usually empty: the game listens everywhere, and only the owner knows the name players type.
   override val address: String? get() = server.ip.trim().takeIf { it.isNotEmpty() && it != "0.0.0.0" }
@@ -81,7 +85,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     val player = audience.player
     val trail = Trails.stop(player)
     val marks = Marks.clear(player)
-    val draft = Drafts.clear(player)
+    val draft = Drafts.clear(player) or Previews.clear(player)
     when {
       // Agents say themselves that they stopped.
       automation.cancel(player) -> Handler.Hidden.AGENTS
@@ -118,9 +122,10 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun start() {
     chat.allay.spigot.tools.BrewingRecipes.bind(features)
     val expansions = Expansions(plugin, plugin.logger)
-    listOf(goals, deaths, menus, Marks, Drafts, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
+    listOf(goals, deaths, menus, Marks, Drafts, Previews, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
     if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::reloaded), plugin)
     Drafts.start(plugin, locales)
+    Previews.start(plugin, locales, Blueprints(allay.config.building.keepMinutes * 60_000L))
     Jobs.automation = automation
     automation.start()
     goals.start()
@@ -148,5 +153,6 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     menus.stop()
     Marks.clearAll()
     Drafts.stop()
+    Previews.stop()
   }
 }

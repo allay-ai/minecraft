@@ -38,6 +38,9 @@ interface Host<C> {
    */
   val side: String get() = "server"
 
+  /** The game's DataVersion: builds saved by a newer game may hold blocks this one lacks. */
+  val dataVersion: Int? get() = null
+
   /** The address the game listens on when the server's config names one, and its port; for the backend's admin panel. */
   val address: String? get() = null
   val port: Int? get() = null
@@ -277,7 +280,16 @@ class Service<C>(
       expansion_tools = run.expansionTools.ifEmpty { null },
       expansions = expansions?.prompts(run.mode)?.ifEmpty { null },
       request_id = run.requestId,
+      building = building(run),
     )
+  }
+
+  /** What the asker may build, for a run that offers `build`: the backend's search keeps to it. */
+  private fun building(run: Run): Protocol.Building? {
+    val asker = run.asker
+    if (run.task != null || asker.uuid == null || !config.building.enabled || !asker.can(Permissions.BUILD) || tools.find("build") == null) return null
+    val limits = config.building.tiers.of(asker.operator) { asker.can(Permissions.build(it)) }
+    return Protocol.Building(limits.maxBlocks.takeIf { it < Int.MAX_VALUE }, limits.maxSize.takeIf { it < Int.MAX_VALUE }, host.dataVersion)
   }
 
   /** The error with the key and the license masked out of its message, should the backend ever echo them. */

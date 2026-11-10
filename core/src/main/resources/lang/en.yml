@@ -90,6 +90,7 @@ tools:
   point_to: "Showing the way"
   get_nearby_players: "Looking for players nearby"
   show_marks: "Marking blocks"
+  build: "Showing the build"
   inspect_redstone: "Reading the redstone"
   ping_me: "Sending a signal"
   sort_inventory: "Tidying your inventory"
@@ -146,6 +147,11 @@ summary:
   players_none: "nobody on the bar"
   marks: "{count} {count|mark|marks}"
   marks_cleared: "marks hidden"
+  build_shown: "“{title}” in front of you"
+  build_moved: "moved"
+  build_swapped: "{from} → {to}"
+  build_cleared: "preview removed"
+  build_estimate: "{missing} {missing|block|blocks} short"
   redstone: "{count} {count|part|parts}, {issues} {issues|fault|faults}"
   look_nothing: "nothing"
   look_block: "{id}"
@@ -984,3 +990,7 @@ items:
   writable_book: "Book and Quill"
   emerald_block: "Block of Emerald"
   copper_ingot: "Copper Ingot"
+
+# Previews of builds from the catalog: {title}, {size} as width×height×depth.
+previews:
+  bar: "{title} · {size} · {blocks} {blocks|block|blocks}"

@@ -174,6 +174,14 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     val undoMinutes = config.int("automation.chests.undo_minutes", 5).coerceIn(1, 60)
   }
 
+  /** Builds from Allay's catalog: the preview and building from the player's blocks (since 6.37). */
+  val building = Building() ; inner class Building {
+    val enabled = config.boolean("building.enabled", true)
+    val tiers = chat.allay.core.building.BuildTiers.parse(config)
+    /** The longest a downloaded build stays in memory after its last use. */
+    val keepMinutes = config.int("building.keep_minutes", 30).coerceIn(1, 240)
+  }
+
   /** Other plugins' and mods' expansions (`chat.allay.expansion`): their tools, items, and prompt lines. */
   val expansions = Expansions() ; inner class Expansions {
     val enabled = config.boolean("expansions.enabled", true)

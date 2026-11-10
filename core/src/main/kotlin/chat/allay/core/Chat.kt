@@ -17,6 +17,10 @@ object Permissions {
   fun quota(tier: String) = "allay.quota.$tier"
   /** A tier of `models` in config.yml: `allay.model.vip`. */
   fun model(tier: String) = "allay.model.$tier"
+  /** Builds from Allay's catalog: the preview, and building it from the player's blocks (since 6.37). */
+  const val BUILD = "allay.build"
+  /** A tier of `building.tiers` in config.yml: `allay.build.vip`; `allay.build.unlimited` lifts the size limits. */
+  fun build(tier: String) = "$BUILD.$tier"
 
   /**
    * Whether a player without a permissions plugin or mod has [permission]: operators get everything, everyone else
@@ -26,7 +30,7 @@ object Permissions {
     operator -> true
     permission in OPERATORS -> false
     // Tiers are for the players a server picks.
-    permission.startsWith("allay.quota.") || permission.startsWith("allay.model.") -> false
+    permission.startsWith("allay.quota.") || permission.startsWith("allay.model.") || permission.startsWith("$BUILD.") -> false
     else -> permission.startsWith("allay.")
   }
 
@@ -37,8 +41,12 @@ object Permissions {
    * ones, each kind of automation, and the tiers [config] names in `quota.tiers` and `models`.
    */
   fun all(config: YamlConfig?): List<String> {
-    val tiers = config?.let { QuotaSettings.parse(it).tiers.keys.map(::quota) + ModelTiers.parse(it).models.keys.map(::model) }.orEmpty()
-    return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION) + chat.allay.core.tasks.Kind.entries.map(::automation) + tiers).distinct()
+    val tiers = config?.let {
+      QuotaSettings.parse(it).tiers.keys.map(::quota) + ModelTiers.parse(it).models.keys.map(::model) +
+        chat.allay.core.building.BuildTiers.parse(it).tiers.keys.filter { tier -> tier != chat.allay.core.building.BuildTiers.DEFAULT }.map(::build)
+    }.orEmpty()
+    return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION, BUILD, build(chat.allay.core.building.BuildTiers.UNLIMITED)) +
+      chat.allay.core.tasks.Kind.entries.map(::automation) + tiers).distinct()
   }
 }
 

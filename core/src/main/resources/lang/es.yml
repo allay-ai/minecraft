@@ -89,6 +89,7 @@ tools:
   point_to: "Mostrando el camino"
   get_nearby_players: "Buscando jugadores cerca"
   show_marks: "Marcando bloques"
+  build: "Mostrando la construcción"
   inspect_redstone: "Leyendo el redstone"
   ping_me: "Enviando una señal"
   sort_inventory: "Ordenando tu inventario"
@@ -145,6 +146,11 @@ summary:
   players_none: "nadie en la barra"
   marks: "{count} {count|marca|marcas}"
   marks_cleared: "marcas ocultas"
+  build_shown: "«{title}» delante de ti"
+  build_moved: "movida"
+  build_swapped: "{from} → {to}"
+  build_cleared: "vista previa quitada"
+  build_estimate: "faltan {missing}"
   redstone: "{count} {count|pieza|piezas}, {issues} {issues|fallo|fallos}"
   look_nothing: "nada"
   look_block: "{id}"
@@ -982,3 +988,7 @@ items:
   writable_book: "Libro y pluma"
   emerald_block: "Bloque de esmeralda"
   copper_ingot: "Lingote de cobre"
+
+# Previews of builds from the catalog: {title}, {size} as width×height×depth.
+previews:
+  bar: "{title} · {size} · {blocks} {blocks|bloque|bloques}"

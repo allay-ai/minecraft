@@ -89,6 +89,7 @@ tools:
   point_to: "Показываю дорогу"
   get_nearby_players: "Ищу игроков рядом"
   show_marks: "Подсвечиваю блоки"
+  build: "Показываю постройку"
   inspect_redstone: "Разбираю редстоун"
   ping_me: "Подаю сигнал"
   sort_inventory: "Навожу порядок в инвентаре"
@@ -145,6 +146,11 @@ summary:
   players_none: "на локаторе никого"
   marks: "{count} {count|метка|метки|меток}"
   marks_cleared: "метки убраны"
+  build_shown: "«{title}» перед тобой"
+  build_moved: "сдвинул"
+  build_swapped: "{from} → {to}"
+  build_cleared: "превью убрано"
+  build_estimate: "не хватает {missing}"
   redstone: "{count} {count|деталь|детали|деталей}, {issues} {issues|поломка|поломки|поломок}"
   look_nothing: "ничего"
   look_block: "{id}"
@@ -982,3 +988,7 @@ items:
   writable_book: "Книга и перо"
   emerald_block: "Изумрудный блок"
   copper_ingot: "Медный слиток"
+
+# Previews of builds from the catalog: {title}, {size} as width×height×depth.
+previews:
+  bar: "{title} · {size} · {blocks} {blocks|блок|блока|блоков}"

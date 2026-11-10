@@ -54,6 +54,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     /** The server software and the game version, like `Paper` and `26.3`, and where it listens. */
     val software: String
     val gameVersion: String
+    /** The game's DataVersion, for builds saved by another game version. */
+    val dataVersion: Int? get() = null
 
     /** What Allay runs on and where, as [Host.loader] and [Host.side] say. */
     val loader: String
@@ -345,6 +347,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     override val pluginVersion get() = platform.version
     override val software get() = game.software
     override val gameVersion get() = game.gameVersion
+    override val dataVersion get() = game.dataVersion
     override val loader get() = game.loader
     override val side get() = game.side
     override val address get() = game.address
