@@ -20,6 +20,9 @@ class SenderAsker(val sender: CommandSender, private val language: String? = nul
   // Read once here, on the server thread: the request is built off it.
   override val dimension: String? = (sender as? Player)?.world?.let(Dimensions::id)
   override val gameMode: String? = (sender as? Player)?.gameMode?.name?.lowercase()
+  private val sky = (sender as? Player)?.world?.takeIf { it.environment == org.bukkit.World.Environment.NORMAL }
+  override val time: Int? = sky?.time?.let { (it % 24000).toInt() }
+  override val weather: String? = sky?.let { if (it.isThundering) "thunder" else if (it.hasStorm()) "rain" else "clear" }
   override val position: Protocol.Position? = (sender as? Player)?.location?.let { at ->
     at.world?.let { Protocol.Position(at.blockX, at.blockY, at.blockZ, Dimensions.id(it), it.name) }
   }

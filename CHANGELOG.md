@@ -11,7 +11,7 @@ The “Release” workflow takes the notes for a version from its section here, 
 - 📋 **What a build takes.** The estimate opens as a window: each material with how many you have in your inventory, ender chest, and chests around, what's short, the hoe and shovel uses, the water bucket, and blocks no survival player can get. In creative it lists what the build is made of: the builder takes nothing there.
 - 🧭 **The way's bar shows how far you got.** The boss bar of a trail adds how much of the way is behind you, in percent.
 - 🗣️ **Better wording sticks.** Since 6.29 a release's new wording of a text you never changed reached your server for one start only, and the next start took the old text in `lang/` for yours. Allay now remembers the old wording of untouched texts, so new ones stay. A copy that already fell back keeps its old texts: delete its lang file to get the new ones.
-- 🎮 Every question tells Allay your game mode, so it never holds a build back for blocks you don't need in creative. An agent's last line no longer shows twice when it said it just before.
+- 🎮 Every question tells Allay your game mode, the time of day, and the weather, so it never holds a build back for blocks you don't need in creative. An agent's last line no longer shows twice when it said it just before.
 - ⚙️ `building` in config.yml, **off until you turn it on** with `building.enabled: true`: while it's off, its tools cost no tokens, and Allay tells a player who asks where it's turned on. Tiers by `allay.build.<tier>` with the biggest build, its longest side, its speed, and how long it waits; `allay.build.unlimited` lifts the size limits. Needs Allay Server 6.33.
 
 ## 6.36.0

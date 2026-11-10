@@ -82,6 +82,9 @@ object Protocol {
     val position: Position? = null,
     /** Since backend 6.33: a player in creative takes nothing for a build, so the model never holds one back. */
     val game_mode: String? = null,
+    /** Since backend 6.33: the time of day (0–23999) and the weather where the sky turns, for “when's night?” and mobs. */
+    val time: Int? = null,
+    val weather: String? = null,
   )
 
   /** A block in a world; [world] is the world's folder name, which tells two overworlds apart. */

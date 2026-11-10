@@ -23,6 +23,12 @@ interface Asker {
   /** The player's game mode when they asked: `survival`, `creative`, `adventure`, or `spectator`; null for the console. */
   val gameMode: String? get() = null
 
+  /** The game's time of day in the player's world (0–23999, 0 is sunrise), only where the sky turns; else null. */
+  val time: Int? get() = null
+
+  /** The weather over the player: `clear`, `rain`, or `thunder`, only where the sky has weather; else null. */
+  val weather: String? get() = null
+
   /** Where the player stood when they asked; null for the console. */
   val position: Protocol.Position? get() = null
 
