@@ -81,7 +81,7 @@ object AnvilWork {
       if (wanted.isEmpty() && rename == null && args.bool("merge") != true) throw ToolError("say what to do: enchantments to add, merge: true for everything that fits, or rename")
 
       // Books and items of its kind from everywhere the player may take from; the item itself stays out.
-      val sources = Sources.around(player, settings.radius)
+      val sources = Sources.around(player, settings.radius, task.scope)
       var skipped = false
       val candidates = if (wanted.isEmpty() && args.bool("merge") != true) emptyList() else sources.list.flatMap { source ->
         source.slots().filterNotNull().filter { stack ->

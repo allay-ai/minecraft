@@ -40,6 +40,13 @@ object Blocks {
   /** A container's address for reservations and plans: `world:x,y,z`. */
   fun place(block: Block) = "${block.world.name}:${block.x},${block.y},${block.z}"
 
+  /** The block a [place] names, or null when its world is gone. */
+  fun at(place: String): Block? {
+    val world = org.bukkit.Bukkit.getWorld(place.substringBeforeLast(':')) ?: return null
+    val (x, y, z) = place.substringAfterLast(':').split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } ?: return null
+    return world.getBlockAt(x, y, z)
+  }
+
   fun inventory(player: Player) = "inventory:${player.uniqueId}"
 
   /** Chests, barrels, copper chests at every stage, and placed shulker boxes. */

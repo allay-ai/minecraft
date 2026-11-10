@@ -5,6 +5,9 @@ The “Release” workflow takes the notes for a version from its section here, 
 ## 6.35.0
 
 - 🔌 **Allay rides out a lost connection.** When its server restarts or the network drops, Allay keeps reconnecting for up to 4 minutes (`http.reconnect_seconds`), every 1, 2, 4, 8, then 15 seconds, and says so in chat and in the action bar. With Allay Server 6.31 an answer cut off midway goes on from where it stopped, a question never runs or costs twice, and a tool's result goes again until the server has it. Only after the whole wait does the player hear the server is unreachable. A stream silent for a minute (`http.stream_idle_seconds`) counts as dropped, so a dead connection no longer hangs a question for five.
+- 🤖 **Agents outlive a restart.** An automation agent no longer ends when its player leaves or the server stops: with Allay Server 6.31 it goes to the backend as it is and comes back when the player joins again. Furnaces and stands keep going meanwhile, and the agent counts what they made. When the Allay server is out of reach, agents wait for it instead of stopping. `automation.max_minutes` counts working time only.
+- ⏳ **Agents wait for your items.** When a job needs something only you can get, the agent asks, then waits while you go get it: it holds none of your agent slots, reminds you every 10 minutes (`automation.remind_minutes`) what's missing, and carries on by itself once it's at the base. It gives up after 24 hours (`automation.park_hours`).
+- 🔒 **The ender chest only when you allow it.** Agents take from your inventory and the chests around, and from your ender chest only after you say yes. “Take only from these chests” makes them use only the chests you click.
 
 ## 6.34.0
 

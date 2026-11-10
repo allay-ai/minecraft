@@ -49,6 +49,9 @@ import net.minecraft.world.level.block.state.BlockState
  * glass bottles at water or a cauldron near, a level a bottle, as clicking does.
  */
 object Crafting {
+  /** What a look from chat reads: everything the player could reach themself, the ender chest too. */
+  private val LOOK = chat.allay.core.tasks.SourceScope(ender_chest = true)
+
   /** The most one craft call makes: a full inventory of stacks of 64. */
   const val MAX_COUNT = 2304
 
@@ -214,12 +217,14 @@ object Crafting {
   }
 
   /**
-   * What's missing, and what of it waits in the player's ender chest, bundles there included, when no ender chest
-   * stands near enough for crafting to take from it: the model then asks them to stand by one instead of saying “none”.
+   * What's missing, and what of it waits in the player's ender chest, bundles there included, when crafting can't take
+   * from it: no ender chest stands near enough, or the player hasn't allowed it (since 6.35). The model then asks
+   * instead of saying “none”.
    */
   private fun missing(context: ToolContext, player: ServerPlayer, missing: Workshop.Missing): ToolOutput {
     val radius = context.features.automation.settings().radius
-    val stored = if (Sources.enderNear(player, radius)) emptyList() else Slots.read(player.enderChestInventory).data()
+    val allowed = context.task?.scope?.ender_chest ?: true
+    val stored = if (allowed && Sources.enderNear(player, radius)) emptyList() else Slots.read(player.enderChestInventory).data()
     val ender = missing.items.keys.associateWith { id -> stored.sumOf { chat.allay.core.tools.Items.matching(it) { found -> found == id }.let { (direct, nested) -> direct + nested } } }
       .filterValues { it > 0 }
     return ToolOutput(JsonObject(buildJsonObject {
@@ -227,7 +232,8 @@ object Crafting {
       put("note", "tell the player what's missing; nothing was taken")
       if (ender.isNotEmpty()) {
         putJsonObject("in_ender_chest") { ender.forEach { (id, n) -> put(id, n) } }
-        put("ender_chest", "no ender chest within $radius blocks, and crafting takes from the player's only beside one: ask them to stand by an ender chest, then craft again")
+        put("ender_chest", if (!allowed) "the player hasn't allowed you their ender chest: ask whether you may use it; on yes call sources with ender_chest true, then craft again"
+          else "no ender chest within $radius blocks, and crafting takes from the player's only beside one: ask them to stand by an ender chest, then craft again")
       }
     } + short(missing)), context.lang.text("summary.craft_missing", "count" to missing.items.size), refused = true)
   }
@@ -280,7 +286,8 @@ object Crafting {
     val needs = mutableListOf<String>()
     val cutter = find(GameBlocks.STONECUTTER)
     val water = Water.near(player)
-    val sources = Sources.around(player, settings.radius)
+    // A look from chat only reads, so the player's own ender chest counts there as it always did.
+    val sources = Sources.around(player, settings.radius, task?.scope ?: LOOK)
     val stacks = sources.list.flatMap { it.slots() }.filterNotNull()
     val book = book(server, stacks, stonecutter = cutter != null, water = water != null || task == null)
     val recipes = book.recipes
@@ -480,7 +487,7 @@ object Crafting {
     val holds = context.features.automation.reservations
     val table = if (needs.table) station(player, settings.radius, settings.lineOfSight) { it.`is`(GameBlocks.CRAFTING_TABLE) } else null
     if (needs.table && table == null) throw ToolError("these fireworks need a crafting table near the player: a grid holds more than 4 items")
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     fun free(item: String) = sources.free({ key(it) == item }, item, holds, task.id)
     val takes = mutableMapOf<String, Int>()
     val missing = mutableMapOf<String, Int>()

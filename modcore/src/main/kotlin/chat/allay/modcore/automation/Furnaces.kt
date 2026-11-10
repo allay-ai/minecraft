@@ -103,7 +103,7 @@ object Furnaces {
 
   private class Job(
     override val task: Task, starter: ServerPlayer, val loads: List<Load>, var sources: Sources, var total: Int, val fuel: String, val to: Jobs.Output?,
-  ) : Jobs.BlockJob {
+  ) : Jobs.Lasting {
     private val owner = starter.audience
 
     /** The player as the game has them now: a respawn makes a new one, and what goes to the old one is lost. */
@@ -115,52 +115,93 @@ object Furnaces {
     var collected = 0
     var experience = 0
 
+    /**
+     * Furnaces whose count matches the world. A job brought back after a stop counts none: each is read once its chunk
+     * is loaded, and what it smelted meanwhile counts then.
+     */
+    val synced = mutableSetOf<BlockAt>()
+
     override fun smelted(block: BlockAt) {
       val load = loads.firstOrNull { it.block == block } ?: return
       furnace(block) ?: return
+      if (block !in synced) return
       load.expected--
       load.share--
       smelted++
-      val item = load.item
       val input = input(block)
-      if ((input?.count ?: 0) != load.expected || (input != null && input.item != item)) {
+      if ((input?.count ?: 0) != load.expected || (input != null && input.item != load.item)) {
         return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to block.key, "x" to block.x, "y" to block.y, "z" to block.z))
       }
-      // Refill from what was reserved, as far as this furnace's share goes.
-      if (load.expected == 0 && load.share > 0) {
-        val (taken, short) = here().takeReserved(plain(item), id(item), minOf(64, load.share), Jobs.automation.reservations, task.id)
-        if (short != null) return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to id(item), "place" to where(short)))
-        val amount = taken.sumOf { it.count }
-        if (amount > 0) {
-          set(block, INPUT, ItemStack(item, amount))
-          load.expected = amount
-        }
+      if (!refill(load)) return
+      full(load)
+      done()
+    }
+
+    /** Refills an empty furnace from what was reserved, as far as its share goes. False when someone took that. */
+    private fun refill(load: Load): Boolean {
+      if (load.expected != 0 || load.share <= 0) return true
+      furnace(load.block) ?: return true
+      val item = load.item
+      val (taken, short) = here().takeReserved(plain(item), id(item), minOf(64, load.share), Jobs.automation.reservations, task.id)
+      if (short != null) {
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.taken", "item" to id(item), "place" to where(short)))
+        return false
       }
-      val output = output(block)
-      if (output != null && output.count >= output.maxStackSize && load.share > 0) {
-        // With an output the job empties a full furnace itself; without one the agent hears about it once.
-        if (to != null) {
-          collect(listOf(block))
-        } else if (!reportedFull) {
-          reportedFull = true
-          Jobs.automation.post(task, "[job] the furnace at ${block.x} ${block.y} ${block.z} is full of ${Slots.id(output)}: collect it to go on")
-        }
+      val amount = taken.sumOf { it.count }
+      if (amount > 0) {
+        set(load.block, INPUT, ItemStack(item, amount))
+        load.expected = amount
       }
-      if (smelted >= total) {
-        Jobs.remove(this)
-        val made = loads.groupBy { Slots.id(it.result) }.entries.joinToString(", ") { (id, list) -> "${list.sumOf { load -> load.first }} × $id" }
-        val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
-        val news = if (to != null && present(player)) {
-          collect(blocks)
-          "smelting done: $made in ${loads.size} furnaces ($where); collected $collected to ${Jobs.describe(to)}, with $experience experience for the player"
-        } else if (to != null) {
-          "smelting done: $made in ${loads.size} furnaces ($where); the player is dead or away, so the output waits in them: collect it when they're back"
-        } else {
-          "smelting done: $made in ${loads.size} furnaces ($where); the output waits in them: collect it"
-        }
-        task.report(news)
-        Jobs.automation.post(task, "[job] $news")
+      return true
+    }
+
+    /** A furnace full of output: with an output the job empties it itself; without one the agent hears about it once. */
+    private fun full(load: Load) {
+      val output = output(load.block) ?: return
+      if (output.count < output.maxStackSize || load.share <= 0) return
+      if (to != null) {
+        collect(listOf(load.block))
+      } else if (!reportedFull) {
+        reportedFull = true
+        Jobs.automation.post(task, "[job] the furnace at ${load.block.x} ${load.block.y} ${load.block.z} is full of ${Slots.id(output)}: collect it to go on")
       }
+    }
+
+    /** Everything smelted: the output goes where it should, and the agent wakes with the news. */
+    private fun done() {
+      if (smelted < total) return
+      Jobs.remove(this)
+      val made = loads.groupBy { Slots.id(it.result) }.entries.joinToString(", ") { (id, list) -> "${list.sumOf { load -> load.first }} × $id" }
+      val where = loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" }
+      val news = if (to != null && present(player)) {
+        collect(blocks)
+        "smelting done: $made in ${loads.size} furnaces ($where); collected $collected to ${Jobs.describe(to)}, with $experience experience for the player"
+      } else if (to != null) {
+        "smelting done: $made in ${loads.size} furnaces ($where); the player is dead or away, so the output waits in them: collect it when they're back"
+      } else {
+        "smelting done: $made in ${loads.size} furnaces ($where); the output waits in them: collect it"
+      }
+      task.report(news)
+      Jobs.automation.post(task, "[job] $news")
+    }
+
+    /**
+     * A furnace read for the first time after the job came back: what left its input meanwhile was smelted, and an
+     * empty one gets its refill. Something else in it means someone changed it.
+     */
+    private fun sync(load: Load): Boolean {
+      synced += load.block
+      val input = input(load.block)
+      if (input != null && input.item != load.item) {
+        Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
+        return false
+      }
+      val left = input?.count ?: 0
+      val cooked = (load.expected - left).coerceAtLeast(0)
+      load.expected = minOf(left, load.expected)
+      load.share -= cooked
+      smelted += cooked
+      return refill(load)
     }
 
     /**
@@ -192,6 +233,10 @@ object Furnaces {
         }
         furnace(load.block)
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "furnace", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
+        if (load.block !in synced) {
+          if (!sync(load)) return
+          continue
+        }
         val input = input(load.block)?.takeIf { it.item == load.item }?.count ?: 0
         if (input >= load.expected) {
           suspect -= load.block
@@ -199,6 +244,8 @@ object Furnaces {
           return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
         }
       }
+      // Every furnace read again after a stop: maybe all of it smelted meanwhile.
+      if (synced.size == loads.size) done()
       // A furnace that filled up while the player was dead or away stands still: empty it once they're back.
       if (to != null && present(player)) {
         val full = loads.filter { load -> load.share > 0 && Jobs.loaded(load.block) && output(load.block)?.let { it.count >= it.maxStackSize } == true }
@@ -209,6 +256,54 @@ object Furnaces {
     override fun cancel() {
       Jobs.remove(this)
     }
+
+    override fun snapshot(): JsonObject = buildJsonObject {
+      put("type", TYPE)
+      put("total", total); put("smelted", smelted); put("fuel", fuel); put("collected", collected); put("experience", experience); put("full", reportedFull)
+      to?.let { put("to", Jobs.encode(it)) }
+      put("chests", buildJsonArray { sources.chests.forEach { add(it) } })
+      put("ender", sources.ender)
+      put("loads", buildJsonArray {
+        loads.forEach { load ->
+          add(buildJsonObject {
+            put("at", Blocks.place(load.block)); put("item", id(load.item)); put("result", Slots.id(load.result)); put("result_count", load.result.count)
+            put("expected", load.expected); put("share", load.share); put("first", load.first)
+          })
+        }
+      })
+    }
+
+    override fun describe(): String = "smelting ${loads.map { id(it.item) }.distinct().joinToString()}: $smelted of $total done in ${loads.size} furnaces (" +
+      loads.joinToString("; ") { "${it.block.x} ${it.block.y} ${it.block.z}" } + ")" + (to?.let { ", output to ${Jobs.describe(it)}" } ?: "")
+  }
+
+  /** How a snapshot names a smelting job. */
+  const val TYPE = "smelt"
+
+  /**
+   * A smelting job from its snapshot, for [player] who came back: its furnaces as they stand now, read again once their
+   * chunks are loaded. Null when none of them is a furnace any more.
+   */
+  fun restore(task: Task, player: ServerPlayer, saved: JsonObject): Jobs.Lasting? {
+    val server = player.level().server
+    val loads = (saved["loads"] as? JsonArray).orEmpty().mapNotNull { entry ->
+      val load = entry as? JsonObject ?: return@mapNotNull null
+      val block = load.string("at")?.let { Blocks.at(server, it) }?.takeIf { Blocks.furnace(it.state) } ?: return@mapNotNull null
+      val item = load.string("item")?.let(::type) ?: return@mapNotNull null
+      val result = load.string("result")?.let(::type) ?: return@mapNotNull null
+      Load(block, item, ItemStack(result, load.int("result_count") ?: 1), load.int("expected") ?: 0, load.int("share") ?: 0).apply { first = load.int("first") ?: share }
+    }
+    if (loads.isEmpty()) return null
+    val chests = (saved["chests"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content }
+    val sources = Sources.at(player, chests, saved.bool("ender") == true)
+    val to = saved.string("to")?.let { Jobs.decodeSaved(server, it) }
+    val job = Job(task, player, loads, sources, saved.int("total") ?: 0, saved.string("fuel") ?: "coal", to)
+    job.smelted = saved.int("smelted") ?: 0
+    job.collected = saved.int("collected") ?: 0
+    job.experience = saved.int("experience") ?: 0
+    job.reportedFull = saved.bool("full") == true
+    Jobs.add(job)
+    return job
   }
 
   /**
@@ -366,7 +461,7 @@ object Furnaces {
             }
           }
           if (marks.isNotEmpty()) Marks.show(context.scheduler, player, marks, context.features.config().tools.marksSeconds)
-          val sources = Sources.around(player, settings.radius)
+          val sources = Sources.around(player, settings.radius, task.scope)
           val result = buildJsonObject {
             put("furnaces", rows)
             put("note", "green glow: free; red: busy or unusable; the player sees it")
@@ -433,7 +528,7 @@ object Furnaces {
     val named = Blocks.list(player, args["furnaces"], settings.radius).ifEmpty { automation.picking.picked(player, task) }
     val usable = named.ifEmpty { Blocks.near(player, settings.radius) { Blocks.furnace(it.state) } }
       .filter { Blocks.furnace(it.state) && Blocks.unusable(player, it, settings.radius, settings.lineOfSight) == null && free(it) }
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     // Items the player doesn't have are left out, so “all my iron” may name every iron ore there is.
     val missing = mutableListOf<String>()
     val counts = shares(asked, { item -> sources.free(plain(item), id(item), holds, task.id) }, missing).toMap()
@@ -514,6 +609,7 @@ object Furnaces {
       Load(block, item, result(recipes[block]!![item]!!, item), loadsInHand[index], share)
     }
     val job = Job(task, player, loads, sources, total, fuel, to)
+    job.synced += loads.map { it.block }
     automation.agent(task).job = job
     Jobs.add(job)
     Marks.show(context.scheduler, player, loads.map { Marks.Mark(it.block, null, "${it.share} × ${id(it.item).replace('_', ' ')}", Marks.Hue.ORANGE) }, context.features.config().tools.marksSeconds)
@@ -554,7 +650,7 @@ object Furnaces {
     val holds = automation.reservations
     val job = automation.agent(task).job as? Job ?: throw ToolError("no smelting running for this task; start one")
     if (!Jobs.active(job)) throw ToolError("the smelting already ended; start a new one")
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     val fuelType = type(job.fuel)!!
     // A refusal gives back only what this call reserved: a running job keeps its holds.
     val booking = Booking(holds, task.id)
@@ -636,7 +732,7 @@ object Furnaces {
       .filter { Blocks.furnace(it.state) && (types.isEmpty() || it.key in types) }
       .filter { block -> Blocks.unusable(player, block, settings.radius, settings.lineOfSight)?.let { skipped += "${spot(block)}: ${it.model}"; false } ?: true }
     if (around.isEmpty()) throw ToolError("no usable furnace near the player${if (types.isNotEmpty()) " of ${types.joinToString()}" else ""}${if (skipped.isNotEmpty()) "; ${skipped.joinToString("; ")}" else ""}")
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     val asked = args.string("fuel")?.let(::fuelName)
     val id = asked
       ?: around.mapNotNull { fuelIn(it)?.let(Slots::id) }.filter { Workshop.burnTicks(it) != null }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key

@@ -46,6 +46,8 @@ class Task(
   @Volatile var wakes = 0
   /** A wake is out at the backend now; what arrives meanwhile waits in [inbox]. */
   @Volatile var running = false
+  /** What the wake out now woke with, so a stop midway can tell the agent to read the world again. */
+  @Volatile var current: String? = null
 
   val inbox = ConcurrentLinkedDeque<String>()
 
@@ -60,6 +62,24 @@ class Task(
 
   /** No wake before this time (epoch milliseconds): a retry's backoff, which a message arriving meanwhile doesn't skip. */
   @Volatile var notBefore = 0L
+
+  /** Time spent working, which `automation.max_minutes` counts: a pause, a wait for items, or a lost backend doesn't. */
+  @Volatile var activeMs = 0L
+
+  /** Where it may take things from, as its player said. */
+  @Volatile var scope = SourceScope()
+
+  /** It waits for its player to bring items; it holds no slot meanwhile ([TaskBook]). */
+  @Volatile var parked: Parked? = null
+
+  /** The backend is out of reach: the wake waits for it, and the player heard so once. */
+  @Volatile var offline = false
+
+  /** What the backend reads as this agent's state with each wake, so it carries on even when its thread is gone. */
+  @Volatile var card: String? = null
+
+  /** How long the backend keeps this agent's thread, as epoch milliseconds: it may wait for items that long. */
+  @Volatile var keepUntil: Long? = null
 
   /** What its tools reported doing (crafted, smelted, moved), newest last, for the agent that started it. */
   private val results = ConcurrentLinkedQueue<String>()
@@ -107,6 +127,12 @@ class Task(
 
   fun results(): List<String> = results.toList()
 
+  /** What its tools reported, brought back from a snapshot. */
+  fun restore(reports: List<String>) {
+    results.clear()
+    reports.takeLast(MAX_RESULTS).forEach { results += it }
+  }
+
   /** The line the agent that started it wakes with: how it ended, and what its tools did, so it can act on it. */
   fun outcome(how: String): String = buildString {
     append("[sub-agent] «$name» (${kind.wire}, $id) $how")
@@ -144,7 +170,10 @@ class Task(
   }
 }
 
-/** Every running automation agent, by owner. A player has at most [maxTasks] at once, of all depths together. */
+/**
+ * Every running automation agent, by owner. A player has at most [maxTasks] at once, of all depths together; one that
+ * waits for its player to bring items ([Task.parked]) holds no slot meanwhile.
+ */
 class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String = ::taskId) {
   private val tasks = ConcurrentHashMap<UUID, MutableList<Task>>()
 
@@ -159,17 +188,37 @@ class TaskBook(private val maxTasks: () -> Int, private val newId: () -> String 
     val list = tasks.computeIfAbsent(owner) { mutableListOf() }
     synchronized(list) {
       list.removeIf(Task::done)
-      if (list.size >= maxTasks()) {
-        val mine = list.filter { parent != null && it.parent == parent }
+      val working = list.filter { it.parked == null }
+      if (working.size >= maxTasks()) {
+        val mine = working.filter { parent != null && it.parent == parent }
         if (mine.isNotEmpty()) {
           throw ToolError("the player may run ${maxTasks()} automations at once, and your sub-agent ${mine.joinToString { "«${it.name}» (${it.id})" }} still runs: wait for its [sub-agent] report, then start this one, or do this part yourself")
         }
-        throw ToolError("the player already has ${list.size} automations running, the most this server allows; wait for one to finish or cancel one")
+        throw ToolError("the player already has ${working.size} automations running, the most this server allows; wait for one to finish or cancel one")
       }
       val id = generateSequence(newId).first(issued::add)
       val clean = name.trim().take(40).ifEmpty { kind.wire }
       return Task(id, owner, clean, kind, depth, parent, brief, now).also { list += it }
     }
+  }
+
+  /**
+   * A task brought back from its snapshot under its old id, so its thread on the backend, its reservations, and its
+   * player's buttons still find it. It holds its slot as it did; a player already past the limit keeps it anyway.
+   */
+  fun adopt(task: Task): Task {
+    issued += task.id
+    val list = tasks.computeIfAbsent(task.owner) { mutableListOf() }
+    synchronized(list) {
+      list.removeIf { it.done || it.id == task.id }
+      list += task
+    }
+    return task
+  }
+
+  /** Takes [task] out without ending it: its player left or the server stops, and its snapshot brings it back. */
+  fun detach(task: Task) {
+    tasks[task.owner]?.let { list -> synchronized(list) { list.remove(task) } }
   }
 
   /** The owner's running tasks, oldest first. */
@@ -235,5 +284,14 @@ class Reservations {
 
   fun release(task: String) {
     holds.removeIf { it.task == task }
+  }
+
+  /** What [task] holds, for its snapshot. */
+  fun export(task: String): List<HeldItems> = holds.filter { it.task == task }.map { HeldItems(it.place, it.item, it.count) }
+
+  /** What [task] held before it stopped, back again. */
+  fun restore(task: String, held: List<HeldItems>) {
+    release(task)
+    held.forEach { reserve(task, it.place, it.item, it.count) }
   }
 }

@@ -74,7 +74,7 @@ object GrindstoneWork {
         (0..40).mapNotNull { index -> inventory.getItem(index).takeIf { !it.isEmpty && it.item == named }?.let { index to it.copy() } }
           .maxByOrNull { (_, item) -> enchantments(item).sumOf { it.second } } ?: throw ToolError("the player has no ${chat.allay.modcore.tools.Recipes.id(named)}")
       }
-      val second = if (!combine) null else second(player, settings.radius, slot, target)
+      val second = if (!combine) null else second(player, settings.radius, task.scope, slot, target)
       // Unbreakable gear has no durability to join, as the game's grindstone sees it.
       if (combine && !target.isDamageableItem) throw ToolError("${Slots.id(target)} has no durability to join: it never wears or is unbreakable; a grindstone joins only tools, weapons, and armor")
       if (combine && second == null) throw ToolError("no second ${Slots.id(target)} at hand (inventory, bundles, ender chest, chests near)")
@@ -141,9 +141,9 @@ object GrindstoneWork {
    * The second piece to join [target] with: one of the same item anywhere the player may take from, but never [target]
    * itself. The one that loses least comes first: fewest enchantment levels, then the most durability left.
    */
-  private fun second(player: ServerPlayer, radius: Int, slot: Int, target: ItemStack): Second? {
+  private fun second(player: ServerPlayer, radius: Int, scope: chat.allay.core.tasks.SourceScope, slot: Int, target: ItemStack): Second? {
     var skipped = false
-    return Sources.around(player, radius).list.flatMap { source ->
+    return Sources.around(player, radius, scope).list.flatMap { source ->
       source.slots().filterNotNull().filter { stack ->
         if (stack.isEmpty || stack.item != target.item) return@filter false
         if (!skipped && slot in 0..35 && source.own && source.block == null && !source.place.contains('#') && Slots.similar(stack, target)) {

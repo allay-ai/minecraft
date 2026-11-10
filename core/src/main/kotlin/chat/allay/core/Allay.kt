@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tasks.AgentStore
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.Books
@@ -180,13 +181,18 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     // load() makes a new Consents each time, so the agents ask for the one of the moment.
     game.agents?.consents = { consents }
     game.agents?.usage = usage
+    // /allay reload makes a new Service, so the store asks for the one of the moment.
+    game.agents?.store = AgentStore({ service }, serverId, scope, log)
     game.start()
     load()
     // Expansions registered before Allay started join now; the platform finds the rest in plugins and mods.
     AllayExpansions.bind(expansions)
     data.start()
     // After a reload of the plugin, players already online get their state too.
-    platform.players.forEach { data.join(it.uuid) }
+    platform.players.forEach { player ->
+      data.join(player.uuid)
+      game.agents?.joined(player)
+    }
     log.info("Allay ${platform.version} is on")
   }
 
@@ -255,6 +261,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   /** Players' state comes from the backend when they join and goes back when they leave, after every other listener. */
   fun joined(player: PlayerAudience) {
     data.join(player.uuid)
+    game.agents?.joined(player)
   }
 
   fun quit(player: UUID) {

@@ -283,9 +283,11 @@ automation:
   crafting:
     enabled: true
   max_tasks: 2                # Agents one player may run at once, the agents they start included (1–8)
-  max_minutes: 30             # An agent stops after this long
+  max_minutes: 30             # An agent stops after working this long; pauses, waits for items, and restarts don't count
   max_wakes: 40               # Each wake is one request to the model; this bounds what an agent costs
   max_wait_seconds: 600       # The longest an agent may sleep before it looks again (10–3600; a wait is at least 10 s)
+  remind_minutes: 10          # An agent waiting for items tells its player this often that it still waits (1–120)
+  park_hours: 24              # How long an agent waits for items, or for a lost Allay server, before it gives up (1–168)
   radius: 32                  # How far furnaces, stands, crafting tables, and chests to take from may be (4–52)
   pause_distance: 64          # An agent pauses while its player is farther than this from where it started
   # A furnace, brewing stand, or crafting table counts only when no wall of opaque blocks

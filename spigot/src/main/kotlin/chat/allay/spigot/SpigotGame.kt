@@ -56,6 +56,10 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     clicks = { allay.clicks },
   )
 
+  init {
+    automation.catalog = { chat.allay.spigot.tools.Catalogs.build(features.expansions, features.names()) }
+  }
+
   override fun tools() = Tools.all()
 
   override fun names(locale: String) = chat.allay.spigot.tools.Catalogs.names(locale)

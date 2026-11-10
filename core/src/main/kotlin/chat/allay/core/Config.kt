@@ -158,6 +158,10 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     /** Wakes one agent may use: each is a request to the model, so this bounds what a task costs. */
     val maxWakes = config.int("automation.max_wakes", 40).coerceIn(2, 200)
     val maxWaitSeconds = config.int("automation.max_wait_seconds", 600).coerceIn(10, 3600)
+    /** How often an agent waiting for items tells its player it still waits. */
+    val remindMinutes = config.int("automation.remind_minutes", 10).coerceIn(1, 120)
+    /** How long an agent waits for items, or for a lost backend, before it gives up. */
+    val parkHours = config.int("automation.park_hours", 24).coerceIn(1, 168)
     /** How far from the player furnaces, brewing stands, crafting tables, and chests to take from may be. */
     val radius = config.int("automation.radius", 32).coerceIn(4, 52)
     /** An agent pauses while its player is farther than this from where it started, or in another dimension. */

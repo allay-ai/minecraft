@@ -1,11 +1,13 @@
 package chat.allay.modcore.gametest
 
+import chat.allay.core.tasks.AgentStore
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.ToolOutput
+import chat.allay.modcore.Mod
 import chat.allay.modcore.ModPlayer
 import chat.allay.modcore.automation.Chests
 import chat.allay.modcore.automation.Undo
@@ -865,5 +867,82 @@ class AutomationGameTests {
     equal(helper, (9..11).count { ItemStack.matches(player.inventory.getItem(it), drink) }, 3, "the drinks stay where they were")
     done(player, task)
     helper.succeed()
+  }
+
+  /** A backend that keeps agents in memory, as allay.chat would between a player's visits. */
+  private class Kept : AgentStore.Backend {
+    val agents = java.util.concurrent.ConcurrentHashMap<String, List<JsonObject>>()
+    override suspend fun agents(userId: String, serverId: String) = agents[userId].orEmpty()
+    override suspend fun saveAgents(userId: String, serverId: String, agents: List<JsonObject>) {
+      this.agents[userId] = agents
+    }
+  }
+
+  /** The agents keep their snapshots in [backend] for this test, and go back to the real store after it. */
+  private fun keeping(backend: Kept): AgentStore? {
+    val agents = Players.features.automation.agents
+    val before = agents.store
+    agents.store = AgentStore({ backend }, "gametest", kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined), java.util.logging.Logger.getLogger("allay-gametest"), debounceMs = 0)
+    return before
+  }
+
+  @GameTest(padding = 48, maxTicks = 900)
+  fun aSmeltingAgentLeavesWithItsPlayerAndComesBackWithItsJob(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val audience = ModPlayer(player)
+    Mod.allay!!.consented.add(player.uuid)
+    val backend = Kept()
+    val before = keeping(backend)
+    val automation = Players.features.automation
+    val task = agent(player, Kind.FURNACES)
+    task.running = false
+    val furnace = helper.absolutePos(BlockPos(3, 2, 1))
+    helper.level.setBlockAndUpdate(furnace, Blocks.FURNACE.defaultBlockState())
+    player.inventory.setItem(9, ItemStack(Items.RAW_IRON, 3))
+    player.inventory.setItem(10, ItemStack(Items.COAL, 1))
+    run(player, task, "smelt", buildJsonObject {
+      put("action", "start")
+      put("item", "raw_iron")
+      put("furnaces", spots(furnace))
+      put("to", "inventory")
+    })
+    automation.agents.quit(audience)
+    helper.assertTrue(automation.book.of(player.uuid).isEmpty(), "the agent left with its player")
+    val saved = backend.agents[player.uuid.toString()].orEmpty()
+    equal(helper, saved.size, 1, "one agent kept: $saved")
+    equal(helper, saved[0]["job"]?.jsonObject?.get("type")?.jsonPrimitive?.content, "smelt", "its job goes with it")
+    // The furnace smelts on without anyone watching; then the player is back.
+    helper.runAfterDelay(250) { automation.agents.joined(audience) }
+    helper.succeedWhen {
+      val back = automation.book.find(player.uuid, task.id)
+      helper.assertTrue(back != null, "the agent is back under its id")
+      helper.assertTrue(back!!.inbox.any { "smelting done" in it }, "what smelted meanwhile counts, and the job ends: ${back.inbox}")
+      equal(helper, carried(player, Items.IRON_INGOT), 3, "every ingot reaches the inventory")
+      automation.agents.store = before
+      done(player, back)
+    }
+  }
+
+  @GameTest(padding = 48, maxTicks = 400)
+  fun anAgentWaitsForItemsWithoutASlotAndGoesOnOnceTheyreHere(helper: GameTestHelper) {
+    val player = survivor(helper)
+    val automation = Players.features.automation
+    val task = agent(player, Kind.CRAFTING)
+    val waiting = run(player, task, "wait_for_items", buildJsonObject {
+      putJsonArray("items") { add(buildJsonObject { put("item", "oak_log"); put("count", 10) }) }
+      put("note", "for the planks")
+    }).result.jsonObject
+    equal(helper, waiting["missing"]?.jsonArray?.single()?.jsonObject?.get("missing")?.jsonPrimitive?.int, 10, "ten logs missing: $waiting")
+    helper.assertTrue(task.parked != null, "the agent waits")
+    equal(helper, refused { run(player, task, "wait_for_items", buildJsonObject { putJsonArray("items") { add(buildJsonObject { put("item", "no_such_item"); put("count", 1) }) } }) }?.contains("isn't an item"), true, "an unknown item")
+    // Waiting, it holds no slot: the player may start as many others as the limit allows.
+    repeat(automation.settings().maxTasks) { automation.book.start(player.uuid, Kind.CHESTS, "other $it", "", 1, null) }
+    player.inventory.setItem(9, ItemStack(Items.OAK_LOG, 10))
+    helper.succeedWhen {
+      helper.assertTrue(task.parked == null, "the logs end the wait")
+      helper.assertTrue(task.inbox.any { "the items you waited for are here" in it }, "the agent wakes with the news: ${task.inbox}")
+      automation.book.of(player.uuid).forEach { automation.end(it, null) }
+      player.discard()
+    }
   }
 }

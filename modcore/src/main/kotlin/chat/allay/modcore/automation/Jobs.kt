@@ -5,6 +5,7 @@ import chat.allay.core.Scheduler
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.ToolError
+import chat.allay.core.tools.string
 import chat.allay.modcore.Hooks
 import chat.allay.modcore.tools.BlockAt
 import chat.allay.modcore.tools.Tool
@@ -13,6 +14,7 @@ import chat.allay.modcore.tools.at
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import net.minecraft.core.BlockPos
@@ -37,6 +39,26 @@ object Jobs {
     fun brewed(block: BlockAt) {}
     /** Every second: does the world still look the way the job left it? */
     fun check() {}
+  }
+
+  /** A job that comes back after its player left or the server stopped (since 6.35): it goes into the agent's snapshot. */
+  interface Lasting : BlockJob {
+    fun snapshot(): JsonObject
+
+    /** What it does now, for the agent's state card. */
+    fun describe(): String
+  }
+
+  /** A job from its snapshot, by the type it saved. */
+  fun restore(task: Task, player: ServerPlayer, saved: JsonObject): Lasting? = when (saved.string("type")) {
+    Furnaces.TYPE -> Furnaces.restore(task, player, saved)
+    Stands.TYPE -> Stands.restore(task, player, saved)
+    else -> null
+  }
+
+  /** Lets [job] go without undoing anything: the furnaces and stands keep what's in them, and the game carries on. */
+  fun detach(job: chat.allay.core.tasks.Agents.Job) {
+    if (job is BlockJob) remove(job)
   }
 
   private val running = mutableListOf<BlockJob>()
@@ -149,10 +171,18 @@ object Jobs {
   /** The output the player chose for [kind], as a tool result shows it, or null. */
   fun saved(player: ServerPlayer, kind: Kind, settings: PlayerSettings): String? = settings.of(player.uuid).outputs[kind.wire]
 
-  private fun encode(output: Output): String = when (output) {
+  fun encode(output: Output): String = when (output) {
     Output.Inventory -> "inventory"
     Output.Auto -> "auto"
     is Output.Chests -> "chests:" + output.blocks.joinToString(";") { "${Worlds.name(it.level)}:${it.x},${it.y},${it.z}" }
+  }
+
+  /** An output a job saved; its chests are asked again as it delivers, so nothing here checks how far they are. */
+  fun decodeSaved(server: net.minecraft.server.MinecraftServer, text: String): Output? = when {
+    text == "inventory" -> Output.Inventory
+    text == "auto" -> Output.Auto
+    text.startsWith("chests:") -> text.removePrefix("chests:").split(';').mapNotNull { Blocks.at(server, it) }.ifEmpty { null }?.let(Output::Chests)
+    else -> null
   }
 
   /** A saved output, or null when its chests are in another world now, gone, or out of reach. */

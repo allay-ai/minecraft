@@ -50,6 +50,13 @@ object Blocks {
   /** A container's address for reservations and plans: `world:x,y,z`. */
   fun place(block: BlockAt) = "${Worlds.name(block.level)}:${block.x},${block.y},${block.z}"
 
+  /** The block a [place] names on [server], or null when its world is gone. */
+  fun at(server: net.minecraft.server.MinecraftServer, place: String): BlockAt? {
+    val level = server.allLevels.firstOrNull { Worlds.name(it) == place.substringBeforeLast(':') } ?: return null
+    val (x, y, z) = place.substringAfterLast(':').split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } ?: return null
+    return level.at(x, y, z)
+  }
+
   fun inventory(player: ServerPlayer) = "inventory:${player.uuid}"
 
   /** Chests, barrels, copper chests at every stage, and placed shulker boxes. */

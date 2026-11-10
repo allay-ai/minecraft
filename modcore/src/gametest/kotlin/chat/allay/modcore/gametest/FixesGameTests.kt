@@ -108,7 +108,7 @@ class FixesGameTests {
   fun sourcesTakeFromThePlayerAfterARespawn(helper: GameTestHelper) {
     val player = survivor(helper)
     player.inventory.setItem(9, ItemStack(Items.COBBLESTONE, 10))
-    val sources = Sources.around(player, 4)
+    val sources = Sources.around(player, 4, chat.allay.core.tasks.SourceScope())
     val fresh = respawn(player)
     val taken = sources.list.first().take({ it.`is`(Items.COBBLESTONE) }, 4)
     equal(helper, taken.sumOf { it.count }, 4, "taken")

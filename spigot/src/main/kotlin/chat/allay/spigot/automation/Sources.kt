@@ -1,6 +1,7 @@
 package chat.allay.spigot.automation
 
 import chat.allay.core.tasks.Reservations
+import chat.allay.core.tasks.SourceScope
 import chat.allay.spigot.Claims
 
 import org.bukkit.Material
@@ -12,9 +13,10 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.BundleMeta
 
 /**
- * Where automation takes ingredients from: the player's inventory, the ender chest when one stands near, and chests and
- * barrels nearby the player may open, each with the bundles it holds (bundles inside bundles too, as deep as the game
- * nests them). Never shulker boxes, and never items with a name, enchantments, or anything else of their own. Server thread only.
+ * Where automation takes ingredients from: the player's inventory, their ender chest when they allowed it and one stands
+ * near, and chests and barrels nearby the player may open (or only those they picked), each with the bundles it holds
+ * (bundles inside bundles too, as deep as the game nests them). Never shulker boxes, and never items with a name,
+ * enchantments, or anything else of their own. Server thread only.
  */
 class Sources private constructor(val list: List<Source>, private val dropped: List<Source> = emptyList()) {
   /**
@@ -72,6 +74,12 @@ class Sources private constructor(val list: List<Source>, private val dropped: L
   }
 
   fun count(match: (ItemStack) -> Boolean) = list.sumOf { it.count(match) }
+
+  /** The chests these places are, as `world:x,y,z`, for a job's snapshot. */
+  val chests: List<String> get() = list.mapNotNull { it.chest }.distinct().map(Blocks::place)
+
+  /** Whether the player's ender chest is one of them. */
+  val ender: Boolean get() = list.any { it.place.startsWith("ender:") }
 
   /**
    * These places as they are now for [player], for a job that takes what it reserved long after its start: a chest
@@ -148,23 +156,37 @@ class Sources private constructor(val list: List<Source>, private val dropped: L
       item.isSimilar(ItemStack(item.type))
 
     /**
-     * The places around [player] within [radius], the inventory and its bundles first. The inventory is asked of the
-     * player at each use: a respawn gives them a new one, and with keepInventory it holds the same stacks, so a job
-     * refilling from the old one would hand out items twice.
+     * The places around [player] within [radius] that [scope] allows, the inventory and its bundles first. The inventory
+     * is asked of the player at each use: a respawn gives them a new one, and with keepInventory it holds the same
+     * stacks, so a job refilling from the old one would hand out items twice.
      */
-    fun around(player: Player, radius: Int): Sources {
+    fun around(player: Player, radius: Int, scope: SourceScope): Sources {
+      val picked = scope.chests?.toSet()
+      val chests = Blocks.near(player.location, radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct().filter { picked == null || Blocks.place(it) in picked }
+      return of(player, chests, scope.ender_chest && enderNear(player, radius))
+    }
+
+    /**
+     * The places a job counted on before it stopped, as the world has them now: the inventory, the ender chest when
+     * [ender], and [places] (`world:x,y,z`) that are still chests. A job checks each again as it takes ([now]).
+     */
+    fun at(player: Player, places: List<String>, ender: Boolean): Sources =
+      of(player, places.mapNotNull(Blocks::at).filter { Blocks.storage(it.type) }.map(Blocks::root).distinct(), ender)
+
+    /** The inventory, the ender chest when [ender], and [chests] the player may open, each with its bundles. */
+    private fun of(player: Player, chests: List<Block>, ender: Boolean): Sources {
       val list = mutableListOf<Source>()
       list += Source(Blocks.inventory(player), true, null, { player.inventory.storageContents.toList() }, { player.inventory.storageContents = it.toTypedArray() })
       for (slot in 0 until 36) bundles(list, "${Blocks.inventory(player)}#$slot", 1, true, { player.inventory.getItem(slot) }, { player.inventory.setItem(slot, it) })
-      if (enderNear(player, radius)) {
+      if (ender) {
         val place = "ender:${player.uniqueId}"
         list += Source(place, true, null, { player.enderChest.contents.toList() }, { player.enderChest.contents = it.toTypedArray() })
         for (slot in 0 until player.enderChest.size) bundles(list, "$place#$slot", 1, true, { player.enderChest.getItem(slot) }, { player.enderChest.setItem(slot, it) })
       }
-      Blocks.near(player.location, radius) { Blocks.storage(it.type) }.map(Blocks::root).distinct().forEach { block ->
+      chests.forEach { block ->
         val state = block.state as? Container ?: return@forEach
         // A farm's output or a sorter's chest (a hopper on it) stays out, as it does for sorting.
-        if (state !is Container || Blocks.unsuitable(player, block) != null) return@forEach
+        if (Blocks.unsuitable(player, block) != null) return@forEach
         list += Source(Blocks.place(block), false, block, { (block.state as? Container)?.inventory?.contents?.toList().orEmpty() }, { items -> (block.state as? Container)?.inventory?.contents = items.toTypedArray() })
         for (slot in 0 until state.inventory.size) {
           bundles(list, "${Blocks.place(block)}#$slot", 1, false, { (block.state as? Container)?.inventory?.getItem(slot) }, { item -> (block.state as? Container)?.inventory?.setItem(slot, item) }, block)

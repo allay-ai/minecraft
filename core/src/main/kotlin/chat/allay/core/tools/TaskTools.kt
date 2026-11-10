@@ -4,12 +4,18 @@ import chat.allay.core.Legacy
 import chat.allay.core.PlayerAudience
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Need
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tasks.Task
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 /**
  * Tools that start and steer automation agents. The main chat starts them and passes the player's words on; an agent
@@ -90,7 +96,62 @@ object TaskTools {
     ToolOutput(buildJsonObject { put("finished", true); put("note", "end this wake now with a one-line note") }, "")
   }
 
-  val all = listOf(start, message, cancel, say, wait, finish)
+  /**
+   * `wait_for_items`: the agent can't go on until its player brings things only they can get (mined, found, traded).
+   * It parks: it holds no slot, its time stands still, and it goes on by itself once the sources hold them.
+   */
+  private val waitForItems = tool("wait_for_items") { context, player, automation, args ->
+    val task = context.requireTask()
+    val asked = (args["items"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.take(MAX_NEEDS)
+      ?: throw ToolError("items is required: [{\"item\": \"oak_log\", \"count\": 10}], everything the job needs in all")
+    if (asked.isEmpty()) throw ToolError("items is empty: name what the player has to bring")
+    val needs = asked.map { entry ->
+      val name = entry.string("item")?.trim()?.ifEmpty { null } ?: throw ToolError("each item needs item: its id, like oak_log")
+      val count = entry.int("count")?.takeIf { it in 1..MAX_COUNT } ?: throw ToolError("$name needs a count of 1–$MAX_COUNT: how many the job needs in all, not how many are missing")
+      Need(automation.resolve(name) ?: throw ToolError("$name isn't an item this server has; search_items finds its id"), count)
+    }.groupBy { it.item }.map { (item, same) -> Need(item, same.sumOf { it.count }) }
+    if (!automation.park(task, player, needs, args.string("note"))) {
+      throw ToolError("the sources hold all of it already: go on with the job")
+    }
+    val have = automation.count(task, player, needs)
+    val hours = context.services.config().automation.parkHours
+    ToolOutput(buildJsonObject {
+      put("waiting", true)
+      putJsonArray("missing") {
+        needs.forEach { need ->
+          val short = need.count - (have[need.item] ?: 0)
+          if (short > 0) add(buildJsonObject { put("item", need.item); put("missing", short) })
+        }
+      }
+      put("gives_up_in_hours", hours)
+      put("note", "end this wake now with a one-line note: you wake once it's all there, or when the player writes")
+    }, context.lang.text("summary.waiting_for_items"))
+  }
+
+  /** `sources`: where the agent may take things from, as its player says: the ender chest only when allowed, all chests or the picked ones. */
+  private val sources = tool("sources") { context, player, automation, args ->
+    val task = context.requireTask()
+    val ender = args.bool("ender_chest") ?: task.scope.ender_chest
+    val chests = when (val wanted = (args["chests"] as? JsonPrimitive)?.content?.trim()?.lowercase()) {
+      null -> task.scope.chests
+      "all" -> null
+      "picked" -> automation.picked(task, player).ifEmpty { throw ToolError("the player picked no chests for you yet: start picking with pick_blocks, then call sources again") }
+      else -> throw ToolError("chests is \"all\" or \"picked\", not $wanted")
+    }
+    task.scope = SourceScope(ender, chests)
+    automation.changed(task)
+    ToolOutput(buildJsonObject {
+      put("inventory", true)
+      put("ender_chest", ender)
+      if (chests == null) put("chests", "all around that the player may open") else put("chests", buildJsonArray { chests.forEach { add(it) } })
+    }, context.lang.text("summary.sources_set"))
+  }
+
+  val all = listOf(start, message, cancel, say, wait, finish, waitForItems, sources)
+
+  /** Kinds of items one wait may name. */
+  private const val MAX_NEEDS = 16
+  private const val MAX_COUNT = 100_000
 
   /** The shortest `wait` with seconds, as the backend's schema says too. */
   const val MIN_WAIT_SECONDS = 10

@@ -48,6 +48,10 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
     clicks = { allay.clicks },
   )
 
+  init {
+    automation.catalog = { chat.allay.modcore.tools.Catalogs.build(server, features.expansions, features.names()) }
+  }
+
   override fun tools() = Tools.all()
   override fun context(run: Run) = ToolContext(run.audience, features, run.buttons, run.task, run.others)
   override val buttons = GameClicks(features)

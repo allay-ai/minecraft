@@ -69,7 +69,7 @@ class Service<C>(
   private val fullPrivacy: (java.util.UUID) -> Boolean = { false },
   /** Other plugins' and mods' expansions: their prompt lines go with every question, their tools with the runs that offer them. */
   private val expansions: Expansions? = null,
-) : Consents.Backend, PlayerData.Backend {
+) : Consents.Backend, PlayerData.Backend, chat.allay.core.tasks.AgentStore.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
   @Serializable data class AskXRequest(val action: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
@@ -267,7 +267,7 @@ class Service<C>(
       // An automation agent never gets operator tools, whoever started it.
       tools = tools.offered(isOperator(asker) && run.task == null),
       provider = credentials.block(run.model),
-      task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire) },
+      task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire, it.card, it.keepUntil) },
       tasks = when (run.mode) {
         Run.Mode.ASK -> tasks(run, taskLimit).takeIf { it.isNotEmpty() }
         // An agent sees its own running sub-agents, so it never claims one works after it ended.
@@ -456,6 +456,19 @@ class Service<C>(
 
   override suspend fun saveState(userId: String, state: PlayerState) = withContext(IO) {
     send("/api/v2/users/${path(userId)}/state", "PUT", json.encodeToString(PlayerState.serializer(), state))
+    Unit
+  }
+
+  @Serializable private data class AgentsAnswer(val agents: List<JsonObject> = emptyList())
+  @Serializable private data class AgentsBody(val server_id: String, val agents: List<JsonObject>)
+
+  /** A player's automation agents on this server (backend 6.31), to bring them back after a rejoin or a restart. */
+  override suspend fun agents(userId: String, serverId: String): List<JsonObject> = withContext(IO) {
+    json.decodeFromString<AgentsAnswer>(send("/api/v2/users/${path(userId)}/agents?server_id=${path(serverId)}", "GET")).agents
+  }
+
+  override suspend fun saveAgents(userId: String, serverId: String, agents: List<JsonObject>) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/agents", "PUT", json.encodeToString(AgentsBody.serializer(), AgentsBody(serverId, agents)))
     Unit
   }
 

@@ -6,7 +6,9 @@ import chat.allay.core.tools.ToolError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
@@ -14,8 +16,10 @@ import kotlin.math.sqrt
 /**
  * Automation agents on any platform. Each one runs in wakes: [post] puts what woke it into its inbox, and when no wake
  * is out, the next one starts as a backend run in mode "task". Between wakes nothing is open and nothing costs. An
- * agent pauses while its player is away from where it started, and stops when they leave, on its time limit, on
- * `/allay cancel`, or when something gets in the way of its job. What an agent does in the world is the platform's.
+ * agent pauses while its player is away from where it started, waits for items its player brings ([Parked]), and
+ * waits out a lost backend. It stops on its time limit, on `/allay cancel`, or when something gets in the way of its
+ * job. When its player leaves or the server stops, it isn't stopped: its snapshot goes to the backend ([AgentStore])
+ * and it comes back when they join again (since 6.35). What an agent does in the world is the platform's.
  */
 class Agents(
   private val platform: Platform,
@@ -37,6 +41,33 @@ class Agents(
 
     /** Whether [job] still runs in the world: a furnace load, a brew. */
     fun active(job: Job): Boolean
+
+    /** [job] as data for the agent's snapshot; null when it can't come back after a restart. */
+    fun snapshot(job: Job): JsonObject? = null
+
+    /**
+     * [job] from its snapshot, against the world as it is now: what the game did meanwhile counts, and news of it goes
+     * to the agent by itself. Null when nothing of it is left to watch.
+     */
+    fun restore(task: Task, player: PlayerAudience, job: JsonObject): Job? = null
+
+    /** Lets [job] go without undoing anything: its player left or the server stops, and the game carries on with it. */
+    fun detach(job: Job) = job.cancel()
+
+    /** A line on what [job] does now, for the agent's state card. */
+    fun describe(job: Job): String? = null
+
+    /** How many of each needed item the agent's sources hold now for [player], by [Need.item]. */
+    fun count(task: Task, player: PlayerAudience, needs: List<Need>): Map<String, Int> = emptyMap()
+
+    /** [item] as the catalog names it, or null for nothing this server has. */
+    fun resolve(item: String): String? = item
+
+    /** [item] as [player] reads it, in their language. */
+    fun itemName(player: PlayerAudience, item: String): String = item
+
+    /** The chests the player picked for [task] right now, as `world:x,y,z`. */
+    fun picked(task: Task, player: PlayerAudience): List<String> = emptyList()
   }
 
   /** Something an agent left running in the world: a furnace load, a brew. */
@@ -47,6 +78,12 @@ class Agents(
   /** What Allay keeps about one agent beside its [Task]: where it started, what it picked, and its job. */
   class Agent(val task: Task, val anchor: Protocol.Position) {
     @Volatile var paused = false
+    /** When the last tick counted its working time. */
+    @Volatile var ticked = 0L
+    /** When it last counted what its player brought, while it waits for items. */
+    @Volatile var counted = 0L
+    /** When its wakes started failing for a lost backend; 0 while the backend answers. */
+    @Volatile var offlineSince = 0L
     /** Showed buttons or a picking mode during this wake: it waits for the player. */
     @Volatile var asked = false
     /** The last line it said to the player during this wake, without color codes. */
@@ -65,6 +102,9 @@ class Agents(
 
   /** Counts what each wake spends, set by [Allay] like [consents]. */
   @Volatile var usage: Usage? = null
+
+  /** Where the agents wait for their players between runs, set by [Allay]; without it they end with the run, as before 6.35. */
+  @Volatile var store: AgentStore? = null
 
   val book = TaskBook({ config().automation.maxTasks })
   val reservations = Reservations()
@@ -90,11 +130,24 @@ class Agents(
     ticker = platform.scheduler.every(20L, 20L, block = ::tick)
   }
 
-  /** Shutdown, a disable, or a reload: owners still online hear why their agents stopped; nothing is kept for later. */
+  /**
+   * Shutdown, a disable, or a reload: every agent goes to the backend as it is and comes back when its player joins
+   * again; owners still online hear so. Without a store they end, as before 6.35.
+   */
   fun stop() {
     ticker?.close()
+    val store = store
+    if (store == null) {
+      stopping = true
+      book.all().forEach { task -> end(task, platform.player(task.owner)?.let { locales.of(it).text("automation.server_stopping") }) }
+      return
+    }
+    book.all().map { it.owner }.distinct().forEach { owner ->
+      platform.player(owner)?.let { player -> book.of(owner).forEach { line(player, it, "automation.server_pausing") } }
+      suspend(owner)
+    }
     stopping = true
-    book.all().forEach { task -> end(task, platform.player(task.owner)?.let { locales.of(it).text("automation.server_stopping") }) }
+    store.stop(SHUTDOWN_MS)
   }
 
   /**
@@ -129,6 +182,8 @@ class Agents(
     allowed(player, kind)?.let { throw ToolError(it) }
     unknown[kind]?.takeIf { System.currentTimeMillis() - it < UNKNOWN_MS }?.let { throw ToolError(unknownKind(kind)) }
     val task = book.start(player.uuid, kind, name, brief.take(2000), (parent?.depth ?: 0) + 1, parent?.id)
+    // A sub-agent takes from where its parent may.
+    parent?.let { task.scope = it.scope }
     agents[key(task)] = Agent(task, player.position)
     say(player, task, locales.of(player).text("automation.started"))
     platform.log.info("⚙️ Automation agent ${task.name} (${task.kind.wire}) started for ${player.name}")
@@ -140,7 +195,10 @@ class Agents(
   fun post(task: Task, message: String) {
     if (task.done || stopping) return
     task.inbox += message
-    onMain { wake(task) }
+    onMain {
+      wake(task)
+      persist(task.owner)
+    }
   }
 
   /** A button under one of the agent's questions. */
@@ -178,6 +236,7 @@ class Agents(
     if (!byParent) tellParent(task, note)
     // An agent's sub-agents go with it.
     book.of(task.owner).filter { it.parent == task.id }.forEach { close(it, reason, note) }
+    persist(task.owner)
   }
 
   /** Stops [task] because someone took what it held or touched its blocks; the player hears what happened. */
@@ -197,6 +256,7 @@ class Agents(
     world.stopPicking(player, task)
     tellParent(task, "finished: $summary")
     // Its sub-agents carry on: `finish` lets an agent go while they run only with handoff, when they own the rest.
+    persist(player.uuid)
   }
 
   /**
@@ -233,10 +293,101 @@ class Agents(
     return tasks.isNotEmpty()
   }
 
-  /** The player left: their agents end quietly, and their picks go. */
+  /**
+   * The player left: their agents wait for them on the backend, jobs and all, and their picks go. Without a store they
+   * end quietly, as before 6.35.
+   */
   fun quit(player: PlayerAudience) {
-    book.of(player.uuid).forEach { end(it, null) }
     world.stopPicking(player, null)
+    val store = store ?: return book.of(player.uuid).forEach { end(it, null) }
+    suspend(player.uuid)
+    store.flush(player.uuid)
+  }
+
+  /**
+   * The player joined: the agents they had on this server come back from the backend as they were, their jobs against
+   * the world as it is now. One that was mid-wake reads the world again first.
+   */
+  fun joined(player: PlayerAudience) {
+    val store = store ?: return
+    if (book.of(player.uuid).isNotEmpty()) return
+    // Nothing about a player reaches the backend before they agree; only someone who agreed ever had agents.
+    if (consents?.invoke()?.listed(player.uuid) != true) return
+    scope.launch {
+      val snapshots = store.load(player.uuid)?.ifEmpty { null } ?: return@launch
+      onMain { restore(player, snapshots) }
+    }
+  }
+
+  /** [owner]'s agents leave this run without ending: each one's snapshot goes to the backend, its job goes on in the world. */
+  private fun suspend(owner: UUID) {
+    val tasks = book.of(owner)
+    if (tasks.isEmpty()) return
+    store?.save(owner, tasks.mapNotNull(::snapshot))
+    for (task in tasks) {
+      val agent = agents.remove(key(task)) ?: continue
+      agent.run?.cancel()
+      agent.job?.let(world::detach)
+      reservations.release(task.id)
+      book.detach(task)
+    }
+  }
+
+  /** What's kept of [task] until it comes back. */
+  private fun snapshot(task: Task): JsonObject? {
+    val agent = agents[key(task)] ?: return null
+    val snapshot = AgentSnapshot(
+      id = task.id, name = task.name, kind = task.kind.wire, depth = task.depth, parent = task.parent, brief = task.brief,
+      started_at = task.startedAt, active_ms = task.activeMs, wakes = task.wakes, state = task.state.wire, question = task.question,
+      wake_at = task.wakeAt, inbox = task.inbox.toList(), results = task.results(), anchor = agent.anchor, scope = task.scope,
+      parked = task.parked, held = reservations.export(task.id), job = agent.job?.let(world::snapshot),
+      broke = task.current?.takeIf { task.running },
+    )
+    return SNAPSHOTS.encodeToJsonElement(AgentSnapshot.serializer(), snapshot).jsonObject
+  }
+
+  /** Sends [owner]'s agents as they are now, a moment later; a burst of changes goes as one. */
+  private fun persist(owner: UUID) {
+    val store = store ?: return
+    if (stopping) return
+    store.save(owner, book.of(owner).mapNotNull(::snapshot))
+  }
+
+  /** Brings [player]'s agents back from [snapshots]: parents first, each with its job, its holds, and its place. */
+  private fun restore(player: PlayerAudience, snapshots: List<JsonObject>) {
+    if (platform.player(player.uuid) == null || book.of(player.uuid).isNotEmpty()) return
+    val read = snapshots.mapNotNull { runCatching { SNAPSHOTS.decodeFromJsonElement(AgentSnapshot.serializer(), it) }.getOrNull() }.sortedBy { it.depth }
+    for (snapshot in read) {
+      val kind = Kind.entries.firstOrNull { it.wire == snapshot.kind } ?: continue
+      // An admin may have switched the kind off or taken the permission away meanwhile.
+      if (allowed(player, kind) != null) continue
+      if (snapshot.parent != null && book.find(player.uuid, snapshot.parent) == null) continue
+      val task = Task(snapshot.id, player.uuid, snapshot.name, kind, snapshot.depth, snapshot.parent, snapshot.brief, snapshot.started_at)
+      task.activeMs = snapshot.active_ms
+      task.wakes = snapshot.wakes
+      task.state = Task.State.entries.firstOrNull { it.wire == snapshot.state && it != Task.State.DONE } ?: Task.State.WAITING
+      task.question = snapshot.question
+      task.wakeAt = snapshot.wake_at
+      task.scope = snapshot.scope
+      task.parked = snapshot.parked
+      task.restore(snapshot.results)
+      snapshot.inbox.forEach { task.inbox += it }
+      // A wake that was out when it stopped may have run tools: it reads the world again before acting.
+      snapshot.broke?.let { task.inbox.addFirst(task.resume(it)) }
+      book.adopt(task)
+      val agent = Agent(task, snapshot.anchor)
+      agents[key(task)] = agent
+      reservations.restore(task.id, snapshot.held)
+      val job = snapshot.job
+      if (job != null) {
+        agent.job = runCatching { world.restore(task, player, job) }.onFailure { platform.log.warning("❌ Couldn't bring back the job of automation agent ${task.name}: $it") }.getOrNull()
+        if (agent.job == null) task.inbox += "[plugin] Your job in the world couldn't come back after the stop: read the world again, then carry on or tell the player"
+      }
+      line(player, task, "automation.back")
+      platform.log.info("⚙️ Automation agent ${task.name} (${task.kind.wire}) is back for ${player.name}")
+      if (task.inbox.isNotEmpty() && task.parked == null) wake(task)
+    }
+    persist(player.uuid)
   }
 
   // Server thread only.
@@ -253,9 +404,16 @@ class Agents(
     if (task.wakes >= settings.maxWakes) return end(task, locales.of(player).text("automation.too_many_steps"))
     // The gate has told the player already; the agent that started this one still hears why.
     if (!quota().allows(player)) return close(task, null, "stopped: ${locales.of(player).text("automation.quota")}")
-    val message = task.drain()
+    // Anything that wakes a parked agent ends its wait: the player wrote, so it decides again, and parks again if it must.
+    val waited = task.parked?.also { task.parked = null }?.let { parked ->
+      ("[plugin] You were waiting for the player to bring " + parked.needs.joinToString(", ") { "${it.count} × ${it.item}" } + "; this woke you meanwhile").take(Task.MESSAGE_LIMIT / 2) + "\n"
+    }
+    val message = waited?.let { it + task.drain(Task.MESSAGE_LIMIT - it.length) } ?: task.drain()
     task.wakes++
     task.running = true
+    task.current = message
+    task.card = card(task, agent, settings)
+    task.keepUntil = System.currentTimeMillis() + settings.parkHours * 3_600_000L
     // Whatever woke it, an old timer has nothing left to say.
     task.wakeAt = null
     task.begin(message)
@@ -278,7 +436,7 @@ class Agents(
       } finally {
         quota().spent(player.uuid, run.cost)
         usage?.ran(player.uuid, run, command = null, answeredMillis = null)
-        onMain { afterWake(task, player, message, failure) }
+        onMain { afterWake(task, player, message, failure, started = run.runId != null) }
       }
     }
   }
@@ -312,24 +470,24 @@ class Agents(
     return false
   }
 
-  private fun afterWake(task: Task, player: PlayerAudience, message: String, failure: Exception?) {
+  private fun afterWake(task: Task, player: PlayerAudience, message: String, failure: Exception?, started: Boolean) {
     task.running = false
+    task.current = null
     if (task.done) return
     val agent = agents[key(task)] ?: return
     agent.run = null
     // A finish the plugin took stands, even when the stream broke after it.
     task.finished?.let { return finish(player, task, it) }
+    if (failure != null && (Retry.passing(failure) || Retry.after(failure) != null)) return offline(task, agent, player, message, failure, started)
+    if (failure == null && agent.offlineSince > 0) {
+      agent.offlineSince = 0
+      task.offline = false
+      line(player, task, "automation.online")
+    }
     if (refusesKind(failure)) {
       unknown[task.kind] = System.currentTimeMillis()
       platform.log.warning("❌ Automation agent ${task.name}: the backend doesn't know agents of kind ${task.kind.wire} yet; update it")
       return close(task, locales.of(player).text("automation.unknown_kind"), "stopped: ${unknownKind(task.kind)}")
-    }
-    Retry.after(failure)?.takeIf { task.retries < Retry.TIMES }?.let { asked ->
-      // Nothing ran: the same message goes again later, so a backend restart or a busy minute doesn't kill the agent.
-      task.inbox.addFirst(message)
-      // Nor did it cost anything, so it doesn't count toward max_wakes.
-      task.wakes--
-      return retry(task, asked, "the backend couldn't take the wake ($failure)")
     }
     if (failure != null && Retry.broke(failure) && !task.resumed) {
       // Something ran, so the message doesn't go again as it was: the agent reads first, then goes on, once.
@@ -343,7 +501,8 @@ class Agents(
       return end(task, ErrorHandler.message(locales.of(player), failure))
     }
     task.resumed = false
-    val busy = agent.job?.let(world::active) == true || book.children(task).isNotEmpty()
+    // Waiting for items counts as busy: what wakes it is the items, or the player.
+    val busy = agent.job?.let(world::active) == true || book.children(task).isNotEmpty() || task.parked != null
     // A wake that ends with no word and no finish, and nothing to wake it, holds a slot until the task times out: the
     // first time the agent hears so and goes on, the second time it ends with a line to the player.
     if (stuck(agent.said != null, agent.asked, task.waited, task.wakeAt != null, busy, task.question != null, task.inbox.isNotEmpty())) {
@@ -357,6 +516,94 @@ class Agents(
     if (agent.said != null || task.waited) task.nudged = false
     task.settle(agent.said, agent.asked, busy)
     if (task.inbox.isNotEmpty()) wake(task)
+    persist(task.owner)
+  }
+
+  /**
+   * The backend is out of reach or busy, though the stream waited for it: the agent doesn't end, it waits too, for up to
+   * `park_hours`, and its player hears so once. A wake that never started goes again as it was; one that did may have
+   * run tools, so the agent reads the world first.
+   */
+  private fun offline(task: Task, agent: Agent, player: PlayerAudience, message: String, failure: Exception, started: Boolean) {
+    val now = System.currentTimeMillis()
+    task.inbox.addFirst(if (started) task.resume(message) else message)
+    // Nothing that answered was paid for, so it doesn't count toward max_wakes either.
+    if (!started) task.wakes--
+    if (agent.offlineSince == 0L) {
+      agent.offlineSince = now
+      task.offline = true
+      line(player, task, "automation.offline")
+    } else if (now - agent.offlineSince > config().automation.parkHours * 3_600_000L) {
+      return end(task, locales.of(player).text("automation.unreachable"))
+    }
+    retry(task, Retry.after(failure) ?: 0, "the backend couldn't take the wake ($failure)")
+    persist(task.owner)
+  }
+
+  /** What the backend reads as the agent's state: everything it needs to carry on, even with its thread gone. */
+  private fun card(task: Task, agent: Agent, settings: Config.Automation): String = buildString {
+    append("Kind: ${task.kind.wire}. Worked ${task.activeMs / 60_000} of ${settings.maxMinutes} min; wake ${task.wakes} of ${settings.maxWakes}.")
+    append("\nBrief: ").append(task.brief.take(800))
+    val scope = task.scope
+    append("\nSources: the inventory; the ender chest ${if (scope.ender_chest) "allowed" else "not allowed (ask the player first)"}; ")
+    append(scope.chests?.let { "only the ${it.size} chests the player picked" } ?: "every chest around the player may open")
+    agent.job?.let(world::describe)?.let { append("\nJob: ").append(it) }
+    task.parked?.let { parked ->
+      append("\nWaiting for the player to bring: ").append(parked.needs.joinToString(", ") { "${it.count} × ${it.item}" })
+      parked.note?.let { append(" (").append(it).append(')') }
+    }
+    task.question?.let { append("\nOpen question to the player: ").append(it) }
+    val done = task.results()
+    if (done.isNotEmpty()) append("\nYour tools reported: ").append(done.joinToString("; "))
+  }.take(CARD_LIMIT)
+
+  /**
+   * Parks [task] until its player brings [needs]: it holds no slot, its working time stands still, and it goes on once
+   * the sources hold them, or when the player writes. True when it parked; false when everything is there already.
+   */
+  fun park(task: Task, player: PlayerAudience, needs: List<Need>, note: String?): Boolean {
+    val have = world.count(task, player, needs)
+    if (needs.all { (have[it.item] ?: 0) >= it.count }) return false
+    val now = System.currentTimeMillis()
+    task.parked = Parked(needs, now, now + config().automation.parkHours * 3_600_000L, now, note?.take(200))
+    task.waited = true
+    task.wakeAt = null
+    line(player, task, "automation.parked", "items" to missing(player, needs, have))
+    persist(task.owner)
+    return true
+  }
+
+  /** What's still missing of [needs], as [player] reads it: “10 × Oak Log, 2 × Glass”. */
+  fun missing(player: PlayerAudience, needs: List<Need>, have: Map<String, Int>): String =
+    needs.mapNotNull { need -> (need.count - (have[need.item] ?: 0)).takeIf { it > 0 }?.let { "$it × ${world.itemName(player, need.item)}" } }.joinToString(", ")
+
+  /** How many of each of [needs] the agent's sources hold now. */
+  fun count(task: Task, player: PlayerAudience, needs: List<Need>): Map<String, Int> = world.count(task, player, needs)
+
+  fun resolve(item: String): String? = world.resolve(item)
+
+  fun picked(task: Task, player: PlayerAudience): List<String> = world.picked(task, player)
+
+  /** [task]'s sources changed: the next snapshot keeps them. */
+  fun changed(task: Task) = persist(task.owner)
+
+  /** A parked agent looks at what its player brought, while they're at the base; once it's all there, it goes on. */
+  private fun watch(task: Task, agent: Agent, player: PlayerAudience, parked: Parked, now: Long) {
+    val settings = config().automation
+    if (now > parked.until) return end(task, locales.of(player).text("automation.park_expired", "hours" to settings.parkHours))
+    if (now - parked.reminded >= settings.remindMinutes * 60_000L) {
+      val have = world.count(task, player, parked.needs)
+      task.parked = parked.copy(reminded = now)
+      line(player, task, "automation.still_waiting", "items" to missing(player, parked.needs, have))
+      persist(task.owner)
+    }
+    if (agent.paused || now - agent.counted < WATCH_MS) return
+    agent.counted = now
+    val have = world.count(task, player, parked.needs)
+    if (!parked.needs.all { (have[it.item] ?: 0) >= it.count }) return
+    task.parked = null
+    line(player, task, "automation.items_here")
+    post(task, "[job] the items you waited for are here: " + parked.needs.joinToString(", ") { "${it.count} × ${it.item}" })
   }
 
   /** Wakes [task] again after a backoff that grows with each retry in a row; [tick] ends it. */
@@ -373,15 +620,24 @@ class Agents(
     for (task in book.all()) {
       val agent = agents[key(task)] ?: continue
       val player = platform.player(task.owner) ?: continue
-      if (now - task.startedAt > settings.maxMinutes * 60_000L) {
+      val parked = task.parked
+      // Only work counts toward the time limit: a pause, a wait for items, or a lost backend doesn't.
+      if (!agent.paused && parked == null && agent.offlineSince == 0L && agent.ticked > 0) task.activeMs += (now - agent.ticked).coerceIn(0, 5_000)
+      agent.ticked = now
+      if (task.activeMs > settings.maxMinutes * 60_000L) {
         end(task, locales.of(player).text("automation.timed_out", "minutes" to settings.maxMinutes))
         continue
       }
       val away = away(player.position, agent.anchor, settings.pauseDistance)
       if (away != agent.paused) {
         agent.paused = away
-        line(player, task, if (away) "automation.paused" else "automation.resumed")
+        // A parked agent just waits; it says so in its own lines.
+        if (parked == null) line(player, task, if (away) "automation.paused" else "automation.resumed")
         if (!away) wake(task)
+      }
+      if (parked != null) {
+        watch(task, agent, player, parked, now)
+        continue
       }
       if (task.notBefore in 1..now) {
         task.notBefore = 0L
@@ -409,6 +665,17 @@ class Agents(
   }
 
   companion object {
+    /** How long a shutdown waits for the backend to take the agents. */
+    private const val SHUTDOWN_MS = 3_000L
+
+    /** How often a parked agent counts what its player brought, while they're at the base. */
+    private const val WATCH_MS = 5_000L
+
+    /** The most of a state card the backend takes. */
+    const val CARD_LIMIT = 3000
+
+    private val SNAPSHOTS = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
+
     /** What an agent hears after a wake that ended without a word to the player. */
     const val SILENT = "[plugin] Your last wake ended without say or finish and with nothing to wake you (no wait seconds, no job, no sub-agent, no question to the player), so the player heard nothing. Tell them in a line what happened and what's missing, then end with wait (seconds when something will finish) or finish."
 

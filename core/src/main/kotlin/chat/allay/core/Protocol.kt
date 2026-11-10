@@ -51,7 +51,11 @@ object Protocol {
 
   @Serializable data class ExpansionInfo(val id: String, val name: String, val version: String? = null, val prompt: String? = null)
 
-  @Serializable data class TaskInfo(val id: String, val name: String, val depth: Int, val kind: String)
+  /**
+   * Since 6.35, for backend 6.31: [card] is the agent's state as the plugin keeps it, so it carries on when its thread is
+   * gone, and [keep_until] (epoch milliseconds) how long it may still need its thread: it may wait for items that long.
+   */
+  @Serializable data class TaskInfo(val id: String, val name: String, val depth: Int, val kind: String, val card: String? = null, val keep_until: Long? = null)
 
   /** [state] is working, waiting, or asking; [question] what an asking agent wants to know. */
   @Serializable data class TaskBrief(val id: String, val name: String, val state: String, val question: String? = null)

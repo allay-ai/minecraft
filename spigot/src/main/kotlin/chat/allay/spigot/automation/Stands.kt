@@ -10,6 +10,7 @@ import chat.allay.spigot.tools.ToolContext
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -85,9 +86,15 @@ object Stands {
 
   private class Job(
     override val task: Task, val player: Player, val chains: List<List<Brewing.Brew>>, val loads: List<Load>, val sources: Sources, val to: Jobs.Output?,
-  ) : Jobs.BlockJob {
+  ) : Jobs.Lasting {
     override val blocks get() = loads.map { it.block }
     var delivered = 0
+
+    /**
+     * Stands whose step matches the world. A job brought back after a stop counts none: each is read once its chunk is
+     * loaded, and a step it brewed meanwhile counts then.
+     */
+    val synced = mutableSetOf<Block>()
 
     fun chain(load: Load) = chains[load.work.potion]
 
@@ -95,6 +102,7 @@ object Stands {
 
     override fun brewed(block: Block) {
       val load = loads.firstOrNull { it.block == block } ?: return
+      if (block !in synced) return
       val chain = chain(load)
       if (load.step >= chain.size) return
       val brew = chain[load.step]
@@ -102,12 +110,20 @@ object Stands {
       if (now.size != load.work.bottles || now.any { it != brew.to }) {
         return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to block.type.key.key, "x" to block.x, "y" to block.y, "z" to block.z))
       }
+      if (!advance(load)) return
+      finished()
+    }
+
+    /** The load's step is brewed: the next reagent goes in, or the stand's next round. False when someone took what it needs. */
+    private fun advance(load: Load): Boolean {
       load.step++
-      if (load.step < chain.size) {
-        if (!feed(load)) return
-      } else if (load.rest.isNotEmpty()) {
-        if (!next(load)) return
-      }
+      if (load.step < chain(load).size) return feed(load)
+      if (load.rest.isNotEmpty()) return next(load)
+      return true
+    }
+
+    /** Every stand done: the potions go where they should, and the agent wakes with the news. */
+    private fun finished() {
       if (loads.all(::done)) {
         Jobs.remove(this)
         val made = summary()
@@ -178,6 +194,25 @@ object Stands {
     /** Loads that looked wrong at the last check: a step's end and the next reagent are a tick apart, so it takes two looks. */
     private val suspect = mutableSetOf<Block>()
 
+    /**
+     * A stand read for the first time after the job came back: bottles that turned into the step's potion were brewed
+     * meanwhile, and the next reagent goes in; bottles still waiting for the step get its reagent if none is in.
+     * Anything else means someone changed the stand.
+     */
+    private fun sync(load: Load): Boolean {
+      synced += load.block
+      if (done(load)) return true
+      val brew = chain(load)[load.step]
+      val now = bottles(load.block).filterNotNull().map(::bottle)
+      val changed = { Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.changed", "block" to load.block.type.key.key, "x" to load.block.x, "y" to load.block.y, "z" to load.block.z)) }
+      if (now.size != load.work.bottles) return false.also { changed() }
+      return when {
+        now.all { it == brew.to } -> advance(load).also { if (it) finished() }
+        now.all { it == brew.from } -> stand(load.block)!!.inventory.ingredient != null || feed(load)
+        else -> false.also { changed() }
+      }
+    }
+
     override fun check() {
       for (load in loads) {
         if (done(load)) continue
@@ -187,6 +222,10 @@ object Stands {
         }
         val state = stand(load.block)
           ?: return Jobs.automation.interfered(task, Jobs.automation.text(task, "automation.reason.broken", "block" to "brewing_stand", "x" to load.block.x, "y" to load.block.y, "z" to load.block.z))
+        if (load.block !in synced) {
+          if (!sync(load)) return
+          continue
+        }
         // A stand of the job brews all the time but for a tick or two between steps. Standing still means someone took
         // the reagent or bottles (the game stops then, and the reagent stays), or put in what doesn't brew.
         if (state.brewingTime > 0) {
@@ -200,6 +239,81 @@ object Stands {
     override fun cancel() {
       Jobs.remove(this)
     }
+
+    override fun snapshot(): JsonObject = buildJsonObject {
+      put("type", TYPE)
+      put("delivered", delivered)
+      to?.let { put("to", Jobs.encode(it)) }
+      put("chests", buildJsonArray { sources.chests.forEach { add(it) } })
+      put("ender", sources.ender)
+      put("made", buildJsonObject { made.forEach { (what, n) -> put(what, n) } })
+      put("chains", buildJsonArray {
+        chains.forEach { chain ->
+          add(buildJsonArray {
+            chain.forEach { brew ->
+              add(buildJsonObject {
+                put("from", "${brew.from.item}:${brew.from.potion}"); put("reagent", brew.reagent); put("to", "${brew.to.item}:${brew.to.potion}")
+              })
+            }
+          })
+        }
+      })
+      put("loads", buildJsonArray {
+        loads.forEach { load ->
+          add(buildJsonObject {
+            put("at", Blocks.place(load.block)); put("step", load.step); put("rounds", load.rounds)
+            put("work", work(load.work))
+            put("rest", buildJsonArray { load.rest.forEach { add(work(it)) } })
+          })
+        }
+      })
+    }
+
+    override fun describe(): String = "brewing ${made.keys.joinToString()}: " + loads.joinToString("; ") { load ->
+      "stand ${load.block.x} ${load.block.y} ${load.block.z} at step ${minOf(load.step + 1, chain(load).size)} of ${chain(load).size}" +
+        if (load.rest.isEmpty()) "" else ", ${load.rest.size} more rounds"
+    } + (to?.let { ", output to ${Jobs.describe(it)}" } ?: "")
+  }
+
+  private fun work(work: Work) = buildJsonObject {
+    put("potion", work.potion); put("step", work.step); put("bottles", work.bottles); put("standing", work.standing); put("extra", work.extra)
+  }
+
+  private fun work(saved: JsonObject) = Work(saved.int("potion") ?: 0, saved.int("step") ?: 0, saved.int("bottles") ?: 0, saved.bool("standing") == true, saved.int("extra") ?: 0)
+
+  private fun bottleOf(text: String) = Brewing.Bottle(text.substringBefore(':'), text.substringAfter(':'))
+
+  /** How a snapshot names a brewing job. */
+  const val TYPE = "brew"
+
+  /**
+   * A brewing job from its snapshot, for [player] who came back: its stands as they stand now, read again once their
+   * chunks are loaded. Null when one of them isn't a brewing stand any more.
+   */
+  fun restore(task: Task, player: Player, saved: JsonObject): Jobs.Lasting? {
+    val chains = (saved["chains"] as? JsonArray).orEmpty().map { chain ->
+      (chain as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.map { brew ->
+        Brewing.Brew(bottleOf(brew.string("from") ?: return null), brew.string("reagent") ?: return null, bottleOf(brew.string("to") ?: return null))
+      }
+    }
+    if (chains.isEmpty() || chains.any { it.isEmpty() }) return null
+    val loads = (saved["loads"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.map { load ->
+      val block = load.string("at")?.let(Blocks::at)?.takeIf { it.type == Material.BREWING_STAND } ?: return null
+      val work = work(load["work"] as? JsonObject ?: return null)
+      if (work.potion !in chains.indices) return null
+      val rest = ArrayDeque((load["rest"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.map(::work))
+      Load(block, work, rest).apply {
+        step = load.int("step") ?: work.step
+        rounds = load.int("rounds") ?: 1
+      }
+    }
+    if (loads.isEmpty()) return null
+    val chests = (saved["chests"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content }
+    val job = Job(task, player, chains, loads, Sources.at(player, chests, saved.bool("ender") == true), saved.string("to")?.let { Jobs.decodeSaved(it) })
+    job.delivered = saved.int("delivered") ?: 0
+    (saved["made"] as? JsonObject)?.forEach { (what, n) -> (n as? JsonPrimitive)?.content?.toIntOrNull()?.let { job.made[what] = it } }
+    Jobs.add(job)
+    return job
   }
 
   /** Takes every bottle out of [stands]. */
@@ -283,7 +397,7 @@ object Stands {
             }
           }
           if (marks.isNotEmpty()) Marks.show(context.plugin, player, marks, context.features.config().tools.marksSeconds)
-          val sources = Sources.around(player, settings.radius)
+          val sources = Sources.around(player, settings.radius, task.scope)
           val result = buildJsonObject {
             put("stands", rows)
             put("note", "green glow: usable; red: busy or not fit; the player sees it")
@@ -381,7 +495,7 @@ object Stands {
     val settings = context.features.automation.settings()
     val holds = context.features.automation.reservations
     val n = count.coerceIn(1, MAX_BOTTLES)
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     val glass = plain(Material.GLASS_BOTTLE)
     val have = sources.free(glass, "glass_bottle", holds, task.id)
     val near = Water.near(player)
@@ -451,7 +565,7 @@ object Stands {
     // stands of water bottles suit any potion. Only as many as the potion needs, so stands kept ready stay ready.
     // The rest take the player's own bottles of a later step first (their night vision potions when they want long
     // ones), then water; bottles is each potion's total, three to a stand.
-    val sources = Sources.around(player, settings.radius)
+    val sources = Sources.around(player, settings.radius, task.scope)
     val standing = fitting.filter { it.third > 0 }
     val empty = fitting.filter { it.third == 0 }.map { it.first }
     val fresh = args.bool("fresh") == true
@@ -592,6 +706,7 @@ object Stands {
     }
     if (powderPool > 0) give(player, listOf(ItemStack(Material.BLAZE_POWDER, powderPool)))
     val job = Job(task, player, chains, loads, sources, to)
+    job.synced += loads.map { it.block }
     plans.forEach { (_, work, rest) ->
       (listOf(work) + rest).forEach { load -> chains[load.potion].last().to.let { job.made.merge("${it.item} ${it.potion}", load.bottles, Int::plus) } }
     }

@@ -7,10 +7,14 @@ import chat.allay.core.*
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
+import chat.allay.core.tasks.Need
 import chat.allay.core.tools.Button
+import chat.allay.core.tools.Catalog
 import chat.allay.spigot.player
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.serialization.json.JsonObject
+import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -38,11 +42,32 @@ class Automation(
   val picking: Picking = Picking(plugin, locales, this)
   val undo = Undo()
 
+  /** What the server has, as the model names it; the game sets it once its catalog can be built. */
+  @Volatile var catalog: () -> Catalog? = { null }
+
   /** The core's side of the agents: their wakes, limits, and lifecycle. */
   val agents = Agents(platform, locales, config, service, clicks, quota, scope, object : Agents.World {
     override fun stopPicking(player: PlayerAudience, task: Task?) = picking.stop(player.player, task)
     override fun tick(now: Long) = picking.tick(now)
     override fun active(job: Agents.Job) = Jobs.active(job)
+    override fun snapshot(job: Agents.Job) = (job as? Jobs.Lasting)?.snapshot()
+    override fun restore(task: Task, player: PlayerAudience, job: JsonObject): Agents.Job? = Jobs.restore(task, player.player, job)
+    override fun detach(job: Agents.Job) = Jobs.detach(job)
+    override fun describe(job: Agents.Job) = (job as? Jobs.Lasting)?.describe()
+
+    override fun count(task: Task, player: PlayerAudience, needs: List<Need>): Map<String, Int> {
+      val sources = Sources.around(player.player, settings().radius, task.scope)
+      return needs.associate { need -> need.item to sources.count { Crafting.key(it) == need.item } }
+    }
+
+    override fun resolve(item: String): String? {
+      val catalog = catalog() ?: return Material.matchMaterial(item)?.takeIf { it.isItem }?.key?.key
+      return catalog.resolve(item, null, setOf(Catalog.Kind.ITEM))?.id
+    }
+
+    override fun itemName(player: PlayerAudience, item: String) = catalog()?.label(item, locales.names(player)) ?: item
+
+    override fun picked(task: Task, player: PlayerAudience) = picking.picked(player.player, task).map(Blocks::place)
   })
 
   val book get() = agents.book
