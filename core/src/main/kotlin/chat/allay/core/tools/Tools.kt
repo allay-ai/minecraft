@@ -55,6 +55,9 @@ interface ClientTool<in C> {
 val EXPERIMENTAL_TOOLS = emptySet<String>()
 
 /** Tools that change the game: items, teleports, and the like. Only operators get them. */
+/** The tools of builds (since 6.37): offered only while `building.enabled` is on. */
+val BUILD_TOOLS = setOf("build", "construct")
+
 val OPERATOR_TOOLS = setOf("give_item", "teleport", "set_gamemode", "heal", "apply_effect", "set_time", "set_weather")
 
 /**

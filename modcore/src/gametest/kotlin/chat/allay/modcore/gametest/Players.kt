@@ -61,6 +61,24 @@ object Players {
     return player
   }
 
+  private var builds = false
+
+  /**
+   * Turns builds on for the tests that need them, once: they're off until a server's owner turns them on, so the
+   * test server's `config.yml` says so, and Allay reads it again as `/allay reload` does.
+   */
+  fun builds() {
+    if (builds) return
+    builds = true
+    val allay = Mod.allay!!
+    val file = java.io.File(allay.platform.shared, "config.yml")
+    val text = if (file.exists()) file.readText() else ""
+    val on = if ("\nbuilding:\n  enabled: false" in text) text.replace("\nbuilding:\n  enabled: false", "\nbuilding:\n  enabled: true")
+      else text + "\nbuilding:\n  enabled: true\n"
+    file.writeText(on)
+    allay.load()
+  }
+
   /** Allay's tools' stores on the test server. */
   val features: Features get() = (Mod.allay!!.game as ModGame).features
 

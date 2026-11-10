@@ -35,6 +35,7 @@ class BuildGameTests {
 
   @GameTest
   fun aCatalogBuildPreviewsForItsPlayerAlone(helper: GameTestHelper) {
+    Players.builds()
     val kept = Previews.blueprints
     Previews.blueprints = Blueprints(download = { villa })
     val asker = survivor(helper)

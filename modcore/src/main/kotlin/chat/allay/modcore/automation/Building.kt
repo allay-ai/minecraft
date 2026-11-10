@@ -631,7 +631,7 @@ object Building {
         else -> "building.bar"
       }
       bar.color = if (starved != null || far || paused) BossEvent.BossBarColor.YELLOW else BossEvent.BossBarColor.GREEN
-      bar.name = Texts.legacy(Legacy.color(automation.text(task, key, "title" to title, "done" to progress, "total" to total, "items" to (starved ?: ""))))
+      bar.name = Texts.legacy(Legacy.color(automation.text(task, key, "title" to title, "done" to progress, "total" to total, "percent" to (progress * 100L / total).toInt(), "items" to (starved ?: ""))))
     }
 
     override fun cancel() {

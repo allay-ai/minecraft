@@ -127,6 +127,7 @@ class BuilderGameTests {
 
   @GameTest(padding = 48, maxTicks = 600)
   fun aBuilderBuildsTheHutFromAChestBeside(helper: GameTestHelper) {
+    Players.builds()
     val kept = Previews.blueprints
     Previews.blueprints = Blueprints(download = { hut })
     val player = survivor(helper, AT)
@@ -149,6 +150,7 @@ class BuilderGameTests {
 
   @GameTest(padding = 48, maxTicks = 800)
   fun aBuilderWaitsForAMissingMaterialAndGoesOn(helper: GameTestHelper) {
+    Players.builds()
     val kept = Previews.blueprints
     Previews.blueprints = Blueprints(download = { hut })
     val player = survivor(helper, AT)
@@ -181,6 +183,7 @@ class BuilderGameTests {
 
   @GameTest(padding = 48, maxTicks = 600)
   fun aBuilderPutsUpHeadsBannersAndFramesAsTheRulesSay(helper: GameTestHelper) {
+    Players.builds()
     val kept = Previews.blueprints
     Previews.blueprints = Blueprints(download = { corner })
     val player = survivor(helper, AT)

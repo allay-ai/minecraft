@@ -302,7 +302,7 @@ automation:
 # Tiers go by the permission allay.build.<tier>, the first in this order a player holds;
 # default needs none, allay.build.unlimited lifts the size limits, operators get the biggest.
 building:
-  enabled: true
+  enabled: false              # Off until you turn it on; on, its tools take about 1 300 tokens of every question
   keep_minutes: 30            # A downloaded build stays in memory this long after its last use; nothing goes on disk
   tiers:
     default: { max_blocks: 50000, max_size: 128, blocks_per_second: 5, pause_distance: 64, park_hours: 24 }

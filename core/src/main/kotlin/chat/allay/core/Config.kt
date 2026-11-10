@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tools.BUILD_TOOLS
 import chat.allay.core.tools.EXPERIMENTAL_TOOLS
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.TimeZones
@@ -138,7 +139,10 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
      * Missing keys mean on: an old config gets every tool, except the experimental ones in [EXPERIMENTAL_TOOLS], which
      * stay off until a server turns them on. Operator tools also need `tools.operator.enabled`.
      */
-    fun enabled(name: String) = if (name in OPERATOR_TOOLS) {
+    fun enabled(name: String) = if (name in BUILD_TOOLS && !config.boolean("building.enabled", false)) {
+      // Builds are off until the owner turns them on: without them, their tools cost no tokens.
+      false
+    } else if (name in OPERATOR_TOOLS) {
       (operator?.boolean("enabled", true) ?: true) && (operator?.boolean(name, true) ?: true)
     } else {
       switches?.boolean(name, name !in EXPERIMENTAL_TOOLS) ?: (name !in EXPERIMENTAL_TOOLS)
@@ -176,7 +180,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
 
   /** Builds from Allay's catalog: the preview and building from the player's blocks (since 6.37). */
   val building = Building() ; inner class Building {
-    val enabled = config.boolean("building.enabled", true)
+    val enabled = config.boolean("building.enabled", false)
     val tiers = chat.allay.core.building.BuildTiers.parse(config)
     /** The longest a downloaded build stays in memory after its last use. */
     val keepMinutes = config.int("building.keep_minutes", 30).coerceIn(1, 240)
