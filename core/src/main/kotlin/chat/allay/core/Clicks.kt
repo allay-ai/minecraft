@@ -23,6 +23,10 @@ class Clicks(
   private val ask: (PlayerAudience, String, Boolean) -> Unit,
   /** Where the note button saves its text: a memory with a place on the backend. */
   private val memory: () -> MemoryCommands,
+  /** Stops the player's question with this request id, if it still runs. */
+  private val stopQuestion: (PlayerAudience, String) -> Unit = { _, _ -> },
+  /** The automation agents, for their stop buttons. */
+  private val agents: () -> chat.allay.core.tasks.Agents? = { null },
 ) {
   /** The buttons that reach into the game, on this platform. */
   interface Game {
@@ -173,6 +177,8 @@ class Clicks(
     is Button.Reply -> lang.text("buttons.hover.reply")
     is Button.Pick -> lang.text("buttons.hover.pick_${button.action}")
     is Button.Undo -> lang.text("buttons.hover.undo")
+    is Button.StopQuestion -> lang.text("buttons.hover.stop_question")
+    is Button.StopAgent -> lang.text("buttons.hover.stop_agent")
   }
 
   /** `/allay do <id>`. */
@@ -193,6 +199,8 @@ class Clicks(
       is Button.Copy -> Unit
       is Button.ChatMode -> chat.set(player, true)
       is Button.HideTips -> chat.hints(player, false)
+      is Button.StopQuestion -> stopQuestion(player, button.request)
+      is Button.StopAgent -> agents()?.stop(player, button.task) ?: lang.send(player, "automation.gone")
       else -> game.press(player, button)
     }
   }

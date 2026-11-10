@@ -226,7 +226,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
       val catalog = config.catalog
       if (catalog.download) scope.launch(Dispatchers.IO) { names.fetch(catalog.languages) }
     }
-    clicks = Clicks(platform, config, locales, books, chat, buttons, game.buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }) { memory }
+    clicks = Clicks(platform, config, locales, books, chat, buttons, game.buttons, { player, question, public -> handler.ask(player, question, Run.Mode.ASK, public) }, { memory },
+      { player, request -> handler.stop(player, request) }, { game.agents })
     memory = MemoryCommands(platform, locales, service, scope, buttons)
     privacy = PrivacyCommands(platform, config, locales, service, consents, settings, data, { game.forget(it); usage.forget(it) }, ages, scope) { game.stopAgents(it) }
     registerServer()

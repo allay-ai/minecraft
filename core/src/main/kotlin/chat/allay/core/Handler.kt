@@ -66,6 +66,15 @@ class Handler(
     return true
   }
 
+  /** The stop button under a question that waits for a lost backend: only that question, and only while it runs. */
+  fun stop(sender: Audience, request: String) {
+    val run = runs[key(sender)]?.takeIf { it.requestId == request } ?: return locales.of(sender).send(sender, "messages.nothing_to_cancel")
+    runs.remove(key(sender), run)
+    run.cancel()
+    (sender as? PlayerAudience)?.let(animator::stop)
+    locales.of(sender).send(sender, "messages.cancelled")
+  }
+
   /** Whether Allay is answering this player right now; safe from any thread. */
   fun busy(player: UUID) = runs.containsKey(player.toString())
 
@@ -130,7 +139,10 @@ class Handler(
     val listener = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) = platform.scheduler.main { animator.toolStarted(run, sender, name, args) }
       override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) = platform.scheduler.main { animator.toolFinished(run, sender, summary, failed, refused) }
-      override fun reconnecting() = platform.scheduler.main { lang.send(sender, "messages.reconnecting") }
+      override fun reconnecting() = platform.scheduler.main {
+        lang.send(sender, "messages.reconnecting")
+        (sender as? PlayerAudience)?.let { clicks().show(it, listOf(chat.allay.core.tools.Button.StopQuestion(lang.text("buttons.stop_question"), run.requestId))) }
+      }
     }
 
     scope.launch {

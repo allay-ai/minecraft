@@ -73,7 +73,7 @@ class GameClicks(private val features: Features) : Clicks.Game {
         lang.send(player, "automation.not_restored", "reason" to (error.message ?: ""))
       }
       // The core handles these itself.
-      is Button.Ask, is Button.Command, is Button.Say, is Button.Note, is Button.Copy, is Button.ChatMode, is Button.HideTips -> Unit
+      is Button.Ask, is Button.Command, is Button.Say, is Button.Note, is Button.Copy, is Button.ChatMode, is Button.HideTips, is Button.StopQuestion, is Button.StopAgent -> Unit
     }
   }
 

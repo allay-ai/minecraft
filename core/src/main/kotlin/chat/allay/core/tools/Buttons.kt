@@ -66,6 +66,12 @@ sealed interface Button {
 
   /** Stops the chat mode tip for good. */
   data class HideTips(override val label: String) : Button
+
+  /** Stops the question named [request] while it waits for a lost backend; a question that ended since stays as it is. */
+  data class StopQuestion(override val label: String, val request: String) : Button
+
+  /** Stops automation agent [task]: one that waits for items or for a lost backend, for one. */
+  data class StopAgent(override val label: String, val task: String) : Button
 }
 
 /**

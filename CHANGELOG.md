@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.36.0
+
+- 🔌 **A stop button while Allay can't reach its server.** A short blip passes unnoticed; after the third failed try the chat says the server isn't answering yet, that Allay keeps trying for a few minutes, and offers **[Cancel]**.
+- ⏹️ **Waiting agents have a stop button.** An agent waiting for your items, or for a lost Allay server, shows **[Stop]** under its line and under each reminder. `/allay cancel` works too.
+- 🗂️ With Allay Server 6.32 agents go into the player's work state (`/workstate`); against 6.31 they use `/agents` as before.
+
 ## 6.35.0
 
 - 🔌 **Allay rides out a lost connection.** When its server restarts or the network drops, Allay keeps reconnecting for up to 4 minutes (`http.reconnect_seconds`), every 1, 2, 4, 8, then 15 seconds, and says so in chat and in the action bar. With Allay Server 6.31 an answer cut off midway goes on from where it stopped, a question never runs or costs twice, and a tool's result goes again until the server has it. Only after the whole wait does the player hear the server is unreachable. A stream silent for a minute (`http.stream_idle_seconds`) counts as dropped, so a dead connection no longer hangs a question for five.

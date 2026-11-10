@@ -83,7 +83,7 @@ class Service<C>(
     fun toolStarted(callId: String, name: String, args: kotlinx.serialization.json.JsonObject?)
     /** [failed]: an error, its reason written for the model; [refused]: the tool answered no, its summary in the player's language. */
     fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean = false)
-    /** The backend went out of reach and the question waits to reconnect; once a question. */
+    /** The backend stayed out of reach for a few tries and the question waits to reconnect; once a question. */
     fun reconnecting() {}
   }
 
@@ -93,6 +93,8 @@ class Service<C>(
     /** Running agents a request lists: all that `automation.max_tasks` allows. Backends before 6.22 take [OLD_MAX_TASKS]. */
     const val MAX_TASKS = 8
     const val OLD_MAX_TASKS = 4
+    /** Failed tries before the player hears the backend is out of reach. */
+    const val TELL_AFTER = 3
   }
 
   // encodeDefaults sends platform: without it the backend files v1 requests under "unknown".
@@ -125,7 +127,7 @@ class Service<C>(
   private suspend fun stream(run: Run, message: String, listener: Listener): Outcome {
     val reach = Reach(config.http.reconnectSeconds)
     var taskLimit = MAX_TASKS
-    var told = false
+    var failures = 0
     run.onCancel = { cancelOnBackend(run) }
     while (true) {
       try {
@@ -142,10 +144,8 @@ class Service<C>(
         if (run.runId != null && !run.resumable) throw error
         val seconds = reach.next(error) ?: throw if (Retry.passing(error)) Unreachable(error) else error
         run.reconnecting = true
-        if (!told) {
-          told = true
-          listener.reconnecting()
-        }
+        // A blip passes unnoticed; after the third try the player hears it and may stop the question.
+        if (++failures == TELL_AFTER) listener.reconnecting()
         host.log.info("⏳ Lost the backend ($error); reaching out again in $seconds s")
         delay(seconds * 1000)
       }
@@ -464,12 +464,20 @@ class Service<C>(
 
   /** A player's automation agents on this server (backend 6.31), to bring them back after a rejoin or a restart. */
   override suspend fun agents(userId: String, serverId: String): List<JsonObject> = withContext(IO) {
-    json.decodeFromString<AgentsAnswer>(send("/api/v2/users/${path(userId)}/agents?server_id=${path(serverId)}", "GET")).agents
+    json.decodeFromString<AgentsAnswer>(workState(userId) { route -> send("$route?server_id=${path(serverId)}", "GET") }).agents
   }
 
   override suspend fun saveAgents(userId: String, serverId: String, agents: List<JsonObject>) = withContext(IO) {
-    send("/api/v2/users/${path(userId)}/agents", "PUT", json.encodeToString(AgentsBody.serializer(), AgentsBody(serverId, agents)))
+    workState(userId) { route -> send(route, "PUT", json.encodeToString(AgentsBody.serializer(), AgentsBody(serverId, agents))) }
     Unit
+  }
+
+  /** The player's work state on the backend: `/workstate` since 6.32, `/agents` on 6.31.0, which knew only that name. */
+  private fun workState(userId: String, call: (String) -> String): String = try {
+    call("/api/v2/users/${path(userId)}/workstate")
+  } catch (error: ApiErrorException) {
+    if (error.apiError.statusCode != 404) throw error
+    call("/api/v2/users/${path(userId)}/agents")
   }
 
   /** One death, for the history the backend pages for the model (6.9). */

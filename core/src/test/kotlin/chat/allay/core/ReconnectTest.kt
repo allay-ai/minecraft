@@ -139,6 +139,25 @@ class ReconnectTest {
     assertTrue(seen.all { run.requestId in it.body }, "every try names the same question")
   }
 
+  @Test fun `the player hears of a lost backend once, after the third try`() = runBlocking {
+    val tries = AtomicInteger()
+    val (url, _) = serve { _, exchange ->
+      if (tries.incrementAndGet() <= 3) exchange.reply(503, "restarting")
+      else exchange.events(Triple(1, "start", """{"run_id":"r5","model":"m"}"""), Triple(2, "done", """{"answer":"Back","duration_ms":1}"""))
+    }
+    val told = AtomicInteger()
+    val counting = object : Service.Listener {
+      override fun toolStarted(callId: String, name: String, args: JsonObject?) {}
+      override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) {}
+      override fun reconnecting() {
+        assertEquals(3, tries.get(), "told after the third failed try")
+        told.incrementAndGet()
+      }
+    }
+    assertEquals("Back", service(url).chat(run(), "hi", counting).answer)
+    assertEquals(1, told.get())
+  }
+
   @Test fun `a backend that numbers nothing fails as before once its run started`() = runBlocking {
     val (url, seen) = serve { _, exchange -> exchange.events(Triple(null, "start", """{"run_id":"r3","model":"m"}"""), Triple(null, "text", """{"delta":"Hel"}""")) }
     // Without ids the cut-off text is all there is, so it's the answer, as before 6.35.

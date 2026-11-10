@@ -286,6 +286,18 @@ class Agents(
     player.send(Legacy.color(template.replace(Legacy.SLOT, text ?: "")))
   }
 
+  /** The stop button under an agent's line: that agent alone. */
+  fun stop(player: PlayerAudience, id: String) {
+    val task = book.find(player.uuid, id) ?: return locales.of(player).send(player, "automation.gone")
+    end(task, locales.of(player).text("automation.cancelled"))
+  }
+
+  /** A line about [task] with its stop button under it, for an agent that waits and might wait long. */
+  private fun waiting(player: PlayerAudience, task: Task, key: String, vararg values: Pair<String, Any?>) {
+    line(player, task, key, *values)
+    clicks().show(player, listOf(Button.StopAgent(locales.of(player).text("buttons.stop_agent"), task.id)))
+  }
+
   /** `/allay cancel` with no answer running: stops the player's agents. True when there were any. */
   fun cancel(player: PlayerAudience): Boolean {
     val tasks = book.of(player.uuid)
@@ -532,7 +544,7 @@ class Agents(
     if (agent.offlineSince == 0L) {
       agent.offlineSince = now
       task.offline = true
-      line(player, task, "automation.offline")
+      waiting(player, task, "automation.offline")
     } else if (now - agent.offlineSince > config().automation.parkHours * 3_600_000L) {
       return end(task, locales.of(player).text("automation.unreachable"))
     }
@@ -568,7 +580,7 @@ class Agents(
     task.parked = Parked(needs, now, now + config().automation.parkHours * 3_600_000L, now, note?.take(200))
     task.waited = true
     task.wakeAt = null
-    line(player, task, "automation.parked", "items" to missing(player, needs, have))
+    waiting(player, task, "automation.parked", "items" to missing(player, needs, have))
     persist(task.owner)
     return true
   }
@@ -594,7 +606,7 @@ class Agents(
     if (now - parked.reminded >= settings.remindMinutes * 60_000L) {
       val have = world.count(task, player, parked.needs)
       task.parked = parked.copy(reminded = now)
-      line(player, task, "automation.still_waiting", "items" to missing(player, parked.needs, have))
+      waiting(player, task, "automation.still_waiting", "items" to missing(player, parked.needs, have))
       persist(task.owner)
     }
     if (agent.paused || now - agent.counted < WATCH_MS) return
