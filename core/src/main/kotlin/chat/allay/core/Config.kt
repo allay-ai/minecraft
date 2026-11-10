@@ -224,7 +224,10 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   }
 
   val time = Time() ; inner class Time {
-    val zone = config.string("time.zone", "Europe/Moscow").let { zone -> zone.takeIf { TimeZones.parse(it) != null } ?: "UTC" }
+    /** `auto` (the default) is the server machine's own zone: players who never named theirs most likely live near it. */
+    val zone = config.string("time.zone", "auto").trim().let { zone ->
+      if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) java.time.ZoneId.systemDefault().id else zone.takeIf { TimeZones.parse(it) != null } ?: "UTC"
+    }
   }
 
   /** bStats on Paper and Spigot, read when the plugin starts; the mods have none. */

@@ -352,7 +352,7 @@ askall:
 # The game doesn't say where a player is, so everyone starts in this zone; a player can
 # name theirs and the assistant remembers it.
 time:
-  zone: "Europe/Moscow"       # An IANA time zone, such as Europe/Berlin or America/New_York
+  zone: "auto"                # Players' time until they name their own: auto is this machine's zone, or an IANA zone such as Europe/Berlin
 
 # false turns off bStats metrics (bstats.org) at the next start. Paper and Spigot only.
 metrics: true
