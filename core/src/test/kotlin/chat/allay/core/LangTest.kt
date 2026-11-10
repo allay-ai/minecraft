@@ -85,4 +85,20 @@ class LangTest {
     // A copy from before snapshots keeps every text it has; only new keys come in.
     assertEquals(mapOf("a" to "6 facts", "b" to "Go back", "c" to "Mine", "d" to "Added"), Locales.current(server, null, bundled))
   }
+
+  @Test fun `the better wording stays on the second start too, though the server's copy still says the old one`() {
+    val old = mapOf("bar" to "{done}/{total}", "own" to "Old")
+    val new = mapOf("bar" to "{percent}% · {done}/{total}", "own" to "New")
+    val server = mapOf("bar" to "{done}/{total}", "own" to "Mine")
+    // The first start with the new release, then the second: the copy on disk never changes.
+    val first = Locales.snapshot(server, old, new)
+    assertEquals("{percent}% · {done}/{total}", Locales.current(server, first, new)["bar"])
+    assertEquals("Mine", Locales.current(server, first, new)["own"])
+    // Written and read back as the plugin does.
+    val file = java.io.File.createTempFile("bundled", ".yml").apply { deleteOnExit() }
+    file.writeText(org.yaml.snakeyaml.Yaml(org.yaml.snakeyaml.DumperOptions().apply {
+      defaultFlowStyle = org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK
+    }).dump(mapOf("building.bar" to "x · {n}%", "status.list" to listOf("a", "b"))))
+    assertEquals(mapOf("building.bar" to "x · {n}%", "status.list" to listOf("a", "b")), Texts.read(file))
+  }
 }

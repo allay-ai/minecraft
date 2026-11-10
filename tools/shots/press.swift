@@ -4,6 +4,7 @@
 //   press move <fx> <fy>    puts the pointer at fractions of the game's window, title bar included
 //   press click <fx> <fy>   the same, then a left click there
 //   press hold <key> <s>     holds a letter key (w) for <s> seconds: the player walks
+//   press use               a right click where the player looks: opens the chest under the crosshair
 // macOS asks for Accessibility for the terminal before it passes the keys on.
 import AppKit
 import ApplicationServices
@@ -58,6 +59,13 @@ case "click":
     CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: .left)?.post(tap: .cghidEventTap)
     usleep(60_000)
   }
+case "use":
+  // The game holds the pointer while it plays, so the click goes where the crosshair is.
+  let at = CGEvent(source: nil)?.location ?? point(0.5, 0.5)
+  for type in [CGEventType.rightMouseDown, .rightMouseUp] {
+    CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: at, mouseButton: .right)?.post(tap: .cghidEventTap)
+    usleep(60_000)
+  }
 case "hold":
   let codes: [String: CGKeyCode] = ["w": 13, "a": 0, "s": 1, "d": 2]
   guard let code = codes[args[2]] else { print("hold takes w, a, s, or d"); exit(1) }
@@ -65,5 +73,5 @@ case "hold":
   usleep(useconds_t(Double(args[3])! * 1_000_000))
   CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)?.postToPid(pid)
 default:
-  print("escape, chat, move <fx> <fy>, click <fx> <fy>, or hold <key> <seconds>"); exit(1)
+  print("escape, chat, move <fx> <fy>, click <fx> <fy>, use, or hold <key> <seconds>"); exit(1)
 }

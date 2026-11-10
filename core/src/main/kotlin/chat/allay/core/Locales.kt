@@ -39,17 +39,22 @@ class Locales(private val platform: Platform) {
       val file = File(folder, "$code.yml")
       if (!file.exists()) platform.resource("lang/$code.yml")?.use { stream -> folder.mkdirs(); file.outputStream().use(stream::copyTo) }
     }
+    val copies = HashMap<String, Map<String, Any>>()
     val languages = buildMap {
       folder.listFiles { file -> file.extension == "yml" }.orEmpty().sortedBy { it.name }.forEach { file ->
         val code = LocaleResolver.normalize(file.nameWithoutExtension)
         val texts = runCatching { Texts.read(file) }.onFailure { platform.log.warning("Can't read lang/${file.name}: ${it.message}") }.getOrNull() ?: return@forEach
+        copies[code] = texts
         put(code, current(texts, previous[code], bundled(code)))
       }
       Texts.BUNDLED.forEach { code -> if (code !in this) put(code, bundled(code)) }
     }
-    // The next release compares with what this one bundled.
+    // The next start compares with this: what this release bundled, and the server's untouched keys as they still read.
     Texts.BUNDLED.forEach { code ->
-      platform.resource("lang/$code.yml")?.use { stream -> snapshots.mkdirs(); File(snapshots, "$code.yml").outputStream().use(stream::copyTo) }
+      val bundled = bundled(code).ifEmpty { return@forEach }
+      val snapshot = snapshot(copies[code].orEmpty(), previous[code], bundled)
+      snapshots.mkdirs()
+      File(snapshots, "$code.yml").writeText(SNAPSHOTS.dump(snapshot), Charsets.UTF_8)
     }
     val default = LocaleResolver.normalize(config.locales.default)
     if (default !in languages) platform.log.warning("locales.default: there is no lang/$default.yml; using ${Texts.FALLBACK}")
@@ -86,6 +91,21 @@ class Locales(private val platform: Platform) {
      */
     fun current(server: Map<String, Any>, previous: Map<String, Any>?, bundled: Map<String, Any>): Map<String, Any> =
       bundled + server.mapValues { (key, value) -> if (previous != null && previous[key] == value) bundled[key] ?: value else value }
+
+    /**
+     * What to compare with at the next start. The server's copy keeps its old wording of a key the operator never
+     * changed, so the snapshot keeps that wording too: otherwise the next start would take the old text for theirs,
+     * and the newer one would reach the server for one start only.
+     */
+    fun snapshot(server: Map<String, Any>, previous: Map<String, Any>?, bundled: Map<String, Any>): Map<String, Any> =
+      bundled + server.filter { (key, value) -> previous != null && previous[key] == value && key in bundled }
+
+    /** Flat keys, one a line: [Texts.read] reads `section.key` back as it wrote it. */
+    private val SNAPSHOTS = org.yaml.snakeyaml.Yaml(org.yaml.snakeyaml.DumperOptions().apply {
+      defaultFlowStyle = org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK
+      isAllowUnicode = true
+      width = Int.MAX_VALUE
+    })
   }
 
   private fun bundled(code: String): Map<String, Any> =
