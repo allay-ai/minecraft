@@ -215,6 +215,12 @@ class InfoGameTests {
     val world = result(asker, "get_world")
     equal(helper, world["dimension"]!!.jsonPrimitive.content, "overworld", "dimension")
     helper.assertTrue(world["rules"]!!.jsonObject.containsKey("keep_inventory"), "the rules that change advice: $world")
+    val chunk = world["chunk"]!!.jsonObject
+    equal(helper, chunk["x"]!!.jsonPrimitive.int, asker.blockPosition().x shr 4, "the asker's chunk")
+    equal(helper, chunk["region"]!!.jsonPrimitive.content, "r.${asker.blockPosition().x shr 9}.${asker.blockPosition().z shr 9}.mca", "its region file")
+    helper.assertTrue(chunk.containsKey("slime_chunk"), "slimes, in the overworld: $chunk")
+    // The seed is the operator's, as /seed is.
+    helper.assertTrue(!world.containsKey("seed"), "no seed for a survivor: $world")
     val server = result(asker, "get_server")
     equal(helper, server["software"]!!.jsonPrimitive.content, WorldTools.SOFTWARE, "software")
     equal(helper, server["version"]!!.jsonPrimitive.content, "26.3", "game version")

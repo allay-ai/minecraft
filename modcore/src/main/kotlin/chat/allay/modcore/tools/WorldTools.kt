@@ -65,6 +65,25 @@ object WorldTools {
           }
         }
         put("border", round1(world.worldBorder.size))
+        // The chunk the player stands in: where its region file is, slimes, and how long players spent there.
+        context.player?.takeIf { it.level() == world }?.let { player ->
+          val at = player.blockPosition()
+          val cx = at.x shr 4
+          val cz = at.z shr 4
+          putJsonObject("chunk") {
+            put("x", cx)
+            put("z", cz)
+            put("region", "r.${cx shr 5}.${cz shr 5}.mca")
+            put("in_chunk", "${at.x and 15} ${at.z and 15}")
+            put("section", at.y shr 4)
+            if (world.dimension() == net.minecraft.world.level.Level.OVERWORLD) {
+              put("slime_chunk", net.minecraft.world.level.levelgen.WorldgenRandom.seedSlimeChunk(cx, cz, world.seed, 987234911L).nextInt(10) == 0)
+            }
+            world.chunkSource.getChunkNow(cx, cz)?.let { put("inhabited_minutes", it.inhabitedTime / 1200) }
+          }
+          // As /seed: operators only, since the seed gives every ore and structure away.
+          if (OperatorTools.operator(player)) put("seed", world.seed.toString())
+        }
         // From the Nether or the End, the sky players mean (can I sleep, is it raining up there) is the overworld's.
         context.player?.let(OperatorTools::skyWorld)?.takeIf { it != world }?.let { sky ->
           val skyTime = Math.floorMod(fullTime(sky), 24_000L)

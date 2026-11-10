@@ -54,6 +54,21 @@ object WorldTools {
           }
         }
         put("border", round1(world.worldBorder.size))
+        // The chunk the player stands in: where its region file is, slimes, and how long players spent there.
+        context.player?.takeIf { it.world == world }?.location?.let { at ->
+          val chunk = at.chunk
+          putJsonObject("chunk") {
+            put("x", chunk.x)
+            put("z", chunk.z)
+            put("region", "r.${chunk.x shr 5}.${chunk.z shr 5}.mca")
+            put("in_chunk", "${at.blockX and 15} ${at.blockZ and 15}")
+            put("section", at.blockY shr 4)
+            if (world.environment == org.bukkit.World.Environment.NORMAL) put("slime_chunk", chunk.isSlimeChunk)
+            put("inhabited_minutes", chunk.inhabitedTime / 1200)
+          }
+        }
+        // As /seed: operators only, since the seed gives every ore and structure away.
+        if (context.player?.isOp == true) put("seed", world.seed.toString())
         // From the Nether or the End, the sky players mean (can I sleep, is it raining up there) is the overworld's.
         context.player?.let(OperatorTools::skyWorld)?.takeIf { it != world }?.let { sky ->
           putJsonObject("overworld") {
