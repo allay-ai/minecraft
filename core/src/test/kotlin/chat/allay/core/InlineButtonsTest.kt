@@ -14,6 +14,11 @@ class InlineButtonsTest {
     )
   }
 
+  @Test fun `stray html emphasis turns into the game's codes, never raw tags`() {
+    assertEquals("&lВилла&r (автор Z3N0N)", InlineButtons.plain("<b>Вилла</b> (автор Z3N0N)"))
+    assertEquals("одна\nдругая", InlineButtons.plain("одна<br/>другая"))
+  }
+
   @Test fun `attributes unescape and keep their order-free values`() {
     val tag = InlineButtons.parse("""<button  action="say"   text="Say &quot;hi&quot; &amp; bye">Send</button>""").single() as Part.Tag
     assertEquals("Say \"hi\" & bye", tag.attributes["text"])

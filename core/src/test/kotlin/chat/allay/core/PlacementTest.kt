@@ -41,6 +41,15 @@ class PlacementTest {
     assertEquals(placement.world(hut, 0, 0, 0), mirrored.world(hut, hut.width - 1, 0, 0))
   }
 
+  @Test fun `a build on a lot of its own sinks so the lot's surface meets the ground`() {
+    val villa = Schem.read(PlacementTest::class.java.getResourceAsStream("/schematics/modern-villa.schem")!!.readBytes())
+    val surface = chat.allay.core.building.Construction.surface(villa)
+    assertTrue(surface >= 0, "the villa stands on a lot of dirt and grass")
+    val placement = Placement.before(villa, Triple(0, 64, 0), DraftSide.NORTH)
+    assertEquals(63, placement.corner.second + surface, "its grass lies where the world's ground was")
+    assertEquals(-1, chat.allay.core.building.Construction.surface(hut), "the hut has no lot")
+  }
+
   @Test fun `only what shows from outside is drawn`() {
     val opaque = BooleanArray(hut.palette.size) { !hut.empty[it] && !hut.palette[it].contains("glass") && !hut.palette[it].contains("slab") }
     val shell = Shell.of(hut, opaque)

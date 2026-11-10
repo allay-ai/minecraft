@@ -228,7 +228,9 @@ object Building {
         if (level.chunkSource.getChunkNow(x shr 4, z shr 4) == null) break
         val block = level.at(x, y, z)
         val steve = Materials.steve(state)?.let { Previews.turned(it, placement) }
-        if (block.state == data || (steve != null && block.state == steve)) {
+        // The lot's ground on the world's own ground is there already: dirt for stone stays as the world has it.
+        val grounded = Construction.ground(Construction.kind(state)) && Construction.ground(block.key)
+        if (grounded || block.state == data || (steve != null && block.state == steve)) {
           step()
           placed++
           continue
@@ -648,6 +650,11 @@ object Building {
       val cell = job.cellAt(i)
       val state = job.states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))]
       if (Construction.kind(state) in job.skips) continue
+      if (Construction.ground(Construction.kind(state))) {
+        val (x, y, z) = job.placement.world(bp, Shell.x(cell), Shell.y(cell), Shell.z(cell))
+        // The lot's ground on the world's own costs nothing, as the builder sees it.
+        if (Construction.ground(job.level.at(x, y, z).key)) continue
+      }
       Materials.of(state).items.forEach { (item, n) -> needs.merge(item, n, Int::plus) }
     }
     if (sources == null) put("creative", "nothing is taken")

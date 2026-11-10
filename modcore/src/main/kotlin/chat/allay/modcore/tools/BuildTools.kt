@@ -131,7 +131,11 @@ object BuildTools {
 
   /** What the preview needs against what the player has: in the inventory, the ender chest, and the chests around. */
   private fun estimate(context: ToolContext, player: ServerPlayer, preview: Previews.Preview): ToolOutput {
-    val estimate = Materials.estimate(preview.blueprint, preview.states)
+    // The lot's ground that lands on the world's own ground costs nothing: the world has it there.
+    val covered = Previews.covered(preview)
+    val estimate = Materials.estimate(preview.blueprint, preview.states).let { all ->
+      all.copy(items = all.items.mapValues { (item, n) -> n - (covered[item] ?: 0) }.filterValues { it > 0 })
+    }
     val sources = Sources.around(player, context.features.automation.settings().radius, LOOK)
     val have = HashMap<String, Int>()
     for (source in sources.list) for (stack in source.slots()) {

@@ -18,6 +18,8 @@ object InlineButtons {
   }
 
   private val TAG = Regex("""<button((?:\s+[a-zA-Z_]+\s*=\s*"[^"]*")*)\s*>([^<\n]{0,64})</button>""")
+  /** HTML a model slips in for emphasis: bold and italic as the game's codes, the rest dropped, never shown raw. */
+  private val HTML = Regex("""</?(b|strong|i|em|u|s|br)\s*/?>""", RegexOption.IGNORE_CASE)
   private val ATTRIBUTE = Regex("""([a-zA-Z_]+)\s*=\s*"([^"]*)"""")
 
   /**
@@ -29,13 +31,24 @@ object InlineButtons {
     var at = 0
     var count = 0
     TAG.findAll(answer).forEach { match ->
-      if (match.range.first > at) parts += Part.Text(answer.substring(at, match.range.first))
+      if (match.range.first > at) parts += Part.Text(html(answer.substring(at, match.range.first)))
       val label = unescape(match.groupValues[2]).trim().take(MAX_LABEL)
       parts += if (++count > MAX) Part.Text(label) else Part.Tag(label, ATTRIBUTE.findAll(match.groupValues[1]).associate { it.groupValues[1].lowercase() to unescape(it.groupValues[2]) })
       at = match.range.last + 1
     }
-    if (at < answer.length) parts += Part.Text(answer.substring(at))
+    if (at < answer.length) parts += Part.Text(html(answer.substring(at)))
     return parts
+  }
+
+  private fun html(text: String) = HTML.replace(text) { match ->
+    val tag = match.groupValues[1].lowercase()
+    when {
+      tag == "br" -> "\n"
+      match.value.startsWith("</") -> "&r"
+      tag == "b" || tag == "strong" -> "&l"
+      tag == "i" || tag == "em" -> "&o"
+      else -> ""
+    }
   }
 
   /** The answer with every tag replaced by its label: what the console and the log read. */

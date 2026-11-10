@@ -25,6 +25,31 @@ object Construction {
     return out
   }
 
+  /** What the ground of a lot is made of, as the world's is: the lot's ground may stand on the world's own. */
+  private val GROUND = setOf(
+    "dirt", "grass_block", "coarse_dirt", "rooted_dirt", "podzol", "mycelium", "mud", "moss_block", "dirt_path", "farmland",
+    "stone", "deepslate", "granite", "diorite", "andesite", "tuff", "gravel", "sand", "red_sand", "clay", "netherrack",
+  )
+
+  /** Whether [block] (without `minecraft:`) is ground, as a lot or the world has it. */
+  fun ground(block: String) = block.removePrefix("minecraft:") in GROUND
+
+  /**
+   * The layer of [blueprint] its lot's surface lies in: the highest layer that ground covers at least two fifths of,
+   * or -1 for a build without a lot. A preview sinks the build so this layer meets the world's ground.
+   */
+  fun surface(blueprint: Blueprint): Int {
+    val ground = BooleanArray(blueprint.palette.size) { ground(Blueprint.block(blueprint.palette[it])) }
+    val area = blueprint.width * blueprint.length
+    var top = -1
+    for (y in 0 until blueprint.height) {
+      var count = 0
+      for (z in 0 until blueprint.length) for (x in 0 until blueprint.width) if (ground[blueprint.at(x, y, z)]) count++
+      if (count * 5 >= area * 2) top = y
+    }
+    return top
+  }
+
   /** Tools' tiers, worst first: a builder wears the worst out before it touches a better one. */
   private val TIERS = listOf("wooden", "stone", "copper", "golden", "iron", "diamond", "netherite")
 

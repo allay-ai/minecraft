@@ -3,6 +3,7 @@ package chat.allay.spigot.tools
 import chat.allay.core.Locales
 import chat.allay.core.building.Blueprint
 import chat.allay.core.building.Blueprints
+import chat.allay.core.building.Construction
 import chat.allay.core.building.Families
 import chat.allay.core.building.Placement
 import chat.allay.core.building.Renames
@@ -197,6 +198,18 @@ object Previews : Listener {
     else -> DraftSide.NORTH
   }
 
+  /** What the lot's ground costs where the world has ground already: the estimate leaves it out. */
+  fun covered(preview: Preview): Map<String, Int> {
+    val covered = HashMap<String, Int>()
+    val ground = BooleanArray(preview.states.size) { Construction.ground(Construction.kind(preview.states[it])) }
+    preview.blueprint.forEach { cx, cy, cz, index ->
+      if (!ground[index]) return@forEach
+      val (x, y, z) = preview.placement.world(preview.blueprint, cx, cy, cz)
+      if (Construction.ground(preview.world.getBlockAt(x, y, z).type.key.key)) chat.allay.core.building.Materials.of(preview.states[index]).items.forEach { (item, n) -> covered.merge(item, n, Int::plus) }
+    }
+    return covered
+  }
+
   private fun block(preview: Preview, packed: Int): Block {
     val (x, y, z) = preview.placement.world(preview.blueprint, Shell.x(packed), Shell.y(packed), Shell.z(packed))
     return preview.world.getBlockAt(x, y, z)
@@ -243,7 +256,10 @@ object Previews : Listener {
       if (spawned >= PER_TICK) break
       if (cell in preview.drawn) continue
       val block = block(preview, cell)
-      val data = preview.datas[preview.blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))] ?: continue
+      val index = preview.blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
+      val data = preview.datas[index] ?: continue
+      // The lot's ground where the world has ground needs nothing: neither a ghost nor a red box.
+      if (Construction.ground(Construction.kind(preview.states[index])) && Construction.ground(block.type.key.key)) continue
       val ghost = if (open(block) || block.blockData.matches(data)) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
       Marks.reveal(plugin, player, listOf(ghost))
       preview.drawn[cell] = ghost

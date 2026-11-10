@@ -52,12 +52,16 @@ data class Placement(val corner: Triple<Int, Int, Int>, val facing: DraftSide, v
   }
 
   companion object {
-    /** In front of a player at [feet] who looks [facing]: centered, starting two blocks ahead, its floor at their feet. */
+    /**
+     * In front of a player at [feet] who looks [facing]: centered, starting two blocks ahead, its floor at their feet,
+     * or for a build on a lot of its own, the lot's surface where the world's ground is, the rest of the lot below.
+     */
     fun before(blueprint: Blueprint, feet: Triple<Int, Int, Int>, facing: DraftSide): Placement {
       val (x, y, z) = feet
       val side = facing.right
       val half = blueprint.width / 2
-      return Placement(Triple(x + facing.dx * 2 - side.dx * half, y, z + facing.dz * 2 - side.dz * half), facing)
+      val sunk = Construction.surface(blueprint) + 1
+      return Placement(Triple(x + facing.dx * 2 - side.dx * half, y - sunk, z + facing.dz * 2 - side.dz * half), facing)
     }
   }
 }
