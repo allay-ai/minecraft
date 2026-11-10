@@ -121,10 +121,15 @@ object Materials {
    * [palette] as Allay builds it: a banner goes up plain white, since its patterns would need the loom's order undone.
    * The preview and the estimate show the same.
    */
-  fun placed(palette: List<String>): List<String> = palette.map { state ->
+  fun placed(palette: List<String>): List<String> = palette.map(::plain)
+
+  /** [palette] as this game builds it: older names renamed ([known] says what the game has), then [placed]'s rules. */
+  fun placed(palette: List<String>, known: (String) -> Boolean): List<String> = placed(palette.map { Renames.fix(it, known) ?: it })
+
+  private fun plain(state: String): String {
     val block = Blueprint.block(state).removePrefix("minecraft:")
-    val color = COLORS.firstOrNull { block == "${it}_banner" || block == "${it}_wall_banner" } ?: return@map state
-    "minecraft:white" + block.removePrefix(color) + state.substring(Blueprint.block(state).length)
+    val color = COLORS.firstOrNull { block == "${it}_banner" || block == "${it}_wall_banner" } ?: return state
+    return "minecraft:white" + block.removePrefix(color) + state.substring(Blueprint.block(state).length)
   }
 
   /**

@@ -97,6 +97,10 @@ object Building {
     private var datas: Array<BlockState?> = emptyArray()
     private var order = IntArray(0)
     private var signs: Map<Int, List<String>> = emptyMap()
+    /** Player heads' skins by cell, as links to the game's skin server. */
+    private var skins: Map<Int, String> = emptyMap()
+    /** The next of the build's entities, once the blocks are up. */
+    var entityNext = 0
 
     var next = 0
     var placed = 0
@@ -118,17 +122,24 @@ object Building {
 
     override val blocks: Collection<chat.allay.modcore.tools.BlockAt> get() = emptyList()
 
-    val total get() = order.size
-    val done get() = blueprint != null && next >= order.size
+    val total get() = order.size + (blueprint?.entities?.size ?: 0)
+    val done get() = blueprint != null && next >= order.size && again.isEmpty() && entityNext >= blueprint!!.entities.size
+
+    /** Blocks in its order. */
+    val cells get() = order.size
+
+    /** How far it got, entities included. */
+    val progress get() = next + entityNext
 
     /** Takes [blueprint] on: the palette as swapped, the order, and the signs' text. Server thread. */
     fun ready(blueprint: Blueprint) {
       this.blueprint = blueprint
-      var states = blueprint.palette
+      var states = Materials.placed(blueprint.palette, Previews::known)
       for ((from, to) in swaps) states = Families.apply(states, from, to, Previews::known).first
       this.states = states
       resolve()
       signs = blueprint.blockEntities.filter { it.text.isNotEmpty() }.associate { Shell.pack(it.x, it.y, it.z) to it.text }
+      skins = blueprint.blockEntities.mapNotNull { entity -> entity.texture?.let(Construction::skin)?.let { Shell.pack(entity.x, entity.y, entity.z) to it } }.toMap()
       run()
     }
 
@@ -216,7 +227,8 @@ object Building {
         // An unloaded chunk waits for someone to come near, as the game does.
         if (level.chunkSource.getChunkNow(x shr 4, z shr 4) == null) break
         val block = level.at(x, y, z)
-        if (block.state == data) {
+        val steve = Materials.steve(state)?.let { Previews.turned(it, placement) }
+        if (block.state == data || (steve != null && block.state == steve)) {
           step()
           placed++
           continue
@@ -226,23 +238,22 @@ object Building {
           step()
           continue
         }
-        val cost = Materials.of(state)
+        var cost = Materials.of(state)
         if (cost.unobtainable) {
           step()
           continue
         }
+        var placing = data
+        // No such mob head at hand: Steve's goes up for free instead.
+        if (!creative && steve != null && lacking(player, cost) != null) {
+          placing = steve
+          cost = Materials.Cost(free = true)
+        }
         if (!creative) {
           val lacking = lacking(player, cost)
-          if (lacking != null) {
-            starved = lacking
-            starvedSince = System.currentTimeMillis()
-            reminded = starvedSince
-            automation.say(player, task, automation.text(task, "building.waiting", "items" to lacking))
-            automation.changed(task)
-            return
-          }
+          if (lacking != null) return starve(player, lacking)
         }
-        if (place(player, block.pos, data, cell)) {
+        if (place(player, block.pos, placing, cell)) {
           if (!creative) pay(player, cost)
           placed++
         } else {
@@ -251,7 +262,69 @@ object Building {
         step()
         budget -= 1.0
       }
-      if (next >= order.size && again.isEmpty()) finish()
+      if (next < order.size || again.isNotEmpty()) return
+      if (!entities(player, creative)) return
+      finish()
+    }
+
+    /**
+     * The build's frames, paintings, and armor stands, once every block is up: empty, each for its item, only where the
+     * player may build. True when they're all there.
+     */
+    private fun entities(player: ServerPlayer, creative: Boolean): Boolean {
+      val bp = blueprint ?: return false
+      while (entityNext < bp.entities.size) {
+        if (budget < 1.0) return false
+        val entity = bp.entities[entityNext]
+        val item = Materials.item(entity)
+        if (item == null || item in skips) {
+          entityNext++
+          continue
+        }
+        val (x, y, z) = placement.world(bp, kotlin.math.floor(entity.x).toInt(), kotlin.math.floor(entity.y).toInt(), kotlin.math.floor(entity.z).toInt())
+        if (level.chunkSource.getChunkNow(x shr 4, z shr 4) == null) return false
+        val cost = Materials.Cost(mapOf(item to 1))
+        if (!creative) {
+          val lacking = lacking(player, cost)
+          if (lacking != null) {
+            starve(player, lacking)
+            return false
+          }
+        }
+        when (Decorations.place(player, level, BlockPos(x, y, z), entity, bp, placement)) {
+          Decorations.Result.PLACED -> {
+            if (!creative) pay(player, cost)
+            placed++
+          }
+          Decorations.Result.THERE -> placed++
+          Decorations.Result.REFUSED -> blockedMore++
+        }
+        entityNext++
+        budget -= 1.0
+      }
+      return true
+    }
+
+    /** Starts waiting for [lacking], as the player reads it. */
+    private fun starve(player: ServerPlayer, lacking: String) {
+      val automation = Jobs.automation
+      starved = lacking
+      starvedSince = System.currentTimeMillis()
+      reminded = starvedSince
+      automation.say(player, task, automation.text(task, "building.waiting", "items" to lacking))
+      automation.changed(task)
+    }
+
+    /** What the next thing to build costs: the next cell's block, or once they're up, the next entity's item. */
+    private fun upcoming(): Materials.Cost? {
+      val bp = blueprint ?: return null
+      val cell = again.firstOrNull() ?: order.getOrNull(next)
+      if (cell != null) {
+        val state = states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))]
+        // A mob head waits for nothing: Steve's stands in.
+        return if (Materials.steve(state) != null) Materials.Cost.NOTHING else Materials.of(state)
+      }
+      return bp.entities.getOrNull(entityNext)?.let(Materials::item)?.let { Materials.Cost(mapOf(it to 1)) }
     }
 
     /** Waits for what it lacks: it looks again every two seconds, reminds now and then, and gives up after its hours. */
@@ -268,9 +341,8 @@ object Building {
       }
       sources = Sources.around(player, automation.settings().radius, task.scope)
       sourcesAge = 0
-      val bp = blueprint ?: return
-      val cell = again.firstOrNull() ?: order.getOrNull(next) ?: return
-      if (!player.isCreative && lacking(player, Materials.of(states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))])) != null) return
+      val cost = upcoming() ?: return
+      if (!player.isCreative && lacking(player, cost) != null) return
       starved = null
       starvedSince = 0L
       automation.say(player, task, automation.text(task, "building.going_on"))
@@ -341,6 +413,7 @@ object Building {
       // Leaves of a build stay: the player placed them, as the game marks leaves a player places.
       val placing = if (data.hasProperty(LeavesBlock.PERSISTENT)) data.setValue(LeavesBlock.PERSISTENT, true) else data
       if (!level.setBlock(pos, placing, FLAGS)) return false
+      skins[cell]?.let { skin -> Decorations.skin(level, pos, skin) }
       signs[cell]?.let { lines ->
         val sign = level.getBlockEntity(pos) as? SignBlockEntity ?: return@let
         val text = sign.getText(SignTextSlot.FRONT).asMutable()
@@ -392,8 +465,8 @@ object Building {
       // A respawn makes a new ServerPlayer: the bar follows the one that plays now.
       bar.players.filter { it !== player }.forEach(bar::removePlayer)
       if (player !in bar.players) bar.addPlayer(player)
-      val total = order.size.coerceAtLeast(1)
-      bar.progress = (next.toFloat() / total).coerceIn(0f, 1f)
+      val total = this.total.coerceAtLeast(1)
+      bar.progress = (progress.toFloat() / total).coerceIn(0f, 1f)
       val key = when {
         !started -> "building.bar_ready"
         paused -> "building.bar_paused"
@@ -402,7 +475,7 @@ object Building {
         else -> "building.bar"
       }
       bar.color = if (starved != null || far || paused) BossEvent.BossBarColor.YELLOW else BossEvent.BossBarColor.GREEN
-      bar.name = Texts.legacy(Legacy.color(automation.text(task, key, "title" to title, "done" to next, "total" to order.size, "items" to (starved ?: ""))))
+      bar.name = Texts.legacy(Legacy.color(automation.text(task, key, "title" to title, "done" to progress, "total" to total, "items" to (starved ?: ""))))
     }
 
     override fun cancel() {
@@ -417,7 +490,7 @@ object Building {
     override fun snapshot(): JsonObject = SAVES.encodeToJsonElement(BuildSave.serializer(), BuildSave(
       id = source.id, url = source.url, sha256 = source.sha256, bytes = source.bytes, title = title, world = Worlds.name(level),
       x = placement.corner.first, y = placement.corner.second, z = placement.corner.third, facing = placement.facing.name.lowercase(),
-      mirrored = placement.mirrored, swaps = swaps.map { listOf(it.first, it.second) }, skips = skips.toList(), next = next, placed = placed,
+      mirrored = placement.mirrored, swaps = swaps.map { listOf(it.first, it.second) }, skips = skips.toList(), next = next, placed = placed, entity_next = entityNext,
       blocked = blocked.toList(), again = again.toList(), started = started, paused = paused, blocks_per_second = blocksPerSecond, starved_since = starvedSince,
     )).jsonObject
 
@@ -470,6 +543,7 @@ object Building {
       save.swaps.mapNotNull { if (it.size == 2) it[0] to it[1] else null }.toMutableList(), save.skips.toMutableSet(), save.blocks_per_second)
     job.next = save.next
     job.placed = save.placed
+    job.entityNext = save.entity_next
     job.blocked += save.blocked
     job.again.addAll(save.again)
     job.started = save.started
@@ -498,7 +572,7 @@ object Building {
       if (job.blueprint == null) throw ToolError("the build is still downloading; wait a few seconds")
       val lang = context.lang
       return when (val action = args.string("action")?.lowercase()) {
-        "status" -> ToolOutput(status(job, player), lang.text("summary.construct_status", "done" to job.next, "total" to job.total))
+        "status" -> ToolOutput(status(job, player), lang.text("summary.construct_status", "done" to job.progress, "total" to job.total))
         "start" -> {
           val unobtainable = job.unobtainable()
           if (unobtainable.isNotEmpty()) throw ToolError("no survival player gets ${unobtainable.entries.joinToString { "${it.key} (${it.value})" }}: ask the player what to build them with (swap) or to leave them out (skip), then start")
@@ -532,7 +606,8 @@ object Building {
         }
         "skip" -> {
           val block = args.string("block")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("skip needs block: the kind to leave out, like glass_pane")
-          if (block !in job.remaining()) throw ToolError("nothing of $block is left to build")
+          val entities = job.blueprint!!.entities.drop(job.entityNext).any { Materials.item(it) == block }
+          if (block !in job.remaining() && !entities) throw ToolError("nothing of $block is left to build")
           job.skips += block
           automation.changed(task)
           ToolOutput(buildJsonObject { put("skipped", block) }, lang.text("summary.construct_skipped", "block" to block))
@@ -550,7 +625,7 @@ object Building {
 
   private fun status(job: Job, player: ServerPlayer) = buildJsonObject {
     put("title", job.title)
-    put("done", job.next)
+    put("done", job.progress)
     put("total", job.total)
     put("placed", job.placed)
     put("state", when {
@@ -567,7 +642,8 @@ object Building {
     val sources = if (player.isCreative) null else Sources.around(player, Jobs.automation.settings().radius, job.task.scope)
     val needs = HashMap<String, Int>()
     val bp = job.blueprint!!
-    for (i in job.next until job.total) {
+    bp.entities.drop(job.entityNext).forEach { entity -> Materials.item(entity)?.takeIf { it !in job.skips }?.let { needs.merge(it, 1, Int::plus) } }
+    for (i in job.next until job.cells) {
       // Counted per cell: a double slab takes two.
       val cell = job.cellAt(i)
       val state = job.states[bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))]

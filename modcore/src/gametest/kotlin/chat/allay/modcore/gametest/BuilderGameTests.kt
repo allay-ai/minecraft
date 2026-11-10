@@ -64,16 +64,16 @@ class BuilderGameTests {
     return (0 until chest.containerSize).map { chest.getItem(it) }.filterNot { it.isEmpty }
   }
 
-  /** Shows the hut to [player] through `build`, as the backend would ask. */
-  private fun preview(player: ServerPlayer) {
-    val sha = MessageDigest.getInstance("SHA-256").digest(hut).joinToString("") { "%02x".format(it) }
+  /** Shows [file] (the hut unless said) to [player] through `build`, as the backend would ask. */
+  private fun preview(player: ServerPlayer, file: ByteArray = hut) {
+    val sha = MessageDigest.getInstance("SHA-256").digest(file).joinToString("") { "%02x".format(it) }
     Players.run(player, "build", buildJsonObject {
       put("action", "preview")
       putJsonObject("schematic") {
         put("id", "samples/starter-hut")
         put("url", "https://raw.githubusercontent.com/allay-ai/schematics/${"0".repeat(40)}/catalog/houses/starter-hut/build.schem")
         put("sha256", sha)
-        put("bytes", hut.size)
+        put("bytes", file.size)
         put("title", "Starter hut")
       }
     })
@@ -171,6 +171,41 @@ class BuilderGameTests {
       }
       helper.assertTrue(job.done, "the builder is still at ${job.next} of ${job.total}, ${job.starved ?: "not waiting"}")
       built(helper, job)?.let { helper.assertTrue(false, "the hut stands as built: $it") }
+      done(player, task, kept)
+    }
+  }
+
+  private val corner = BuilderGameTests::class.java.getResourceAsStream("/schematics/decorated-corner.schem")!!.readBytes()
+
+  @GameTest(padding = 48, maxTicks = 600)
+  fun aBuilderPutsUpHeadsBannersAndFramesAsTheRulesSay(helper: GameTestHelper) {
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { corner })
+    val player = survivor(helper, AT)
+    val decorated = Schem.read(corner)
+    // No zombie head at hand: Steve's goes up in its place, for free.
+    val wants = Materials.estimate(decorated, Materials.placed(decorated.palette)).items - "zombie_head"
+    val box = chest(helper, BlockPos(3, 2, 0), stacks(wants))
+    preview(player, corner)
+    val (task, job) = builder(player)
+    construct(player, task, buildJsonObject { put("action", "start") })
+    helper.succeedWhen {
+      helper.assertTrue(job.done, "the builder is still at ${job.progress} of ${job.total}, ${job.starved ?: "not waiting"}")
+      fun at(x: Int, y: Int, z: Int): BlockPos = job.placement.world(decorated, x, y, z).let { (wx, wy, wz) -> BlockPos(wx, wy, wz) }
+      val banner = helper.level.getBlockState(at(4, 1, 2))
+      helper.assertTrue(BuiltInRegistries.BLOCK.getKey(banner.block).path == "white_banner", "the banner goes up white: $banner")
+      val steve = helper.level.getBlockState(at(3, 1, 2))
+      helper.assertTrue(steve.`is`(Blocks.PLAYER_HEAD), "Steve's head stands in for the zombie's: $steve")
+      val skull = helper.level.getBlockEntity(at(0, 1, 2)) as? net.minecraft.world.level.block.entity.SkullBlockEntity
+      val profile = skull?.ownerProfile
+      helper.assertTrue(profile != null && profile.partialProfile().properties().containsKey("textures"), "the player head keeps its skin: $profile")
+      val (low, high) = job.placement.bounds(decorated)
+      val area = net.minecraft.world.phys.AABB(low.first.toDouble(), low.second.toDouble(), low.third.toDouble(), high.first + 1.0, high.second + 1.0, high.third + 1.0)
+      val entities = helper.level.getEntities(null as net.minecraft.world.entity.Entity?, area) { it !is ServerPlayer }.groupingBy { net.minecraft.world.entity.EntityType.getKey(it.type).path }.eachCount()
+      helper.assertTrue(entities == mapOf("item_frame" to 1, "painting" to 1, "armor_stand" to 1), "one frame, one painting, one stand: $entities")
+      val left = chestItems(helper, box)
+      helper.assertTrue(left.isEmpty(), "the chest gave all of it: $left")
+      helper.level.getEntities(null as net.minecraft.world.entity.Entity?, area) { it !is ServerPlayer }.forEach { it.discard() }
       done(player, task, kept)
     }
   }

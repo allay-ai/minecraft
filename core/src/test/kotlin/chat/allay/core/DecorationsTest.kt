@@ -31,6 +31,9 @@ class DecorationsTest {
     assertEquals("minecraft:player_head[rotation=4]", Materials.steve("minecraft:zombie_head[rotation=4]"))
     assertEquals("minecraft:player_wall_head[facing=north]", Materials.steve("minecraft:creeper_wall_head[facing=north]"))
     assertNull(Materials.steve("minecraft:player_head[rotation=4]"))
+    // A build an older game saved names grass and wall signs as it did: the estimate asks for what this game has.
+    val old = Materials.placed(listOf("minecraft:grass", "minecraft:wall_sign[facing=north]")) { it in setOf("short_grass", "oak_wall_sign") }
+    assertEquals(listOf("minecraft:short_grass", "minecraft:oak_wall_sign[facing=north]"), old)
     val estimate = Materials.estimate(corner, placed)
     assertEquals(1, estimate.items["white_banner"])
     assertEquals(1, estimate.items["zombie_head"])

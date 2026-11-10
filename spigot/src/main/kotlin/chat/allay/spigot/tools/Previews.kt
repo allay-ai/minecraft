@@ -59,7 +59,7 @@ object Previews : Listener {
     var placement: Placement,
   ) {
     /** The palette as it'll be built: renamed for this game, swapped as the player asked. */
-    var states: List<String> = chat.allay.core.building.Materials.placed(blueprint.palette)
+    var states: List<String> = chat.allay.core.building.Materials.placed(blueprint.palette, ::known)
     /** Swaps so far, in order: from, to. */
     val swaps = mutableListOf<Pair<String, String>>()
     internal var datas: Array<BlockData?> = emptyArray()

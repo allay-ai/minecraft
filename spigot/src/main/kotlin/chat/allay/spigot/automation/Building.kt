@@ -131,7 +131,7 @@ object Building {
     /** Takes [blueprint] on: the palette as swapped, the order, and the signs' text. Server thread. */
     fun ready(blueprint: Blueprint) {
       this.blueprint = blueprint
-      var states = Materials.placed(blueprint.palette)
+      var states = Materials.placed(blueprint.palette, Previews::known)
       for ((from, to) in swaps) states = Families.apply(states, from, to, Previews::known).first
       this.states = states
       resolve()
