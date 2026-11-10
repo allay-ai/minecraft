@@ -52,6 +52,10 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     // Configs before 2.4 pinned an old version here; the plugin's own version wins now.
     val userAgent = "Allay-Spigot/$pluginVersion (Minecraft Plugin)"
     val toolTimeout = config.int("http.tool_timeout", 10).toLong()
+    /** How long a question waits for a backend it lost before the player hears it's unreachable. */
+    val reconnectSeconds = config.int("http.reconnect_seconds", 240).coerceIn(30, 600).toLong()
+    /** Silence on an open stream for this long counts as a dropped connection; the backend pings every 15 s. */
+    val streamIdleSeconds = config.int("http.stream_idle_seconds", 60).coerceIn(20, 600).toLong()
     val customHeaders = config.section("http.custom_headers")
       .let { section -> section?.keys?.associateWith { section.string(it) } }.orEmpty()
       .filterKeys { !it.equals("X-Plugin-Version", ignoreCase = true) }

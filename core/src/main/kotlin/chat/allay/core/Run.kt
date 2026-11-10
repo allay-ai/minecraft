@@ -18,6 +18,19 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   @Volatile var runId: String? = null
   @Volatile var call: Call? = null
   @Volatile var cancelled = false
+  /** The question's own name on the backend, the same on every try, so it never runs twice (backend 6.31). */
+  val requestId: String = java.util.UUID.randomUUID().toString()
+  /** The backend numbers its events: a dropped stream reads on after [lastEventId] instead of failing. */
+  @Volatile var resumable = false
+  @Volatile var lastEventId = 0L
+  /** The backend is out of reach and the stream waits to reconnect; the status line says so. */
+  @Volatile var reconnecting = false
+  /** What else cancelling does: tell the backend, which no longer stops a run when its connection closes. */
+  @Volatile var onCancel: (() -> Unit)? = null
+  /** The askx commands, kept across a reconnect until `done`. */
+  @Volatile var commands: Protocol.Commands? = null
+  /** Tool calls already taken, so one the stream brings again after a reconnect never runs twice. */
+  val handled: MutableSet<String> = ConcurrentHashMap.newKeySet()
   /** Put the chat mode tip under the answer. */
   @Volatile var tip = false
   /** The model the asker's tier picks (`models` in config.yml); null for the default. */
@@ -76,6 +89,7 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   fun cancel() {
     cancelled = true
     call?.cancel()
+    onCancel?.invoke()
   }
 
   private companion object {

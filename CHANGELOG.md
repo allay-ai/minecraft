@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.35.0
+
+- 🔌 **Allay rides out a lost connection.** When its server restarts or the network drops, Allay keeps reconnecting for up to 4 minutes (`http.reconnect_seconds`), every 1, 2, 4, 8, then 15 seconds, and says so in chat and in the action bar. With Allay Server 6.31 an answer cut off midway goes on from where it stopped, a question never runs or costs twice, and a tool's result goes again until the server has it. Only after the whole wait does the player hear the server is unreachable. A stream silent for a minute (`http.stream_idle_seconds`) counts as dropped, so a dead connection no longer hangs a question for five.
+
 ## 6.34.0
 
 - 🧱 **Allay no longer draws builds block by block.** The experimental `show_draft` is gone: the model's builds came out wrong too often to be worth their tokens. Drafts come back as the preview of a real schematic you place, turn, and build from your own blocks. A `tools.enabled.show_draft` line left in an old `config.yml` does nothing.

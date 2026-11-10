@@ -2,6 +2,7 @@ package chat.allay.core
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -82,6 +83,8 @@ class Service<C>(
     fun toolStarted(callId: String, name: String, args: kotlinx.serialization.json.JsonObject?)
     /** [failed]: an error, its reason written for the model; [refused]: the tool answered no, its summary in the player's language. */
     fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean = false)
+    /** The backend went out of reach and the question waits to reconnect; once a question. */
+    fun reconnecting() {}
   }
 
   private class V2Unsupported : Exception()
@@ -99,6 +102,9 @@ class Service<C>(
     explicitNulls = false
   }
   private val errorParser = ErrorParser()
+
+  /** The answer's streams: silence past `http.stream_idle_seconds` means the connection is gone, though no error came. */
+  private val streams = client.newBuilder().readTimeout(config.http.streamIdleSeconds, java.util.concurrent.TimeUnit.SECONDS).build()
   private val jsonType = "application/json".toMediaType()
 
   suspend fun chat(run: Run, message: String, listener: Listener): Outcome = withContext(IO) {
@@ -110,33 +116,72 @@ class Service<C>(
     }
   }
 
-  /** [taskLimit]: how many running agents the request lists; backends before 6.22 take at most [OLD_MAX_TASKS]. */
-  private fun stream(run: Run, message: String, listener: Listener, taskLimit: Int = MAX_TASKS): Outcome {
-    identity?.ensure()
-    val request = request(run, message, taskLimit)
-    val body = Protocol.json.encodeToString(Protocol.ChatRequest.serializer(), request)
-    val call = client.newCall(
-      Request.Builder()
-        .url("${config.server.url}/api/v2/chat")
-        .header("Accept", "text/event-stream")
-        .header("X-Plugin-Version", host.pluginVersion)
-        .post(body.toRequestBody(jsonType))
-        .build(),
-    )
+  /**
+   * The question's stream, kept through a lost backend: on a dropped connection or a backend out of reach, it reaches out
+   * again with short pauses for `http.reconnect_seconds`, and reads on after the last event it got (backend 6.31) or asks
+   * again under the same request id, which never runs twice. A backend before 6.31 numbers no events: a stream that
+   * broke after its run started then fails, as it always did.
+   */
+  private suspend fun stream(run: Run, message: String, listener: Listener): Outcome {
+    val reach = Reach(config.http.reconnectSeconds)
+    var taskLimit = MAX_TASKS
+    var told = false
+    run.onCancel = { cancelOnBackend(run) }
+    while (true) {
+      try {
+        identity?.ensure()
+        return read(run, message, listener, taskLimit) { reach.reached() }
+      } catch (_: TooManyTasks) {
+        // An older backend refuses more than four; the newest four go again rather than the question failing.
+        taskLimit = OLD_MAX_TASKS
+      } catch (ended: Ended) {
+        throw ended.error
+      } catch (error: Exception) {
+        if (run.cancelled || error is V2Unsupported) throw error
+        // Mid-answer on a backend that can't read on: what it did stays lost, and the error goes through as before.
+        if (run.runId != null && !run.resumable) throw error
+        val seconds = reach.next(error) ?: throw if (Retry.passing(error)) Unreachable(error) else error
+        run.reconnecting = true
+        if (!told) {
+          told = true
+          listener.reconnecting()
+        }
+        host.log.info("⏳ Lost the backend ($error); reaching out again in $seconds s")
+        delay(seconds * 1000)
+      }
+    }
+  }
+
+  /** The stream refused more running agents than an older backend takes. */
+  private class TooManyTasks : Exception()
+
+  /** The run itself failed on the backend: asking again would only read the same end. */
+  private class Ended(val error: ApiErrorException) : Exception(error.message, error)
+
+  /** One connection of [stream]: the question, or the rest of its run after [Run.lastEventId]. [reached] fires on each new event. */
+  private fun read(run: Run, message: String, listener: Listener, taskLimit: Int, reached: () -> Unit): Outcome {
+    val runId = run.runId
+    val builder = Request.Builder().header("Accept", "text/event-stream").header("X-Plugin-Version", host.pluginVersion)
+    if (run.lastEventId > 0) builder.header("Last-Event-ID", run.lastEventId.toString())
+    val reading = runId != null && run.resumable
+    if (reading) {
+      builder.url("${config.server.url}/api/v2/chat/$runId/events").get()
+    } else {
+      val body = Protocol.json.encodeToString(Protocol.ChatRequest.serializer(), request(run, message, taskLimit))
+      builder.url("${config.server.url}/api/v2/chat").post(body.toRequestBody(jsonType))
+    }
+    val call = streams.newCall(builder.build())
     run.call = call
+    if (run.cancelled) call.cancel()
     call.execute().use { response ->
-      if (response.code == 404 || response.code == 405) throw V2Unsupported()
+      if (!reading && (response.code == 404 || response.code == 405)) throw V2Unsupported()
       if (!response.isSuccessful) {
         val error = errorParser.parseErrorFromResponse(response)
-        // An older backend refuses more than four; the newest four go again rather than the question failing.
-        if (error.code == ErrorCodes.BAD_REQUEST && "tasks" in error.message && (request.tasks?.size ?: 0) > OLD_MAX_TASKS) {
-          return stream(run, message, listener, OLD_MAX_TASKS)
-        }
+        if (!reading && error.code == ErrorCodes.BAD_REQUEST && "tasks" in error.message && taskLimit > OLD_MAX_TASKS) throw TooManyTasks()
         throw failure(error)
       }
 
       var outcome: Outcome? = null
-      var commands: Protocol.Commands? = null
       var failed: Protocol.ErrorEvent? = null
       val parser = SseParser { name, data ->
         when (val event = Protocol.decode(name, data)) {
@@ -146,14 +191,14 @@ class Service<C>(
           is Event.Status -> status(run, event.data, listener)
           is Event.Call -> {
             if (run.announced.add(event.data.call_id)) listener.toolStarted(event.data.call_id, event.data.name, event.data.args)
-            scope.launch { answerTool(run, event.data, listener) }
+            if (run.handled.add(event.data.call_id)) scope.launch { answerTool(run, event.data, listener) }
           }
-          is Event.Command -> commands = event.data
+          is Event.Command -> run.commands = event.data
           is Event.Spent -> {
             run.usage(event.data.input_tokens, event.data.output_tokens + event.data.reasoning_tokens)
             run.cost = maxOf(run.cost, event.data.cost)
           }
-          is Event.Finished -> outcome = Outcome(event.data.answer.ifBlank { run.answer() }, commands)
+          is Event.Finished -> outcome = Outcome(event.data.answer.ifBlank { run.answer() }, run.commands)
           is Event.Failed -> failed = event.data
           null -> {}
         }
@@ -162,11 +207,31 @@ class Service<C>(
       while (!run.cancelled && outcome == null && failed == null) {
         val line = source.readUtf8Line() ?: break
         parser.line(line)
+        parser.lastId?.toLongOrNull()?.let { id ->
+          if (id > run.lastEventId) {
+            run.lastEventId = id
+            run.resumable = true
+            run.reconnecting = false
+            reached()
+          }
+        }
       }
       parser.end()
-      failed?.let { throw failure(ApiError(it.code, it.message, resetsAt = it.resets_at, retryAfter = it.retry_after)) }
-      return outcome ?: Outcome(run.answer(), commands).takeIf { it.answer.isNotBlank() || commands != null }
+      failed?.let { throw Ended(failure(ApiError(it.code, it.message, resetsAt = it.resets_at, retryAfter = it.retry_after))) }
+      outcome?.let { return it }
+      // A stream with ids that ends before done was cut off: the next connection reads on.
+      if (run.resumable && !run.cancelled) throw java.io.EOFException("the stream ended before the answer")
+      return Outcome(run.answer(), run.commands).takeIf { it.answer.isNotBlank() || run.commands != null }
         ?: throw ApiErrorException(ApiError("NO_AI_RESPONSE", "The stream ended without an answer"))
+    }
+  }
+
+  /** Stops the run on the backend too, which since 6.31 waits for a plugin that went away instead of stopping. */
+  private fun cancelOnBackend(run: Run) {
+    val runId = run.runId?.takeIf { run.resumable } ?: return
+    scope.launch(IO) {
+      runCatching { client.newCall(Request.Builder().url("${config.server.url}/api/v2/chat/$runId").delete().build()).execute().close() }
+        .onFailure { host.log.info("ℹ️ Couldn't tell the backend the question was cancelled: $it") }
     }
   }
 
@@ -211,6 +276,7 @@ class Service<C>(
       },
       expansion_tools = run.expansionTools.ifEmpty { null },
       expansions = expansions?.prompts(run.mode)?.ifEmpty { null },
+      request_id = run.requestId,
     )
   }
 
@@ -230,7 +296,7 @@ class Service<C>(
   }.orEmpty()
 
   /** Runs a client tool on the server thread and posts what came out; failures go back as errors, never as exceptions. */
-  private fun answerTool(run: Run, call: Protocol.ToolCall, listener: Listener) {
+  private suspend fun answerTool(run: Run, call: Protocol.ToolCall, listener: Listener) {
     val tool = tools.find(call.name)
     val context = host.context(run)
     val clock = ToolClock()
@@ -258,17 +324,28 @@ class Service<C>(
         Protocol.ToolResult(ok = false, error = reason.take(2000))
       }
     }
-    val result = answer.copy(timing = clock.timing())
-    val runId = run.runId ?: return
-    if (run.cancelled) return
-    runCatching {
-      client.newCall(
-        Request.Builder()
-          .url("${config.server.url}/api/v2/chat/$runId/tools/${call.call_id}")
-          .post(Protocol.json.encodeToString(Protocol.ToolResult.serializer(), result).toRequestBody(jsonType))
-          .build(),
-      ).execute().close()
-    }.onFailure { host.log.warning("❌ Couldn't send the result of ${call.name}: $it") }
+    deliver(run, call, answer.copy(timing = clock.timing()))
+  }
+
+  /**
+   * Posts a tool's result, again and again while the backend is out of reach: since 6.31 the run waits for it. `409` means
+   * an earlier try got through, `404` that the run is over; either way there's nothing left to send.
+   */
+  private suspend fun deliver(run: Run, call: Protocol.ToolCall, result: Protocol.ToolResult) {
+    val reach = Reach(config.http.reconnectSeconds)
+    val body = Protocol.json.encodeToString(Protocol.ToolResult.serializer(), result)
+    while (!run.cancelled) {
+      val runId = run.runId ?: return
+      try {
+        client.newCall(Request.Builder().url("${config.server.url}/api/v2/chat/$runId/tools/${call.call_id}").post(body.toRequestBody(jsonType)).build()).execute().use { response ->
+          if (response.isSuccessful || response.code == 404 || response.code == 409) return
+          throw failure(errorParser.parseErrorFromResponse(response))
+        }
+      } catch (error: Exception) {
+        val seconds = reach.next(error) ?: return host.log.warning("❌ Couldn't send the result of ${call.name}: $error")
+        delay(seconds * 1000)
+      }
+    }
   }
 
   /** An expansion's tool, only one this run offered, on the server thread like any other; one that answers later is awaited here, off it. */

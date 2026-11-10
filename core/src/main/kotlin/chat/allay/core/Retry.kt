@@ -43,7 +43,50 @@ object Retry {
     return maxOf(seconds, asked).coerceAtMost(MAX_SECONDS)
   }
 
+  /**
+   * Whether [failure] is the backend out of reach for now: the network dropped, a connection timed out or broke, a
+   * proxy answered 502–504 while the backend restarts, or the backend is busy or rate-limited. Worth waiting out.
+   */
+  fun passing(failure: Throwable?): Boolean {
+    val error = (failure as? ApiErrorException)?.apiError
+    return when {
+      error != null -> error.code == "RATE_LIMITED" || error.code == "QUEUE_ERROR" || error.code == ErrorCodes.NETWORK_ERROR ||
+        (error.code == "HTTP_ERROR" && error.statusCode in 502..504)
+      else -> generateSequence(failure) { it.cause }.any { it is java.io.IOException }
+    }
+  }
+
+  /** Seconds before reaching out again, try number [tries] (1 for the first): 1, 2, 4, 8, then every 15. */
+  fun pause(tries: Int): Long = if (tries >= 5) SECONDS else 1L shl (tries - 1).coerceAtLeast(0)
+
   private val PASSING = setOf(ErrorCodes.AI_REQUEST_FAILED, ErrorCodes.NETWORK_ERROR, ErrorCodes.NO_AI_RESPONSE)
   private const val SECONDS = 15L
   private const val MAX_SECONDS = 300L
 }
+
+/**
+ * How long one question waits out a backend it can't reach: it reaches out again and again with short pauses, and
+ * gives up only after [seconds] went by without getting through. Getting through ([reached]) starts the wait over.
+ */
+class Reach(private val seconds: Long, private val now: () -> Long = System::currentTimeMillis) {
+  private var since = now()
+  private var tries = 0
+
+  /** Seconds to wait before the next try after [failure], or null when it isn't worth waiting for or the time is up. */
+  fun next(failure: Throwable): Long? {
+    if (!Retry.passing(failure)) return null
+    val left = seconds - (now() - since) / 1000
+    if (left <= 0) return null
+    val asked = (failure as? ApiErrorException)?.apiError?.retryAfter ?: 0L
+    return maxOf(Retry.pause(++tries), asked).coerceIn(1L, left)
+  }
+
+  /** The backend answered: the next outage gets the whole wait again. */
+  fun reached() {
+    since = now()
+    tries = 0
+  }
+}
+
+/** The backend stayed out of reach for the whole wait; [cause] is the last thing that went wrong. */
+class Unreachable(cause: Throwable) : Exception("the backend stayed out of reach: $cause", cause)

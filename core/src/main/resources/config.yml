@@ -78,11 +78,13 @@ geoip:
 
 # The HTTP client that talks to the backend. Times are in seconds.
 http:
-  call_timeout: 300         # The whole question, from asking to the last word of the answer
+  call_timeout: 300         # One connection of a question; a longer answer reads on in the next (backend 6.31)
   connect_timeout: 10
   read_timeout: 300
   write_timeout: 10
   tool_timeout: 10          # How long a game tool may run before the assistant gets an error
+  reconnect_seconds: 240    # A lost backend: keep reconnecting this long before the player hears it's unreachable (30–600)
+  stream_idle_seconds: 60   # An answer's stream silent this long counts as dropped and reconnects (20–600; above the backend's ping)
   max_idle_connections: 5
   keep_alive_duration: 300
   max_requests_per_host: 5

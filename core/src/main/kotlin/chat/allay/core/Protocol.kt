@@ -42,6 +42,8 @@ object Protocol {
     val expansion_tools: List<ExpansionTool>? = null,
     /** Since 6.12: the expansions on this server, with the lines each adds to the prompt. */
     val expansions: List<ExpansionInfo>? = null,
+    /** Since 6.35, for backend 6.31: the question's own name, so its run outlives a dropped connection and never runs twice. */
+    val request_id: String? = null,
   )
 
   /** [name] is `x_<expansion>_<tool>`; [parameters] a JSON Schema object; [access] `read`, `own`, or `operator`. */

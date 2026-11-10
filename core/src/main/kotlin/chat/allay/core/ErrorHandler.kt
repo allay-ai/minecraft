@@ -12,6 +12,7 @@ object ErrorHandler {
     is ApiErrorException -> api(lang, error.apiError, zone)
     is ApiError -> api(lang, error, zone)
     is ErrorResponse -> lang.has("errors.api.${error.code}").let { if (it) lang.text("errors.api.${error.code}") else lang.text("errors.other", "message" to error.error) }
+    is Unreachable -> lang.text("errors.unreachable")
     is Exception -> when {
       isTimeout(error) -> lang.text("errors.timeout")
       isNetwork(error) -> lang.text("errors.network")

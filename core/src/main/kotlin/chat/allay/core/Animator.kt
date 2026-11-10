@@ -37,6 +37,7 @@ class Animator(
       elapsedSeconds = elapsed / 1000,
       input = run.input.get(),
       output = run.output,
+      reconnecting = run.reconnecting,
     )
   }
 

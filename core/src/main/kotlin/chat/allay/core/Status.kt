@@ -19,10 +19,14 @@ class Spinner(frames: String) {
 /** Builds the status line from the reader's language; `status.line` holds the template. */
 class StatusFormat(private val lang: Lang) {
   /** [input] is what the model has read so far, [output] what it has written, both in tokens. */
-  fun line(spinner: String, verb: String, phase: Phase, elapsedSeconds: Long, input: Long, output: Long): String = lang.text(
+  fun line(spinner: String, verb: String, phase: Phase, elapsedSeconds: Long, input: Long, output: Long, reconnecting: Boolean = false): String = lang.text(
     "status.line",
     "spinner" to spinner,
-    "verb" to if (phase == Phase.ANSWERING) lang.text("status.answering") else verb,
+    "verb" to when {
+      reconnecting -> lang.text("status.reconnecting")
+      phase == Phase.ANSWERING -> lang.text("status.answering")
+      else -> verb
+    },
     "seconds" to elapsedSeconds,
     "input" to compact(input),
     "output" to compact(output),

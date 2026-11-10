@@ -3,7 +3,6 @@ package chat.allay.core
 import chat.allay.core.tools.InlineButtons
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import java.util.UUID
@@ -131,12 +130,13 @@ class Handler(
     val listener = object : Service.Listener {
       override fun toolStarted(callId: String, name: String, args: JsonObject?) = platform.scheduler.main { animator.toolStarted(run, sender, name, args) }
       override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) = platform.scheduler.main { animator.toolFinished(run, sender, summary, failed, refused) }
+      override fun reconnecting() = platform.scheduler.main { lang.send(sender, "messages.reconnecting") }
     }
 
     scope.launch {
       var answered: Long? = null
       try {
-        val outcome = withRetries(run, sender, lang) { service.chat(run, message, listener) }
+        val outcome = service.chat(run, message, listener)
         if (!run.cancelled) answered = run.elapsedMillis
         if (!run.cancelled) platform.scheduler.main { finish(run, sender, outcome) }
       } catch (e: Exception) {
@@ -234,19 +234,4 @@ class Handler(
 
   private fun key(sender: Audience) = sender.uuid?.toString() ?: "console:${sender.name}"
 
-  /** Runs [block] again while the backend is restarting or busy, telling the asker once; then the error goes through. */
-  private suspend fun <T> withRetries(run: Run, sender: Audience, lang: Lang, block: suspend () -> T): T {
-    var tries = 0
-    while (true) {
-      try {
-        return block()
-      } catch (e: Exception) {
-        if (run.cancelled || e is CancellationException) throw e
-        val seconds = Retry.after(e)?.takeIf { tries < Retry.TIMES } ?: throw e
-        if (tries++ == 0) platform.scheduler.main { lang.send(sender, "messages.retrying", "seconds" to seconds) }
-        platform.log.info("⏳ The backend couldn't take the question ($e); trying again in $seconds s")
-        delay(seconds * 1000)
-      }
-    }
-  }
 }
