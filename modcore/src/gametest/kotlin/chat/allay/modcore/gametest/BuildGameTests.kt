@@ -39,10 +39,12 @@ class BuildGameTests {
    * The blocks [player]'s client was told stand where the world has another: a preview's, never a real change, which
    * other tests running beside this one send every player near them.
    */
-  private fun fakeBlocks(player: Players.Survivor, level: net.minecraft.server.level.ServerLevel): Int = player.packets()
+  private fun fakeSpots(player: Players.Survivor, level: net.minecraft.server.level.ServerLevel): List<BlockPos> = player.packets()
     .flatMap { if (it is BundlePacket<*>) it.subPackets().toList() else listOf(it) }
     .filterIsInstance<ClientboundSectionBlocksUpdatePacket>()
-    .sumOf { packet -> var n = 0; packet.runUpdates { pos, state -> if (level.getBlockState(pos) != state) n++ }; n }
+    .flatMap { packet -> buildList { packet.runUpdates { pos, state -> if (level.getBlockState(pos) != state) add(pos.immutable()) } } }
+
+  private fun fakeBlocks(player: Players.Survivor, level: net.minecraft.server.level.ServerLevel): Int = fakeSpots(player, level).size
 
   @GameTest
   fun aCatalogBuildPreviewsForItsPlayerAlone(helper: GameTestHelper) {
@@ -81,7 +83,7 @@ class BuildGameTests {
         0 -> {
           asker.connection.chunkSender.onChunkBatchReceivedByClient(64f)
           other.connection.chunkSender.onChunkBatchReceivedByClient(64f)
-          shownSpots(asker).let { seen += it.size; before += it }
+          fakeSpots(asker, helper.level).let { seen += it.size; before += it }
           others += fakeBlocks(other, helper.level)
           helper.assertTrue(seen > 0, "the asker sees the build's blocks")
           turned = result(asker, buildJsonObject { put("action", "rotate"); put("turns", 1) })
