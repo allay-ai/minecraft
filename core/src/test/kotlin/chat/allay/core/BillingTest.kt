@@ -238,7 +238,9 @@ class BillingTest {
   @Test fun `announcements survive a restart`() {
     val folder = createTempDirectory("allay").toFile()
     val log = java.util.logging.Logger.getAnonymousLogger()
-    val status = LicenseStatus(last_payment_at = "2026-10-14T09:00:00Z", paid_until = "2026-11-14T10:00:00Z")
+    // Paid well ahead of today, so only the payment is news, not an end coming soon.
+    val now = java.time.Instant.now()
+    val status = LicenseStatus(last_payment_at = now.minus(java.time.Duration.ofDays(1)).toString(), paid_until = now.plus(java.time.Duration.ofDays(30)).toString())
     assertEquals(1, Announcements(folder, log).check(status).size)
     assertEquals(0, Announcements(folder, log).check(status).size)
     folder.deleteRecursively()
