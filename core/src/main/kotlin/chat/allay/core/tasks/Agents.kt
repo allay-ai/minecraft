@@ -82,6 +82,9 @@ class Agents(
   /** Something an agent left running in the world: a furnace load, a brew. */
   interface Job {
     fun cancel()
+
+    /** Its work is over, and its agent only waits on the player, say to retry spots in the way: a new one of its kind may take its place. */
+    val finished: Boolean get() = false
   }
 
   /** What Allay keeps about one agent beside its [Task]: where it started, what it picked, and its job. */
@@ -193,6 +196,10 @@ class Agents(
   fun launch(player: PlayerAudience, kind: Kind, name: String, brief: String, parent: Task?): Task {
     allowed(player, kind)?.let { throw ToolError(it) }
     unknown[kind]?.takeIf { System.currentTimeMillis() - it < UNKNOWN_MS }?.let { throw ToolError(unknownKind(kind)) }
+    // A builder whose build is up and only waits for a retry of spots in the way makes room for the next build.
+    if (kind.solo) book.of(player.uuid).firstOrNull { it.kind == kind && agents[key(it)]?.job?.finished == true }?.let { done ->
+      end(done, locales.of(player).text("automation.replaced"))
+    }
     val task = book.start(player.uuid, kind, name, brief.take(2000), (parent?.depth ?: 0) + 1, parent?.id)
     // A sub-agent takes from where its parent may.
     parent?.let { task.scope = it.scope }

@@ -94,6 +94,12 @@ class Blueprint(
     const val AIR = 0
     val EMPTY = setOf("minecraft:air", "minecraft:cave_air", "minecraft:void_air", "minecraft:structure_void")
 
+    /** What an author builds with but nobody lives with: command blocks, barriers, light, and the structure tools. Read as air. */
+    val TECHNICAL = setOf(
+      "minecraft:command_block", "minecraft:chain_command_block", "minecraft:repeating_command_block", "minecraft:structure_block", "minecraft:jigsaw",
+      "minecraft:barrier", "minecraft:light", "minecraft:test_block", "minecraft:test_instance_block",
+    )
+
     /** The block without its states: `minecraft:oak_stairs`. */
     fun block(state: String) = state.substringBefore('[')
 

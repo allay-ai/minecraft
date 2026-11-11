@@ -46,6 +46,9 @@ object Families {
     return if (known(result)) Swap.To("minecraft:$result$properties") else Swap.Missing(result)
   }
 
+  /** Whether [palette] holds [from] (a full block, like `cobblestone`) or one of its shapes. */
+  fun has(palette: List<String>, from: String): Boolean = palette.any { swap(it, from, from) { true } != null }
+
   /**
    * [palette] with [from] swapped for [to]: the new palette and every shape [to] lacks. A state keeps its properties; the
    * platform drops the ones the new block doesn't have when it reads it.

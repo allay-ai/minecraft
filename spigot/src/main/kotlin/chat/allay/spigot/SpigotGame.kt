@@ -2,11 +2,17 @@ package chat.allay.spigot
 
 import chat.allay.core.*
 import chat.allay.spigot.automation.Automation
+import chat.allay.spigot.automation.Building
 import chat.allay.spigot.automation.Jobs
 import chat.allay.spigot.menus.LanguageMenu
 import chat.allay.spigot.menus.MenuListener
 import chat.allay.spigot.menus.SettingsMenu
 import chat.allay.spigot.menus.ZoneMenu
+import chat.allay.spigot.paper.PaperCatalog
+import chat.allay.spigot.paper.PaperChat
+import chat.allay.spigot.paper.PaperChunks
+import chat.allay.spigot.tools.BrewingRecipes
+import chat.allay.spigot.tools.Catalogs
 import chat.allay.spigot.tools.Deaths
 import chat.allay.spigot.tools.Drafts
 import chat.allay.spigot.tools.Previews
@@ -60,13 +66,13 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   )
 
   init {
-    automation.catalog = { chat.allay.spigot.tools.Catalogs.build(features.expansions, features.names()) }
+    automation.catalog = { Catalogs.build(features.expansions, features.names()) }
   }
 
   override fun tools() = Tools.all()
 
-  override fun names(locale: String) = chat.allay.spigot.tools.Catalogs.names(locale)
-  override fun itemName(id: String, locale: String?) = chat.allay.spigot.tools.Catalogs.build(features.expansions, features.names()).label(id, locale)
+  override fun names(locale: String) = Catalogs.names(locale)
+  override fun itemName(id: String, locale: String?) = Catalogs.build(features.expansions, features.names()).label(id, locale)
   override fun context(run: Run) = ToolContext(run.sender, features, run.buttons, run.task, run.others)
   override val buttons = GameClicks(plugin, features)
   override fun effects(config: Config): Effects = BukkitEffects(plugin, config)
@@ -124,14 +130,15 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   override fun languages(player: PlayerAudience): Unit = LanguageMenu(player.player, locales, allay.languages) { settings(player) }.open()
 
   override fun start() {
-    chat.allay.spigot.tools.BrewingRecipes.bind(features)
+    BrewingRecipes.bind(features)
     val expansions = Expansions(plugin, plugin.logger)
-    listOf(goals, deaths, menus, Marks, Drafts, Previews, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
-    if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::reloaded), plugin)
-    if (Events.paperChat) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperChat.lines { player, text, readers -> allay.history.chat(player.audience, text, readers) }, plugin)
+    listOf(goals, deaths, menus, Marks, Drafts, Previews, automation, automation.picking, Jobs, Events(allay), expansions, Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
+    if (Catalogs.paper) server.pluginManager.registerEvents(PaperCatalog.reloads(Catalogs::reloaded), plugin)
+    if (Events.paperChat) server.pluginManager.registerEvents(PaperChat.lines { player, text, readers -> allay.history.chat(player.audience, text, readers) }, plugin)
+    if (Events.paperChat) server.pluginManager.registerEvents(PaperChunks.sent(Previews::chunkSent), plugin)
     Drafts.start(plugin, locales)
     Previews.start(plugin, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
-    chat.allay.spigot.automation.Building.plugin = plugin
+    Building.plugin = plugin
     Jobs.automation = automation
     automation.start()
     goals.start()
@@ -147,8 +154,8 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
   }
 
   override fun stop() {
-    chat.allay.spigot.tools.BrewingRecipes.bind(null)
-    chat.allay.spigot.tools.Catalogs.reloaded()
+    BrewingRecipes.bind(null)
+    Catalogs.reloaded()
     placeholders?.close()
     plan?.close()
     stats?.close()

@@ -1,9 +1,12 @@
 package chat.allay.core
 
+import chat.allay.core.building.Blueprint
+import chat.allay.core.building.Construction
 import chat.allay.core.building.Materials
 import chat.allay.core.building.Placement
 import chat.allay.core.building.Schem
 import chat.allay.core.tools.DraftSide
+import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -45,9 +48,9 @@ class DecorationsTest {
 
   @Test fun `a head's skin comes only from the game's skin server`() {
     val head = corner.blockEntities.first { it.texture != null }
-    assertEquals("https://textures.minecraft.net/texture/a116e69a845e227f7ca1fdde8c357c8c821ebd4ba619382ea4a1f87d4ae94", chat.allay.core.building.Construction.skin(head.texture!!))
-    val elsewhere = java.util.Base64.getEncoder().encodeToString("{\"textures\":{\"SKIN\":{\"url\":\"http://evil.example/texture/abcdef0123456789\"}}}".toByteArray())
-    assertNull(chat.allay.core.building.Construction.skin(elsewhere))
+    assertEquals("https://textures.minecraft.net/texture/a116e69a845e227f7ca1fdde8c357c8c821ebd4ba619382ea4a1f87d4ae94", Construction.skin(head.texture!!))
+    val elsewhere = Base64.getEncoder().encodeToString("{\"textures\":{\"SKIN\":{\"url\":\"http://evil.example/texture/abcdef0123456789\"}}}".toByteArray())
+    assertNull(Construction.skin(elsewhere))
   }
 
   @Test fun `a direction turns with the build`() {
@@ -57,5 +60,22 @@ class DecorationsTest {
     assertEquals(0 to 1, north.direction(corner, 0, 1))
     assertEquals(-1 to 0, east.direction(corner, 0, 1))
     assertEquals(-1 to 0, north.copy(mirrored = true).direction(corner, 1, 0))
+  }
+
+  @Test fun `a painting of even size hangs in the block the game spawns it at, turned and mirrored`() {
+    // A 2×2 painting facing south on a wall at z 0, its block x 1, y 1, z 1: its middle lies a half block east and up.
+    val box = Blueprint.Builder(4, 4, 4).build(listOf("minecraft:air"), 0, emptyList(), "", "")
+    val painting = Blueprint.Entity(2.0, 2.0, 1.03125, "painting", facing = 3, variant = "kebab")
+    val north = Placement(Triple(0, 0, 0), DraftSide.NORTH)
+    assertEquals(north.world(box, 1, 1, 1), Construction.hangs(painting, box, north))
+    // One block wide and tall sits where its middle is.
+    val small = painting.copy(x = 1.5, y = 1.5)
+    assertEquals(north.world(box, 1, 1, 1), Construction.hangs(small, box, north))
+    // Mirrored, it reaches west from its block, so the block is the other one of the two.
+    val mirrored = north.copy(mirrored = true)
+    assertEquals(mirrored.world(box, 2, 1, 1), Construction.hangs(painting, box, mirrored))
+    // An item frame is its block, whatever the build does.
+    val frame = painting.copy(id = "item_frame", x = 1.5, y = 1.5)
+    assertEquals(mirrored.world(box, 1, 1, 1), Construction.hangs(frame, box, mirrored))
   }
 }

@@ -1,15 +1,16 @@
 package chat.allay.spigot.tools
 
-import chat.allay.spigot.audience
 import chat.allay.core.Permissions
 import chat.allay.core.building.Blueprints
-import chat.allay.core.building.EstimateWindow
+import chat.allay.core.building.EstimateSheet
+import chat.allay.core.building.Families
 import chat.allay.core.building.Materials
 import chat.allay.core.building.Placement
 import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tools.*
 import chat.allay.spigot.automation.Crafting
 import chat.allay.spigot.automation.Sources
+import chat.allay.spigot.menus.EstimateMenu
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,7 +21,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.bukkit.GameMode
 import org.bukkit.Material
+import org.bukkit.World
 import org.bukkit.entity.Player
 
 /**
@@ -30,7 +33,7 @@ import org.bukkit.entity.Player
  * faces, and what it's made of.
  */
 object BuildTools {
-  /** What an estimate reads from: everything the player could reach themself, the ender chest too, as a look. */
+  /** What an estimate reads from: everything the player could reach themself, the ender chest too, counted apart. */
   private val LOOK = SourceScope(ender_chest = true)
 
   private val build = object : Tool {
@@ -47,7 +50,9 @@ object BuildTools {
         val preview = Previews.of(player) ?: throw ToolError("the player has no build in preview; preview one first")
         when (action) {
           "move" -> {
-            preview.placement = preview.placement.moved(args.int("right") ?: 0, args.int("up") ?: 0, args.int("forward") ?: 0)
+            val moved = preview.placement.moved(args.int("right") ?: 0, args.int("up") ?: 0, args.int("forward") ?: 0)
+            if (!Previews.fits(preview.world, preview.blueprint, moved)) throw ToolError(height(preview.world, preview.placement, preview))
+            preview.placement = moved
             Previews.changed(preview)
           }
           "rotate" -> {
@@ -61,8 +66,8 @@ object BuildTools {
           "swap" -> {
             val from = args.string("from")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("swap needs from: the block it has, like cobblestone")
             val to = args.string("to")?.lowercase()?.removePrefix("minecraft:") ?: throw ToolError("swap needs to: the block to build with, like stone_bricks")
-            if (!Previews.known(to)) throw ToolError("$to isn't a block this server has; search_items finds its id")
-            if (preview.states.none { it.removePrefix("minecraft:").startsWith(from.removeSuffix("s")) }) throw ToolError("the build has no $from")
+            Previews.refusal(to)?.let { throw ToolError(it) }
+            if (!Families.has(preview.states, from)) throw ToolError("the build has no $from")
             val missing = Previews.swap(preview, from, to)
             return@main ToolOutput(buildJsonObject {
               put("swapped", "$from → $to")
@@ -108,11 +113,23 @@ object BuildTools {
     return context.main<ToolOutput> {
       val facing = Previews.side(Drafts.cardinal(player))
       val feet = player.location.block
-      val placement = Placement.before(blueprint, Triple(feet.x, feet.y, feet.z), facing)
+      val world = player.world
+      if (blueprint.height > world.maxHeight - world.minHeight) throw ToolError("the build is ${blueprint.height} blocks tall, this world ${world.maxHeight - world.minHeight}: offer a lower one")
+      // Too high or too low for this world: it moves up or down until it fits.
+      var placement = Placement.before(blueprint, Triple(feet.x, feet.y, feet.z), facing)
+      val (low, high) = placement.bounds(blueprint)
+      if (low.second < world.minHeight) placement = placement.moved(0, world.minHeight - low.second, 0)
+      if (high.second >= world.maxHeight) placement = placement.moved(0, world.maxHeight - 1 - high.second, 0)
       val preview = Previews.Preview(player.uniqueId, source, title, blueprint, player.world, placement)
       Previews.show(player, preview)
       ToolOutput(describe(preview).let { JsonObject(it + ("author" to JsonPrimitive(named.string("author") ?: blueprint.author))) }, context.lang.text("summary.build_shown", "title" to title))
     }
+  }
+
+  /** Why a move can't go there: it would take the build past the world's height, from where it stands at [placement]. */
+  private fun height(world: World, placement: Placement, preview: Previews.Preview): String {
+    val (low, high) = placement.bounds(preview.blueprint)
+    return "the build would reach past this world's height (y ${world.minHeight} to ${world.maxHeight - 1}); it stands from y ${low.second} to ${high.second}, so it moves up ${world.maxHeight - 1 - high.second} and down ${low.second - world.minHeight} at most"
   }
 
   private fun describe(preview: Previews.Preview) = buildJsonObject {
@@ -136,11 +153,14 @@ object BuildTools {
       all.copy(items = all.items.mapValues { (item, n) -> n - (covered[item] ?: 0) }.filterValues { it > 0 })
     }
     val sources = Sources.around(player, context.features.automation.settings().radius, LOOK)
+    // The ender chest apart: the builder takes from it only once the player allows it.
     val have = HashMap<String, Int>()
+    val ender = HashMap<String, Int>()
     for (source in sources.list) for (stack in source.slots()) {
       val key = stack?.let(Crafting::key) ?: continue
-      if (key in estimate.items) have.merge(key, stack.amount, Int::plus)
+      if (key in estimate.items) (if (source.place.startsWith("ender:")) ender else have).merge(key, stack.amount, Int::plus)
     }
+    var inEnder = 0
     var short = 0
     val unknown = estimate.items.keys.filter { Material.matchMaterial(it)?.isItem != true }.toSet()
     val unobtainable = estimate.unobtainable + unknown.associateWith { estimate.items.getValue(it) }
@@ -150,10 +170,13 @@ object BuildTools {
           if (item in unknown) return@forEach
           val got = have[item] ?: 0
           if (got < need) short += need - got
-          add(buildJsonObject { put("item", item); put("need", need); put("have", minOf(got, need)) })
+          val there = minOf(ender[item] ?: 0, (need - got).coerceAtLeast(0))
+          inEnder += there
+          add(buildJsonObject { put("item", item); put("need", need); put("have", minOf(got, need)); if (there > 0) put("in_ender_chest", there) })
         }
       })
       put("missing_in_all", short)
+      if (inEnder > 0) put("ender_chest_note", "$inEnder of what's short lie in the ender chest: the builder takes them only if the player allows it, said in the builder's brief")
       if (estimate.tools.isNotEmpty()) put("tool_uses", buildJsonObject { estimate.tools.forEach { (tool, n) -> put(tool, n) } })
       if (estimate.water) put("water_bucket", "one, kept: water sources and waterlogged blocks")
       if (unobtainable.isNotEmpty()) {
@@ -161,12 +184,12 @@ object BuildTools {
         put("unobtainable_note", "no survival player gets these: ask the player what to build them with (swap), or skip them")
       }
       if (estimate.free.isNotEmpty()) put("free", buildJsonObject { estimate.free.forEach { (block, n) -> put(block, n) } })
-      if (player.gameMode == org.bukkit.GameMode.CREATIVE) put("creative", "the player is in creative: the builder takes nothing, so nothing is short; build it when they say")
+      if (player.gameMode == GameMode.CREATIVE) put("creative", "the player is in creative: the builder takes nothing, so nothing is short; build it when they say")
     }
     // The player reads it in a window; the model gets the same numbers to talk about.
     val catalog = Catalogs.build(context)
-    val rows = estimate.items.filterKeys { it !in unknown }.map { (item, need) -> EstimateWindow.Row(item, need, minOf(have[item] ?: 0, need)) }
-    player.audience.show(EstimateWindow.of(context.lang, preview.title, rows, estimate, unobtainable, creative = player.gameMode == org.bukkit.GameMode.CREATIVE) { catalog.label(it, context.nameLocale) ?: it.replace('_', ' ') })
+    val rows = estimate.items.filterKeys { it !in unknown }.map { (item, need) -> EstimateSheet.Row(item, need, minOf(have[item] ?: 0, need), ender[item] ?: 0) }
+    EstimateMenu(player, context.lang, preview.title, rows, estimate, unobtainable, player.gameMode == GameMode.CREATIVE) { catalog.label(it, context.nameLocale) ?: it.replace('_', ' ') }.open()
     return ToolOutput(result, context.lang.text("summary.build_estimate", "missing" to short))
   }
 

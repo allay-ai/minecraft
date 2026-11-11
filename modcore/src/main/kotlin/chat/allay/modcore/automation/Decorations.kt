@@ -18,6 +18,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.entity.decoration.GlowItemFrame
 import net.minecraft.world.entity.decoration.HangingEntity
@@ -28,6 +29,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.component.ResolvableProfile
 import net.minecraft.world.level.block.entity.SkullBlockEntity
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import java.util.Base64
 import java.util.UUID
 import kotlin.math.atan2
@@ -45,7 +47,7 @@ object Decorations {
   fun place(player: ServerPlayer, level: ServerLevel, pos: BlockPos, entity: Blueprint.Entity, blueprint: Blueprint, placement: Placement): Result {
     if (!Claims.mayBuild(player, level, pos)) return Result.REFUSED
     // A restart may land between the spawn and the snapshot: one like it there already counts.
-    if (level.getEntities(null as Entity?, AABB.ofSize(net.minecraft.world.phys.Vec3.atCenterOf(pos), 1.2, 1.2, 1.2)) { id(it) == entity.id }.isNotEmpty()) return Result.THERE
+    if (level.getEntities(null as Entity?, AABB.ofSize(Vec3.atCenterOf(pos), 1.2, 1.2, 1.2)) { id(it) == entity.id }.isNotEmpty()) return Result.THERE
     val spawned: Entity = when (entity.id) {
       "armor_stand" -> ArmorStand(level, pos.x + 0.5, pos.y.toDouble(), pos.z + 0.5).apply {
         val yaw = yaw(entity.yaw, blueprint, placement)
@@ -87,7 +89,7 @@ object Decorations {
     level.sendBlockUpdated(pos, skull.blockState, skull.blockState, 3)
   }
 
-  private fun id(entity: Entity) = net.minecraft.world.entity.EntityType.getKey(entity.type).path
+  private fun id(entity: Entity) = EntityType.getKey(entity.type).path
 
   private fun face(facing: Int, blueprint: Blueprint, placement: Placement): Direction? {
     when (facing) {

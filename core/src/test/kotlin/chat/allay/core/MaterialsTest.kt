@@ -2,9 +2,11 @@ package chat.allay.core
 
 import chat.allay.core.building.Families
 import chat.allay.core.building.Materials
+import chat.allay.core.building.Renames
 import chat.allay.core.building.Schem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -70,5 +72,25 @@ class MaterialsTest {
     val (palette, missing) = Families.apply(listOf("minecraft:air", "minecraft:oak_fence", "minecraft:oak_planks"), "oak_planks", "dark_oak_planks", known)
     assertEquals(listOf("minecraft:air", "minecraft:oak_fence", "minecraft:dark_oak_planks"), palette)
     assertEquals(setOf("dark_oak_fence"), missing)
+  }
+
+  @Test fun `a build is made of other blocks a player pays for, never water, lava, fire, or a free head`() {
+    for (block in listOf("lava", "water", "fire", "player_head", "air", "bubble_column")) assertTrue(Materials.refusal(block) != null, block)
+    assertTrue(Materials.refusal("bedrock")!!.startsWith("no survival player"))
+    assertNull(Materials.refusal("stone_bricks"))
+    assertNull(Materials.refusal("dark_oak_planks"))
+    val palette = listOf("minecraft:air", "minecraft:cobblestone_stairs[facing=east]", "minecraft:oak_planks")
+    assertTrue(Families.has(palette, "cobblestone"))
+    assertTrue(Families.has(palette, "oak_planks"))
+    assertFalse(Families.has(palette, "stone"), "stone isn't stonecutter's or stone bricks' family")
+  }
+
+  @Test fun `an old build's stone slab is today's smooth stone slab`() {
+    val known: (String) -> Boolean = { true }
+    val slab = "minecraft:stone_slab[type=double,waterlogged=false]"
+    assertEquals("minecraft:smooth_stone_slab[type=double,waterlogged=false]", Renames.fix(slab, known, 1631))
+    assertEquals(slab, Renames.fix(slab, known, 3953))
+    assertEquals(slab, Renames.fix(slab, known))
+    assertEquals(listOf("minecraft:smooth_stone_slab[type=bottom]"), Materials.placed(listOf("minecraft:stone_slab[type=bottom]"), 1519, known))
   }
 }

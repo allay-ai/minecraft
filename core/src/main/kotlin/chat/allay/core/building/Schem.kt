@@ -16,8 +16,12 @@ object Schem {
   /** The most a file may inflate to: a catalog build of 2 million blocks is far below it. */
   private const val MAX_INFLATED = 256 * 1024 * 1024
 
-  /** The biggest box read: a side past this is no build anyone places. */
-  private const val MAX_SIDE = 4096
+  /** The biggest box read, as [Shell.pack] holds a cell: no world is wider, and none is taller. */
+  private const val MAX_SIDE = 2047
+  private const val MAX_HEIGHT = 1023
+
+  /** The game version since which a sign's lines are text components, not JSON: 1.21.5. */
+  private const val COMPONENTS = 4325
 
   /** The entities a build is built with, empty; mobs, minecarts, and the rest stay out. */
   private val KEPT = setOf("item_frame", "glow_item_frame", "painting", "armor_stand")
@@ -177,7 +181,7 @@ object Schem {
       repeat(count) {
         var pos: IntArray? = null
         var id = ""
-        val text = mutableListOf<String>()
+        val text = arrayOfNulls<String>(4)
         val texture = arrayOfNulls<String>(1)
         reader.compound { n, k ->
           when {
@@ -189,14 +193,17 @@ object Schem {
             else -> field(reader, n, k, text, texture, depth + 2)
           }
         }
-        pos?.let { blockEntities += Blueprint.BlockEntity(it[0], it[1], it[2], id, text, texture[0]) }
+        val lines = text.map { it.orEmpty() }.takeIf { lines -> lines.any { it.isNotBlank() } }.orEmpty()
+        pos?.let { blockEntities += Blueprint.BlockEntity(it[0], it[1], it[2], id, lines, texture[0]) }
       }
     }
 
-    private fun field(reader: Reader, name: String, kind: Int, text: MutableList<String>, texture: Array<String?>, depth: Int) {
+    private fun field(reader: Reader, name: String, kind: Int, text: Array<String?>, texture: Array<String?>, depth: Int) {
       when {
         // A head's owner: `profile` since 1.20.5, `SkullOwner` before; its skin is a `textures` property's value.
         (name == "profile" || name == "SkullOwner") && kind == COMPOUND -> texture[0] = skin(reader, COMPOUND, depth)
+        // A sign before 1.20 keeps its four lines apart, each as JSON.
+        name.length == 5 && name.startsWith("Text") && name[4] in '1'..'4' && kind == STRING -> text[name[4] - '1'] = reader.string().take(2000)
         else -> signText(reader, name, kind, text, depth)
       }
     }
@@ -260,16 +267,43 @@ object Schem {
       }
     }
 
-    /** A sign's front lines, as the game keeps them since 1.20; anything else is skipped. */
-    private fun signText(reader: Reader, name: String, kind: Int, text: MutableList<String>, depth: Int) {
+    /**
+     * A sign's front lines, as the game keeps them since 1.20: JSON strings until 1.21.5, text components since, which
+     * NBT holds as a string or a compound. Anything else is skipped.
+     */
+    private fun signText(reader: Reader, name: String, kind: Int, text: Array<String?>, depth: Int) {
       if (name != "front_text" || kind != COMPOUND) return reader.skip(kind, depth)
       reader.compound { n, k ->
         if (n == "messages" && k == LIST) {
           val inner = reader.byte()
-          repeat(reader.int()) { if (inner == STRING) text += reader.string().take(200) else reader.skip(inner, depth + 1) }
+          repeat(reader.int()) { line -> component(reader, inner, depth + 2).let { if (line < 4) text[line] = it.take(2000) } }
         } else {
           reader.skip(k, depth + 1)
         }
+      }
+    }
+
+    /** A text component as plain text: a string as it is, a compound's `text` and its `extra`, a list's parts in a row. */
+    private fun component(reader: Reader, kind: Int, depth: Int): String {
+      if (depth > 64) throw Malformed("the NBT nests too deep")
+      return when (kind) {
+        STRING -> reader.string()
+        COMPOUND -> buildString {
+          var extra = ""
+          reader.compound { n, k ->
+            when {
+              n == "text" && k == STRING -> append(reader.string())
+              n == "extra" && k == LIST -> extra = component(reader, LIST, depth + 1)
+              else -> reader.skip(k, depth + 1)
+            }
+          }
+          append(extra)
+        }
+        LIST -> {
+          val inner = reader.byte()
+          buildString { repeat(reader.int()) { append(component(reader, inner, depth + 1)) } }
+        }
+        else -> "".also { reader.skip(kind, depth) }
       }
     }
   }
@@ -277,20 +311,23 @@ object Schem {
   private fun build(fields: Fields, reader: Reader): Blueprint {
     val (width, height, length) = Triple(fields.width, fields.height, fields.length)
     if (width <= 0 || height <= 0 || length <= 0) throw Malformed("the schematic has no size")
-    if (maxOf(width, height, length) > MAX_SIDE) throw Malformed("a side past $MAX_SIDE blocks")
+    if (maxOf(width, length) > MAX_SIDE || height > MAX_HEIGHT) throw Malformed("a side past $MAX_SIDE blocks, or taller than $MAX_HEIGHT")
     // Each cell takes a byte at least, so the inflated size bounds the box: no count past an Int.
     if (width.toLong() * height * length > fields.dataSize) throw Malformed("the block data ends before the box")
     if (fields.version !in 2..3) throw Malformed("Sponge schematic version ${fields.version} isn't read")
     val raw = fields.palette ?: throw Malformed("the schematic has no palette")
     if (fields.dataAt < 0) throw Malformed("the schematic has no blocks")
     // Air goes first, so a section nobody wrote reads as air; every other index moves up one if it wasn't.
+    // Indices run from 0 up, and the palette holds a Short's worth at most: a bigger one is no file to make room for.
+    if (raw.values.any { it !in 0..Short.MAX_VALUE }) throw Malformed("a palette index past ${Short.MAX_VALUE}")
     val byIndex = arrayOfNulls<String>((raw.values.maxOrNull() ?: 0) + 1)
     raw.forEach { (state, index) -> if (index in byIndex.indices) byIndex[index] = state }
     val palette = mutableListOf("minecraft:air")
     val remap = IntArray(byIndex.size)
     byIndex.forEachIndexed { index, state ->
       remap[index] = when {
-        state == null || Blueprint.block(state) in Blueprint.EMPTY -> 0
+        // A command block, a barrier, and the like are the author's tools, not the build: they go as air.
+        state == null || Blueprint.block(state) in Blueprint.EMPTY || Blueprint.block(state) in Blueprint.TECHNICAL -> 0
         else -> palette.size.also { palette += state }
       }
     }
@@ -324,7 +361,9 @@ object Schem {
       }
       cell++
     }
+    val legacy = fields.dataVersion < COMPONENTS
     val blockEntities = fields.blockEntities.filter { it.x in 0 until width && it.y in 0 until height && it.z in 0 until length }
+      .map { entity -> if (!legacy || entity.text.isEmpty()) entity else entity.copy(text = entity.text.map(SignText::plain)) }
     val entities = fields.entities.filter { it.x >= 0 && it.y >= 0 && it.z >= 0 && it.x < width && it.y < height && it.z < length }
     return builder.build(palette, fields.dataVersion, blockEntities, fields.name, fields.author, entities)
   }

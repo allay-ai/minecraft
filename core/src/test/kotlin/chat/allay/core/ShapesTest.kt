@@ -46,6 +46,16 @@ class ShapesTest {
     assertEquals("minecraft:oak_door[facing=west,half=upper,hinge=left,open=true,powered=false]", settled[Shell.pack(0, 1, 0)])
   }
 
+  @Test fun `a door stacked by an old conversion becomes a whole door, its top half the upper one`() {
+    // 1.12 converted: a lower half on a lower half, the top one closed, the bottom one open and facing west.
+    val bottom = "minecraft:oak_door[facing=west,half=lower,hinge=right,open=true,powered=false]"
+    val top = "minecraft:oak_door[facing=east,half=lower,hinge=right,open=false,powered=false]"
+    val bp = blueprint(1, 2, 1, listOf(bottom, top), mapOf(Triple(0, 0, 0) to 1, Triple(0, 1, 0) to 2))
+    val settled = Shapes.settle(bp, bp.palette, sturdy)
+    assertEquals(null, settled[Shell.pack(0, 0, 0)], "the bottom half is right as it is")
+    assertEquals("minecraft:oak_door[facing=west,half=upper,hinge=right,open=true,powered=false]", settled[Shell.pack(0, 1, 0)])
+  }
+
   @Test fun `stairs turn into corners as the game turns them`() {
     // Facing north at (0, 0, 1) with stairs facing west in front of it, at (0, 0, 0): an outer corner, left.
     val north = "minecraft:oak_stairs[facing=north,half=bottom,shape=straight,waterlogged=false]"
@@ -69,6 +79,7 @@ class ShapesTest {
     assertTrue(Construction.natural("short_grass"))
     assertTrue(Construction.natural("iron_ore"))
     assertTrue(Construction.natural("red_terracotta"))
+    assertTrue(Construction.natural("cobblestone"), "a claim keeps a player's")
     assertFalse(Construction.natural("white_glazed_terracotta"))
     assertFalse(Construction.natural("oak_planks"))
     assertFalse(Construction.natural("chest"))

@@ -24,10 +24,16 @@ import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EntityType
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.LeavesBlock
 import net.minecraft.world.level.block.entity.ChestBlockEntity
+import net.minecraft.world.phys.Vec3
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.level.block.entity.SkullBlockEntity
 import java.security.MessageDigest
 
 /**
@@ -36,7 +42,7 @@ import java.security.MessageDigest
  */
 class BuilderGameTests {
   /** Where the player stands: the hut, two blocks ahead and five wide, fits inside the test's 8×8 walls. */
-  private val AT = net.minecraft.world.phys.Vec3(3.5, 2.0, 1.5)
+  private val AT = Vec3(3.5, 2.0, 1.5)
 
   private val hut = BuilderGameTests::class.java.getResourceAsStream("/schematics/starter-hut.schem")!!.readBytes()
   private val blueprint = Schem.read(hut)
@@ -109,7 +115,7 @@ class BuilderGameTests {
     var wrong: String? = null
     blueprint.forEach { x, y, z, index ->
       if (wrong != null) return@forEach
-      var want = shaped[chat.allay.core.building.Shell.pack(x, y, z)] ?: datas[index] ?: return@forEach
+      var want = shaped[Shell.pack(x, y, z)] ?: datas[index] ?: return@forEach
       if (want.hasProperty(LeavesBlock.PERSISTENT)) want = want.setValue(LeavesBlock.PERSISTENT, true)
       val (wx, wy, wz) = job.placement.world(blueprint, x, y, z)
       val have = helper.level.getBlockState(BlockPos(wx, wy, wz))
@@ -201,16 +207,138 @@ class BuilderGameTests {
       helper.assertTrue(BuiltInRegistries.BLOCK.getKey(banner.block).path == "white_banner", "the banner goes up white: $banner")
       val steve = helper.level.getBlockState(at(3, 1, 2))
       helper.assertTrue(steve.`is`(Blocks.PLAYER_HEAD), "Steve's head stands in for the zombie's: $steve")
-      val skull = helper.level.getBlockEntity(at(0, 1, 2)) as? net.minecraft.world.level.block.entity.SkullBlockEntity
+      val skull = helper.level.getBlockEntity(at(0, 1, 2)) as? SkullBlockEntity
       val profile = skull?.ownerProfile
       helper.assertTrue(profile != null && profile.partialProfile().properties().containsKey("textures"), "the player head keeps its skin: $profile")
       val (low, high) = job.placement.bounds(decorated)
-      val area = net.minecraft.world.phys.AABB(low.first.toDouble(), low.second.toDouble(), low.third.toDouble(), high.first + 1.0, high.second + 1.0, high.third + 1.0)
-      val entities = helper.level.getEntities(null as net.minecraft.world.entity.Entity?, area) { it !is ServerPlayer }.groupingBy { net.minecraft.world.entity.EntityType.getKey(it.type).path }.eachCount()
+      val area = AABB(low.first.toDouble(), low.second.toDouble(), low.third.toDouble(), high.first + 1.0, high.second + 1.0, high.third + 1.0)
+      val entities = helper.level.getEntities(null as Entity?, area) { it !is ServerPlayer }.groupingBy { EntityType.getKey(it.type).path }.eachCount()
       helper.assertTrue(entities == mapOf("item_frame" to 1, "painting" to 1, "armor_stand" to 1), "one frame, one painting, one stand: $entities")
       val left = chestItems(helper, box)
       helper.assertTrue(left.isEmpty(), "the chest gave all of it: $left")
-      helper.level.getEntities(null as net.minecraft.world.entity.Entity?, area) { it !is ServerPlayer }.forEach { it.discard() }
+      helper.level.getEntities(null as Entity?, area) { it !is ServerPlayer }.forEach { it.discard() }
+      done(player, task, kept)
+    }
+  }
+
+  @GameTest(padding = 48, maxTicks = 800)
+  fun aWaitingBuilderGoesOnOnceThePlayerSkipsWhatItWaitsFor(helper: GameTestHelper) {
+    Players.builds()
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { hut })
+    val player = survivor(helper, AT)
+    // No cobblestone: the floor is the first thing it builds, so it waits at once.
+    chest(helper, BlockPos(3, 2, 0), stacks(needs - "cobblestone"))
+    preview(player)
+    val (task, job) = builder(player)
+    construct(player, task, buildJsonObject { put("action", "start") })
+    var skipped = false
+    helper.succeedWhen {
+      if (!skipped) {
+        helper.assertTrue(job.starved != null, "the builder waits for cobblestone first")
+        construct(player, task, buildJsonObject { put("action", "skip"); put("block", "cobblestone") })
+        skipped = true
+        helper.assertTrue(false, "skipped cobblestone; waiting for the builder to go on")
+      }
+      helper.assertTrue(job.starved == null, "the builder goes on without the skipped kind: ${job.starved}")
+      helper.assertTrue(job.done, "the builder is still at ${job.next} of ${job.total}")
+      done(player, task, kept)
+    }
+  }
+
+  @GameTest(padding = 48, maxTicks = 200)
+  fun aBuildIsNeverMadeOfWaterLavaOrFire(helper: GameTestHelper) {
+    Players.builds()
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { hut })
+    val player = survivor(helper, AT)
+    preview(player)
+    for (to in listOf("lava", "water", "fire", "player_head", "bedrock")) {
+      val refused = runCatching { Players.run(player, "build", buildJsonObject { put("action", "swap"); put("from", "oak_planks"); put("to", to) }) }.isFailure
+      helper.assertTrue(refused, "the preview refuses $to")
+    }
+    helper.assertTrue(runCatching { Players.run(player, "build", buildJsonObject { put("action", "swap"); put("from", "stone"); put("to", "stone_bricks") }) }.isFailure,
+      "the hut has no stone")
+    val (task, _) = builder(player)
+    val refused = runCatching { construct(player, task, buildJsonObject { put("action", "swap"); put("from", "oak_planks"); put("to", "lava") }) }.isFailure
+    helper.assertTrue(refused, "the builder refuses lava too")
+    done(player, task, kept)
+    helper.succeed()
+  }
+
+  /** The hut's inside, where the build has air: the builder clears it of what the world has there. */
+  private fun inside(job: Building.Job, x: Int, y: Int, z: Int): BlockPos = job.placement.world(blueprint, x, y, z).let { (wx, wy, wz) -> BlockPos(wx, wy, wz) }
+
+  @GameTest(padding = 48, maxTicks = 600)
+  fun theWorldsBlocksMakeWayAPlayersOthersStay(helper: GameTestHelper) {
+    Players.builds()
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { hut })
+    val player = survivor(helper, AT)
+    chest(helper, BlockPos(3, 2, 0), stacks(needs))
+    preview(player)
+    val (task, job) = builder(player)
+    // Cobblestone the world makes too goes, whoever set it there: a claim keeps a player's. Glass stays.
+    val cobblestone = listOf(inside(job, 1, 2, 1), inside(job, 3, 2, 1))
+    val glass = inside(job, 3, 2, 3)
+    cobblestone.forEach { helper.level.setBlockAndUpdate(it, Blocks.COBBLESTONE.defaultBlockState()) }
+    helper.level.setBlockAndUpdate(glass, Blocks.GLASS.defaultBlockState())
+    construct(player, task, buildJsonObject { put("action", "start") })
+    helper.succeedWhen {
+      helper.assertTrue(job.done, "the builder is still at ${job.next} of ${job.total}")
+      cobblestone.forEach { helper.assertTrue(helper.level.getBlockState(it).isAir, "cobblestone makes way: $it") }
+      helper.assertTrue(helper.level.getBlockState(glass).`is`(Blocks.GLASS), "glass is a player's and stays")
+      done(player, task, kept)
+    }
+  }
+
+  @GameTest(padding = 48, maxTicks = 600)
+  fun oreDropsOnlyForAPickaxeThatTakesIt(helper: GameTestHelper) {
+    Players.builds()
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { hut })
+    val player = survivor(helper, AT)
+    // A stone pickaxe takes iron, not diamonds: the diamond ore breaks as by hand, for nothing.
+    val box = chest(helper, BlockPos(3, 2, 0), stacks(needs) + ItemStack(Items.STONE_PICKAXE))
+    preview(player)
+    val (task, job) = builder(player)
+    val iron = inside(job, 1, 2, 1)
+    val diamond = inside(job, 2, 2, 2)
+    helper.level.setBlockAndUpdate(iron, Blocks.IRON_ORE.defaultBlockState())
+    helper.level.setBlockAndUpdate(diamond, Blocks.DIAMOND_ORE.defaultBlockState())
+    construct(player, task, buildJsonObject { put("action", "start") })
+    helper.succeedWhen {
+      helper.assertTrue(job.done, "the builder is still at ${job.next} of ${job.total}")
+      helper.assertTrue(helper.level.getBlockState(iron).isAir && helper.level.getBlockState(diamond).isAir, "both ores make way")
+      val inventory = (0 until player.inventory.containerSize).map { player.inventory.getItem(it) }
+      helper.assertTrue(inventory.any { it.`is`(Items.RAW_IRON) }, "the iron drops for the stone pickaxe: $inventory")
+      helper.assertTrue(inventory.none { it.`is`(Items.DIAMOND) }, "the diamond needs an iron pickaxe")
+      val pickaxe = chestItems(helper, box).single { it.`is`(Items.STONE_PICKAXE) }
+      helper.assertTrue(pickaxe.damageValue == 1, "the pickaxe wore once, for the iron: ${pickaxe.damageValue}")
+      done(player, task, kept)
+    }
+  }
+
+  @GameTest(padding = 48, maxTicks = 600)
+  fun withoutAPickaxeStoneBreaksAsByHand(helper: GameTestHelper) {
+    Players.builds()
+    val kept = Previews.blueprints
+    Previews.blueprints = Blueprints(download = { hut })
+    val player = survivor(helper, AT)
+    chest(helper, BlockPos(3, 2, 0), stacks(needs))
+    preview(player)
+    val (task, job) = builder(player)
+    val ore = inside(job, 1, 2, 1)
+    val dirt = inside(job, 2, 2, 2)
+    helper.level.setBlockAndUpdate(ore, Blocks.IRON_ORE.defaultBlockState())
+    helper.level.setBlockAndUpdate(dirt, Blocks.DIRT.defaultBlockState())
+    construct(player, task, buildJsonObject { put("action", "start") })
+    helper.succeedWhen {
+      helper.assertTrue(job.done, "the builder is still at ${job.next} of ${job.total}")
+      helper.assertTrue(helper.level.getBlockState(ore).isAir, "the ore makes way")
+      val inventory = (0 until player.inventory.containerSize).map { player.inventory.getItem(it) }
+      helper.assertTrue(inventory.none { it.`is`(Items.RAW_IRON) }, "no pickaxe, no iron: $inventory")
+      helper.assertTrue(inventory.any { it.`is`(Items.DIRT) }, "dirt drops by hand: $inventory")
       done(player, task, kept)
     }
   }

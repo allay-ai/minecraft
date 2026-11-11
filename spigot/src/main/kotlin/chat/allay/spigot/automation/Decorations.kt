@@ -18,6 +18,7 @@ import org.bukkit.entity.Hanging
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Painting
 import org.bukkit.entity.Player
+import org.bukkit.event.Cancellable
 import org.bukkit.event.entity.EntityPlaceEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
 import org.bukkit.inventory.EquipmentSlot
@@ -70,7 +71,7 @@ object Decorations {
       EntityPlaceEvent(spawned, player, block.getRelative(BlockFace.DOWN), BlockFace.UP, EquipmentSlot.HAND)
     }
     Bukkit.getPluginManager().callEvent(event)
-    if ((event as org.bukkit.event.Cancellable).isCancelled) {
+    if ((event as Cancellable).isCancelled) {
       spawned.remove()
       return Result.REFUSED
     }

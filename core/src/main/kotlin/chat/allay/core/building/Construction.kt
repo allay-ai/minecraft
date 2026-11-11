@@ -1,5 +1,8 @@
 package chat.allay.core.building
 
+import java.util.Base64
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlinx.serialization.Serializable
 
 /**
@@ -34,7 +37,11 @@ object Construction {
   /** Whether [block] (without `minecraft:`) is ground, as a lot or the world has it. */
   fun ground(block: String) = block.removePrefix("minecraft:") in GROUND
 
-  /** What the world grows by itself, besides trees: the builder clears it out of the build's way, as a player would dig it. */
+  /**
+   * What the world grows by itself, besides trees: the builder clears it out of the build's way, as a player would dig
+   * it. Players build with some of it too (cobblestone, sandstone, terracotta): a claim keeps theirs, since every break
+   * goes through the server's break event or the claims mod.
+   */
   private val NATURAL = GROUND + setOf(
     "snow", "snow_block", "ice", "packed_ice", "blue_ice", "powder_snow", "sandstone", "red_sandstone", "terracotta", "calcite", "dripstone_block",
     "pointed_dripstone", "smooth_basalt", "basalt", "blackstone", "soul_sand", "soul_soil", "magma_block", "obsidian", "suspicious_sand", "suspicious_gravel",
@@ -50,12 +57,29 @@ object Construction {
   /**
    * Whether [block] (without `minecraft:`) is the world's own, which the builder may break for the build: ground,
    * stone, sand, ores, plants, and the like. Leaves and logs only as part of a tree, which the platform tells by
-   * leaves the game lets decay; anything a player could have built stays, and the builder goes around it.
+   * leaves the game lets decay; anything else stays, and the builder goes around it.
    */
   fun natural(block: String): Boolean {
     val name = block.removePrefix("minecraft:")
     return name in NATURAL || name.endsWith("_ore") || name.endsWith("_tulip") || name.endsWith("_terracotta") && !name.endsWith("glazed_terracotta") ||
       name.endsWith("_sapling") || name.endsWith("_coral") || name.endsWith("_coral_block") || name.endsWith("_coral_fan")
+  }
+
+  /** What decorates a lot: tufts, flowers, ferns, snow layers. It never contends with what stands in the world already. */
+  private val DECOR = setOf(
+    "short_grass", "tall_grass", "fern", "large_fern", "dead_bush", "bush", "firefly_bush", "snow", "leaf_litter", "pink_petals", "wildflowers",
+    "short_dry_grass", "tall_dry_grass", "dandelion", "poppy", "blue_orchid", "allium", "azure_bluet", "oxeye_daisy", "cornflower",
+    "lily_of_the_valley", "torchflower", "wither_rose", "open_eyeblossom", "closed_eyeblossom", "sunflower", "lilac", "rose_bush", "peony",
+    "brown_mushroom", "red_mushroom", "crimson_roots", "warped_roots", "nether_sprouts", "moss_carpet", "pale_moss_carpet", "glow_lichen", "vine",
+  )
+
+  /**
+   * Whether [block] (without `minecraft:`) only decorates the build's lot: where something stands in the world
+   * already, the builder passes it by, with no red box and no spot in the way; an empty spot gets it as usual.
+   */
+  fun decor(block: String): Boolean {
+    val name = block.removePrefix("minecraft:")
+    return name in DECOR || name.endsWith("_tulip") || name.endsWith("_sapling") || name == "mangrove_propagule"
   }
 
   /** A tree's log or its wood: what a felled tree loses with its leaves. */
@@ -80,20 +104,55 @@ object Construction {
     return top
   }
 
+  /**
+   * The air of [blueprint] at its lot's [surface] and below that the build closes in: a basement, a cellar, a tunnel,
+   * an arena's pit. The builder digs it out of the world's ground. Air that reaches the box's sides or bottom through
+   * other air is the world's around the lot, and stays. Cells as [Shell.pack]s.
+   */
+  fun interior(blueprint: Blueprint, surface: Int): Set<Int> {
+    if (surface < 0) return emptySet()
+    val top = minOf(surface, blueprint.height - 1)
+    val (w, l) = blueprint.width to blueprint.length
+    val outside = HashSet<Int>()
+    val queue = ArrayDeque<Int>()
+    fun reach(x: Int, y: Int, z: Int) {
+      if (x !in 0 until w || z !in 0 until l || y !in 0..top || blueprint.filled(x, y, z)) return
+      if (outside.add(Shell.pack(x, y, z))) queue += Shell.pack(x, y, z)
+    }
+    for (y in 0..top) {
+      for (x in 0 until w) { reach(x, y, 0); reach(x, y, l - 1) }
+      for (z in 0 until l) { reach(0, y, z); reach(w - 1, y, z) }
+    }
+    for (z in 0 until l) for (x in 0 until w) reach(x, 0, z)
+    while (queue.isNotEmpty()) {
+      val cell = queue.removeFirst()
+      val (x, y, z) = Triple(Shell.x(cell), Shell.y(cell), Shell.z(cell))
+      reach(x + 1, y, z); reach(x - 1, y, z); reach(x, y + 1, z); reach(x, y - 1, z); reach(x, y, z + 1); reach(x, y, z - 1)
+    }
+    val inside = HashSet<Int>()
+    for (y in 0..top) for (z in 0 until l) for (x in 0 until w) {
+      if (!blueprint.filled(x, y, z) && Shell.pack(x, y, z) !in outside) inside += Shell.pack(x, y, z)
+    }
+    return inside
+  }
+
   /** Tools' tiers, worst first: a builder wears the worst out before it touches a better one. */
   private val TIERS = listOf("wooden", "stone", "copper", "golden", "iron", "diamond", "netherite")
 
-  /** How soon [item] (`stone_hoe`) wears, lower first; null for anything but a hoe or a shovel. */
+  /** How soon [item] (`stone_hoe`) wears, lower first; null for anything but a tool of [kind] (hoe, shovel, pickaxe). */
   fun wearOrder(item: String, kind: String): Int? {
     if (!item.endsWith("_$kind")) return null
     return TIERS.indexOf(item.removeSuffix("_$kind")).takeIf { it >= 0 }
   }
 
+  /** Whether a use wears a tool with Unbreaking at [unbreaking], as the game rolls it: one use in level + 1. */
+  fun wears(unbreaking: Int, roll: Double = Math.random()) = roll < 1.0 / (unbreaking.coerceAtLeast(0) + 1)
+
   private val SKIN = Regex("\"url\"\\s*:\\s*\"(https?://textures\\.minecraft\\.net/texture/[0-9a-fA-F]{16,128})\"")
 
   /** A player head's skin link from its `textures` value; null for anything but the game's own skin server. */
   fun skin(texture: String): String? {
-    val json = runCatching { String(java.util.Base64.getDecoder().decode(texture.trim()), Charsets.UTF_8) }.getOrNull() ?: return null
+    val json = runCatching { String(Base64.getDecoder().decode(texture.trim()), Charsets.UTF_8) }.getOrNull() ?: return null
     return SKIN.find(json)?.groupValues?.get(1)?.replaceFirst("http://", "https://")
   }
 
@@ -105,6 +164,39 @@ object Construction {
     5 -> 1 to 0
     else -> null
   }
+
+  /**
+   * The world block a hanging [entity] of [blueprint] hangs in, as the game spawns it there, [placement] turned and
+   * mirrored. A frame's or an odd painting's is the block its middle is in; a painting of even width reaches a block
+   * further to its left, seen from the front, and one of even height a block further up, so its middle lies on the
+   * blocks' edge. Mirrored, an even painting reaches the other way, and its block moves one along.
+   */
+  fun hangs(entity: Blueprint.Entity, blueprint: Blueprint, placement: Placement): Triple<Int, Int, Int> {
+    var x = floor(entity.x).toInt()
+    var y = floor(entity.y).toInt()
+    var z = floor(entity.z).toInt()
+    val step = if (entity.id == "painting") step(entity.facing) else null
+    var even = false
+    if (step != null) {
+      // Its left, seen from the front, is the way it faces turned counterclockwise.
+      val (leftX, leftZ) = step.second to -step.first
+      if (whole(entity.y)) y = Math.round(entity.y).toInt() - 1
+      if (leftX != 0 && whole(entity.x)) {
+        x = Math.round(entity.x).toInt() - if (leftX > 0) 1 else 0
+        even = true
+      }
+      if (leftZ != 0 && whole(entity.z)) {
+        z = Math.round(entity.z).toInt() - if (leftZ > 0) 1 else 0
+        even = true
+      }
+    }
+    val at = placement.world(blueprint, x, y, z)
+    if (!even || !placement.mirrored) return at
+    val (fx, fz) = placement.direction(blueprint, step!!.first, step.second)
+    return Triple(at.first - fz, at.second, at.third + fx)
+  }
+
+  private fun whole(value: Double) = abs(value - Math.rint(value)) < 1e-4
 
   /** The base block a player names for a whole kind of block in the build: `oak_stairs` for any of its states. */
   fun kind(state: String) = Blueprint.block(state).removePrefix("minecraft:")
@@ -138,6 +230,8 @@ object Construction {
   val entity_next: Int = 0,
   /** Cells something stood in the way of, or a claim refused, as [Shell.pack]s. */
   val blocked: List<Int> = emptyList(),
+  /** Blocked cells past the ones [blocked] keeps, and entities a claim refused: only counted. */
+  val blocked_more: Int = 0,
   /** Blocked cells the player cleared, to try before it goes on. */
   val again: List<Int> = emptyList(),
   /** How far it cleared the box of the world's own blocks, top down, before it builds. */
@@ -146,8 +240,9 @@ object Construction {
   val started: Boolean = false,
   val paused: Boolean = false,
   val blocks_per_second: Int = 5,
-  /** Since when it waits for an item, or 0. */
+  /** Since when it waits for an item, or 0, and for what, as the player reads it. */
   val starved_since: Long = 0,
+  val waiting: String? = null,
 ) {
   companion object {
     const val TYPE = "build"

@@ -5,14 +5,20 @@ import chat.allay.core.building.Blueprint
 import chat.allay.core.building.Blueprints
 import chat.allay.core.building.Construction
 import chat.allay.core.building.Families
+import chat.allay.core.building.Materials
 import chat.allay.core.building.Placement
 import chat.allay.core.building.Renames
 import chat.allay.core.building.Shapes
 import chat.allay.core.building.Shell
+import chat.allay.core.building.Showing
 import chat.allay.core.tools.DraftSide
 import chat.allay.spigot.of
 
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sqrt
 import org.bukkit.Bukkit
+import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
@@ -20,6 +26,7 @@ import org.bukkit.Tag
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
+import org.bukkit.block.BlockState
 import org.bukkit.block.data.BlockData
 import org.bukkit.block.BlockSupport
 import org.bukkit.block.data.type.Leaves
@@ -31,27 +38,35 @@ import org.bukkit.boss.BossBar
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.player.PlayerChangedWorldEvent
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitTask
 import java.util.UUID
 
 /**
- * Previews of builds from Allay's catalog: a build drawn as glowing ghosts only its player sees, where it would stand,
- * until they build it or clear it. A big build shows only its outside ([Shell]), and of that only the [BUDGET] cells
- * nearest the player, drawn again as they walk; a frame of particles marks the whole box. A cell where something of
- * the world stands in the way shows as a red box instead. Server thread only; the preview lives in memory and goes
- * on `/allay cancel`, when its player leaves, or on a restart.
+ * Previews of builds from Allay's catalog: the build as blocks only its player sees, full size and as it will stand,
+ * until they build it or clear it. The server tells that client a block stands where the world has air, grass, or
+ * whatever the builder would clear, chunk by chunk as the client has the chunks ([Showing]); the world itself never
+ * changes, and the real blocks come back when the preview goes. A spot where something of the world stands in the way
+ * shows as a red box instead, and a frame of particles marks the whole box. The client takes the blocks for solid: the
+ * player walks into the preview's walls as into real ones. Server thread only; the preview lives in memory and goes on
+ * `/allay cancel`, when its player leaves, or on a restart.
  */
 object Previews : Listener {
-  /** The most ghosts one preview shows at once: a client handles this many display entities without a stutter. */
-  const val BUDGET = 1500
+  /** The most red boxes one preview shows: a client draws this many display entities without a stutter. */
+  private const val BOXES = 256
 
-  /** Ghosts spawned per tick at most, so a big preview fills in over a second instead of one heavy tick. */
-  private const val PER_TICK = 150
+  /** Chunks sent a tick at most, nearest first, so a big preview fills in over a second instead of one heavy tick. */
+  private const val CHUNKS = 4
 
-  /** Farther than this from its box, a preview shows only its frame. */
+  /** Farther than this from its box, a preview shows no frame. */
   private const val WATCHED = 96.0
 
   class Preview(
@@ -63,22 +78,30 @@ object Previews : Listener {
     var placement: Placement,
   ) {
     /** The palette as it'll be built: renamed for this game, swapped as the player asked. */
-    var states: List<String> = chat.allay.core.building.Materials.placed(blueprint.palette, ::known)
+    var states: List<String> = Materials.placed(blueprint.palette, blueprint.dataVersion, ::known)
+    /** The lot's surface layer ([Construction.surface]): there and below, the lot's ground may stand on the world's. */
+    val surface = Construction.surface(blueprint)
     /** Swaps so far, in order: from, to. */
     val swaps = mutableListOf<Pair<String, String>>()
     internal var datas: Array<BlockData?> = emptyArray()
     internal var shaped: Map<Int, BlockData> = emptyMap()
-    internal var shell: IntArray = IntArray(0)
-    internal val drawn = HashMap<Int, Entity>()
-    internal var wanted: IntArray = IntArray(0)
-    internal var lastAt: Location? = null
-    internal var dirty = true
+    /** The build's blocks by world chunk ([Showing.chunks]). */
+    internal var chunks: Map<Long, IntArray> = emptyMap()
+    internal val schedule = Showing.Schedule()
+    /**
+     * World spots ([Showing.spot]) the client sees as the build's, by chunk: their real blocks go back to it when the
+     * preview goes or moves. Spots, not cells: once the build moved, its cells name other spots.
+     */
+    internal val shown = HashMap<Long, LongArray>()
+    /** Red boxes over spots in the way, by chunk and cell. */
+    internal val boxes = HashMap<Long, HashMap<Int, Entity>>()
     internal var bar: BossBar? = null
   }
 
   private val previews = HashMap<UUID, Preview>()
   private var ticker: BukkitTask? = null
   private var frames: BukkitTask? = null
+  private var now = 0L
   private lateinit var plugin: Plugin
   private lateinit var locales: Locales
 
@@ -89,8 +112,15 @@ object Previews : Listener {
     this.plugin = plugin
     this.locales = locales
     this.blueprints = blueprints
-    ticker = plugin.server.scheduler.runTaskTimer(plugin, Runnable { previews.values.toList().forEach(::tick) }, 2L, 2L)
-    frames = plugin.server.scheduler.runTaskTimer(plugin, Runnable { previews.values.toList().forEach(::frame) }, 20L, 20L)
+    ticker = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+      now += 2
+      previews.values.toList().forEach(::tick)
+    }, 2L, 2L)
+    frames = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+      previews.values.toList().forEach(::frame)
+      // Builds nobody previews or builds any more leave memory after `building.keep_minutes`.
+      blueprints.forget()
+    }, 20L, 20L)
   }
 
   fun stop() {
@@ -109,17 +139,16 @@ object Previews : Listener {
     tick(preview)
   }
 
-  /** Something about the preview changed: where it stands, how it faces, or its blocks. Everything is drawn again. */
+  /** Something about the preview changed: where it stands, how it faces, or its blocks. Everything is shown again. */
   fun changed(preview: Preview) {
+    unshow(preview)
     resolve(preview)
-    undraw(preview)
-    preview.dirty = true
     tick(preview)
   }
 
   fun clear(owner: UUID): Boolean {
     val preview = previews.remove(owner) ?: return false
-    undraw(preview)
+    unshow(preview)
     preview.bar?.removeAll()
     return true
   }
@@ -130,6 +159,36 @@ object Previews : Listener {
     clear(event.player)
   }
 
+  // A block the server sends the client takes the preview's place there: the chunk goes again.
+  @EventHandler(priority = EventPriority.MONITOR) fun onPlace(event: BlockPlaceEvent) = touched(event.block)
+  @EventHandler(priority = EventPriority.MONITOR) fun onBreak(event: BlockBreakEvent) = touched(event.block)
+  @EventHandler(priority = EventPriority.MONITOR) fun onInteract(event: PlayerInteractEvent) {
+    val block = event.clickedBlock ?: return
+    touched(block)
+    touched(block.getRelative(event.blockFace))
+  }
+
+  // A client in another world, or born again, starts with the world's blocks.
+  @EventHandler fun onWorld(event: PlayerChangedWorldEvent) = forgotten(event.player)
+  @EventHandler fun onRespawn(event: PlayerRespawnEvent) = forgotten(event.player)
+
+  /** Paper says the client just got a chunk: the preview's blocks in it go again. */
+  fun chunkSent(player: Player, cx: Int, cz: Int) {
+    val preview = previews[player.uniqueId]?.takeIf { it.world == player.world } ?: return
+    preview.schedule.touch(Showing.chunk(cx, cz))
+  }
+
+  private fun touched(block: Block) {
+    val key = Showing.chunk(block.x shr 4, block.z shr 4)
+    for (preview in previews.values) if (preview.world == block.world && key in preview.chunks) preview.schedule.touch(key)
+  }
+
+  private fun forgotten(player: Player) {
+    val preview = previews[player.uniqueId] ?: return
+    preview.schedule.forgetAll()
+    preview.shown.clear()
+  }
+
   /** Swaps [from] for [to] across the build; returns the shapes [to] lacks, which stay as they were. */
   fun swap(preview: Preview, from: String, to: String): Set<String> {
     val (states, missing) = Families.apply(preview.states, from, to) { known(it) }
@@ -137,6 +196,17 @@ object Previews : Listener {
     preview.swaps += from to to
     changed(preview)
     return missing
+  }
+
+  /**
+   * Why a build can't be made of [block] instead, or null when it can: a block this game has, that a player places
+   * from an item they pay ([chat.allay.core.building.Materials.refusal]).
+   */
+  fun refusal(block: String): String? {
+    if (!known(block)) return "$block isn't a block this server has; search_items finds its id"
+    Materials.refusal(block)?.let { return it }
+    val items = Materials.of("minecraft:$block").items.keys
+    return items.firstOrNull { Material.matchMaterial(it)?.isItem != true }?.let { "$block isn't placed from an item here; name another block" }
   }
 
   /** Whether this game has a block by that name. */
@@ -149,8 +219,7 @@ object Previews : Listener {
   private fun resolve(preview: Preview) {
     preview.datas = datas(preview.blueprint, preview.states, preview.placement)
     preview.shaped = shaped(preview.blueprint, preview.states, preview.placement)
-    val opaque = BooleanArray(preview.datas.size) { preview.datas[it]?.material?.isOccluding == true }
-    preview.shell = Shell.of(preview.blueprint, opaque)
+    preview.chunks = Showing.chunks(preview.blueprint, preview.placement)
   }
 
   /** One [state] as block data, turned and mirrored as [placement] stands; null for a block this game lacks. */
@@ -174,9 +243,15 @@ object Previews : Listener {
   }
 
   /** Whether the builder clears [block] out of a build's way: the world's own ground and plants, and trees. */
-  fun clearable(block: Block): Boolean {
+  private fun clearable(block: Block): Boolean {
     val key = block.type.key.key
     return Construction.natural(key) || Construction.log(key) || (block.blockData as? Leaves)?.isPersistent == false
+  }
+
+  /** Whether [blueprint]'s box at [placement] lies within [world]'s height. */
+  fun fits(world: World, blueprint: Blueprint, placement: Placement): Boolean {
+    val (low, high) = placement.bounds(blueprint)
+    return low.second >= world.minHeight && high.second < world.maxHeight
   }
 
   /** [states], the palette of [blueprint], as this game's block data turned and mirrored as [placement] stands. */
@@ -190,6 +265,12 @@ object Previews : Listener {
       data
     }
   }
+
+  /**
+   * Whether [block] is the world's own solid ground, which a lot's ground below its surface stands on instead of being
+   * built: soil, stone, sand, sandstone, terracotta, ores, and the like, not water or a cave's air.
+   */
+  fun land(block: Block) = block.type.isSolid && Construction.natural(block.type.key.key)
 
   /** A spot a block can go without breaking anything first: air, water, tall grass, snow layers, and the like. */
   fun open(block: Block) = block.isEmpty || block.isLiquid || Tag.REPLACEABLE.isTagged(block.type)
@@ -226,70 +307,89 @@ object Previews : Listener {
     val covered = HashMap<String, Int>()
     val ground = BooleanArray(preview.states.size) { Construction.ground(Construction.kind(preview.states[it])) }
     preview.blueprint.forEach { cx, cy, cz, index ->
-      if (!ground[index]) return@forEach
+      if (!ground[index] || cy > preview.surface) return@forEach
       val (x, y, z) = preview.placement.world(preview.blueprint, cx, cy, cz)
-      if (Construction.ground(preview.world.getBlockAt(x, y, z).type.key.key)) chat.allay.core.building.Materials.of(preview.states[index]).items.forEach { (item, n) -> covered.merge(item, n, Int::plus) }
+      if (land(preview.world.getBlockAt(x, y, z))) Materials.of(preview.states[index]).items.forEach { (item, n) -> covered.merge(item, n, Int::plus) }
     }
     return covered
   }
 
-  private fun block(preview: Preview, packed: Int): Block {
-    val (x, y, z) = preview.placement.world(preview.blueprint, Shell.x(packed), Shell.y(packed), Shell.z(packed))
-    return preview.world.getBlockAt(x, y, z)
-  }
-
-  /** The cells to show now: the shell's nearest to the player, at most [BUDGET]. */
-  private fun nearest(preview: Preview, at: Location): IntArray {
-    val shell = preview.shell
-    if (shell.size <= BUDGET) return shell
-    val distances = LongArray(shell.size) { i ->
-      val (x, y, z) = preview.placement.world(preview.blueprint, Shell.x(shell[i]), Shell.y(shell[i]), Shell.z(shell[i]))
-      val dx = x - at.blockX
-      val dy = y - at.blockY
-      val dz = z - at.blockZ
-      ((dx * dx + dy * dy + dz * dz).toLong() shl 32) or i.toLong()
-    }
-    distances.sort()
-    return IntArray(BUDGET) { shell[(distances[it] and 0xFFFFFFFFL).toInt()] }
-  }
-
+  /** Sends the chunks that are due, nearest first; forgets those the client let go. */
   private fun tick(preview: Preview) {
     val player = Bukkit.getPlayer(preview.owner)
     if (player == null || !player.isOnline) return run { clear(preview.owner) }
     blueprints.touch(preview.source.sha256)
-    val (low, high) = preview.placement.bounds(preview.blueprint)
-    val at = player.location
-    val far = player.world != preview.world || distanceToBox(at, low, high) > WATCHED
-    if (far) {
-      if (preview.drawn.isNotEmpty()) undraw(preview)
-      bar(player, preview)
-      return
-    }
-    // Drawn again once the player has walked a few blocks: the nearest cells change as they go.
-    val moved = preview.lastAt?.let { it.world != at.world || it.distanceSquared(at) > 16.0 } ?: true
-    if (preview.dirty || moved) {
-      preview.wanted = nearest(preview, at)
-      preview.lastAt = at.clone()
-      preview.dirty = false
-      val keep = preview.wanted.toHashSet()
-      preview.drawn.entries.removeIf { (cell, entity) -> (cell !in keep).also { if (it) entity.remove() } }
-    }
-    var spawned = 0
-    for (cell in preview.wanted) {
-      if (spawned >= PER_TICK) break
-      if (cell in preview.drawn) continue
-      val block = block(preview, cell)
-      val index = preview.blueprint.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
-      val data = preview.shaped[cell] ?: preview.datas[index] ?: continue
-      // The lot's ground where the world has ground needs nothing: neither a ghost nor a red box.
-      if (Construction.ground(Construction.kind(preview.states[index])) && Construction.ground(block.type.key.key)) continue
-      // What the builder clears shows as the block that comes instead.
-      val ghost = if (open(block) || clearable(block) || block.blockData.matches(data)) Marks.ghost(block, data, Marks.Hue.AQUA) else Marks.box(block, Marks.Hue.RED)
-      Marks.reveal(plugin, player, listOf(ghost))
-      preview.drawn[cell] = ghost
-      spawned++
-    }
     bar(player, preview)
+    if (player.world != preview.world) return
+    val view = minOf(player.clientViewDistance, Bukkit.getViewDistance())
+    val px = player.location.blockX shr 4
+    val pz = player.location.blockZ shr 4
+    fun near(key: Long) = max(abs(Showing.chunkX(key) - px), abs(Showing.chunkZ(key) - pz)) <= view
+    // A chunk past the view is gone from the client, the preview's blocks in it too.
+    for (key in preview.schedule.chunks.filterNot(::near)) {
+      preview.schedule.forget(key)
+      preview.shown.remove(key)
+      preview.boxes.remove(key)?.values?.forEach(Entity::remove)
+    }
+    val due = preview.chunks.keys.filter { near(it) && preview.world.isChunkLoaded(Showing.chunkX(it), Showing.chunkZ(it)) && preview.schedule.due(it, now) }
+      .sortedBy { max(abs(Showing.chunkX(it) - px), abs(Showing.chunkZ(it) - pz)) }
+    for (key in due.take(CHUNKS)) {
+      send(player, preview, key)
+      preview.schedule.sent(key, now)
+    }
+  }
+
+  /**
+   * Shows [player] the build's blocks in chunk [key]: where the world has air, water, or what the builder clears, the
+   * build's block; where something else stands in the way, a red box; nothing where the block is there already, or the
+   * lot's ground meets the world's. A cell shown before that the world filled since gets its real block back.
+   */
+  private fun send(player: Player, preview: Preview, key: Long) {
+    val bp = preview.blueprint
+    val world = preview.world
+    val fakes = ArrayList<BlockState>()
+    val spots = ArrayList<Long>()
+    val boxes = preview.boxes.getOrPut(key) { HashMap() }
+    val stay = HashSet<Int>()
+    for (cell in preview.chunks[key] ?: return) {
+      val index = bp.at(Shell.x(cell), Shell.y(cell), Shell.z(cell))
+      val data = preview.shaped[cell] ?: preview.datas[index] ?: continue
+      val (x, y, z) = preview.placement.world(bp, Shell.x(cell), Shell.y(cell), Shell.z(cell))
+      if (y < world.minHeight || y >= world.maxHeight) continue
+      val block = world.getBlockAt(x, y, z)
+      if (Shell.y(cell) <= preview.surface && Construction.ground(Construction.kind(preview.states[index])) && land(block)) continue
+      if (block.blockData.matches(data)) continue
+      // The lot's tufts and flowers never contend with what stands there.
+      if (Construction.decor(Construction.kind(preview.states[index])) && !open(block)) continue
+      if (open(block) || clearable(block)) {
+        fakes += block.state.also { it.blockData = data }
+        spots += Showing.spot(x, y, z)
+      } else if (cell in boxes || preview.boxes.values.sumOf { it.size } < BOXES) {
+        stay += cell
+        boxes.getOrPut(cell) { Marks.box(block, Marks.Hue.RED).also { Marks.reveal(plugin, player, listOf(it)) } }
+      }
+    }
+    boxes.keys.filter { it !in stay }.forEach { boxes.remove(it)?.remove() }
+    val kept = spots.toHashSet()
+    val back = preview.shown[key]?.filter { it !in kept }.orEmpty()
+    if (back.isNotEmpty()) player.sendBlockChanges(back.map { real(world, it).state })
+    if (fakes.isNotEmpty()) player.sendBlockChanges(fakes)
+    preview.shown[key] = spots.toLongArray()
+  }
+
+  private fun real(world: World, spot: Long): Block = world.getBlockAt(Showing.spotX(spot), Showing.spotY(spot), Showing.spotZ(spot))
+
+  /** Gives the player the world's real blocks back where the preview stood, and takes its boxes away. */
+  private fun unshow(preview: Preview) {
+    val player = Bukkit.getPlayer(preview.owner)?.takeIf { it.isOnline && it.world == preview.world }
+    if (player != null) {
+      val back = preview.shown.values.flatMap { spots -> spots.map { real(preview.world, it).state } }
+      if (back.isNotEmpty()) player.sendBlockChanges(back)
+    }
+    preview.shown.clear()
+    preview.boxes.values.forEach { it.values.forEach(Entity::remove) }
+    preview.boxes.clear()
+    preview.schedule.forgetAll()
   }
 
   /** The box's edges in particles, only for its player, once a second. */
@@ -301,9 +401,9 @@ object Previews : Listener {
     val (x0, y0, z0) = low
     val (x1, y1, z1) = Triple(high.first + 1, high.second + 1, high.third + 1)
     val step = maxOf(1, maxOf(x1 - x0, y1 - y0, z1 - z0) / 48)
-    val dust = Particle.DustOptions(org.bukkit.Color.AQUA, 1.0f)
+    val dust = Particle.DustOptions(Color.AQUA, 1.0f)
     fun line(ax: Int, ay: Int, az: Int, bx: Int, by: Int, bz: Int) {
-      val n = maxOf(kotlin.math.abs(bx - ax), kotlin.math.abs(by - ay), kotlin.math.abs(bz - az))
+      val n = maxOf(abs(bx - ax), abs(by - ay), abs(bz - az))
       var i = 0
       while (i <= n) {
         val t = if (n == 0) 0.0 else i.toDouble() / n
@@ -325,16 +425,10 @@ object Previews : Listener {
     bar.progress = 1.0
   }
 
-  private fun undraw(preview: Preview) {
-    preview.drawn.values.forEach(Entity::remove)
-    preview.drawn.clear()
-  }
-
-
   private fun distanceToBox(at: Location, low: Triple<Int, Int, Int>, high: Triple<Int, Int, Int>): Double {
     val dx = maxOf(low.first - at.x, 0.0, at.x - high.first - 1)
     val dy = maxOf(low.second - at.y, 0.0, at.y - high.second - 1)
     val dz = maxOf(low.third - at.z, 0.0, at.z - high.third - 1)
-    return kotlin.math.sqrt(dx * dx + dy * dy + dz * dz)
+    return sqrt(dx * dx + dy * dy + dz * dz)
   }
 }

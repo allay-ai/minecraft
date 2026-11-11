@@ -77,7 +77,7 @@ object Shapes {
       val state = states[index]
       val name = name(state)
       val settled = when {
-        door(name) -> door(state, at(x, y + 1, z), at(x, y - 1, z))
+        door(name) -> door(state, x, y, z, ::at)
         stairs(name) -> stairs(state) { side -> SIDES.first { it.first == side }.second.let { (dx, dz) -> at(x + dx, y, z + dz) } }
         wall(state) -> wall(state, at(x, y + 1, z), sturdy) { dx, dz -> at(x + dx, y, z + dz) }
         else -> joins(state, sturdy) { dx, dz -> at(x + dx, y, z + dz) }
@@ -87,15 +87,26 @@ object Shapes {
     return out
   }
 
-  /** A door's half with what the other half knows: the lower one keeps the facing and whether it's open, the upper one the hinge. */
-  private fun door(state: String, above: String?, below: String?): String {
-    val properties = Blueprint.states(state)
-    return when (properties["half"]) {
-      "lower" -> above?.takeIf { Blueprint.block(it) == Blueprint.block(state) && Blueprint.states(it)["half"] == "upper" }
-        ?.let { upper -> with(state, Blueprint.states(upper).filterKeys { it == "hinge" }) } ?: state
-      "upper" -> below?.takeIf { Blueprint.block(it) == Blueprint.block(state) && Blueprint.states(it)["half"] == "lower" }
-        ?.let { lower -> with(state, Blueprint.states(lower).filterKeys { it == "facing" || it == "open" || it == "powered" }) } ?: state
-      else -> state
+  /**
+   * A door's half as its place in a column of doors of one kind says, bottom up: lower, upper, lower again. An older
+   * schematic's conversion left lower halves on lower halves and halves facing apart, so the half state can't be
+   * trusted. The two agree on what the lower one knows (facing, open, powered), and on the hinge the upper one knew,
+   * when it was one; a lower half without a door above stays as it is.
+   */
+  private fun door(state: String, x: Int, y: Int, z: Int, at: (Int, Int, Int) -> String?): String {
+    val block = Blueprint.block(state)
+    fun same(dy: Int) = at(x, y + dy, z)?.takeIf { Blueprint.block(it) == block }
+    var below = 0
+    while (same(-(below + 1)) != null) below++
+    return if (below % 2 == 1) {
+      val lower = Blueprint.states(same(-1)!!)
+      val own = Blueprint.states(state)
+      val hinge = if (own["half"] == "upper") own["hinge"] else lower["hinge"]
+      with(state, lower.filterKeys { it == "facing" || it == "open" || it == "powered" } + listOfNotNull(hinge?.let { "hinge" to it }) + ("half" to "upper"))
+    } else {
+      val above = same(1)?.let(Blueprint::states) ?: return state
+      val hinge = above["hinge"]?.takeIf { above["half"] == "upper" }
+      with(state, listOfNotNull(hinge?.let { "hinge" to it }).toMap() + ("half" to "lower"))
     }
   }
 

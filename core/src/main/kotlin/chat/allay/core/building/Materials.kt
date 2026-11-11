@@ -123,8 +123,12 @@ object Materials {
    */
   fun placed(palette: List<String>): List<String> = palette.map(::plain)
 
-  /** [palette] as this game builds it: older names renamed ([known] says what the game has), then [placed]'s rules. */
-  fun placed(palette: List<String>, known: (String) -> Boolean): List<String> = placed(palette.map { Renames.fix(it, known) ?: it })
+  /**
+   * [palette] as this game builds it: older names renamed ([known] says what the game has, [dataVersion] which game
+   * saved it), then [placed]'s rules.
+   */
+  fun placed(palette: List<String>, dataVersion: Int = Int.MAX_VALUE, known: (String) -> Boolean): List<String> =
+    placed(palette.map { Renames.fix(it, known, dataVersion) ?: it })
 
   private fun plain(state: String): String {
     val block = Blueprint.block(state).removePrefix("minecraft:")
@@ -142,6 +146,19 @@ object Materials {
     if (item !in MOB_HEADS) return null
     val wall = "_wall_" in block
     return "minecraft:" + (if (wall) "player_wall_head" else "player_head") + state.substring(Blueprint.block(state).length)
+  }
+
+  /**
+   * Why [block] (without `minecraft:`) can't be what a build is made of instead, or null when it can: a swap takes a
+   * block a player places from an item they pay, never water, lava, fire, or a free head, and never one nobody gets.
+   */
+  fun refusal(block: String): String? {
+    val cost = of("minecraft:$block")
+    return when {
+      cost.unobtainable -> "no survival player gets $block"
+      cost.free || cost.items.isEmpty() || cost.water -> "$block isn't a block to build with: name one a player places from an item"
+      else -> null
+    }
   }
 
   /** The item an entity of a build takes: a frame, a painting, an armor stand; null for what isn't built. */
