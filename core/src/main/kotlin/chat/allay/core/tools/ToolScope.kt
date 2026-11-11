@@ -59,6 +59,9 @@ open class ToolScope(
   /** Other players' labels for this run. */
   val others: OtherPlayers = OtherPlayers(),
 ) {
+  /** Lines `send_message` sent in this run. */
+  val sent = java.util.concurrent.atomic.AtomicInteger()
+
   /** The asker's language, for the summaries under tool lines. */
   val lang: Lang get() = services.locales.of(asker)
 

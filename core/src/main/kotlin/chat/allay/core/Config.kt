@@ -149,6 +149,14 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
     }
   }
 
+  /** Which commands are private messages, for `chat_history`, and the one Allay sends them with (since 6.38). */
+  val chatHistory = ChatHistorySettings() ; inner class ChatHistorySettings {
+    // The bundled lists when the file has none; an empty list keeps such messages out.
+    val privateCommands = config.strings("tools.chat_history.private_commands").map(String::lowercase).toSet()
+    val replyCommands = config.strings("tools.chat_history.reply_commands").map(String::lowercase).toSet()
+    val whisperCommand = config.string("tools.chat_history.whisper_command", "msg").trim().removePrefix("/").ifEmpty { "msg" }
+  }
+
   /**
    * Automation agents: background agents that sort chests, smelt, brew, and craft for a player near their base.
    * Off as a whole with `automation.enabled`, or one kind at a time; permissions narrow it further.

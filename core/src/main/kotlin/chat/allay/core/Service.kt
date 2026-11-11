@@ -98,6 +98,8 @@ class Service<C>(
     const val OLD_MAX_TASKS = 4
     /** Failed tries before the player hears the backend is out of reach. */
     const val TELL_AFTER = 3
+    /** Not a tool the plugin runs: the name tells the backend to offer its own, over the chat the plugin sends. */
+    const val CHAT_HISTORY = "chat_history"
   }
 
   // encodeDefaults sends platform: without it the backend files v1 requests under "unknown".
@@ -268,7 +270,7 @@ class Service<C>(
         // Only questions use it, so actions and automation agents don't carry it.
         about = config.server.about.takeIf { it.isNotEmpty() && run.mode == Run.Mode.ASK }),
       // An automation agent never gets operator tools, whoever started it.
-      tools = tools.offered(isOperator(asker) && run.task == null),
+      tools = tools.offered(isOperator(asker) && run.task == null) + listOfNotNull(CHAT_HISTORY.takeIf { chatHistory(run) }),
       provider = credentials.block(run.model),
       task = run.task?.let { Protocol.TaskInfo(it.id, it.name, it.depth, it.kind.wire, it.card, it.keepUntil) },
       tasks = when (run.mode) {
@@ -283,6 +285,12 @@ class Service<C>(
       building = building(run),
     )
   }
+
+  /**
+   * Whether the backend may read this server's chat for the asker (`chat_history`, a tool of its own since 6.34): a
+   * player's question, while the chat goes there. An agent never reads the chat.
+   */
+  private fun chatHistory(run: Run) = run.mode == Run.Mode.ASK && run.task == null && run.asker.uuid != null && config.tools.enabled(CHAT_HISTORY)
 
   /** What the asker may build, for a run that offers `build`: the backend's search keeps to it. */
   private fun building(run: Run): Protocol.Building? {
@@ -496,6 +504,21 @@ class Service<C>(
   override suspend fun death(userId: String, death: chat.allay.core.tools.Death) = withContext(IO) {
     send("/api/v2/users/${path(userId)}/deaths", "POST", json.encodeToString(chat.allay.core.tools.Death.serializer(), death))
     Unit
+  }
+
+  @Serializable private data class ChatHistoryBody(val server_id: String, val lines: List<ChatHistory.Line>)
+
+  /** A batch of the server's chat for `chat_history` (backend 6.34). */
+  suspend fun chatHistory(lines: List<ChatHistory.Line>) = withContext(IO) {
+    send("/api/v2/chat-history", "POST", json.encodeToString(ChatHistoryBody.serializer(), ChatHistoryBody(serverId, lines)))
+    Unit
+  }
+
+  @Serializable private data class ChatReset(val deleted: Int = 0)
+
+  /** `/allay chathistory reset`: the backend forgets this server's whole chat (backend 6.34). */
+  suspend fun resetChatHistory(): Int = withContext(IO) {
+    json.decodeFromString<ChatReset>(send("/api/v2/chat-history?server_id=${path(serverId)}", "DELETE")).deleted
   }
 
   /** `/allay privacy erase`: the backend forgets the player on this server; their questions stay only as numbers. */

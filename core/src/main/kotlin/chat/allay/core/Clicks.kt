@@ -160,7 +160,7 @@ class Clicks(
   private fun hover(lang: Lang, player: PlayerAudience, button: Button): String = when (button) {
     is Button.Ask -> lang.text("buttons.hover.ask", "question" to button.question)
     is Button.Command -> lang.text("buttons.hover.command", "command" to button.command)
-    is Button.Say -> lang.text("buttons.hover.say", "text" to button.text)
+    is Button.Say -> button.to?.let { lang.text("buttons.hover.say_to", "name" to it, "text" to button.text) } ?: lang.text("buttons.hover.say", "text" to button.text)
     is Button.Point -> lang.text("buttons.hover.point", "x" to button.x, "y" to button.y, "z" to button.z)
     is Button.Follow -> lang.text("buttons.hover.follow", "name" to button.player)
     is Button.Note -> lang.text("buttons.hover.note", "text" to button.text, "x" to button.x, "y" to button.y, "z" to button.z)
@@ -193,7 +193,11 @@ class Clicks(
         ask(player, button.question, public)
       }
       is Button.Command -> command(player, button.command)
-      is Button.Say -> chat.say(player, button.text)
+      is Button.Say -> when (val to = button.to) {
+        null -> chat.say(player, button.text)
+        // The addressee may have left since the answer.
+        else -> if (chat.whisper(player, to, button.text) == null) lang.send(player, "buttons.whisper_gone", "name" to to)
+      }
       is Button.Note -> memory().rememberAt(player, button.text, button.x, button.y, button.z, button.dimension)
       // Copying happens in the client and never reaches the store; kept for a complete `when`.
       is Button.Copy -> Unit

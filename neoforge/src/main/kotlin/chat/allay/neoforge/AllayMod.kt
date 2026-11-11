@@ -41,6 +41,8 @@ class AllayMod(@Suppress("UNUSED_PARAMETER") modBus: IEventBus) {
     bus.addListener { event: PlayerEvent.PlayerLoggedOutEvent -> (event.entity as? ServerPlayer)?.let(Mod::left) }
     // Before every other listener sees it as an ordinary message, as Bukkit's LOWEST.
     bus.addListener(EventPriority.HIGHEST) { event: ServerChatEvent -> if (!Mod.chat(event.player, event.rawText)) event.isCanceled = true }
+    // What goes out once every mod let it through, for chat_history.
+    bus.addListener(EventPriority.LOWEST) { event: ServerChatEvent -> if (!event.isCanceled) Mod.chatSent(event.player, event.rawText) }
     // After the break, as Fabric's AFTER: the event comes before the game removes the block, which may still refuse,
     // so the hook waits a tick and fires only if the block is gone. A break someone cancelled never happened.
     bus.addListener(EventPriority.LOWEST) { event: BreakBlockEvent ->

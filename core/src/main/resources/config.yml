@@ -175,6 +175,9 @@ tools:
     # Allay about itself
     get_allay_guide: true         # The commands, chat mode prefixes, and settings this player has, so the assistant can explain them
     allay_settings: true          # Chat mode and its tip on or off when the player asks in words
+    # The server's chat (see chat_history below)
+    chat_history: true            # Keeps the chat for 72 hours, sealed on Allay's backend, so players can ask “what did he write?” or “translate that”
+    send_message: true            # Sends a line to the chat or a private message as the player, when they ask Allay to write it
     # Goals with a bar at the top of the screen
     goals: true                   # Set, list, and cancel goals: “collect 16 diamonds”, “reach level 30”
     # Harmless actions: they give nothing and change nothing in the world
@@ -211,6 +214,15 @@ tools:
     apply_effect: true        # Apply an effect (up to an hour, level up to 10) or clear them all
     set_time: true
     set_weather: true
+  # The chat chat_history keeps: public lines, local lines (a chat plugin's radius, read again only by the
+  # players who saw them), and private messages (only their two players). Lines in chat mode never count.
+  chat_history:
+    # Commands that send a private message: the first word after them names the player
+    private_commands: [msg, tell, w, whisper, m, pm, dm, t, emsg, etell, ewhisper, message]
+    # Commands that answer the last private message
+    reply_commands: [r, reply, er, ereply]
+    # What Allay runs as the player to send a private message: <command> <player> <text>
+    whisper_command: msg
   # Reminders live in memory: a restart or the player leaving drops them.
   reminders:
     max_pending: 10           # Reminders one player can have waiting

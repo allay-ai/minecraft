@@ -117,6 +117,8 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
   lateinit var zones: TimeZones; private set
   lateinit var languages: Languages; private set
   lateinit var chat: ChatMode; private set
+  /** The server's chat on its way to the backend, for `chat_history`; outlives `/allay reload`. */
+  lateinit var history: ChatHistory; private set
   lateinit var quota: QuotaGate; private set
   lateinit var reminders: Reminders; private set
   /** Questions, tokens, cost, and answer times, for bStats, WorldAPI, and Plan; outlives `/allay reload`. */
@@ -173,7 +175,9 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     usage = Usage(platform.shared, log)
     locales.picked = usage::picked
     languages = Languages(locales, settings)
-    chat = ChatMode(platform, locales, settings) { handler }
+    // The service of the moment sends it: /allay reload makes a new one.
+    history = ChatHistory(platform, scope, log, { config }, { service.chatHistory(it) }, { service.resetChatHistory() })
+    chat = ChatMode(platform, locales, settings, { handler }, { history }, { config.chatHistory.whisperCommand })
     // Outlives /allay reload, so reminders already set keep their schedule.
     reminders = Reminders(platform, locales, { effects }) { config.tools.maxReminders }
     quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.shared, log) { runCatching { java.time.ZoneId.of(config.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
@@ -190,6 +194,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     // Expansions registered before Allay started join now; the platform finds the rest in plugins and mods.
     AllayExpansions.bind(expansions)
     data.start()
+    history.start()
     // After a reload of the plugin, players already online get their state too.
     platform.players.forEach { player ->
       data.join(player.uuid)
@@ -255,6 +260,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     watch?.stop()
     // Before the scope goes: what changed is sent, or sealed into the spool for the next start.
     if (::data.isInitialized) data.stop(SHUTDOWN_MS)
+    if (::history.isInitialized) history.stop(SHUTDOWN_MS)
     if (::animator.isInitialized) animator.stopAll()
     locales.stop()
     scope.cancel()
@@ -269,6 +275,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
 
   fun quit(player: UUID) {
     reminders.quit(player)
+    history.quit(player)
     data.quit(player)
   }
 

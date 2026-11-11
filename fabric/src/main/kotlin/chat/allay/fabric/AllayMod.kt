@@ -33,6 +33,8 @@ class AllayMod : ModInitializer {
     ServerPlayConnectionEvents.DISCONNECT.register { handler, _ -> Mod.left(handler.player) }
     // Before every other listener sees it as an ordinary message, as Bukkit's LOWEST.
     ServerMessageEvents.ALLOW_CHAT_MESSAGE.register { message, player, _ -> Mod.chat(player, message.signedContent()) }
+    // What went out once every mod let it through, for chat_history.
+    ServerMessageEvents.CHAT_MESSAGE.register { message, player, _ -> Mod.chatSent(player, message.signedContent()) }
     PlayerBlockBreakEvents.AFTER.register { level, player, pos, _, _ ->
       if (player is ServerPlayer && level is ServerLevel) Hooks.brokeBlock.each { it(player, level, pos) }
     }

@@ -122,6 +122,13 @@ tools:
   write_book: "Writing a book: “{title}”"
   set_timezone: "Remembering your time zone: {zone}"
   get_allay_guide: "Recalling what I can do"
+  chat_history:
+    list: "Reading the chat"
+    by_player: "Reading what {player} wrote"
+    by_query: "Searching the chat: {query}"
+  send_message:
+    list: "Sending your message to the chat"
+    by_to: "Writing to {to}"
   allay_settings: "Changing your settings"
   give_item: "Giving {item}"
   teleport: "Teleporting"
@@ -138,6 +145,8 @@ tools:
 
 # The short result under a tool line.
 summary:
+  sent_chat: "sent to the chat"
+  sent_to: "sent to {name}"
   status: "❤ {health}/{max} · 🍗 {food}/20"
   inventory: "{stacks} {stacks|stack|stacks}"
   surroundings: "{kinds} {kinds|kind|kinds} of blocks, {creatures} {creatures|creature|creatures}"
@@ -257,6 +266,8 @@ summary:
   # Tools that run on the Allay server.
   server:
     sources: "{count} {count|source|sources}"
+    chat_lines: "{count} {count|line|lines}"
+    chat_unavailable: "chat history unavailable"
     search_failed: "search failed"
     computed: "{done} of {total} computed"
     calculator_unavailable: "calculator unavailable"
@@ -278,7 +289,7 @@ messages:
   language_set: "&7I speak &f{language}&7 to you now."
   language_auto: "&7I pick your language by myself again: &f{language}&7."
   language_unknown: "&cThere's no language {code}. Choose one of: {codes}"
-  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay init &7– set up the backend's admin panel\n&f/allay reload &7– reload settings and languages\n&f/allay privacy export|erase &7<player> – a player's data, on their request"
+  allay_admin_usage: "&6For admins\n&f/allay status &7– who pays for the model\n&f/allay link &7– pay for the subscription in Telegram\n&f/allay locale &7[player] – which language a player gets, and why\n&f/allay init &7– set up the backend's admin panel\n&f/allay reload &7– reload settings and languages\n&f/allay privacy export|erase &7<player> – a player's data, on their request\n&f/allay chathistory reset &7– erase what Allay keeps of the chat"
   no_permission: "&cYou don't have permission for that."
   players_only: "&cThat's for players only."
   thinking: "&eAsking the AI assistant, one moment…"
@@ -449,7 +460,9 @@ buttons:
     pick_cancel: "&7Stop picking"
     command: "&7Runs &f{command}"
     say: "&7Sends to the chat as you: &f{text}"
+    say_to: "&7Sends a private message to &f{name}&7 as you: &f{text}"
   expired: "&7This button doesn't work anymore. Ask again."
+  whisper_gone: "&f{name}&7 isn't online anymore, so the message stayed with you."
   question: "&7› {question}"
   path_shown: "&7Showing the way: &f{distance} &7{distance|block|blocks} {direction}."
   path_to_player: "&7Showing the way to &f{name}&7: &f{distance} &7{distance|block|blocks} {direction}. The trail follows them."
@@ -848,7 +861,7 @@ admin:
     unsupported: "&7This Allay backend has no admin panel: it's older than 5.7."
 
 privacy:
-  info: "&6What Allay keeps about you on this server\n&7• Encrypted, on Allay's backend: your conversation, 30 days after your last question; what it remembers about you (&f/allay memory&7), places included, and your settings, time zone, goals, and deaths, until you delete them or a year after your last question; records of your questions, 30 days, to find and fix errors. The backend's operator opens a record only to look into a problem, and each look is logged.\n&7• Not encrypted: your name, UUID, and operator status for the admin panel (unless you turn on full privacy), the numbers of your questions (when, the model, the cost), and your agreement, 2 years.\n&7• Encrypted backups of all of it, up to 12 months.\n&7• Every question goes through OpenRouter in the USA to the AI provider that writes the answer.\n&7Other servers never see any of it."
+  info: "&6What Allay keeps about you on this server\n&7• Encrypted, on Allay's backend: your conversation, 30 days after your last question; what it remembers about you (&f/allay memory&7), places included, and your settings, time zone, goals, and deaths, until you delete them or a year after your last question; records of your questions, 30 days, to find and fix errors. The backend's operator opens a record only to look into a problem, and each look is logged.\n&7• Not encrypted: your name, UUID, and operator status for the admin panel (unless you turn on full privacy), the numbers of your questions (when, the model, the cost), and your agreement, 2 years.\n&7• Encrypted backups of all of it, up to 12 months.\n&7• Every question goes through OpenRouter in the USA to the AI provider that writes the answer.\n&7• The server's chat, while its owner keeps chat history on: what you write in the public chat, local lines for the players who saw them, and your private messages for you and the other player, encrypted, 72 hours, so you can ask what someone wrote.\n&7Other servers never see any of it."
   commands: "&f/allay privacy full on|off &7– full privacy: the admin panel sees a pseudonym instead of your name\n&f/allay privacy export &7– a link to everything Allay keeps about you, for 24 hours\n&f/allay privacy withdraw &7– take your agreement back; Allay stops answering you\n&f/allay privacy erase &7– erase everything Allay keeps about you here"
   admin: "&8Admins: &f/allay privacy export <player> &8gets a link to a player's data to hand to them, &f/allay privacy erase <player> &8erases it."
   erase_confirm: "&eErase everything Allay keeps about you on this server? Memories, the conversation, and your agents' threads go for good; your questions stay only as anonymous numbers."
@@ -1045,3 +1058,9 @@ building:
   bar_paused: "{title}: paused · {percent}%"
   bar_far: "{title}: come back to the site · {percent}%"
   bar_waiting: "{title}: waiting for {items} · {percent}%"
+
+chat_history:
+  usage: "&7Usage: &f/allay chathistory reset &7– erase what Allay keeps of this server's chat"
+  reset_confirm: "&6Erase Allay's chat history?\n&7Allay forgets everything it keeps of this server's chat, the last 72 hours, for every player. The chat itself stays as it was. Sure? &f/allay chathistory reset confirm"
+  reset_done: "&aAllay's chat history is erased: {count} {count|line|lines}."
+  reset_failed: "&cCouldn't erase the chat history ({error}). Try again in a minute."

@@ -104,6 +104,18 @@ object Mod {
     }
   }
 
+  /** A chat line everyone online read, for `chat_history`: the game has no local chat. */
+  fun chatSent(player: ServerPlayer, message: String) {
+    allay?.history?.chat(player.audience, message)
+  }
+
+  /** The game's `/msg`, `/tell`, or `/w` from a player, to each of its targets, for `chat_history` (modcore's `MsgMixin`). */
+  @JvmStatic fun whispered(source: CommandSourceStack, targets: Collection<ServerPlayer>, message: String) {
+    val history = allay?.history ?: return
+    val sender = source.player ?: return
+    targets.filter { it.uuid != sender.uuid }.forEach { history.whisper(sender.audience, it.audience, message) }
+  }
+
   /** `/ask`, `/askall`, `/askx`, and `/allay`, with the same words after them as on Bukkit, read by the core. */
   fun register(dispatcher: CommandDispatcher<CommandSourceStack>) {
     mapOf("ask" to Permissions.ASK, "askall" to Permissions.ASKALL, "askx" to Permissions.ASKX, "allay" to null).forEach { (name, permission) ->

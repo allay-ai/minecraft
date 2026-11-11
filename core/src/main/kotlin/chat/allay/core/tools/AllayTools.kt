@@ -15,6 +15,7 @@ object AllayTools {
   private val FEATURES = mapOf(
     "goals" to "goals", "reminders" to "reminders", "books" to "write_book", "buttons" to "add_buttons",
     "compass" to "point_to", "marks" to "show_marks", "redstone" to "inspect_redstone", "sorting" to "sort_inventory", "ping" to "ping_me", "timezone" to "set_timezone",
+    "chat_history" to "chat_history", "send_message" to "send_message",
   )
 
   private val guide = object : ClientTool<ToolScope> {

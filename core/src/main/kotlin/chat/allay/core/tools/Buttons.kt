@@ -13,8 +13,26 @@ sealed interface Button {
   /** Runs [command] as the player who clicks, minus `blocked_commands`; only in private answers. */
   data class Command(override val label: String, val command: String) : Button
 
-  /** Sends [text] to the public chat as the player who clicks, once; only in private answers. */
-  data class Say(override val label: String, val text: String) : Button
+  /**
+   * Sends [text] to the public chat as the player who clicks, once; only in private answers. With [to] (since 6.38) it
+   * goes to that player alone, as a private message through the server's `/msg`.
+   */
+  data class Say(override val label: String, val text: String, val to: String? = null) : Button {
+    companion object {
+      private val NAME = Regex("^[A-Za-z0-9_.-]{1,32}$")
+
+      /**
+       * A say tag the model wrote, checked: never a command, since the client would run a line starting with / as one,
+       * and [to] only for a player [reachable] says the presser can write to now.
+       */
+      fun of(label: String, text: String?, to: String?, reachable: (String) -> Boolean): Say {
+        val line = text?.take(256)?.takeUnless { it.startsWith("/") } ?: throw ToolError("say needs the text to send")
+        val name = to?.trim()?.ifEmpty { null } ?: return Say(label, line)
+        if (!NAME.matches(name) || !reachable(name)) throw ToolError("nobody called $name is online; don't offer this button")
+        return Say(label, line, name)
+      }
+    }
+  }
 
   /** Shows the way to a spot with a particle trail and the compass. */
   data class Point(override val label: String, val x: Int, val y: Int, val z: Int, val dimension: String?) : Button

@@ -72,6 +72,20 @@ class Commands(private val allay: Allay<*>) {
           else if (args[1].equals("export", ignoreCase = true)) privacy.export(sender, args[2]) else privacy.erase(sender, args[2])
         else -> lang.send(sender, "privacy.usage")
       }
+      word == "chathistory" -> when {
+        !sender.can(Permissions.ADMIN) -> lang.send(sender, "messages.no_permission")
+        args.size == 2 && args[1].equals("reset", ignoreCase = true) -> lang.send(sender, "chat_history.reset_confirm")
+        args.size == 3 && args[1].equals("reset", ignoreCase = true) && args[2] == PrivacyCommands.CONFIRM -> {
+          allay.platform.log.info("${sender.name} reset Allay's chat history")
+          allay.history.reset { result ->
+            allay.platform.scheduler.main {
+              result.onSuccess { lang.send(sender, "chat_history.reset_done", "count" to it) }
+                .onFailure { lang.send(sender, "chat_history.reset_failed", "error" to ((it as? ApiErrorException)?.apiError?.code ?: it.javaClass.simpleName)) }
+            }
+          }
+        }
+        else -> lang.send(sender, "chat_history.usage")
+      }
       word == "link" || word == "status" || word == "locale" || word == "init" -> when {
         !sender.can(Permissions.ADMIN) -> lang.send(sender, "messages.no_permission")
         word == "link" && args.size == 1 -> billing.link(sender)
@@ -134,11 +148,12 @@ class Commands(private val allay: Allay<*>) {
         if (sender.can(Permissions.CHAT)) addAll(listOf("chat", "hints"))
         if (sender.can(Permissions.ASK)) addAll(listOf("cancel", "new", "memory", "privacy"))
         if (sender.can(Permissions.RELOAD)) add("reload")
-        if (sender.can(Permissions.ADMIN)) addAll(listOf("status", "link", "locale", "init"))
+        if (sender.can(Permissions.ADMIN)) addAll(listOf("status", "link", "locale", "init", "chathistory"))
       }
       args.size == 2 && args[0].equals("locale", ignoreCase = true) && sender.can(Permissions.ADMIN) ->
         platform.players.filter { platform.visible(sender, it) }.map { it.name }
       args.size == 2 && args[0].lowercase() in setOf("chat", "hints") -> listOf("on", "off")
+      args.size == 2 && args[0].equals("chathistory", ignoreCase = true) && sender.can(Permissions.ADMIN) -> listOf("reset")
       args.size == 2 && args[0].lowercase() in setOf("language", "lang") -> allay.languages.codes() + "auto"
       args.size == 2 && args[0].equals("privacy", ignoreCase = true) ->
         listOf("agree", "withdraw", "full", "export", "erase")

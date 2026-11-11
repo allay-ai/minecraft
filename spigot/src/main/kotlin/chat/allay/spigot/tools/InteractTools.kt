@@ -49,8 +49,9 @@ object InteractTools {
     return when (type) {
       "ask" -> Button.Ask(label, args.string("question")?.take(200) ?: throw ToolError("ask needs the question it asks"))
       "command" -> Button.Command(label, args.string("command")?.take(256)?.takeIf { it.startsWith("/") && it.length > 1 } ?: throw ToolError("command needs a command starting with /"))
-      // Never a command: the client would run a line starting with / as one.
-      "say" -> Button.Say(label, args.string("text")?.take(256)?.takeUnless { it.startsWith("/") } ?: throw ToolError("say needs the text to send"))
+      "say" -> Button.Say.of(label, args.string("text"), args.string("to")) { name ->
+        context.services.platform.player(name)?.let { it.uuid != context.asker.uuid && context.services.platform.visible(context.asker, it) } == true
+      }
       "point" -> args.string("player")?.trim()?.ifEmpty { null }?.let { name ->
         val target = context.playerNamed(name) ?: throw ToolError("nobody called $name is online; don't offer this button")
         if (!Locator.shows(player, target)) throw ToolError("${context.nameOf(target)} isn't on the asker's locator bar right now; don't offer the way to them")

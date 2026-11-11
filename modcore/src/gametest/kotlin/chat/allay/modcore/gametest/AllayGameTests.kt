@@ -16,6 +16,7 @@ import kotlinx.serialization.json.putJsonArray
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.Vec3
 
@@ -38,6 +39,30 @@ class AllayGameTests {
     equal(helper, chat.allay.modcore.tools.Tools.all().map { it.name }.toSet(), chat.allay.core.tools.CLIENT_TOOLS, "the tools")
     equal(helper, chat.allay.modcore.tools.Tools.all().filter { it.operator }.map { it.name }.toSet(), chat.allay.core.tools.OPERATOR_TOOLS, "the operator tools")
     helper.succeed()
+  }
+
+  @GameTest
+  fun theChatHistoryHearsWhispersAndWhatAllaySends(helper: GameTestHelper) {
+    val history = Mod.allay!!.history
+    val asker = survivor(helper)
+    val other = survivor(helper, Vec3(2.5, 2.0, 1.5))
+    fun lines(from: ServerPlayer) = history.waiting.filter { it.from.uuid == from.uuid.toString() }
+    // The game's own /msg, as the player types it: modcore's mixin hears it.
+    helper.level.server.commands.performPrefixedCommand(other.createCommandSourceStack(), "msg ${asker.gameProfile.name} got 12 diamonds?")
+    // Allay sends a reply for the asker through the same command, and a line to the chat: each kept once.
+    val reply = run(asker, "send_message", buildJsonObject { put("text", "sorry, none left"); put("to", other.gameProfile.name) })
+    equal(helper, reply.result.jsonObject["channel"]?.jsonPrimitive?.content, "private", "where the reply went")
+    run(asker, "send_message", buildJsonObject { put("text", "anyone selling diamonds?") })
+    helper.assertTrue(runCatching { run(asker, "send_message", buildJsonObject { put("text", "hi"); put("to", "nobody-here") }) }.exceptionOrNull() is ToolError, "nobody to write to")
+    // The backend is out of reach in the tests, so the lines wait; a round that failed puts them back.
+    helper.succeedWhen {
+      val theirs = lines(other).map { Triple(it.channel, it.to?.name, it.text) }
+      helper.assertTrue(theirs == listOf(Triple("private", asker.gameProfile.name, "got 12 diamonds?")), "the other's whisper: $theirs")
+      val mine = lines(asker).map { Triple(it.channel, it.to?.name, it.text) }
+      helper.assertTrue(mine == listOf(Triple("private", other.gameProfile.name, "sorry, none left"), Triple("public", null, "anyone selling diamonds?")), "what Allay sent: $mine")
+      asker.discard()
+      other.discard()
+    }
   }
 
   @GameTest

@@ -92,6 +92,7 @@ Allay runs on Moonlands, my hard survival server with friends. Join at `minecraf
 - 💬 **Answers from the real game.** “Which sword is better?” or “where did I put my redstone?”: Allay looks into the inventory, the block under the crosshair, and the chests around instead of guessing.
 - 🔎 **It knows this server’s things.** Mods’ items, data packs’ recipes and brews, and plugins’ own items count: Allay finds them by name in any language or by id, and never says a thing doesn’t exist before it looked. It knows the commands you may run here too, and whose each is, so `/askx` writes a plugin’s command the way the plugin wants it.
 - 🗨️ **Chat mode.** `/allay chat` sends whatever a player writes to Allay, and `/askall` asks in front of everyone.
+- 📜 **It reads the chat with you.** “What did he just write?”, “translate that”, “who swore the most today?”, “is his offer a scam?”: Allay reads the server's chat of the last 72 hours, as you saw it. “Tell him I have no diamonds” gets a reply in his language with a **Reply** button, privately when he wrote to you privately.
 - 🧭 **It shows and marks.** A particle trail to a death point, a village, or a friend on the locator bar. Glowing marks on the chests that hold what you look for.
 - 🤖 **Automation agents do the chores.** They sort chests, smelt evenly, brew potions in rounds, and craft at a real table while you keep playing.
 - 🏠 **Real builds, built from your blocks.** “Find me a modern villa” brings builds by their authors from Allay's catalog. You see one as a preview only you see, turn it, swap its materials, and Allay builds it block by block from your chests, waiting for what's short. Off until the server owner turns it on.
@@ -112,7 +113,8 @@ Allay is **EU (GDPR) and US privacy law friendly**. Here is what it does with pl
 - 🌐 **Every question goes through OpenRouter in the USA** to the AI provider that writes the answer.
 - ✋ **Age and agreement first.** Before the first question a window asks a player from the EU or the US their age, which must reach their country’s age of consent (13 to 16 in the EU, 14 in Spain, 13 in the US), and every player agrees to a short notice, again whenever it changes. Below that age, Allay answers nothing and sends nothing. With allay.chat no setting in `config.yml` switches this off.
 - 📦 **Players control their data.** `/allay privacy` shows what’s kept, gives a 24-hour download link, and erases it. `/allay privacy withdraw` takes the agreement back and erases what it covered.
-- 👥 **Other players stay unnamed.** A player who didn’t agree reaches the AI only as “Player 1”, “Player 2”.
+- 👥 **Other players stay unnamed.** A player who didn’t agree reaches the AI only as “Player 1”, “Player 2”. The chat history is the exception: the chat shows everyone's name to everyone anyway.
+- 📜 **The chat, 72 hours, sealed.** While the owner keeps chat history on, the backend keeps the server's chat for 72 hours: public lines for everyone, local lines for those who saw them, private messages for their two players only. `/allay chathistory reset` erases it.
 - 🧹 **Your server keeps almost nothing:** a player’s data stays in memory while they play, and Allay’s folder holds only sealed lists of who agreed and who was too young.
 
 ## Get started

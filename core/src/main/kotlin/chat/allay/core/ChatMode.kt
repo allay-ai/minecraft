@@ -12,6 +12,10 @@ class ChatMode(
   private val locales: Locales,
   private val settings: PlayerSettings,
   private val handler: () -> Handler,
+  /** Where a line Allay sends for a player goes too, for `chat_history`. */
+  private val history: () -> ChatHistory? = { null },
+  /** What sends a private message as the player: `tools.chat_history.whisper_command`. */
+  private val whisperCommand: () -> String = { "msg" },
 ) {
   /** `/ask` questions per player since they joined, and who already saw the tip this time. */
   private val asked = ConcurrentHashMap<UUID, Int>()
@@ -27,12 +31,32 @@ class ChatMode(
    * server thread the game fires the chat event at once, so chat mode sees the mark.
    */
   fun say(player: PlayerAudience, text: String) {
+    val line = text.replace('§', '&')
     saying += player.uuid
     try {
-      player.chat(text.replace('§', '&'))
+      val history = history()
+      if (history == null) player.chat(line) else history.sent(player.uuid, { history.chat(player, line) }) { player.chat(line) }
     } finally {
       saying -= player.uuid
     }
+  }
+
+  /**
+   * A private message from [player] to the player named [to], through the server's own command (`/msg`, or Essentials'
+   * in its place), so the server's chat plugins format and log it as if the player typed it. Null when nobody by that
+   * name is online for them to see; otherwise who got it. Server thread.
+   */
+  fun whisper(player: PlayerAudience, to: String, text: String): PlayerAudience? {
+    val target = platform.player(to)?.takeIf { it.uuid != player.uuid && platform.visible(player, it) } ?: return null
+    val line = text.replace('§', '&').replace('\n', ' ').trim()
+    if (line.isEmpty()) return null
+    val command = "${whisperCommand()} ${target.name} $line"
+    val history = history()
+    if (history == null) return target.takeIf { platform.dispatch(player, command) }
+    // Kept only once the server ran the command: a server without one has nothing to keep.
+    var sent = false
+    history.sent(player.uuid, { if (sent) history.whisper(player, target, line) }) { sent = platform.dispatch(player, command) }
+    return target.takeIf { sent }
   }
 
   /**

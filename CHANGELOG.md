@@ -2,6 +2,12 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.38.0
+
+- 📜 **Allay reads the chat with you.** Ask “what did he just write?”, “translate what Steve said”, “who swore the most today, and how often?”, or “is his offer a scam?”, and Allay reads the server's chat of the last 72 hours: the public chat, local lines you saw, and your own private messages, never anyone else's. It pages back as far as you like, finds words in any form and language, counts by player, and reads the talk around a line before it judges it. Needs Allay Server 6.34.
+- ✉️ **Replies that go back the right way.** “Tell him I have no diamonds” gets a reply in the language of his message with a **Reply** button. A private message gets a private reply through the server's own `/msg`, so Essentials and other chat plugins format it as usual. Say “send it” or “write to him”, and Allay sends it at once (`send_message`). A say button takes `to` for a private message too.
+- 🔧 **For server owners.** The plugin hands the chat to the backend every few seconds: public lines, local lines with who saw them (a chat plugin's radius), and private messages from `/msg`, `/tell`, `/w`, `/r`, and Essentials' commands, the game's `/msg` on Fabric and NeoForge. Lines in chat mode never count. The backend keeps them sealed for 72 hours, and `/allay privacy` tells players so. `tools.enabled.chat_history` and `send_message` switch it off, `tools.chat_history` lists the private message commands, and `/allay chathistory reset` erases everything kept.
+
 ## 6.37.1
 
 - 🏷️ **Labels in your language.** The labels over chests, furnaces, and brewing stands name things in the player's language (“Iron Ingot”, «Железный слиток»), not by the game's ids. A chest's label is two short lines now, its category over what it holds most of, so the labels of chests side by side no longer run into each other.

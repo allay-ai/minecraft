@@ -24,6 +24,7 @@ object Guide {
     Triple("/allay link", Permissions.ADMIN, "a one-time link to pay for Allay's subscription in Telegram Stars (week, month, or year)"),
     Triple("/allay init", Permissions.ADMIN, "on a self-hosted backend, a one-time link that sets up the backend's web admin panel; once it has an account, a one-time link that sets a new password for a forgotten one"),
     Triple("/allay privacy export|erase <player>", Permissions.ADMIN, "for a player who asks: a 24-hour link to everything Allay keeps about them, to hand over, or erases it"),
+    Triple("/allay chathistory reset", Permissions.ADMIN, "erases everything Allay keeps of this server's chat for chat_history, after a confirmation"),
     Triple("/allay locale [player]", Permissions.ADMIN, "which language a player reads Allay in, and why: their IP's country, their game's language, or the default"),
   )
 

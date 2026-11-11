@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.AsyncPlayerChatEvent
+import org.bukkit.event.player.PlayerCommandPreprocessEvent
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerLocaleChangeEvent
@@ -58,5 +59,17 @@ class Events(private val allay: Allay<*>) : Listener {
       event.message -> Unit
       else -> event.message = line
     }
+  }
+
+  /** What the chat really showed, after every chat plugin had its say, for `chat_history`; its recipients tell a local line. */
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+  fun onChatSent(event: AsyncPlayerChatEvent) {
+    allay.history.chat(event.player.audience, event.message, event.recipients.map { it.uniqueId })
+  }
+
+  /** A private message (`/msg`, `/r`, Essentials' too) for `chat_history`. */
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+  fun onCommand(event: PlayerCommandPreprocessEvent) {
+    allay.history.command(event.player.audience, event.message.removePrefix("/"))
   }
 }

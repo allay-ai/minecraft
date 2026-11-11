@@ -121,6 +121,13 @@ tools:
   write_book: "Escribiendo un libro: “{title}”"
   set_timezone: "Recordando tu zona horaria: {zone}"
   get_allay_guide: "Recordando lo que sé hacer"
+  chat_history:
+    list: "Leyendo el chat"
+    by_player: "Leyendo lo que escribió {player}"
+    by_query: "Buscando en el chat: {query}"
+  send_message:
+    list: "Enviando tu mensaje al chat"
+    by_to: "Escribiendo a {to}"
   allay_settings: "Cambiando tus ajustes"
   give_item: "Dando {item}"
   teleport: "Teletransportando"
@@ -137,6 +144,8 @@ tools:
 
 # El resultado breve bajo la línea de una herramienta.
 summary:
+  sent_chat: "enviado al chat"
+  sent_to: "enviado a {name}"
   status: "❤ {health}/{max} · 🍗 {food}/20"
   inventory: "{stacks} {stacks|pila|pilas}"
   surroundings: "{kinds} {kinds|tipo|tipos} de bloques, {creatures} {creatures|criatura|criaturas}"
@@ -256,6 +265,8 @@ summary:
   # Herramientas que se ejecutan en el servidor de Allay.
   server:
     sources: "{count} {count|fuente|fuentes}"
+    chat_lines: "{count} {count|línea|líneas}"
+    chat_unavailable: "historial del chat no disponible"
     search_failed: "la búsqueda falló"
     computed: "{done} de {total} calculados"
     calculator_unavailable: "calculadora no disponible"
@@ -276,7 +287,7 @@ messages:
   language_set: "&7Ahora te hablo en &f{language}&7."
   language_auto: "&7Vuelvo a elegir tu idioma yo mismo: &f{language}&7."
   language_unknown: "&cNo hay idioma {code}. Elige uno de: {codes}"
-  allay_admin_usage: "&6Para admins\n&f/allay status &7— quién paga el modelo\n&f/allay link &7— pagar la suscripción en Telegram\n&f/allay locale &7[jugador] — qué idioma recibe un jugador y por qué\n&f/allay init &7— configurar el panel de administración del backend\n&f/allay reload &7— recargar ajustes e idiomas\n&f/allay privacy export|erase &7<jugador> — los datos de un jugador, si los pide"
+  allay_admin_usage: "&6Para admins\n&f/allay status &7— quién paga el modelo\n&f/allay link &7— pagar la suscripción en Telegram\n&f/allay locale &7[jugador] — qué idioma recibe un jugador y por qué\n&f/allay init &7— configurar el panel de administración del backend\n&f/allay reload &7— recargar ajustes e idiomas\n&f/allay privacy export|erase &7<jugador> — los datos de un jugador, si los pide\n&f/allay chathistory reset &7– borra lo que Allay guarda del chat"
   no_permission: "&cNo tienes permiso para eso."
   players_only: "&cEsto es solo para jugadores."
   thinking: "&ePreguntando al asistente de IA, un momento…"
@@ -447,7 +458,9 @@ buttons:
     pick_cancel: "&7Dejar de elegir"
     command: "&7Ejecuta &f{command}"
     say: "&7Lo envía al chat en tu nombre: &f{text}"
+    say_to: "&7Envía un mensaje privado a &f{name}&7 en tu nombre: &f{text}"
   expired: "&7Este botón ya no funciona. Vuelve a preguntar."
+  whisper_gone: "&f{name}&7 ya no está conectado, así que el mensaje no salió."
   question: "&7› {question}"
   path_shown: "&7Mostrando el camino: &f{distance} &7{distance|bloque|bloques} al {direction}."
   path_to_player: "&7Mostrando el camino hasta &f{name}&7: &f{distance} &7{distance|bloque|bloques} al {direction}. El rastro va detrás."
@@ -846,7 +859,7 @@ admin:
     unsupported: "&7Este backend de Allay no tiene panel de administración: es anterior a la 5.7."
 
 privacy:
-  info: "&6Lo que Allay guarda de ti en este servidor\n&7• Cifrado, en el backend de Allay: vuestra conversación, 30 días después de tu última pregunta; lo que recuerda de ti (&f/allay memory&7), lugares incluidos, y tus ajustes, zona horaria, metas y muertes, hasta que los borres o un año después de tu última pregunta; los registros de tus preguntas, 30 días, para encontrar y corregir errores. Quien opera el backend abre un registro solo para investigar un problema, y cada consulta queda registrada.\n&7• Sin cifrar: tu nombre, UUID y estado de operador para el panel de administración (salvo que actives la privacidad total), las cifras de tus preguntas (cuándo, el modelo, el coste) y tu consentimiento, 2 años.\n&7• Copias de seguridad cifradas de todo ello, hasta 12 meses.\n&7• Cada pregunta pasa por OpenRouter en EE. UU. hasta el proveedor de IA que escribe la respuesta.\n&7Otros servidores nunca ven nada de esto."
+  info: "&6Lo que Allay guarda de ti en este servidor\n&7• Cifrado, en el backend de Allay: vuestra conversación, 30 días después de tu última pregunta; lo que recuerda de ti (&f/allay memory&7), lugares incluidos, y tus ajustes, zona horaria, metas y muertes, hasta que los borres o un año después de tu última pregunta; los registros de tus preguntas, 30 días, para encontrar y corregir errores. Quien opera el backend abre un registro solo para investigar un problema, y cada consulta queda registrada.\n&7• Sin cifrar: tu nombre, UUID y estado de operador para el panel de administración (salvo que actives la privacidad total), las cifras de tus preguntas (cuándo, el modelo, el coste) y tu consentimiento, 2 años.\n&7• Copias de seguridad cifradas de todo ello, hasta 12 meses.\n&7• Cada pregunta pasa por OpenRouter en EE. UU. hasta el proveedor de IA que escribe la respuesta.\n&7• El chat del servidor, mientras su dueño mantenga el historial activado: lo que escribes en el chat público, las líneas locales para quienes las vieron y tus mensajes privados para ti y la otra persona, cifrado, 72 horas, para que puedas preguntar qué escribió alguien.\n&7Otros servidores nunca ven nada de esto."
   commands: "&f/allay privacy full on|off &7– privacidad total: el panel de administración ve un seudónimo en vez de tu nombre\n&f/allay privacy export &7– un enlace a todo lo que Allay guarda de ti, durante 24 horas\n&f/allay privacy withdraw &7– retirar tu consentimiento; Allay deja de responderte\n&f/allay privacy erase &7– borrar todo lo que Allay guarda de ti aquí"
   admin: "&8Para admins: &f/allay privacy export <jugador> &8da un enlace a los datos de un jugador para entregárselo, &f/allay privacy erase <jugador> &8los borra."
   erase_confirm: "&e¿Borrar todo lo que Allay guarda de ti en este servidor? La memoria, la conversación y los hilos de tus agentes desaparecen para siempre; tus preguntas quedan solo como números anónimos."
@@ -1043,3 +1056,9 @@ building:
   bar_paused: "{title}: en pausa · {percent} %"
   bar_far: "{title}: vuelve a la obra · {percent} %"
   bar_waiting: "{title}: espero {items} · {percent} %"
+
+chat_history:
+  usage: "&7Uso: &f/allay chathistory reset &7– borra lo que Allay guarda del chat del servidor"
+  reset_confirm: "&6¿Borrar el historial del chat de Allay?\n&7Allay olvida todo lo que guarda del chat de este servidor, las últimas 72 horas, de todos los jugadores. El chat en sí queda igual. ¿Seguro? &f/allay chathistory reset confirm"
+  reset_done: "&aHistorial del chat de Allay borrado: {count} {count|línea|líneas}."
+  reset_failed: "&cNo se pudo borrar el historial del chat ({error}). Prueba en un minuto."
