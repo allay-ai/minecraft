@@ -27,6 +27,7 @@ import org.bukkit.inventory.BlastingRecipe
 import org.bukkit.inventory.CookingRecipe
 import org.bukkit.inventory.FurnaceRecipe
 import org.bukkit.inventory.ItemStack
+import org.bukkit.inventory.RecipeChoice
 import org.bukkit.inventory.SmokingRecipe
 import kotlin.math.floor
 import kotlin.random.Random
@@ -381,7 +382,7 @@ object Furnaces {
     val iterator = server.recipeIterator()
     while (iterator.hasNext()) {
       val recipe = iterator.next()
-      if (recipe is FurnaceRecipe && recipe.result.type == result) (recipe.inputChoice as? org.bukkit.inventory.RecipeChoice.MaterialChoice)?.choices?.let(found::addAll)
+      if (recipe is FurnaceRecipe && recipe.result.type == result) (recipe.inputChoice as? RecipeChoice.MaterialChoice)?.choices?.let(found::addAll)
     }
     return found.sortedBy { if (it.key.key.endsWith("_ore")) 1 else 0 }
   }

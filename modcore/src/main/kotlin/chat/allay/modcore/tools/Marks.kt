@@ -18,6 +18,7 @@ import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks as GameBlocks
 import net.minecraft.world.level.block.state.BlockState
@@ -122,7 +123,7 @@ object Marks {
    */
   fun ghost(block: BlockAt, state: BlockState, hue: Hue): Ghosts.Ghost {
     if (rendersAsEntity(state)) {
-      val item = state.block.asItem().takeIf { it != net.minecraft.world.item.Items.AIR } ?: return Ghosts.block(block.level, block.corner, state, Vector3f(0.1f, 0.1f, 0.1f), Vector3f(0.8f, 0.8f, 0.8f), hue.glow)
+      val item = state.block.asItem().takeIf { it != Items.AIR } ?: return Ghosts.block(block.level, block.corner, state, Vector3f(0.1f, 0.1f, 0.1f), Vector3f(0.8f, 0.8f, 0.8f), hue.glow)
       return Ghosts.item(block.level, block.corner.add(0.5, 0.45, 0.5), ItemStack(item), Vector3f(0.8f, 0.8f, 0.8f), hue.glow)
     }
     return Ghosts.block(block.level, block.corner, state, Vector3f(0.1f, 0.1f, 0.1f), Vector3f(0.8f, 0.8f, 0.8f), hue.glow)

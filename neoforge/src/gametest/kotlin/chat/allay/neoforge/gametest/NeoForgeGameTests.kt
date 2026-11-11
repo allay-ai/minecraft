@@ -1,6 +1,7 @@
 package chat.allay.neoforge.gametest
 
 import chat.allay.core.Permissions
+import chat.allay.core.tasks.Kind
 import chat.allay.modcore.Perms
 import chat.allay.modcore.gametest.GameTest
 import chat.allay.modcore.gametest.Players.survivor
@@ -22,7 +23,7 @@ class NeoForgeGameTests {
   fun aPlayerWithoutRightsGetsPluginYmlsDefaults(helper: GameTestHelper) {
     val player = survivor(helper)
     helper.assertTrue(Perms.check(player, Permissions.ASK), "anyone may ask")
-    helper.assertTrue(Perms.check(player, Permissions.automation(chat.allay.core.tasks.Kind.CHESTS)), "anyone may sort chests")
+    helper.assertTrue(Perms.check(player, Permissions.automation(Kind.CHESTS)), "anyone may sort chests")
     helper.assertTrue(!Perms.check(player, Permissions.ADMIN), "only operators link a license on a dedicated server")
     helper.assertTrue(!Perms.check(player, Permissions.ASKX), "only operators turn requests into commands")
     player.discard()

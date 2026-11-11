@@ -2,11 +2,15 @@ package chat.allay.modcore.gametest
 
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.ToolError
+import chat.allay.modcore.Mod
 import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
+import chat.allay.modcore.tools.Marks
 import chat.allay.modcore.tools.OperatorTools
 import chat.allay.modcore.tools.WorldTools
 
+import java.util.Optional
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -22,10 +26,14 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.putJsonObject
 import net.minecraft.core.BlockPos
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.Registries
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.resources.Identifier
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.LevelBasedPermissionSet
 import net.minecraft.server.players.NameAndId
+import net.minecraft.world.Container
 import net.minecraft.world.RandomizableContainer
 import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.item.ItemStack
@@ -122,7 +130,7 @@ class InfoGameTests {
     val detail = run(asker, "inspect_item", buildJsonObject { put("from", "container"); put("slot", 0) }).result.jsonObject
     equal(helper, detail["id"]!!.jsonPrimitive.content, "diamond", "the item in the chest's first slot")
     // Emptied first: a broken chest drops what it holds, and the diamonds would float under the crosshair.
-    (helper.level.getBlockEntity(open) as net.minecraft.world.Container).clearContent()
+    (helper.level.getBlockEntity(open) as Container).clearContent()
     helper.level.removeBlock(open, false)
     val shut = chest(helper, BlockPos(1, 2, 3), ItemStack(Items.EMERALD), loot = true)
     look(asker, shut)
@@ -156,14 +164,14 @@ class InfoGameTests {
     equal(helper, eye["query"]!!.jsonPrimitive.content, "ender_eye", "“eye of ender” is the ender eye: $eye")
     equal(helper, eye["total"]!!.jsonPrimitive.int, 3, "the asker's three")
     val several = result(asker, "find_item", buildJsonObject {
-      putJsonArray("items") { listOf("diamond", "eye of ender", "zzqqxx").forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+      putJsonArray("items") { listOf("diamond", "eye of ender", "zzqqxx").forEach { add(JsonPrimitive(it)) } }
       put("radius", 6)
     })["results"]!!.jsonArray.map { it.jsonObject }
     equal(helper, several.map { it["query"]!!.jsonPrimitive.content }, listOf("diamond", "eye of ender", "zzqqxx"), "each in its place")
     equal(helper, several[0]["total"]!!.jsonPrimitive.int, 7, "the asker's and the open chest's diamonds")
     equal(helper, several[1]["item"]!!.jsonPrimitive.content, "ender_eye", "read as the ender eye")
     helper.assertTrue("error" in several[2], "a name nothing matches answers in its place: ${several[2]}")
-    chat.allay.modcore.tools.Marks.clear(asker)
+    Marks.clear(asker)
     asker.discard()
     helper.succeed()
   }
@@ -187,7 +195,7 @@ class InfoGameTests {
     val asker = survivor(helper)
     val pickaxe = ItemStack(Items.DIAMOND_PICKAXE)
     pickaxe.set(DataComponents.DAMAGE, 1_500)
-    pickaxe.enchant(asker.level().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getOrThrow(Enchantments.UNBREAKING), 3)
+    pickaxe.enchant(asker.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.UNBREAKING), 3)
     asker.inventory.setItem(1, pickaxe)
     asker.inventory.setItem(2, ItemStack(Items.BREAD, 3))
     asker.inventory.setItem(0, ItemStack(Items.DIAMOND_SWORD))
@@ -241,19 +249,19 @@ class InfoGameTests {
     equal(helper, pickaxe["takes"]!!.jsonObject["oak_log"]!!.jsonPrimitive.int, 1, "planks and sticks from the log: $pickaxe")
     equal(helper, pickaxe["needs"]!!.jsonArray.map { it.jsonPrimitive.content }, listOf("crafting_table"), "no table near: $pickaxe")
     equal(helper, asker.inventory.getItem(9).count, 3, "a plan takes nothing")
-    val two = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("diamond_pickaxe")))); put("plan", true); put("count", 2) })
+    val two = result(asker, "get_recipes", buildJsonObject { put("items", JsonArray(listOf(JsonPrimitive("diamond_pickaxe")))); put("plan", true); put("count", 2) })
     val short = two["results"]!!.jsonArray[0].jsonObject["plan"]!!.jsonObject
     equal(helper, short["missing"]?.jsonObject?.get("diamond")?.jsonPrimitive?.int, 3, "two pickaxes need three more diamonds: $short")
     // A set shares what the player has: eight ingots make the helmet, and the boots then lack one.
     asker.inventory.setItem(9, ItemStack(Items.IRON_INGOT, 8))
-    val set = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true) })
+    val set = result(asker, "get_recipes", buildJsonObject { put("items", JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true) })
     val (helmet, boots) = set["results"]!!.jsonArray.map { it.jsonObject["plan"]!!.jsonObject }
     equal(helper, helmet["takes"]?.jsonObject?.get("iron_ingot")?.jsonPrimitive?.int, 5, "the helmet's ingots: $helmet")
     helper.assertTrue("missing" in boots, "the boots get what's left: $boots")
     // counts says how many of each: one helmet takes the five ingots, and the three left make no two boots.
     val counted = result(asker, "get_recipes", buildJsonObject {
-      put("items", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true)
-      put("counts", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(1), JsonPrimitive(2))))
+      put("items", JsonArray(listOf(JsonPrimitive("iron_helmet"), JsonPrimitive("iron_boots")))); put("plan", true)
+      put("counts", JsonArray(listOf(JsonPrimitive(1), JsonPrimitive(2))))
     })
     val (one, pair) = counted["results"]!!.jsonArray.map { it.jsonObject["plan"]!!.jsonObject }
     equal(helper, one["takes"]?.jsonObject?.get("iron_ingot")?.jsonPrimitive?.int, 5, "one helmet: $one")
@@ -263,7 +271,7 @@ class InfoGameTests {
     helper.assertTrue(advancements["todo_count"]!!.jsonPrimitive.int > todo.size && todo.size == 15, "the list is capped, the count isn't: $advancements")
     helper.assertTrue(todo.none { it["key"]!!.jsonPrimitive.content.startsWith("recipes/") } && todo.all { "title" in it && "description" in it }, "no recipe unlocks: $todo")
     // An advancement of several steps says how far it is, as the game's own screen does.
-    val diet = helper.level.server.advancements.get(net.minecraft.resources.Identifier.withDefaultNamespace("husbandry/balanced_diet"))!!
+    val diet = helper.level.server.advancements.get(Identifier.withDefaultNamespace("husbandry/balanced_diet"))!!
     asker.advancements.award(diet, "apple")
     val started = result(asker, "get_advancements", buildJsonObject {})["todo"]!!.jsonArray.map { it.jsonObject }.first { it["key"]!!.jsonPrimitive.content == "husbandry/balanced_diet" }
     helper.assertTrue(started["started"]?.jsonPrimitive?.content == "true" && started["progress"]?.jsonPrimitive?.content?.startsWith("1/") == true, "a started advancement counts its steps: $started")
@@ -278,7 +286,7 @@ class InfoGameTests {
   fun commandsShowOnlyWhatThePlayerMayRun(helper: GameTestHelper) {
     val asker = survivor(helper)
     fun commands(args: JsonObject) = result(asker, "search_commands", args)["results"]!!.jsonArray.map { it.jsonObject }
-    val found = commands(buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray(listOf("help", "teleport", "ask").map(::JsonPrimitive))) })
+    val found = commands(buildJsonObject { put("queries", JsonArray(listOf("help", "teleport", "ask").map(::JsonPrimitive))) })
     equal(helper, found.map { it["query"]!!.jsonPrimitive.content }, listOf("help", "teleport", "ask"), "one answer per query, in order")
     val help = found[0]["commands"]!!.jsonArray.first().jsonObject
     equal(helper, help["name"]!!.jsonPrimitive.content, "help", "help is found")
@@ -289,10 +297,10 @@ class InfoGameTests {
     val ask = found[2]["commands"]!!.jsonArray.first().jsonObject
     equal(helper, ask["name"]!!.jsonPrimitive.content, "ask", "Allay's own command is found")
     // modcore's classes sit in Allay's jar, but beside the mod in a dev run, where Fabric can't tell whose they are.
-    helper.assertTrue(ask["source"].let { it is kotlinx.serialization.json.JsonNull || it!!.jsonPrimitive.content == "allay" }, "Allay's command is Allay's: $ask")
-    equal(helper, chat.allay.modcore.Mod.loader.owner(chat.allay.modcore.Mod.loader.javaClass), "allay", "the loader names the mod whose jar holds a class")
-    equal(helper, chat.allay.modcore.Mod.loader.owner(net.minecraft.server.MinecraftServer::class.java), "minecraft", "the game's classes are the game's")
-    val checks = result(asker, "search_commands", buildJsonObject { put("check", kotlinx.serialization.json.JsonArray(listOf("/help", "tp @s 0 64 0", "nosuchcommand", "me", "random value abc").map(::JsonPrimitive))) })["checks"]!!.jsonArray.map { it.jsonObject }
+    helper.assertTrue(ask["source"].let { it is JsonNull || it!!.jsonPrimitive.content == "allay" }, "Allay's command is Allay's: $ask")
+    equal(helper, Mod.loader.owner(Mod.loader.javaClass), "allay", "the loader names the mod whose jar holds a class")
+    equal(helper, Mod.loader.owner(MinecraftServer::class.java), "minecraft", "the game's classes are the game's")
+    val checks = result(asker, "search_commands", buildJsonObject { put("check", JsonArray(listOf("/help", "tp @s 0 64 0", "nosuchcommand", "me", "random value abc").map(::JsonPrimitive))) })["checks"]!!.jsonArray.map { it.jsonObject }
     equal(helper, checks.map { it["ok"]!!.jsonPrimitive.boolean }, listOf(true, false, false, false, false), "the checks: $checks")
     helper.assertTrue(checks[1]["error"]!!.jsonPrimitive.content.contains("may not run"), "not the player's: ${checks[1]}")
     helper.assertTrue(checks[2]["error"]!!.jsonPrimitive.content.startsWith("no command /nosuchcommand"), "unknown: ${checks[2]}")
@@ -323,7 +331,7 @@ class InfoGameTests {
     val asker = survivor(helper)
     asker.inventory.setItem(0, ItemStack(Items.DIRT, 5))
     val cursed = ItemStack(Items.IRON_HELMET)
-    cursed.enchant(asker.level().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT).getOrThrow(Enchantments.VANISHING_CURSE), 1)
+    cursed.enchant(asker.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.VANISHING_CURSE), 1)
     asker.inventory.setItem(39, cursed)
     asker.experienceLevel = 3
     asker.kill(helper.level)
@@ -357,7 +365,7 @@ class InfoGameTests {
     val asker = survivor(helper)
     val server = helper.level.server
     // The test server's operators get no permissions by default; game masters' are what the tools ask for.
-    server.playerList.op(NameAndId(asker.gameProfile), java.util.Optional.of(LevelBasedPermissionSet.GAMEMASTER), java.util.Optional.of(false))
+    server.playerList.op(NameAndId(asker.gameProfile), Optional.of(LevelBasedPermissionSet.GAMEMASTER), Optional.of(false))
     try {
       val given = result(asker, "give_item", buildJsonObject { put("item", "diamond"); put("count", 3) })
       equal(helper, given["count"]!!.jsonPrimitive.int, 3, "diamonds given")

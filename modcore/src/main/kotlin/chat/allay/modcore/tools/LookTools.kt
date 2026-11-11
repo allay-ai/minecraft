@@ -14,6 +14,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import net.minecraft.commands.arguments.blocks.BlockStateParser
+import net.minecraft.core.BlockPos
 import net.minecraft.core.Holder
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
@@ -36,11 +37,13 @@ import net.minecraft.world.item.enchantment.Enchantment
 import net.minecraft.world.item.enchantment.EnchantmentHelper
 import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.level.ClipContext
+import net.minecraft.world.level.EmptyBlockGetter
 import net.minecraft.world.level.LightLayer
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.IntegerProperty
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.HitResult
 import chat.allay.core.Lang
 import chat.allay.core.tools.Facts.round1
@@ -106,7 +109,7 @@ object LookTools {
   private fun entityInSight(player: ServerPlayer, before: Double): Entity? {
     val eye = player.eyePosition
     val end = eye.add(player.lookAngle.scale(ENTITY_RANGE))
-    return player.level().getEntities(player, net.minecraft.world.phys.AABB(eye, end).inflate(1.0)) { Vanish.visible(player, it) }
+    return player.level().getEntities(player, AABB(eye, end).inflate(1.0)) { Vanish.visible(player, it) }
       .mapNotNull { entity ->
         val box = entity.boundingBox
         // From inside a box, Bukkit's ray hits where it leaves it.
@@ -131,7 +134,7 @@ object LookTools {
     val preferred = !state.requiresCorrectToolForDrops() || held.isCorrectToolForDrops(state)
     val drops = if (preferred) Block.getDrops(state, block.level, block.pos, block.entity, player, held) else emptyList()
     val speed = state.getDestroyProgress(player, block.level, block.pos)
-    val hardness = type.defaultBlockState().getDestroySpeed(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+    val hardness = type.defaultBlockState().getDestroySpeed(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
     val container = Blocks.container(block)
     var summary = lang.text("summary.look_block", "id" to block.key)
     val result = buildJsonObject {

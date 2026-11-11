@@ -17,6 +17,7 @@ import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicReference
+import java.util.logging.Logger
 import java.util.zip.GZIPInputStream
 
 /**
@@ -24,7 +25,7 @@ import java.util.zip.GZIPInputStream
  * country database fits and needs no account; [refresh] downloads a new one once it's older than
  * `refresh_days`. Lookups never touch the network.
  */
-class GeoIp(private val folder: File, private val log: java.util.logging.Logger) : AutoCloseable {
+class GeoIp(private val folder: File, private val log: Logger) : AutoCloseable {
   private val reader = AtomicReference<Reader?>()
   private val file get() = folder.resolve("country.mmdb")
   private val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(15)).build()

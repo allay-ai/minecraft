@@ -1,5 +1,6 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.Tool
 import chat.allay.spigot.tools.ToolContext
@@ -21,9 +22,9 @@ object PickTools {
     val automation = context.features.automation
     val kind = Picking.Kind.parse(args.string("kind"))
     automation.require(player, task, when (kind) {
-      Picking.Kind.CHESTS -> chat.allay.core.tasks.Kind.CHESTS
-      Picking.Kind.FURNACES -> chat.allay.core.tasks.Kind.FURNACES
-      Picking.Kind.BREWING_STANDS -> chat.allay.core.tasks.Kind.BREWING
+      Picking.Kind.CHESTS -> Kind.CHESTS
+      Picking.Kind.FURNACES -> Kind.FURNACES
+      Picking.Kind.BREWING_STANDS -> Kind.BREWING
     })
     if (args.bool("looking") == true) {
       val block = player.getTargetBlockExact(6)?.takeIf { kind.accepts(it.type) } ?: throw ToolError("the player doesn't look at ${kind.wire.removeSuffix("s")} within 6 blocks")

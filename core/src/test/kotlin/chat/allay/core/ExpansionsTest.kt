@@ -3,6 +3,7 @@ package chat.allay.core
 import chat.allay.expansion.AllayApi
 import chat.allay.expansion.AllayExpansion
 import chat.allay.expansion.AllayTool
+import chat.allay.expansion.Asker
 import chat.allay.expansion.Ingredient
 import chat.allay.expansion.ItemInfo
 import chat.allay.expansion.Recipe
@@ -10,11 +11,13 @@ import chat.allay.expansion.Schema
 import chat.allay.expansion.ToolCall
 import chat.allay.expansion.ToolResult
 import chat.allay.core.tools.Catalog
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.File
+import java.net.InetAddress
 import java.util.UUID
 import java.util.logging.Handler
 import java.util.logging.LogRecord
@@ -63,7 +66,7 @@ class ExpansionsTest {
     override val operator = operator
     override val online = true
     override val locale = "en_us"
-    override val address: java.net.InetAddress? = null
+    override val address: InetAddress? = null
     override val position = Protocol.Position(0, 64, 0, dimension)
     override fun can(permission: String) = permission in granted
     override fun can(permission: String, byDefault: Boolean) = permission in granted || byDefault
@@ -91,7 +94,7 @@ class ExpansionsTest {
     val offered = expansions.offered(asker(), Run.Mode.ASK, false, false).first()
     assertEquals("read", offered.access)
     assertEquals("redbull", offered.expansion)
-    assertEquals(listOf("can"), (offered.parameters["required"] as kotlinx.serialization.json.JsonArray).map { it.jsonPrimitive.content })
+    assertEquals(listOf("can"), (offered.parameters["required"] as JsonArray).map { it.jsonPrimitive.content })
   }
 
   @Test fun `a permission the player lacks keeps the tool out`() {
@@ -195,7 +198,7 @@ class ExpansionsTest {
   @Test fun `a tool hears the language Allay answers in beside the game's`() {
     val heard = mutableListOf<String>()
     expansions.register(expansion("redbull", tools = listOf(object : AllayTool by tool("recipes") {
-      override fun offeredTo(asker: chat.allay.expansion.Asker) = true.also { heard += asker.locale() + " " + asker.language() }
+      override fun offeredTo(asker: Asker) = true.also { heard += asker.locale() + " " + asker.language() }
     })))
     expansions.offered(asker(name = "Pavel"), Run.Mode.ASK, false, false)
     expansions.offered(asker(), Run.Mode.ASK, false, false)

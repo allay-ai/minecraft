@@ -9,6 +9,7 @@ import net.minecraft.core.Holder
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
@@ -43,7 +44,7 @@ object Anvils {
 
   /** An enchantment by its id, a data pack's own too (`mypack:frost`); a bare id is the game's. */
   fun enchantment(player: ServerPlayer, key: String): Holder<Enchantment>? =
-    Identifier.tryParse(key)?.let { id -> registry(player).get(net.minecraft.resources.ResourceKey.create(Registries.ENCHANTMENT, id)).orElse(null) }
+    Identifier.tryParse(key)?.let { id -> registry(player).get(ResourceKey.create(Registries.ENCHANTMENT, id)).orElse(null) }
 
   /** The game's rules for the kind of item worked on. */
   class Rules(private val player: ServerPlayer, type: Item) : Mechanics.Enchanting {

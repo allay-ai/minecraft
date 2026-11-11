@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tools.Button
 import chat.allay.core.tools.InlineButtons
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -141,7 +142,7 @@ class Handler(
       override fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean) = platform.scheduler.main { animator.toolFinished(run, sender, summary, failed, refused) }
       override fun reconnecting() = platform.scheduler.main {
         lang.send(sender, "messages.reconnecting")
-        (sender as? PlayerAudience)?.let { clicks().show(it, listOf(chat.allay.core.tools.Button.StopQuestion(lang.text("buttons.stop_question"), run.requestId))) }
+        (sender as? PlayerAudience)?.let { clicks().show(it, listOf(Button.StopQuestion(lang.text("buttons.stop_question"), run.requestId))) }
       }
     }
 

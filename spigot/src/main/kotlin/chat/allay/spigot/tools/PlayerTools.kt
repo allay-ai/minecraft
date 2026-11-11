@@ -11,6 +11,7 @@ import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Material
 import org.bukkit.Statistic
 import org.bukkit.attribute.Attribute
+import org.bukkit.block.Block
 import org.bukkit.entity.Enemy
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
@@ -18,6 +19,9 @@ import org.bukkit.entity.Villager
 import chat.allay.core.tools.Facts.place
 import chat.allay.core.tools.Facts.round1
 import chat.allay.core.tools.Facts.short
+import chat.allay.spigot.automation.Blocks
+import chat.allay.spigot.Vanish
+import chat.allay.spigot.Claims
 
 /** Tools about the asking player: state, inventory, surroundings, statistics, the villagers around. */
 object PlayerTools {
@@ -108,8 +112,8 @@ object PlayerTools {
     val origin = player.location
     val world = player.world
     val counts = mutableMapOf<Material, Int>()
-    val found = mutableListOf<Pair<org.bukkit.block.Block, Int>>()
-    val guarded = mutableListOf<Pair<org.bukkit.block.Block, Int>>()
+    val found = mutableListOf<Pair<Block, Int>>()
+    val guarded = mutableListOf<Pair<Block, Int>>()
     val minY = (origin.blockY - radius).coerceAtLeast(world.minHeight)
     val maxY = (origin.blockY + radius).coerceAtMost(world.maxHeight - 1)
     for (x in -radius..radius) for (y in minY..maxY) for (z in -radius..radius) {
@@ -124,14 +128,14 @@ object PlayerTools {
     }
     var checks = 0
     guarded.sortedBy { it.second }.forEach { (block, distance) ->
-      val shown = if (inSightOnly(block.type)) chat.allay.spigot.automation.Blocks.exposed(block) && checks++ < SIGHT_CHECKS && chat.allay.spigot.automation.Blocks.sees(player, block)
-        else chat.allay.spigot.Claims.mayOpen(player, block.state)
+      val shown = if (inSightOnly(block.type)) Blocks.exposed(block) && checks++ < SIGHT_CHECKS && Blocks.sees(player, block)
+        else Claims.mayOpen(player, block.state)
       if (!shown) return@forEach
       counts.merge(block.type, 1, Int::plus)
       found += block to distance
     }
     val seen = world.getNearbyEntities(origin, ENTITY_RADIUS, ENTITY_RADIUS, ENTITY_RADIUS)
-      .filter { it != player && (it is LivingEntity) && chat.allay.spigot.Vanish.visible(player, it) }
+      .filter { it != player && (it is LivingEntity) && Vanish.visible(player, it) }
       .map { Facts.Seen(short(it.type.key.toString()), it.location.distance(origin), it is Enemy, it is Player) }
     val entities = Facts.entities(seen)
     val result = buildJsonObject {

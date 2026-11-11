@@ -3,16 +3,19 @@ package chat.allay.spigot.tools
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import org.bukkit.Material
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.Damageable
+import org.bukkit.inventory.meta.Repairable
 import chat.allay.core.tools.Facts.round1
 
 /** Tools about keeping the player going: gear wear, experience, and what to eat. */
@@ -100,7 +103,7 @@ object CareTools {
         put("saturation", saturation)
         known?.note?.let { put("note", it) }
       }
-    }.sortedByDescending { (it["saturation"] as kotlinx.serialization.json.JsonPrimitive).content.toDouble() }
+    }.sortedByDescending { (it["saturation"] as JsonPrimitive).content.toDouble() }
     val result = buildJsonObject {
       put("food", player.foodLevel)
       put("saturation", round1(player.saturation.toDouble()))
@@ -115,7 +118,7 @@ object CareTools {
   }
 
   private val anvil = tool("get_anvil_plan") { context, player, args ->
-    val slots = (args["slots"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() }
+    val slots = (args["slots"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content?.toIntOrNull() }
     val wanted = args["enchantments"] as? JsonObject
     if (wanted != null && (wanted.isEmpty() || wanted.size > 10)) throw ToolError("give 1–10 enchantments")
     // The item may lie anywhere: named, in a slot, or the one the books improve; the hand only when nothing says otherwise.
@@ -152,9 +155,9 @@ object CareTools {
     books.forEach { (enchantment, _) ->
       all.firstOrNull { it != enchantment && it.conflictsWith(enchantment) }?.let { throw ToolError("${Anvils.id(enchantment)} conflicts with ${Anvils.id(it)}") }
     }
-    val penalty = (item.itemMeta as? org.bukkit.inventory.meta.Repairable)?.repairCost ?: 0
+    val penalty = (item.itemMeta as? Repairable)?.repairCost ?: 0
     val plan = Mechanics.anvilPlan(penalty, books.map { (e, level) -> Mechanics.Book(Anvils.id(e), level, Mechanics.bookWeight(Anvils.id(e))) })
-    fun names(pieces: List<Int>) = buildJsonArray { pieces.forEach { add(kotlinx.serialization.json.JsonPrimitive(if (it == 0) "item" else "${Anvils.id(books[it - 1].first)} ${books[it - 1].second}")) } }
+    fun names(pieces: List<Int>) = buildJsonArray { pieces.forEach { add(JsonPrimitive(if (it == 0) "item" else "${Anvils.id(books[it - 1].first)} ${books[it - 1].second}")) } }
     val result = buildJsonObject {
       put("item", item.type.key.key)
       put("target", AnvilTargets.label(target, player.inventory.heldItemSlot))
@@ -178,11 +181,11 @@ object CareTools {
     if (slot != null || item != null && Names.normalize(item) != "hand") return Anvils.target(player, item, slot, emptyList(), named)
     val hand = player.inventory.heldItemSlot
     // What they hold is what they mean; a book that doesn't fit it says so.
-    player.inventory.getItem(hand)?.takeUnless { it.type.isAir || it.type == org.bukkit.Material.ENCHANTED_BOOK || it.type == org.bukkit.Material.BOOK }?.let { return AnvilTargets.Pick.One(hand) }
+    player.inventory.getItem(hand)?.takeUnless { it.type.isAir || it.type == Material.ENCHANTED_BOOK || it.type == Material.BOOK }?.let { return AnvilTargets.Pick.One(hand) }
     val enchantments = wanted.keys.mapNotNull { Anvils.enchantment(Names.enchantment(it)) }
     if (enchantments.size < wanted.size) throw ToolError("no enchantment called ${wanted.keys.first { Anvils.enchantment(Names.enchantment(it)) == null }}")
     val fitting = AnvilTargets.ALL.mapNotNull { at ->
-      val stack = player.inventory.getItem(at)?.takeUnless { it.type.isAir || it.type == org.bukkit.Material.ENCHANTED_BOOK || it.type == org.bukkit.Material.BOOK } ?: return@mapNotNull null
+      val stack = player.inventory.getItem(at)?.takeUnless { it.type.isAir || it.type == Material.ENCHANTED_BOOK || it.type == Material.BOOK } ?: return@mapNotNull null
       if (enchantments.all { it.canEnchantItem(stack) }) AnvilTargets.Option(at, stack.type.key.key, wanted.keys.sumOf { wanted.int(it) ?: 1 }) else null
     }
     // Several kinds fit (a sword and an axe both take Sharpness): the hand settles it, else the player does.
@@ -208,7 +211,7 @@ object CareTools {
     val planned = Anvils.plan(player, slots, target)
       ?: return ToolOutput(buildJsonObject { put("found", false); put("reason", "nothing in the inventory adds to that item: no enchanted book or second enchanted item of its kind that improves it") }, context.lang.text("summary.anvil_nothing"), refused = true)
     val (sources, plan) = planned.sources to planned.plan
-    fun names(pieces: List<Int>) = buildJsonArray { pieces.forEach { add(kotlinx.serialization.json.JsonPrimitive(Anvils.label(sources[it], planned.hand))) } }
+    fun names(pieces: List<Int>) = buildJsonArray { pieces.forEach { add(JsonPrimitive(Anvils.label(sources[it], planned.hand))) } }
     fun enchantments(piece: Mechanics.AnvilPiece) = buildJsonObject { piece.enchantments.forEach { (key, level) -> put(key, level) } }
     val result = buildJsonObject {
       put("found", true)

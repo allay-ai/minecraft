@@ -1,5 +1,7 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.InteractTools
 import chat.allay.spigot.tools.Marks
@@ -13,6 +15,8 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import org.bukkit.Registry
 import org.bukkit.Sound
 import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.ExperienceOrb
@@ -41,7 +45,7 @@ object GrindstoneWork {
   }
 
   @Suppress("DEPRECATION")
-  private fun curse(key: String) = key in Mechanics.CURSES || Enchantment.getByKey(org.bukkit.NamespacedKey.minecraft(key))?.isCursed == true
+  private fun curse(key: String) = key in Mechanics.CURSES || Enchantment.getByKey(NamespacedKey.minecraft(key))?.isCursed == true
 
   private fun damage(item: ItemStack) = (item.itemMeta as? Damageable)?.damage ?: 0
 
@@ -55,7 +59,7 @@ object GrindstoneWork {
       val task = context.requireTask()
       val automation = context.features.automation
       val settings = automation.settings()
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       val apply = when (val action = args.string("action")?.lowercase()) {
         "plan", null -> false
         "apply" -> true
@@ -116,7 +120,7 @@ object GrindstoneWork {
         if (meta is EnchantmentStorageMeta) meta.storedEnchants.keys.toList().forEach(meta::removeStoredEnchant)
         else meta?.enchants?.keys?.toList()?.forEach(meta::removeEnchant)
         curses.forEach { (key, level) ->
-          val enchantment = org.bukkit.Registry.ENCHANTMENT.get(org.bukkit.NamespacedKey.minecraft(key)) ?: return@forEach
+          val enchantment = Registry.ENCHANTMENT.get(NamespacedKey.minecraft(key)) ?: return@forEach
           if (meta is EnchantmentStorageMeta) meta.addStoredEnchant(enchantment, level, true) else meta?.addEnchant(enchantment, level, true)
         }
         if (meta is Repairable) meta.repairCost = Mechanics.grindstoneRepairCost(curses.size)
@@ -142,7 +146,7 @@ object GrindstoneWork {
    * The second piece to join [target] with: one of the same item anywhere the player may take from, but never [target]
    * itself. The one that loses least comes first: fewest enchantment levels, then the most durability left.
    */
-  private fun second(player: Player, radius: Int, scope: chat.allay.core.tasks.SourceScope, slot: Int, target: ItemStack): Second? {
+  private fun second(player: Player, radius: Int, scope: SourceScope, slot: Int, target: ItemStack): Second? {
     var skipped = false
     return Sources.around(player, radius, scope).list.flatMap { source ->
       source.slots().filterNotNull().filter { stack ->

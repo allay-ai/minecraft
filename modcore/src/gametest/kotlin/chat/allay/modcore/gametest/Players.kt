@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.network.CommonListenerCookie
 import net.minecraft.world.level.GameType
 import net.minecraft.world.phys.Vec3
+import java.io.File
 import java.util.UUID
 
 /**
@@ -71,7 +72,7 @@ object Players {
     if (builds) return
     builds = true
     val allay = Mod.allay!!
-    val file = java.io.File(allay.platform.shared, "config.yml")
+    val file = File(allay.platform.shared, "config.yml")
     val text = if (file.exists()) file.readText() else ""
     val on = if ("\nbuilding:\n  enabled: false" in text) text.replace("\nbuilding:\n  enabled: false", "\nbuilding:\n  enabled: true")
       else text + "\nbuilding:\n  enabled: true\n"

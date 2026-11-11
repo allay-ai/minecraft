@@ -2,6 +2,7 @@ package chat.allay.spigot
 
 import chat.allay.core.*
 import chat.allay.core.tools.Dimensions
+import chat.allay.spigot.tools.CommandTools
 import chat.allay.spigot.tools.id
 
 import net.md_5.bungee.api.ChatMessageType
@@ -10,7 +11,10 @@ import net.md_5.bungee.api.chat.ClickEvent
 import net.md_5.bungee.api.chat.HoverEvent
 import net.md_5.bungee.api.chat.TextComponent
 import net.md_5.bungee.api.chat.hover.content.Text
+import org.bukkit.Bukkit
+import org.bukkit.NamespacedKey
 import org.bukkit.Particle
+import org.bukkit.Registry
 import org.bukkit.Sound
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
@@ -26,7 +30,7 @@ open class BukkitSender(open val sender: CommandSender) : Audience {
   override fun can(permission: String) = sender.hasPermission(permission)
   // Bukkit gives a permission nobody declared to operators only; an expansion's own goes to everyone unless set.
   override fun can(permission: String, byDefault: Boolean) =
-    if (sender.isPermissionSet(permission) || org.bukkit.Bukkit.getPluginManager().getPermission(permission) != null) sender.hasPermission(permission) else byDefault || sender.isOp
+    if (sender.isPermissionSet(permission) || Bukkit.getPluginManager().getPermission(permission) != null) sender.hasPermission(permission) else byDefault || sender.isOp
   override fun <T> unwrap(type: Class<T>): T? = type.takeIf { it.isInstance(sender) }?.cast(sender)
   override fun send(text: String) = sender.sendMessage(text)
   override fun send(line: Line) {
@@ -132,7 +136,7 @@ class BukkitPlatform(private val plugin: JavaPlugin) : Platform {
     return true
   }
   override val hearsTyped = true
-  override fun check(who: Audience, command: String) = chat.allay.spigot.tools.CommandTools.check(who.sender, command)
+  override fun check(who: Audience, command: String) = CommandTools.check(who.sender, command)
   override fun vanished(player: PlayerAudience) = Vanish.vanished(player.player)
   override fun placeholders(about: Audience?) = Placeholders.about((about as? BukkitSender)?.sender)
   @Suppress("DEPRECATION") override val motd: String get() = server.motd
@@ -152,7 +156,7 @@ class BukkitEffects(private val plugin: JavaPlugin, config: Config) : Effects {
 
   /** By Bukkit's name (`ENTITY_ALLAY_ITEM_GIVEN`) or the game's id (`entity.allay.item_given`), as the mods read it. */
   private fun sound(setting: Config.Sound, default: Sound) = value(setting.key, setting.name, default) { name ->
-    if ('.' in name) org.bukkit.Registry.SOUNDS.get(org.bukkit.NamespacedKey.fromString(name.lowercase())!!)!! else Sound.valueOf(name)
+    if ('.' in name) Registry.SOUNDS.get(NamespacedKey.fromString(name.lowercase())!!)!! else Sound.valueOf(name)
   }
 
   /** A name from the config as Bukkit's value; an unknown name falls back to [default] with a warning. */

@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Arguments declared as fields. An {@link Expansion} is one, for its tools' arguments; a Kotlin {@code object} or a
@@ -102,7 +104,7 @@ public abstract class ArgGroup {
     return schema(args, Arg::isRequired);
   }
 
-  static Schema schema(List<Arg<?>> args, java.util.function.Predicate<Arg<?>> required) {
+  static Schema schema(List<Arg<?>> args, Predicate<Arg<?>> required) {
     @SuppressWarnings("deprecation")
     Schema schema = Schema.arguments();
     args.forEach(arg -> arg.addTo(schema, required.test(arg)));
@@ -118,7 +120,7 @@ public abstract class ArgGroup {
     return read(args, sent, prefix, Arg::isRequired, Arg::fallback);
   }
 
-  static Values read(List<Arg<?>> args, Map<?, ?> sent, String prefix, java.util.function.Predicate<Arg<?>> required, java.util.function.Function<Arg<?>, Object> fallback) throws ToolException {
+  static Values read(List<Arg<?>> args, Map<?, ?> sent, String prefix, Predicate<Arg<?>> required, Function<Arg<?>, Object> fallback) throws ToolException {
     Map<Arg<?>, Object> values = new HashMap<>();
     for (Arg<?> arg : args) {
       try {

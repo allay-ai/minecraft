@@ -1,5 +1,7 @@
 package chat.allay.core
 
+import chat.allay.core.tools.CommandCatalog
+
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -35,7 +37,7 @@ class ChatMode(
     data object Nobody : Sent
 
     /** The server's private message command won't run for the player: [command] with the game's [check]. */
-    data class Forbidden(val command: String, val check: chat.allay.core.tools.CommandCatalog.Check) : Sent
+    data class Forbidden(val command: String, val check: CommandCatalog.Check) : Sent
 
     /**
      * The chat didn't let it through after [after] of its [lines]: a mute, a chat filter, an anti-spam, or nothing left
@@ -77,7 +79,7 @@ class ChatMode(
     // The game's line counts the command's / too.
     val lines = lines(clean(text), MAX_LINE - 1 - prefix.length)
     if (lines.isEmpty()) return Sent.Refused(0, 0)
-    platform.check(player, prefix + lines[0])?.takeIf { it.verdict != chat.allay.core.tools.CommandCatalog.Verdict.OK }?.let { return Sent.Forbidden(prefix.trim().substringBefore(' '), it) }
+    platform.check(player, prefix + lines[0])?.takeIf { it.verdict != CommandCatalog.Verdict.OK }?.let { return Sent.Forbidden(prefix.trim().substringBefore(' '), it) }
     val history = history()
     for ((k, line) in lines.withIndex()) {
       val command = prefix + line

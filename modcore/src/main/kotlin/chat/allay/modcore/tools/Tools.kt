@@ -1,12 +1,20 @@
 package chat.allay.modcore.tools
 
 import chat.allay.core.*
+import chat.allay.core.Clicks
+import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.core.tools.TaskTools
 import chat.allay.modcore.ModPlatform
 import chat.allay.modcore.ModPlayer
 import chat.allay.modcore.Vanish
 import chat.allay.modcore.automation.Automation
+import chat.allay.modcore.automation.PickTools
+import chat.allay.modcore.automation.Jobs
+import chat.allay.modcore.automation.Chests
 
+import java.util.Collections
+import java.util.UUID
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 
@@ -19,7 +27,7 @@ class Features(
   books: Books,
   val deaths: Deaths,
   data: PlayerData,
-  consented: (java.util.UUID) -> Boolean,
+  consented: (UUID) -> Boolean,
   zones: TimeZones,
   settings: PlayerSettings,
   chat: ChatMode,
@@ -32,7 +40,7 @@ class Features(
   val automation: Automation,
   expansions: Expansions? = null,
   names: () -> GameNames? = { null },
-  clicks: () -> chat.allay.core.Clicks? = { null },
+  clicks: () -> Clicks? = { null },
 ) : ToolServices(mod, locales, reminders, books, data, consented, zones, settings, chat, serverId, config, automation.agents, expansions, names, clicks) {
   val server: MinecraftServer get() = mod.server
   val scheduler: Scheduler get() = mod.scheduler
@@ -42,8 +50,8 @@ class Features(
 class ToolContext(
   asker: Audience,
   val features: Features,
-  buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
-  task: chat.allay.core.tasks.Task? = null,
+  buttons: MutableList<Button> = Collections.synchronizedList(mutableListOf()),
+  task: Task? = null,
   others: OtherPlayers = OtherPlayers(),
 ) : ToolScope(asker, features, buttons, task, others) {
   val server: MinecraftServer get() = features.server
@@ -74,5 +82,5 @@ typealias Tool = ClientTool<ToolContext>
 object Tools {
   fun all(): List<Tool> = PlayerTools.all + LookTools.all + LocationTools.all + LocatorTools.all + WorldTools.all + KnowledgeTools.all + CommandTools.all + InspectTools.all + CareTools.all + BrewingTools.all +
     ActionTools.all + MarkTools.all + RedstoneTools.all + InteractTools.all + GoalTools.all + AllayTools.all + ChatTools.all + OperatorTools.all +
-    BuildTools.all + chat.allay.core.tools.TaskTools.all + chat.allay.modcore.automation.PickTools.all + chat.allay.modcore.automation.Chests.all + chat.allay.modcore.automation.Jobs.all
+    BuildTools.all + TaskTools.all + PickTools.all + Chests.all + Jobs.all
 }

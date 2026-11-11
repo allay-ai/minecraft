@@ -2,6 +2,7 @@ package chat.allay.spigot.tools
 
 import chat.allay.core.*
 import chat.allay.core.tools.*
+import chat.allay.spigot.automation.Crafting
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -13,8 +14,12 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Bukkit
+import org.bukkit.Keyed
 import org.bukkit.Material
+import org.bukkit.NamespacedKey
 import org.bukkit.Tag
+import org.bukkit.advancement.Advancement
+import org.bukkit.advancement.AdvancementProgress
 import org.bukkit.inventory.CookingRecipe
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.Recipe
@@ -23,6 +28,7 @@ import org.bukkit.inventory.ShapedRecipe
 import org.bukkit.inventory.ShapelessRecipe
 import org.bukkit.inventory.SmithingTransformRecipe
 import org.bukkit.inventory.StonecuttingRecipe
+import org.bukkit.inventory.TransmuteRecipe
 
 /** What this server knows that the model might not: its exact recipes, and the asker's advancements. */
 object KnowledgeTools {
@@ -40,7 +46,7 @@ object KnowledgeTools {
       // Items in one call share the player's things: a set of armor counts the same ingots once.
       // counts, since 6.27, says how many of each item in its place («1 факел и 6 повторителей»); count is for the rest.
       val counts = (args["counts"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.intOrNull }
-      val plan = { at: Int -> if (args.bool("plan") == true) (counts.getOrNull(at) ?: args.int("count") ?: 1).coerceIn(1, chat.allay.spigot.automation.Crafting.MAX_COUNT) else null }
+      val plan = { at: Int -> if (args.bool("plan") == true) (counts.getOrNull(at) ?: args.int("count") ?: 1).coerceIn(1, Crafting.MAX_COUNT) else null }
       val spent = mutableMapOf<String, Int>()
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
       if (args["items"] == null) {
@@ -95,13 +101,13 @@ object KnowledgeTools {
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
         if (entry.id in SpecialRecipes.FIREWORK_ITEMS && special.isNotEmpty()) put("fireworks", SpecialRecipes.fireworks())
-        if (plan != null) put("plan", try { chat.allay.spigot.automation.Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
+        if (plan != null) put("plan", try { Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
       }
     }
 
     /** The game's own recipe keys on this server, which say which special recipes it has. */
     private fun specialKeys(context: ToolContext): Set<String> = Bukkit.recipeIterator().asSequence()
-      .mapNotNull { (it as? org.bukkit.Keyed)?.key?.takeIf { key -> key.namespace == org.bukkit.NamespacedKey.MINECRAFT }?.key }.toSet()
+      .mapNotNull { (it as? Keyed)?.key?.takeIf { key -> key.namespace == NamespacedKey.MINECRAFT }?.key }.toSet()
 
     /** Item tags by what they hold, so a slot that takes any planks reads `#planks`, not three of them. */
     private val tags: Map<Set<Material>, String> by lazy {
@@ -144,7 +150,7 @@ object KnowledgeTools {
           put("type", "stonecutting")
           put("input", choice(recipe.inputChoice))
         }
-        is org.bukkit.inventory.TransmuteRecipe -> {
+        is TransmuteRecipe -> {
           put("type", "crafting_transmute")
           put("input", choice(recipe.input))
           put("material", choice(recipe.material))
@@ -203,7 +209,7 @@ object KnowledgeTools {
   }
 
   /** How far a started advancement of several steps is, like 3/26, counted as the game's own screen counts it. */
-  private fun steps(advancement: org.bukkit.advancement.Advancement, progress: org.bukkit.advancement.AdvancementProgress): String? {
+  private fun steps(advancement: Advancement, progress: AdvancementProgress): String? {
     val requirements = advancement.requirements.requirements
     if (requirements.size < 2) return null
     val awarded = progress.awardedCriteria

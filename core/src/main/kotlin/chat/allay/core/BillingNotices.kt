@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -127,4 +128,4 @@ object BillingDates {
 }
 
 internal fun instant(iso: String): Instant? = runCatching { Instant.parse(iso) }
-  .recoverCatching { java.time.OffsetDateTime.parse(iso).toInstant() }.getOrNull()
+  .recoverCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull()

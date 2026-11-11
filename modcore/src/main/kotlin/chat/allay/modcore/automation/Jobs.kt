@@ -2,6 +2,8 @@ package chat.allay.modcore.automation
 
 import chat.allay.core.PlayerSettings
 import chat.allay.core.Scheduler
+import chat.allay.core.building.BuildSave
+import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.ToolError
@@ -18,6 +20,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import net.minecraft.core.BlockPos
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.ItemTags
@@ -53,12 +56,12 @@ object Jobs {
   fun restore(task: Task, player: ServerPlayer, saved: JsonObject): Lasting? = when (saved.string("type")) {
     Furnaces.TYPE -> Furnaces.restore(task, player, saved)
     Stands.TYPE -> Stands.restore(task, player, saved)
-    chat.allay.core.building.BuildSave.TYPE -> Building.restore(task, player, saved)
+    BuildSave.TYPE -> Building.restore(task, player, saved)
     else -> null
   }
 
   /** Lets [job] go without undoing anything: the furnaces and stands keep what's in them, and the game carries on. */
-  fun detach(job: chat.allay.core.tasks.Agents.Job) {
+  fun detach(job: Agents.Job) {
     // A build stops ticking; what it placed stays, and its snapshot carries on from there.
     if (job is Building.Job) job.cancel() else if (job is BlockJob) remove(job)
   }
@@ -98,7 +101,7 @@ object Jobs {
   fun loaded(block: BlockAt) = block.level.chunkSource.getChunkNow(block.x shr 4, block.z shr 4) != null
 
   /** Whether [job] still works; a finished one stays on its agent for collect. */
-  fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
+  fun active(job: Agents.Job) = job is BlockJob && job in running
 
   private lateinit var scheduler: Scheduler
 
@@ -183,7 +186,7 @@ object Jobs {
   }
 
   /** An output a job saved; its chests are asked again as it delivers, so nothing here checks how far they are. */
-  fun decodeSaved(server: net.minecraft.server.MinecraftServer, text: String): Output? = when {
+  fun decodeSaved(server: MinecraftServer, text: String): Output? = when {
     text == "inventory" -> Output.Inventory
     text == "auto" -> Output.Auto
     text.startsWith("chests:") -> text.removePrefix("chests:").split(';').mapNotNull { Blocks.at(server, it) }.ifEmpty { null }?.let(Output::Chests)

@@ -3,6 +3,7 @@
 package chat.allay.core
 
 import chat.allay.core.tools.Catalog
+import chat.allay.core.tools.NOT_OPERATOR
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.ToolOutput
 import chat.allay.core.tools.ToolScope
@@ -11,6 +12,7 @@ import chat.allay.expansion.AllayExpansion
 import chat.allay.expansion.AllayExpansions
 import chat.allay.expansion.AllayTool
 import chat.allay.expansion.Args
+import chat.allay.expansion.Asker
 import chat.allay.expansion.ItemInfo
 import chat.allay.expansion.ToolCall
 import chat.allay.expansion.ToolException
@@ -32,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 
 /**
@@ -58,7 +61,7 @@ class Expansions(
   class Tool(val wire: String, val expansion: String, val tool: AllayTool, val description: String, val schema: JsonObject, val access: AllayTool.Access)
 
   private val loaded = ConcurrentHashMap<String, Loaded>()
-  private val changes = java.util.concurrent.atomic.AtomicInteger()
+  private val changes = AtomicInteger()
 
   /** Goes up whenever an expansion comes, goes, or is read again: a cached catalog builds again then. */
   val revision: Int get() = changes.get()
@@ -138,7 +141,7 @@ class Expansions(
   }
 
   /** The tool's own say on this asker (API 1.2); someone else's code, so a throw is a no and a line in the log. */
-  private fun offeredTo(tool: Tool, asker: chat.allay.expansion.Asker): Boolean =
+  private fun offeredTo(tool: Tool, asker: Asker): Boolean =
     runCatching { tool.tool.offeredTo(asker) }.getOrElse {
       log.warning("❌ Expansion tool ${tool.wire} failed in offeredTo: $it")
       false
@@ -155,7 +158,7 @@ class Expansions(
     val tool = active().firstNotNullOfOrNull { it.tools[name] } ?: throw ToolError("the tool $name isn't on this server")
     val asker = scope.requireAsker()
     if (scope.task != null) throw ToolError("automation agents don't use other plugins' tools")
-    if (tool.access == AllayTool.Access.OPERATOR && !asker.operator) throw ToolError(chat.allay.core.tools.NOT_OPERATOR)
+    if (tool.access == AllayTool.Access.OPERATOR && !asker.operator) throw ToolError(NOT_OPERATOR)
     if (!allowed(tool, asker, mode, public)) throw ToolError("the asker may not use $name here")
     val player = Player(asker, language(asker))
     if (!offeredTo(tool, player)) throw ToolError("$name isn't for the asker right now")
@@ -206,7 +209,7 @@ class Expansions(
   private inner class Call(private val asker: Player, private val args: Args, private val mode: ToolCall.Mode, private val public: Boolean, private val scope: ToolScope) : ToolCall {
     /** The online players the asker mustn't learn about, taken now so a result that comes later reads it anywhere. */
     private val hidden: Set<UUID> = platform()?.let { platform -> platform.players.filter { !platform.visible(asker.audience, it) }.map { it.uuid }.toSet() }.orEmpty()
-    override fun asker(): chat.allay.expansion.Asker = asker
+    override fun asker(): Asker = asker
     override fun args() = args
     override fun mode() = mode
     override fun isPublic() = public
@@ -219,7 +222,7 @@ class Expansions(
   }
 
   /** The asker as the call started: what a tool that answers later may still read on its own thread. */
-  private class Player(private val player: PlayerAudience, private val language: String) : chat.allay.expansion.Asker {
+  private class Player(private val player: PlayerAudience, private val language: String) : Asker {
     val audience get() = player
     private val at = player.position
     private val uuid = player.uuid

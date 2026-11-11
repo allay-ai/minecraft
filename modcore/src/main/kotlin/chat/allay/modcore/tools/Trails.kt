@@ -22,6 +22,7 @@ import net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPac
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.level.storage.LevelData
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
@@ -84,7 +85,7 @@ object Trails {
       if (!clock.tick(distance)) return@trail Pulse.END.also { ended(Math.round(distance)) }
       if (!grounded && distance <= MARKER) {
         // Bukkit's `getHighestBlockYAt`: the top block that blocks motion, plus one to stand on it.
-        val top = now.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, spot.x.toInt(), spot.z.toInt())
+        val top = now.level().getHeight(Heightmap.Types.MOTION_BLOCKING, spot.x.toInt(), spot.z.toInt())
         spot = Vec3(spot.x, top.toDouble(), spot.z)
         grounded = true
       }

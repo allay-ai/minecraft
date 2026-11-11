@@ -22,14 +22,18 @@ import org.bukkit.enchantments.Enchantment
 import org.bukkit.entity.AbstractVillager
 import org.bukkit.entity.Enemy
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Item
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.entity.Villager
 import org.bukkit.inventory.ItemStack
+import org.bukkit.loot.Lootable
 import chat.allay.core.Lang
 import chat.allay.core.tools.Facts.round1
 import chat.allay.core.tools.Facts.short
+import chat.allay.spigot.Vanish
+import chat.allay.spigot.Claims
 
 /**
  * `look_at`: whatever is under the crosshair, in one call. A block comes with its hardness, tool, and drops, plus
@@ -48,13 +52,13 @@ object LookTools {
   fun targetContainer(player: Player): Pair<Block, Container> {
     val block = player.getTargetBlockExact(BLOCK_RANGE) ?: throw ToolError("the player isn't looking at a block within $BLOCK_RANGE blocks")
     val state = block.state as? Container ?: throw ToolError("${block.type.key.key} under the crosshair is not a container")
-    if (!chat.allay.spigot.Claims.mayOpen(player, state)) throw ToolError(locked(state))
+    if (!Claims.mayOpen(player, state)) throw ToolError(locked(state))
     return block to state
   }
 
   /** Why Allay won't read a container: its owner's claim, or loot that rolls only when someone opens it. */
   private fun locked(state: Container) =
-    if ((state as? org.bukkit.loot.Lootable)?.lootTable != null) "an unopened structure chest: its loot rolls when someone opens it"
+    if ((state as? Lootable)?.lootTable != null) "an unopened structure chest: its loot rolls when someone opens it"
     else "in someone's claim where the player has no container trust; its contents stay private"
 
   private fun nothing(blockBeyond: Long?) = Facts.nothingInSight(BLOCK_RANGE, ENTITY_RANGE, blockBeyond)
@@ -66,7 +70,7 @@ object LookTools {
       val player = context.requirePlayer()
       val eye = player.eyeLocation
       // Blocks stop the ray as they stop the eye, so no mob shows through a wall.
-      val hit = player.world.rayTrace(eye, eye.direction, ENTITY_RANGE, FluidCollisionMode.NEVER, true, 0.0) { it != player && chat.allay.spigot.Vanish.visible(player, it) }
+      val hit = player.world.rayTrace(eye, eye.direction, ENTITY_RANGE, FluidCollisionMode.NEVER, true, 0.0) { it != player && Vanish.visible(player, it) }
       val entity = hit?.hitEntity
       val block = player.getTargetBlockExact(BLOCK_RANGE)
       return when {
@@ -108,7 +112,7 @@ object LookTools {
       if (data is Waterlogged && data.isWaterlogged) put("waterlogged", true)
       put("block_light", block.lightFromBlocks.toInt())
       put("sky_light", block.lightFromSky.toInt())
-      if (state is Container && !chat.allay.spigot.Claims.mayOpen(player, state)) {
+      if (state is Container && !Claims.mayOpen(player, state)) {
         put("locked", locked(state))
       } else if (state is Container) {
         putJsonObject("container") { container(state, detail) }
@@ -162,7 +166,7 @@ object LookTools {
       entity.customName?.let { put("name", it) }
       put("distance", distance)
       when (entity) {
-        is org.bukkit.entity.Item -> entity.itemStack.compact()?.let { put("item", it) }
+        is Item -> entity.itemStack.compact()?.let { put("item", it) }
         is ItemFrame -> entity.item.compact()?.let { put("item", it) }
         else -> {}
       }

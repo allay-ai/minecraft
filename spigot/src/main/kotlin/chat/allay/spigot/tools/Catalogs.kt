@@ -5,9 +5,13 @@ import chat.allay.core.tools.Brewing
 import chat.allay.core.tools.Catalog
 import chat.allay.core.tools.CatalogCache
 import chat.allay.core.tools.GameNames
+import chat.allay.core.tools.SpecialRecipes
 import chat.allay.spigot.paper.PaperCatalog
 
+import java.io.File
+import java.util.zip.ZipFile
 import org.bukkit.Bukkit
+import org.bukkit.Keyed
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.Registry
@@ -73,16 +77,16 @@ object Catalogs {
     val custom = LinkedHashMap<String, Catalog.Entry>()
     val keys = mutableSetOf<String>()
     Bukkit.recipeIterator().forEach { recipe ->
-      (recipe as? org.bukkit.Keyed)?.key?.takeIf { it.namespace == NamespacedKey.MINECRAFT }?.let { keys += it.key }
+      (recipe as? Keyed)?.key?.takeIf { it.namespace == NamespacedKey.MINECRAFT }?.let { keys += it.key }
       val result = recipe.result.takeUnless { it.type.isAir } ?: return@forEach
       val kind = kind(recipe) ?: return@forEach
       val id = id(result)
       made.getOrPut(id) { mutableSetOf() } += kind
-      val namespace = (recipe as? org.bukkit.Keyed)?.key?.namespace ?: Catalog.MINECRAFT
+      val namespace = (recipe as? Keyed)?.key?.namespace ?: Catalog.MINECRAFT
       if (id != result.type.key.key && id !in custom) custom[id] = custom(id, result, source(namespace))
     }
     // Fireworks and the rest of the special recipes have no result to read: crafted all the same.
-    chat.allay.core.tools.SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
+    SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
     val brewed = BrewingRecipes.all(Bukkit.getServer()).map { it.to.potion }.toSet()
     val items = Material.entries.filter { !it.name.startsWith("LEGACY_") && it.isItem && !it.isAir }.map { material ->
       val id = material.key.key
@@ -178,10 +182,10 @@ object Catalogs {
 
   private val RECIPE = Regex("^data/[^/]+/recipe/.+\\.json$")
 
-  private fun read(pack: java.io.File): List<Brewing.Brew> = runCatching {
+  private fun read(pack: File): List<Brewing.Brew> = runCatching {
     if (pack.isDirectory) {
       pack.walkTopDown().filter { it.isFile && RECIPE.matches(it.relativeTo(pack).invariantSeparatorsPath) }.flatMap { Brewing.parse(it.readText()) }.toList()
-    } else java.util.zip.ZipFile(pack).use { zip ->
+    } else ZipFile(pack).use { zip ->
       zip.entries().asSequence().filter { RECIPE.matches(it.name) }.flatMap { entry -> zip.getInputStream(entry).use { Brewing.parse(it.readBytes().decodeToString()) } }.toList()
     }
   }.getOrDefault(emptyList())

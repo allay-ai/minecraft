@@ -1,5 +1,8 @@
 package chat.allay.core.tools
 
+import chat.allay.expansion.Recipe
+
+import kotlin.math.abs
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -229,7 +232,7 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
         if (word.length < 4) continue
         val most = maxOf(1, word.length / 4)
         for (other in words) {
-          if (best < 55 && kotlin.math.abs(word.length - other.length) <= minOf(most, 3)) {
+          if (best < 55 && abs(word.length - other.length) <= minOf(most, 3)) {
             val distance = distance(word, other, most)
             if (distance <= most) best = maxOf(best, 55 - distance * 5)
           }
@@ -267,19 +270,19 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     }
 
     /** An expansion's recipe as `get_recipes` writes the game's; null for a brew, which goes into the brewing chains. */
-    fun describe(recipe: chat.allay.expansion.Recipe): JsonObject? {
+    fun describe(recipe: Recipe): JsonObject? {
       val type = recipe.type()
-      if (type == chat.allay.expansion.Recipe.Type.BREWING) return null
+      if (type == Recipe.Type.BREWING) return null
       return buildJsonObject {
         if (recipe.count() > 1) put("makes", recipe.count())
         put("type", type.wire())
         when (type) {
-          chat.allay.expansion.Recipe.Type.CRAFTING_SHAPED -> {
+          Recipe.Type.CRAFTING_SHAPED -> {
             put("shape", buildJsonArray { recipe.shape().forEach { add(JsonPrimitive(it)) } })
             putJsonObject("key") { recipe.key().forEach { (symbol, ingredient) -> put(symbol.toString(), ingredient.text()) } }
           }
-          chat.allay.expansion.Recipe.Type.CRAFTING_SHAPELESS -> put("ingredients", JsonArray(recipe.ingredients().map { JsonPrimitive(it.text()) }))
-          chat.allay.expansion.Recipe.Type.STONECUTTING -> put("input", recipe.ingredients().first().text())
+          Recipe.Type.CRAFTING_SHAPELESS -> put("ingredients", JsonArray(recipe.ingredients().map { JsonPrimitive(it.text()) }))
+          Recipe.Type.STONECUTTING -> put("input", recipe.ingredients().first().text())
           else -> {
             put("input", recipe.ingredients().first().text())
             put("seconds", recipe.seconds())
@@ -290,8 +293,8 @@ class Catalog(val entries: List<Entry>, private val names: GameNames?) {
     }
 
     /** An expansion's brew that makes [id], from its bottle and reagent. */
-    fun brew(id: String, recipe: chat.allay.expansion.Recipe): Brewing.Brew? {
-      if (recipe.type() != chat.allay.expansion.Recipe.Type.BREWING) return null
+    fun brew(id: String, recipe: Recipe): Brewing.Brew? {
+      if (recipe.type() != Recipe.Type.BREWING) return null
       val (bottle, reagent) = recipe.ingredients().map { it.text() }
       return Brewing.Brew(Brewing.bottleOf(bottle), reagent, Brewing.Bottle(id, id))
     }

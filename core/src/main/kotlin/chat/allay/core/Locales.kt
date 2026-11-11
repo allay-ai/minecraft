@@ -1,10 +1,14 @@
 package chat.allay.core
 
+import chat.allay.core.tools.GameNames
+
 import java.io.File
 import java.io.InputStreamReader
 import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.Yaml
 
 /**
  * Every player reads Allay in their own language: `lang/<code>.yml`, the one they chose with `/allay language`, or else
@@ -101,8 +105,8 @@ class Locales(private val platform: Platform) {
       bundled + server.filter { (key, value) -> previous != null && previous[key] == value && key in bundled }
 
     /** Flat keys, one a line: [Texts.read] reads `section.key` back as it wrote it. */
-    private val SNAPSHOTS = org.yaml.snakeyaml.Yaml(org.yaml.snakeyaml.DumperOptions().apply {
-      defaultFlowStyle = org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK
+    private val SNAPSHOTS = Yaml(DumperOptions().apply {
+      defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
       isAllowUnicode = true
       width = Int.MAX_VALUE
     })
@@ -123,7 +127,7 @@ class Locales(private val platform: Platform) {
    * The game language whose names [player] reads in Allay's answers, like `ru_ru`: their Allay language, which beats
    * their game's, so tools name things as the answer will.
    */
-  fun names(player: PlayerAudience): String = chat.allay.core.tools.GameNames.locale(code(player), player.locale)
+  fun names(player: PlayerAudience): String = GameNames.locale(code(player), player.locale)
 
   /** The languages there are, by code. */
   val codes: Set<String> get() = texts.codes

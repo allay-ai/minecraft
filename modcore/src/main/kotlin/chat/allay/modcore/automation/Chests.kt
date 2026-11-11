@@ -1,5 +1,7 @@
 package chat.allay.modcore.automation
 
+import chat.allay.core.Lang
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.*
 import chat.allay.modcore.Claims
 import chat.allay.modcore.tools.BlockAt
@@ -18,6 +20,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
@@ -72,7 +75,7 @@ object Chests {
     override fun similar(a: ItemStack, b: ItemStack) = Slots.similar(a, b)
     override fun withAmount(item: ItemStack, amount: Int): ItemStack = item.copyWithCount(amount)
     // Bukkit's `Material.isEdible`: whether the kind is food, whatever this stack carries.
-    override fun edible(item: ItemStack) = item.item.components().has(net.minecraft.core.component.DataComponents.FOOD)
+    override fun edible(item: ItemStack) = item.item.components().has(DataComponents.FOOD)
     override fun data(item: ItemStack) = item.data()!!
   }
 
@@ -130,7 +133,7 @@ object Chests {
       val automation = context.features.automation
       val lang = context.lang
       // Reading is what any agent may do, to find “the chest with the Gold sign”; moving things is a chests agent's.
-      if (args.string("action")?.lowercase() != "read") context.main { automation.require(context.requirePlayer(), task, chat.allay.core.tasks.Kind.CHESTS) }
+      if (args.string("action")?.lowercase() != "read") context.main { automation.require(context.requirePlayer(), task, Kind.CHESTS) }
       return when (val action = args.string("action")?.lowercase()) {
         "read" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
@@ -436,7 +439,7 @@ object Chests {
   }
 
   /** Labels over the chests, only the player sees them: “Ores” over “Iron Ingot ×192”. */
-  private fun labels(context: ToolContext, player: ServerPlayer, planned: Planned, lang: chat.allay.core.Lang, categories: Map<String, Storage.Category?> = emptyMap()) {
+  private fun labels(context: ToolContext, player: ServerPlayer, planned: Planned, lang: Lang, categories: Map<String, Storage.Category?> = emptyMap()) {
     val settings = context.features.config().tools
     val marks = planned.blocks.map { block ->
       val after = planned.after[Blocks.place(block)]!!

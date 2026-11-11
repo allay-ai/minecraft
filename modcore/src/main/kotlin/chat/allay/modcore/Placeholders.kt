@@ -5,6 +5,8 @@ import chat.allay.core.Locales
 import chat.allay.core.PlayerSettings
 import chat.allay.modcore.tools.Goals
 
+import eu.pb4.placeholders.api.PlaceholderResult
+import eu.pb4.placeholders.api.ServerPlaceholderContext
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
@@ -70,7 +72,7 @@ object Placeholders {
   private object Api {
     fun resolve(player: ServerPlayer, id: String): String? {
       val identifier = Identifier.tryParse(id) ?: return null
-      val context = eu.pb4.placeholders.api.ServerPlaceholderContext.of(player)
+      val context = ServerPlaceholderContext.of(player)
       val result = eu.pb4.placeholders.api.Placeholders.getServerPlaceholder(identifier)?.onPlaceholderRequest(context, null)
         ?: eu.pb4.placeholders.api.Placeholders.getCommonPlaceholder(identifier)?.onPlaceholderRequest(context, null)
         ?: return null
@@ -81,7 +83,7 @@ object Placeholders {
       eu.pb4.placeholders.api.Placeholders.registerServer<Unit>(Identifier.fromNamespaceAndPath("allay", name)) { context, _ ->
         val online = if (context.hasPlayer()) context.player() as? ServerPlayer else null
         val id = online?.uuid ?: if (context.hasGameProfile()) context.gameProfile()?.id else null
-        eu.pb4.placeholders.api.PlaceholderResult.value(value(name, id, online).orEmpty())
+        PlaceholderResult.value(value(name, id, online).orEmpty())
       }
     }
   }

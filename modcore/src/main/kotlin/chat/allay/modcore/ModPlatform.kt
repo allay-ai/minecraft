@@ -2,11 +2,13 @@ package chat.allay.modcore
 
 import chat.allay.core.*
 import chat.allay.core.tools.Dimensions
+import chat.allay.modcore.tools.CommandTools
 import chat.allay.modcore.tools.Worlds
 import chat.allay.modcore.tools.id
 
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.core.Holder
+import net.minecraft.core.Registry
 import net.minecraft.core.particles.ParticleOptions
 import net.minecraft.core.particles.SimpleParticleType
 import net.minecraft.core.registries.BuiltInRegistries
@@ -26,6 +28,7 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.net.InetSocketAddress
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -160,7 +163,7 @@ class ModScheduler(private val server: MinecraftServer, private val enabled: () 
   }
 
   override fun <T> call(seconds: Long, block: () -> T): T =
-    if (onMain) block() else java.util.concurrent.CompletableFuture.supplyAsync({ block() }, server).get(seconds, TimeUnit.SECONDS)
+    if (onMain) block() else CompletableFuture.supplyAsync({ block() }, server).get(seconds, TimeUnit.SECONDS)
 
   override val onMain: Boolean get() = server.isSameThread
 }
@@ -222,7 +225,7 @@ class ModPlatform(val server: MinecraftServer) : Platform {
     return true
   }
 
-  override fun check(who: Audience, command: String) = chat.allay.modcore.tools.CommandTools.check(server, (who as ModSender).source, command)
+  override fun check(who: Audience, command: String) = CommandTools.check(server, (who as ModSender).source, command)
 
   override fun vanished(player: PlayerAudience) = Vanish.vanished(player.player)
   override fun placeholders(about: Audience?) = Placeholders.about(this, (about as? ModPlayer)?.player)
@@ -296,7 +299,7 @@ class ModEffects(private val log: Logger, config: Config) : Effects {
 
 /** Names from `config.yml`: Bukkit's enum names (`ENTITY_ALLAY_ITEM_GIVEN`) and the game's ids (`entity.allay.item_given`) alike. */
 object Names {
-  fun <T : Any> find(registry: net.minecraft.core.Registry<T>, name: String): T? {
+  fun <T : Any> find(registry: Registry<T>, name: String): T? {
     Identifier.tryParse(name.lowercase())?.let { id -> registry.getOptional(id).orElse(null)?.let { return it } }
     val wanted = name.uppercase()
     return registry.entrySet().firstOrNull { (key, _) -> key.identifier().namespace == "minecraft" && bukkit(key.identifier().path) == wanted }?.value

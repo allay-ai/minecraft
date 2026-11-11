@@ -3,6 +3,7 @@ package chat.allay.spigot
 import chat.allay.core.*
 import chat.allay.core.tools.*
 
+import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
 import chat.allay.core.Asker
@@ -20,7 +21,7 @@ class SenderAsker(val sender: CommandSender, private val language: String? = nul
   // Read once here, on the server thread: the request is built off it.
   override val dimension: String? = (sender as? Player)?.world?.let(Dimensions::id)
   override val gameMode: String? = (sender as? Player)?.gameMode?.name?.lowercase()
-  private val sky = (sender as? Player)?.world?.takeIf { it.environment == org.bukkit.World.Environment.NORMAL }
+  private val sky = (sender as? Player)?.world?.takeIf { it.environment == World.Environment.NORMAL }
   override val time: Int? = sky?.time?.let { (it % 24000).toInt() }
   override val day: Long? = sky?.fullTime?.let { it / 24000 + 1 }
   override val weather: String? = sky?.let { if (it.isThundering) "thunder" else if (it.hasStorm()) "rain" else "clear" }

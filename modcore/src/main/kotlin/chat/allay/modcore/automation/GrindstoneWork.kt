@@ -1,5 +1,7 @@
 package chat.allay.modcore.automation
 
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tools.*
 import chat.allay.modcore.Sounds
 import chat.allay.modcore.tools.InteractTools
@@ -54,7 +56,7 @@ object GrindstoneWork {
       val task = context.requireTask()
       val automation = context.features.automation
       val settings = automation.settings()
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       val apply = when (val action = args.string("action")?.lowercase()) {
         "plan", null -> false
         "apply" -> true
@@ -141,7 +143,7 @@ object GrindstoneWork {
    * The second piece to join [target] with: one of the same item anywhere the player may take from, but never [target]
    * itself. The one that loses least comes first: fewest enchantment levels, then the most durability left.
    */
-  private fun second(player: ServerPlayer, radius: Int, scope: chat.allay.core.tasks.SourceScope, slot: Int, target: ItemStack): Second? {
+  private fun second(player: ServerPlayer, radius: Int, scope: SourceScope, slot: Int, target: ItemStack): Second? {
     var skipped = false
     return Sources.around(player, radius, scope).list.flatMap { source ->
       source.slots().filterNotNull().filter { stack ->

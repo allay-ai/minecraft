@@ -8,15 +8,25 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import chat.allay.core.Protocol.Event
+import chat.allay.core.tasks.AgentStore
+import chat.allay.core.tasks.Task
+import chat.allay.core.tasks.TaskBook
+import chat.allay.core.tools.Death
 import chat.allay.core.tools.NOT_OPERATOR
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.ToolRegistry
+import chat.allay.core.tools.ToolScope
+import java.io.EOFException
+import java.net.URLEncoder
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.logging.Logger
 
@@ -65,14 +75,14 @@ class Service<C>(
   /** Who pays: the headers go on through the client's interceptor, the `provider` block goes in the body here. */
   private val credentials: Credentials,
   /** The automation agents, so a question tells the backend which of the asker's are running. */
-  private val taskBook: chat.allay.core.tasks.TaskBook? = null,
+  private val taskBook: TaskBook? = null,
   /** A byok server's license as its identity on a hosted backend, fetched before the first request that needs it. */
   private val identity: Identity? = null,
   /** Whether a player has full privacy on, so each question tells the backend to keep them out of its admin panel. */
-  private val fullPrivacy: (java.util.UUID) -> Boolean = { false },
+  private val fullPrivacy: (UUID) -> Boolean = { false },
   /** Other plugins' and mods' expansions: their prompt lines go with every question, their tools with the runs that offer them. */
   private val expansions: Expansions? = null,
-) : Consents.Backend, PlayerData.Backend, chat.allay.core.tasks.AgentStore.Backend {
+) : Consents.Backend, PlayerData.Backend, AgentStore.Backend {
   @Serializable data class AskRequest(val question: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
   @Serializable data class AskResponse(val answer: String, val status: String? = null, val timestamp: String? = null)
   @Serializable data class AskXRequest(val action: String, val platform: String = "minecraft", val user_id: String? = null, val provider: Protocol.Provider? = null)
@@ -83,7 +93,7 @@ class Service<C>(
 
   /** What the display needs to hear about while the stream runs. Called off the server thread. */
   interface Listener {
-    fun toolStarted(callId: String, name: String, args: kotlinx.serialization.json.JsonObject?)
+    fun toolStarted(callId: String, name: String, args: JsonObject?)
     /** [failed]: an error, its reason written for the model; [refused]: the tool answered no, its summary in the player's language. */
     fun toolFinished(callId: String, summary: String?, failed: Boolean, refused: Boolean = false)
     /** The backend stayed out of reach for a few tries and the question waits to reconnect; once a question. */
@@ -111,7 +121,7 @@ class Service<C>(
   private val errorParser = ErrorParser()
 
   /** The answer's streams: silence past `http.stream_idle_seconds` means the connection is gone, though no error came. */
-  private val streams = client.newBuilder().readTimeout(config.http.streamIdleSeconds, java.util.concurrent.TimeUnit.SECONDS).build()
+  private val streams = client.newBuilder().readTimeout(config.http.streamIdleSeconds, TimeUnit.SECONDS).build()
   private val jsonType = "application/json".toMediaType()
 
   suspend fun chat(run: Run, message: String, listener: Listener): Outcome = withContext(IO) {
@@ -225,7 +235,7 @@ class Service<C>(
       failed?.let { throw Ended(failure(ApiError(it.code, it.message, resetsAt = it.resets_at, retryAfter = it.retry_after))) }
       outcome?.let { return it }
       // A stream with ids that ends before done was cut off: the next connection reads on.
-      if (run.resumable && !run.cancelled) throw java.io.EOFException("the stream ended before the answer")
+      if (run.resumable && !run.cancelled) throw EOFException("the stream ended before the answer")
       return Outcome(run.answer(), run.commands).takeIf { it.answer.isNotBlank() || run.commands != null }
         ?: throw ApiErrorException(ApiError("NO_AI_RESPONSE", "The stream ended without an answer"))
     }
@@ -251,7 +261,7 @@ class Service<C>(
   /** A server tool's summary in the reader's language when the backend sent a key the language file knows, else its English text. */
   private fun serverSummary(lang: Lang, status: Protocol.ToolStatus): String? {
     val key = status.summary_key?.let { "summary.server.$it" }?.takeIf(lang::has) ?: return status.summary
-    val values = status.summary_values.orEmpty().mapNotNull { (name, value) -> (value as? kotlinx.serialization.json.JsonPrimitive)?.content?.let { name to it } }
+    val values = status.summary_values.orEmpty().mapNotNull { (name, value) -> (value as? JsonPrimitive)?.content?.let { name to it } }
     return lang.text(key, *values.toTypedArray())
   }
 
@@ -310,7 +320,7 @@ class Service<C>(
   private fun tasks(run: Run, limit: Int): List<Protocol.TaskBrief> = run.asker.uuid?.let { owner ->
     taskBook?.of(owner)?.filter { run.task == null || it.parent == run.task.id }?.mapNotNull { task ->
       // The server thread may end a task meanwhile; the backend knows no state "done" and would refuse the request.
-      val state = task.state.takeIf { it != chat.allay.core.tasks.Task.State.DONE } ?: return@mapNotNull null
+      val state = task.state.takeIf { it != Task.State.DONE } ?: return@mapNotNull null
       Protocol.TaskBrief(task.id, task.name, state.wire, task.question?.take(200))
     }?.takeLast(limit)
   }.orEmpty()
@@ -370,7 +380,7 @@ class Service<C>(
 
   /** An expansion's tool, only one this run offered, on the server thread like any other; one that answers later is awaited here, off it. */
   private fun expansionTool(run: Run, call: Protocol.ToolCall, context: C, listener: Listener, clock: ToolClock): Protocol.ToolResult {
-    val scope = context as? chat.allay.core.tools.ToolScope
+    val scope = context as? ToolScope
     if (scope == null || run.expansionTools.none { it.name == call.name }) {
       listener.toolFinished(call.call_id, "off", failed = true)
       return Protocol.ToolResult(ok = false, error = "the tool ${call.name} isn't offered in this run")
@@ -501,8 +511,8 @@ class Service<C>(
   }
 
   /** One death, for the history the backend pages for the model (6.9). */
-  override suspend fun death(userId: String, death: chat.allay.core.tools.Death) = withContext(IO) {
-    send("/api/v2/users/${path(userId)}/deaths", "POST", json.encodeToString(chat.allay.core.tools.Death.serializer(), death))
+  override suspend fun death(userId: String, death: Death) = withContext(IO) {
+    send("/api/v2/users/${path(userId)}/deaths", "POST", json.encodeToString(Death.serializer(), death))
     Unit
   }
 
@@ -581,7 +591,7 @@ class Service<C>(
     json.decodeFromString<Deleted>(send("/api/v2/users/${path(userId)}/memories$suffix", "DELETE")).deleted
   }
 
-  private fun path(segment: String) = java.net.URLEncoder.encode(segment, Charsets.UTF_8).replace("+", "%20")
+  private fun path(segment: String) = URLEncoder.encode(segment, Charsets.UTF_8).replace("+", "%20")
 
   private fun send(path: String, method: String, body: String? = null): String {
     identity?.ensure()

@@ -1,8 +1,11 @@
 package chat.allay.core.tools
 
+import chat.allay.core.Lang
+
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -64,7 +67,7 @@ class CommandCatalog<H>(entries: List<Entry<H>>) {
       val usages = usage(entries)
       return JsonArray(entries.map { json(it, usages[it] ?: it.usage, blocked) })
     }
-    fun listed(found: List<Entry<H>>, most: Int, head: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) = buildJsonObject {
+    fun listed(found: List<Entry<H>>, most: Int, head: JsonObjectBuilder.() -> Unit) = buildJsonObject {
       head()
       put("commands", json(found.take(most)))
       if (found.size > most) put("more", found.size - most)
@@ -98,7 +101,7 @@ class CommandCatalog<H>(entries: List<Entry<H>>) {
    * backend's, before `/askx` answers) checks whole command lines through [check]; otherwise [answer].
    */
   fun run(
-    lang: chat.allay.core.Lang,
+    lang: Lang,
     args: JsonObject,
     hidden: Set<String>,
     blocked: Set<String>,

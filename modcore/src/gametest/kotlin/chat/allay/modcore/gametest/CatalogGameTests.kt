@@ -12,6 +12,7 @@ import chat.allay.modcore.ModPlayer
 import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -23,9 +24,11 @@ import kotlinx.serialization.json.put
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.Registries
 import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.enchantment.Enchantment
 import net.minecraft.world.item.enchantment.EnchantmentHelper
 import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.item.enchantment.ItemEnchantments
@@ -88,22 +91,22 @@ class CatalogGameTests {
   @GameTest
   fun severalThingsAreLookedUpAtOnce(helper: GameTestHelper) {
     val asker = survivor(helper)
-    val found = result(asker, "search_items", buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray(listOf("ruby", "infestation", "unobtainium").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
+    val found = result(asker, "search_items", buildJsonObject { put("queries", JsonArray(listOf("ruby", "infestation", "unobtainium").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
     equal(helper, found.map { it["query"]!!.jsonPrimitive.content }, listOf("ruby", "infestation", "unobtainium"), "each name in its place")
     equal(helper, found[0]["matches"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content, "allay_gametest:ruby", "the pack's item")
     equal(helper, found[1]["matches"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content, "infested", "the potion")
     helper.assertTrue(found[2]["matches"]!!.jsonArray.isEmpty() && "note" in found[2], "nothing, with a note: ${found[2]}")
-    val made = result(asker, "get_recipes", buildJsonObject { put("items", kotlinx.serialization.json.JsonArray(listOf("Ruby", "Potion of Infestation", "stick").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
+    val made = result(asker, "get_recipes", buildJsonObject { put("items", JsonArray(listOf("Ruby", "Potion of Infestation", "stick").map(::JsonPrimitive))) })["results"]!!.jsonArray.map { it.jsonObject }
     equal(helper, made[0]["item"]!!.jsonPrimitive.content, "allay_gametest:ruby", "the ruby's recipe")
     helper.assertTrue(made[1]["error"]!!.jsonPrimitive.content.endsWith("call get_brewing_recipe with infested"), "the potion goes to brewing: ${made[1]}")
     helper.assertTrue(made[2]["recipes"]!!.jsonArray.size in 1..3, "a stick's recipes, three at most: ${made[2]}")
-    val tooMany = refused { run(asker, "search_items", buildJsonObject { put("queries", kotlinx.serialization.json.JsonArray((1..9).map { JsonPrimitive("stone$it") })) }) }
+    val tooMany = refused { run(asker, "search_items", buildJsonObject { put("queries", JsonArray((1..9).map { JsonPrimitive("stone$it") })) }) }
     equal(helper, tooMany, "ask for at most 8 at once", "nine names are too many")
     asker.discard()
     helper.succeed()
   }
 
-  private fun enchanted(player: ServerPlayer, item: ItemStack, book: Boolean, vararg enchantments: Pair<net.minecraft.resources.ResourceKey<net.minecraft.world.item.enchantment.Enchantment>, Int>): ItemStack {
+  private fun enchanted(player: ServerPlayer, item: ItemStack, book: Boolean, vararg enchantments: Pair<ResourceKey<Enchantment>, Int>): ItemStack {
     val registry = player.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
     val mutable = ItemEnchantments.Mutable(ItemEnchantments.EMPTY)
     enchantments.forEach { (key, level) -> mutable.set(registry.getOrThrow(key), level) }
@@ -124,7 +127,7 @@ class CatalogGameTests {
     equal(helper, result(asker, "get_anvil_plan", buildJsonObject { put("item", "diamond sword") })["slot"]!!.jsonPrimitive.int, 12, "the sword by name")
     // A slot given that holds nothing for the sword is passed over, not a reason to plan nothing.
     asker.inventory.setItem(7, ItemStack(Items.COBBLESTONE, 4))
-    val unfit = result(asker, "get_anvil_plan", buildJsonObject { put("slot", 12); put("slots", kotlinx.serialization.json.JsonArray(listOf(5, 7).map(::JsonPrimitive))) })
+    val unfit = result(asker, "get_anvil_plan", buildJsonObject { put("slot", 12); put("slots", JsonArray(listOf(5, 7).map(::JsonPrimitive))) })
     equal(helper, unfit["unfit_slots"]!!.jsonArray.map { it.jsonPrimitive.int }, listOf(7), "the cobblestone passed over: $unfit")
     // A bow the player wears nothing for, and a book for it too: two items gain, and the player picks.
     asker.inventory.setItem(20, ItemStack(Items.BOW))

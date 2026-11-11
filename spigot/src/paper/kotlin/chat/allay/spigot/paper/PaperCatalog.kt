@@ -2,9 +2,12 @@ package chat.allay.spigot.paper
 
 import io.papermc.paper.datacomponent.DataComponentTypes
 import io.papermc.paper.datapack.DatapackSource
+import io.papermc.paper.event.server.ServerResourcesReloadedEvent
 import net.kyori.adventure.text.TranslatableComponent
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.Bukkit
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
 import org.bukkit.inventory.BrewingRecipe
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.RecipeChoice
@@ -15,11 +18,11 @@ import org.bukkit.inventory.RecipeChoice
  */
 object PaperCatalog {
   /** Calls [changed] whenever Paper reloads the data packs, recipes and all: `/minecraft:reload`, a pack switched on. */
-  fun reloads(changed: () -> Unit): org.bukkit.event.Listener = Reloads(changed)
+  fun reloads(changed: () -> Unit): Listener = Reloads(changed)
 
-  class Reloads(private val changed: () -> Unit) : org.bukkit.event.Listener {
-    @org.bukkit.event.EventHandler
-    fun reloaded(event: io.papermc.paper.event.server.ServerResourcesReloadedEvent) = changed()
+  class Reloads(private val changed: () -> Unit) : Listener {
+    @EventHandler
+    fun reloaded(event: ServerResourcesReloadedEvent) = changed()
   }
 
   /** A brew as Paper describes it: the bottle below, the reagent on top, and what comes out. */

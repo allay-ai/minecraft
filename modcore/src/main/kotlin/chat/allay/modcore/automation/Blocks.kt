@@ -16,6 +16,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.tags.BlockTags
@@ -24,6 +25,7 @@ import net.minecraft.world.Container
 import net.minecraft.world.entity.decoration.ItemFrame
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.EmptyBlockGetter
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks as GameBlocks
 import net.minecraft.world.level.block.ChestBlock
 import net.minecraft.world.level.block.HopperBlock
@@ -51,7 +53,7 @@ object Blocks {
   fun place(block: BlockAt) = "${Worlds.name(block.level)}:${block.x},${block.y},${block.z}"
 
   /** The block a [place] names on [server], or null when its world is gone. */
-  fun at(server: net.minecraft.server.MinecraftServer, place: String): BlockAt? {
+  fun at(server: MinecraftServer, place: String): BlockAt? {
     val level = server.allLevels.firstOrNull { Worlds.name(it) == place.substringBeforeLast(':') } ?: return null
     val (x, y, z) = place.substringAfterLast(':').split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } ?: return null
     return level.at(x, y, z)
@@ -125,13 +127,13 @@ object Blocks {
 
   /** Whether any face of [block] touches a block that lets the view through: one sealed in stone can't be seen at all. */
   fun exposed(block: BlockAt): Boolean =
-    net.minecraft.core.Direction.entries.any { !occluding(block.level.getBlockState(block.pos.relative(it))) }
+    Direction.entries.any { !occluding(block.level.getBlockState(block.pos.relative(it))) }
 
   /**
    * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
    * any opaque full block.
    */
-  private fun clear(target: BlockAt?, level: net.minecraft.world.level.Level, from: Vec3, to: Vec3): Boolean {
+  private fun clear(target: BlockAt?, level: Level, from: Vec3, to: Vec3): Boolean {
     val line = to.subtract(from)
     val steps = (line.length() / SIGHT_STEP).toInt().coerceAtLeast(1)
     var last: BlockPos? = null

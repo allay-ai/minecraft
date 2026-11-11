@@ -1,6 +1,7 @@
 package chat.allay.modcore.automation
 
 import chat.allay.core.Legacy
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.*
 import chat.allay.modcore.Sounds
 import chat.allay.modcore.tools.Anvils
@@ -61,7 +62,7 @@ object AnvilWork {
       val task = context.requireTask()
       val automation = context.features.automation
       val settings = automation.settings()
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       val apply = when (val action = args.string("action")?.lowercase()) {
         "plan", null -> false
         "apply" -> true

@@ -2,6 +2,7 @@ package chat.allay.modcore.menus
 
 import chat.allay.core.*
 import chat.allay.modcore.Hooks
+import chat.allay.modcore.Mod
 import chat.allay.modcore.Sounds
 import chat.allay.modcore.Texts
 
@@ -80,7 +81,7 @@ abstract class Menu(val player: ServerPlayer, size: Int, private val title: Stri
     fun start() {
       var ticks = 0
       Hooks.tick += {
-        if (++ticks % 20 == 0) chat.allay.modcore.Mod.platform?.server?.playerList?.players?.forEach { (it.containerMenu as? View)?.menu?.tick() }
+        if (++ticks % 20 == 0) Mod.platform?.server?.playerList?.players?.forEach { (it.containerMenu as? View)?.menu?.tick() }
       }
     }
 

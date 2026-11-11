@@ -5,6 +5,9 @@ import chat.allay.core.tools.TimeZones
 import chat.allay.spigot.audience
 import chat.allay.spigot.of
 
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Locale
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -23,11 +26,11 @@ class ZoneMenu(
   /** The country whose zones show, or null while the countries do. */
   private var country: String? = zones.country(player.uniqueId)?.uppercase()?.takeIf { TimeZones.zonesOf(it).isNotEmpty() }
   private var page = 0
-  private val locale get() = java.util.Locale.forLanguageTag(locales.code(player.audience).replace('_', '-'))
+  private val locale get() = Locale.forLanguageTag(locales.code(player.audience).replace('_', '-'))
 
   private fun entries(): List<String> = country?.let { code ->
     // The main zone first, then east to west as the clock goes.
-    TimeZones.zonesOf(code).let { all -> listOf(all.first()) + all.drop(1).sortedBy { java.time.ZoneId.of(it).rules.getOffset(java.time.Instant.now()) }.reversed() }
+    TimeZones.zonesOf(code).let { all -> listOf(all.first()) + all.drop(1).sortedBy { ZoneId.of(it).rules.getOffset(Instant.now()) }.reversed() }
   } ?: TimeZones.countries(locale)
 
   private val pages get() = maxOf(1, (entries().size + SLOTS - 1) / SLOTS)

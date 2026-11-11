@@ -8,6 +8,7 @@ import chat.allay.core.tasks.Need
 import chat.allay.core.tasks.Parked
 import chat.allay.core.tasks.Reservations
 import chat.allay.core.tasks.SourceScope
+import chat.allay.core.tasks.Task
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.ToolError
 import kotlinx.coroutines.CoroutineScope
@@ -17,9 +18,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.logging.Logger
@@ -47,7 +50,7 @@ class AgentStoreTest {
   @Test fun `an agent brought back keeps its id, and its id never names another`() {
     val ids = ArrayDeque(listOf("k3f9ab", "zz2222"))
     val book = TaskBook({ 2 }, newId = { ids.removeFirst() })
-    val back = chat.allay.core.tasks.Task("k3f9ab", player, "Печи", Kind.FURNACES, 1, null, "smelt", 0)
+    val back = Task("k3f9ab", player, "Печи", Kind.FURNACES, 1, null, "smelt", 0)
     book.adopt(back)
     assertEquals(back, book.find(player, "k3f9ab"))
     // The next agent can't take the id the one brought back holds.
@@ -79,7 +82,7 @@ class AgentStoreTest {
     )
     val written = json.encodeToJsonElement(AgentSnapshot.serializer(), snapshot).jsonObject
     assertEquals(snapshot, json.decodeFromJsonElement(AgentSnapshot.serializer(), written))
-    val newer = JsonObject(written + ("mood" to kotlinx.serialization.json.JsonPrimitive("cheerful")))
+    val newer = JsonObject(written + ("mood" to JsonPrimitive("cheerful")))
     assertEquals(snapshot, json.decodeFromJsonElement(AgentSnapshot.serializer(), newer))
   }
 
@@ -97,7 +100,7 @@ class AgentStoreTest {
       if (gone) throw ApiErrorException(ApiError("HTTP_ERROR", "not found", statusCode = 404))
       if (failures > 0) {
         failures--
-        throw java.io.IOException("connection reset")
+        throw IOException("connection reset")
       }
       saved += agents
     }

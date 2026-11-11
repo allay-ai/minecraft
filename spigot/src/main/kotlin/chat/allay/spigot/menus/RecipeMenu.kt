@@ -4,6 +4,7 @@ import chat.allay.core.*
 import chat.allay.core.tools.*
 
 import org.bukkit.Bukkit
+import org.bukkit.Keyed
 import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.entity.Player
@@ -151,7 +152,7 @@ class RecipeMenu(player: Player, private val lang: Lang, first: Target) : Menu(p
     fun recipesFor(target: Target): List<Recipe> = if (!target.base.isItem || target.base.isAir) emptyList() else
       Bukkit.getRecipesFor(ItemStack(target.base)).filter {
         (it is ShapedRecipe || it is ShapelessRecipe || it is CookingRecipe<*> || it is StonecuttingRecipe || it is SmithingTransformRecipe) && Catalogs.id(it.result) == target.id
-      }.distinctBy { it.javaClass to (it as? org.bukkit.Keyed)?.key }
+      }.distinctBy { it.javaClass to (it as? Keyed)?.key }
 
     private fun items(choice: RecipeChoice): List<ItemStack> = when (choice) {
       is RecipeChoice.MaterialChoice -> choice.choices.filter { it.isItem }.map(::ItemStack)

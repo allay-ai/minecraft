@@ -1,5 +1,9 @@
 package chat.allay.modcore
 
+import eu.pb4.common.protection.api.CommonProtection
+import io.github.flemmli97.flan.api.ClaimHandler
+import io.github.flemmli97.flan.api.permission.BuiltinPermission
+import io.github.flemmli97.flan.claim.Claim
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.server.level.ServerLevel
@@ -73,24 +77,24 @@ object Claims {
   // Only touched when Flan is loaded; its classes aren't there otherwise.
   private object Flan {
     fun open(player: ServerPlayer, pos: BlockPos) =
-      io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.OPENCONTAINER)
+      ClaimHandler.canInteract(player, pos, BuiltinPermission.OPENCONTAINER)
 
     fun build(player: ServerPlayer, pos: BlockPos) =
-      io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.PLACE) &&
-        io.github.flemmli97.flan.api.ClaimHandler.canInteract(player, pos, io.github.flemmli97.flan.api.permission.BuiltinPermission.BREAK)
+      ClaimHandler.canInteract(player, pos, BuiltinPermission.PLACE) &&
+        ClaimHandler.canInteract(player, pos, BuiltinPermission.BREAK)
 
     /** Outside any claim Flan answers with its global one. */
     fun claimed(level: ServerLevel, pos: BlockPos) =
-      io.github.flemmli97.flan.api.ClaimHandler.getPermissionStorage(level).getForPermissionCheck(pos) is io.github.flemmli97.flan.claim.Claim
+      ClaimHandler.getPermissionStorage(level).getForPermissionCheck(pos) is Claim
   }
 
   // Only touched when the API is loaded; its classes aren't there otherwise.
   private object Api {
-    fun claimed(level: Level, pos: BlockPos) = eu.pb4.common.protection.api.CommonProtection.isProtected(level, pos)
-    fun interact(player: ServerPlayer, level: Level, pos: BlockPos) = eu.pb4.common.protection.api.CommonProtection.canInteractBlock(level, pos, player.nameAndId(), player)
+    fun claimed(level: Level, pos: BlockPos) = CommonProtection.isProtected(level, pos)
+    fun interact(player: ServerPlayer, level: Level, pos: BlockPos) = CommonProtection.canInteractBlock(level, pos, player.nameAndId(), player)
     fun build(player: ServerPlayer, level: Level, pos: BlockPos) =
-      eu.pb4.common.protection.api.CommonProtection.canPlaceBlock(level, pos, player.nameAndId(), player) &&
-        eu.pb4.common.protection.api.CommonProtection.canBreakBlock(level, pos, player.nameAndId(), player)
+      CommonProtection.canPlaceBlock(level, pos, player.nameAndId(), player) &&
+        CommonProtection.canBreakBlock(level, pos, player.nameAndId(), player)
   }
 
   /**

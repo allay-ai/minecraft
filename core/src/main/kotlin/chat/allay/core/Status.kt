@@ -1,6 +1,7 @@
 package chat.allay.core
 
 import java.util.Locale
+import kotlin.random.Random
 
 /** What a run is doing right now, as the action bar shows it. */
 enum class Phase { THINKING, ANSWERING }
@@ -45,7 +46,7 @@ class StatusFormat(private val lang: Lang) {
 
 /** Picks the verb for a moment in time; it changes every few seconds, never twice in a row the same. */
 class Verbs(private val verbs: List<String>, private val intervalMillis: Long, seed: Int) {
-  private val order = verbs.indices.shuffled(kotlin.random.Random(seed))
+  private val order = verbs.indices.shuffled(Random(seed))
 
   fun at(elapsedMillis: Long): String {
     if (verbs.isEmpty()) return "…"

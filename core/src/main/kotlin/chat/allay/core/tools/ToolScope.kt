@@ -4,6 +4,7 @@ import chat.allay.core.Audience
 import chat.allay.core.ChatMode
 import chat.allay.core.Clicks
 import chat.allay.core.Config
+import chat.allay.core.Expansions
 import chat.allay.core.Lang
 import chat.allay.core.Locales
 import chat.allay.core.OtherPlayers
@@ -13,7 +14,9 @@ import chat.allay.core.PlayerData
 import chat.allay.core.PlayerSettings
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Task
+import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * What tools keep between calls on every platform, built once and shared by every run. Limits are read on use, so
@@ -38,7 +41,7 @@ open class ToolServices(
   /** Automation agents, where the platform runs them. */
   val agents: Agents?,
   /** Other plugins' and mods' expansions: their items and recipes join the catalog. */
-  val expansions: chat.allay.core.Expansions? = null,
+  val expansions: Expansions? = null,
   /** The game's names in every language, once Allay has started. */
   val names: () -> GameNames? = { null },
   /** Buttons outside an answer, such as the way on under a trail that went out; null before Allay has started. */
@@ -53,14 +56,14 @@ open class ToolServices(
 open class ToolScope(
   val asker: Audience,
   val services: ToolServices,
-  val buttons: MutableList<Button> = java.util.Collections.synchronizedList(mutableListOf()),
+  val buttons: MutableList<Button> = Collections.synchronizedList(mutableListOf()),
   /** The automation agent whose wake this is; null in the main chat. */
   val task: Task? = null,
   /** Other players' labels for this run. */
   val others: OtherPlayers = OtherPlayers(),
 ) {
   /** Lines `send_message` sent in this run. */
-  val sent = java.util.concurrent.atomic.AtomicInteger()
+  val sent = AtomicInteger()
 
   /** The asker's language, for the summaries under tool lines. */
   val lang: Lang get() = services.locales.of(asker)

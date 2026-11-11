@@ -5,9 +5,11 @@ import chat.allay.core.tools.*
 import chat.allay.modcore.Claims
 import chat.allay.modcore.Texts
 import chat.allay.modcore.automation.Blocks
+import chat.allay.modcore.mixin.BrewingAccess
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -17,6 +19,7 @@ import kotlinx.serialization.json.putJsonObject
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.Container
 import net.minecraft.world.Nameable
+import net.minecraft.world.RandomizableContainer
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
@@ -40,7 +43,7 @@ object InspectTools {
    * an unopened structure chest stays out of every count, as anti-xray hides it.
    */
   private class Reach(val containers: List<Found>, val locked: Int, val unloaded: Int) {
-    fun report(into: kotlinx.serialization.json.JsonObjectBuilder) {
+    fun report(into: JsonObjectBuilder) {
       if (locked > 0) into.put("locked_containers", locked)
       if (unloaded > 0) into.put("unloaded_chunks", unloaded)
     }
@@ -53,7 +56,7 @@ object InspectTools {
   private fun containersNear(player: ServerPlayer, radius: Int): Reach {
     val (open, closed) = Blocks.near(player, radius) { Blocks.container(it) != null }.distinctBy { Blocks.root(it).pos }
       .partition { Claims.mayOpen(player, it.level, it.pos) }
-    val locked = closed.count { (it.entity as? net.minecraft.world.RandomizableContainer)?.lootTable == null }
+    val locked = closed.count { (it.entity as? RandomizableContainer)?.lootTable == null }
     return Reach(open.mapNotNull { block -> Blocks.inventory(block)?.let { Found(block, it) } }, locked, Blocks.unloaded(player, radius))
   }
 
@@ -273,7 +276,7 @@ object InspectTools {
       put("brewing_stands", buildJsonArray {
         stands.forEach { block ->
           val stand = block.entity as BrewingStandBlockEntity
-          val access = stand as chat.allay.modcore.mixin.BrewingAccess
+          val access = stand as BrewingAccess
           add(buildJsonObject {
             place(block.x, block.y, block.z, player)
             put("fuel_level", access.`allay$fuel`())

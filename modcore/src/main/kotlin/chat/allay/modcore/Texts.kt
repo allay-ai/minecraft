@@ -9,6 +9,7 @@ import net.minecraft.network.chat.HoverEvent
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import java.net.URI
+import java.util.Optional
 
 /** The core's `§` texts and lines as the game's components, styled as Bukkit draws them ([Legacy.runs]). */
 object Texts {
@@ -49,7 +50,7 @@ object Texts {
         out.append(codes(style))
         out.append(text)
       }
-      java.util.Optional.empty<Unit>()
+      Optional.empty<Unit>()
     }, Style.EMPTY)
     return out.toString()
   }

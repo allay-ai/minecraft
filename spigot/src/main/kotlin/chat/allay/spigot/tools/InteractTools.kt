@@ -73,7 +73,7 @@ object InteractTools {
         Button.Brewing(label, target.potion, target.item)
       }
       "anvil" -> {
-        val slots = (args["slots"] as? JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() }
+        val slots = (args["slots"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content?.toIntOrNull() }
         val target = args.int("slot")?.takeIf { it in AnvilTargets.ALL }
         Anvils.plan(player, slots, target ?: player.inventory.heldItemSlot) ?: throw ToolError("nothing in the inventory improves that item; don't offer an anvil button")
         Button.Anvil(label, slots, target)

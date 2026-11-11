@@ -7,7 +7,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.bukkit.Bukkit
 import org.bukkit.GameMode
+import org.bukkit.Keyed
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -17,6 +19,7 @@ import org.bukkit.attribute.Attribute
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.EnchantmentStorageMeta
+import org.bukkit.inventory.meta.PotionMeta
 import org.bukkit.potion.PotionEffect
 import chat.allay.core.tools.Facts.round1
 
@@ -42,7 +45,7 @@ object OperatorTools {
   private fun key(id: String) = NamespacedKey.fromString(id) ?: throw ToolError("$id is not a valid id")
 
   /** The keys of a registry, as tools name them, for close matches in a refusal. */
-  private fun keys(registry: Registry<*>) = registry.mapNotNull { (it as? org.bukkit.Keyed)?.key?.key }
+  private fun keys(registry: Registry<*>) = registry.mapNotNull { (it as? Keyed)?.key?.key }
 
   /**
    * What `give_item` hands out: the game's item, or a plugin's or data pack's item (`redbull:original`) as its recipe
@@ -53,7 +56,7 @@ object OperatorTools {
     if (id in SpecialRecipes.FIREWORK_ITEMS && firework != null) return FireworkItems.of(id, Fireworks.parse(firework, id == "firework_star"), 1)
     val custom = Catalogs.build(context).find(id, Catalog.Kind.CUSTOM)
     if (custom != null) {
-      return org.bukkit.Bukkit.recipeIterator().asSequence().map { it.result }.firstOrNull { !it.type.isAir && Catalogs.id(it) == custom.id }?.clone()?.apply { amount = 1 }
+      return Bukkit.recipeIterator().asSequence().map { it.result }.firstOrNull { !it.type.isAir && Catalogs.id(it) == custom.id }?.clone()?.apply { amount = 1 }
         ?: throw ToolError("${custom.id} comes from ${custom.source} and has no recipe to copy it from; look for that plugin's own command with search_commands")
     }
     val material = Material.matchMaterial(id)?.takeIf { it.isItem && !it.isAir }
@@ -66,7 +69,7 @@ object OperatorTools {
       if (material.key.key !in OperatorArgs.POTION_ITEMS) throw ToolError("potion goes only with ${OperatorArgs.POTION_ITEMS.joinToString()}")
       val wanted = OperatorArgs.id(potion) ?: potion
       val type = Registry.POTION.get(key(wanted)) ?: throw ToolError("no potion called $wanted; close ones: ${Names.close(wanted, keys(Registry.POTION)).joinToString().ifEmpty { "none" }}")
-      val meta = stack.itemMeta as org.bukkit.inventory.meta.PotionMeta
+      val meta = stack.itemMeta as PotionMeta
       meta.basePotionType = type
       stack.itemMeta = meta
     }
@@ -106,7 +109,7 @@ object OperatorTools {
     val given = Catalogs.id(template)
     val result = buildJsonObject {
       put("item", given)
-      args.string("potion")?.let { put("potion", (template.itemMeta as? org.bukkit.inventory.meta.PotionMeta)?.basePotionType?.key?.key) }
+      args.string("potion")?.let { put("potion", (template.itemMeta as? PotionMeta)?.basePotionType?.key?.key) }
       put("count", count)
       if (dropped > 0) put("dropped_at_feet", dropped)
     }

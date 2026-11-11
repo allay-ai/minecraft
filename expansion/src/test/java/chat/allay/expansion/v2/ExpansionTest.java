@@ -11,6 +11,7 @@ import chat.allay.expansion.ToolCall;
 import chat.allay.expansion.ToolException;
 import chat.allay.expansion.ToolResult;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -169,7 +170,7 @@ class ExpansionTest {
   }
 
   private static Map<String, Object> withoutNulls(Map<String, Object> data) {
-    Map<String, Object> out = new java.util.LinkedHashMap<>();
+    Map<String, Object> out = new LinkedHashMap<>();
     data.forEach((key, value) -> {
       if (value instanceof List<?> list) {
         out.put(key, list.stream().map(it -> it instanceof Map<?, ?> map ? withoutNulls(cast(map)) : it).toList());

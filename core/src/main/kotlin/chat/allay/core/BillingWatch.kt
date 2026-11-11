@@ -1,5 +1,7 @@
 package chat.allay.core
 
+import java.time.ZoneId
+
 /**
  * Polls the subscription every 5 minutes, off the server thread, and tells operators online (and the console) about a
  * payment, a quota past 80% and 100%, and an end three days off. `subscription.json` keeps what they heard across restarts.
@@ -47,7 +49,7 @@ class BillingWatch(
     platform.log.info(Legacy.strip(Legacy.color(text(locales.of(console), notice, commands.zone(console)))))
   }
 
-  private fun text(lang: Lang, notice: Notice, zone: java.time.ZoneId): String = when (notice) {
+  private fun text(lang: Lang, notice: Notice, zone: ZoneId): String = when (notice) {
     is Notice.Paid -> lang.text("billing.notice.paid", "date" to (BillingDates.format(lang, notice.until, zone) ?: "?"))
     is Notice.Quota -> {
       val key = if (notice.level >= 100) "billing.notice.quota_100" else "billing.notice.quota_80"

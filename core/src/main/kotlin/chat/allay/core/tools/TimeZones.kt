@@ -1,7 +1,12 @@
 package chat.allay.core.tools
 
 import chat.allay.core.PlayerData
+import java.text.Collator
+import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
 
 /**
@@ -49,24 +54,24 @@ class TimeZones(private val data: PlayerData, private val country: (UUID) -> Str
     fun zonesOf(country: String): List<String> = COUNTRIES[country.uppercase()].orEmpty()
 
     /** Every country with zones, by ISO code, sorted by its name in [locale]. */
-    fun countries(locale: java.util.Locale): List<String> =
-      COUNTRIES.keys.sortedWith(compareBy(java.text.Collator.getInstance(locale)) { countryName(it, locale) })
+    fun countries(locale: Locale): List<String> =
+      COUNTRIES.keys.sortedWith(compareBy(Collator.getInstance(locale)) { countryName(it, locale) })
 
     /** A country's name in [locale], as the JDK knows it: «Россия» for `RU`. */
-    fun countryName(country: String, locale: java.util.Locale): String =
-      java.util.Locale.of("", country).getDisplayCountry(locale).ifEmpty { country }
+    fun countryName(country: String, locale: Locale): String =
+      Locale.of("", country).getDisplayCountry(locale).ifEmpty { country }
 
     /**
      * A zone as a player reads it in [locale]: the JDK's name for it (“Yekaterinburg Standard Time”), the city where
      * its id names one, the offset from UTC now, and the time there now.
      */
-    fun label(zone: String, locale: java.util.Locale, now: java.time.Instant = java.time.Instant.now()): Label {
+    fun label(zone: String, locale: Locale, now: Instant = Instant.now()): Label {
       val id = parse(zone) ?: return Label(zone, zone, "", "")
       val at = now.atZone(id)
-      val name = java.util.TimeZone.getTimeZone(id).getDisplayName(id.rules.isDaylightSavings(now), java.util.TimeZone.LONG, locale)
+      val name = TimeZone.getTimeZone(id).getDisplayName(id.rules.isDaylightSavings(now), TimeZone.LONG, locale)
       val offset = at.offset.id.let { if (it == "Z") "UTC" else "UTC$it" }
       val city = zone.substringAfterLast('/').replace('_', ' ')
-      return Label(name, city, offset, at.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")))
+      return Label(name, city, offset, at.format(DateTimeFormatter.ofPattern("HH:mm")))
     }
 
     /** What a zone's icon says: its [name] and [city], how far it is from UTC, and the [time] there. */

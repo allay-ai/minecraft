@@ -2,6 +2,7 @@ package chat.allay.core.tools
 
 import chat.allay.core.Permissions
 import chat.allay.core.Settings
+import chat.allay.core.tasks.Kind
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
@@ -50,7 +51,7 @@ object AllayTools {
           if (asker.operator && OPERATOR_TOOLS.any(config.tools::enabled)) add("operator_tools")
           // Automation the player may start here: their permissions and the server's switches together.
           services.agents?.takeIf { asker.uuid != null }?.let { agents ->
-            chat.allay.core.tasks.Kind.entries.filter { agents.allowed(asker, it) == null && config.tools.enabled("start_task") }
+            Kind.entries.filter { agents.allowed(asker, it) == null && config.tools.enabled("start_task") }
               .forEach { add("automation_${it.wire}") }
           }
         })

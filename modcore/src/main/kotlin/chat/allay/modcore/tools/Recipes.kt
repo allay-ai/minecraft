@@ -19,6 +19,7 @@ import net.minecraft.world.item.crafting.SingleItemRecipe
 import net.minecraft.world.item.crafting.SmithingTransformRecipe
 import net.minecraft.world.item.crafting.SmokingRecipe
 import net.minecraft.world.item.crafting.StonecutterRecipe
+import net.minecraft.world.item.crafting.TransmuteRecipe
 
 /**
  * This server's recipes as Bukkit's `getRecipesFor` and its recipe classes give them: what each makes, and its
@@ -45,7 +46,7 @@ object Recipes {
     is SingleItemRecipe -> (recipe as RecipeAccess.Single).`allay$result`().create()
     is SmithingTransformRecipe -> (recipe as RecipeAccess.Smithing).`allay$result`().create()
     // A transmute that keeps its input's kind (map cloning) has no item of its own.
-    is net.minecraft.world.item.crafting.TransmuteRecipe -> (recipe as RecipeAccess.Transmute).`allay$result`().item().map { ItemStack(it) }.orElse(null)
+    is TransmuteRecipe -> (recipe as RecipeAccess.Transmute).`allay$result`().item().map { ItemStack(it) }.orElse(null)
     else -> null
   }
 

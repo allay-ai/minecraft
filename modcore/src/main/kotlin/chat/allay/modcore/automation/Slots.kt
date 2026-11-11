@@ -1,5 +1,6 @@
 package chat.allay.modcore.automation
 
+import chat.allay.modcore.tools.BlockAt
 import chat.allay.modcore.tools.Recipes
 
 import net.minecraft.server.level.ServerPlayer
@@ -74,7 +75,7 @@ internal object Slots {
   fun add(player: ServerPlayer, item: ItemStack): ItemStack? = add(player.inventory, STORAGE, item)
 
   /** Drops [item] on top of [block], as Bukkit's `dropItemNaturally` there. */
-  fun drop(block: chat.allay.modcore.tools.BlockAt, item: ItemStack) {
+  fun drop(block: BlockAt, item: ItemStack) {
     val entity = ItemEntity(block.level, block.x + 0.5, block.y + 1.0, block.z + 0.5, item.copy())
     entity.setDefaultPickUpDelay()
     block.level.addFreshEntity(entity)

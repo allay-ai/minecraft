@@ -2,6 +2,7 @@ package chat.allay.modcore.tools
 
 import chat.allay.core.*
 import chat.allay.core.tools.*
+import chat.allay.modcore.Claims
 import chat.allay.modcore.Names
 import chat.allay.modcore.Vanish
 
@@ -24,6 +25,7 @@ import net.minecraft.world.entity.monster.Enemy
 import net.minecraft.world.entity.npc.villager.Villager
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
 import chat.allay.core.tools.Facts.round1
 
@@ -115,7 +117,7 @@ object PlayerTools {
   const val ENTITY_RADIUS = 32.0
 
   /** Blocks that count only where the player sees them: what anti-xray hides ([Marks.secret]), and a geode's heart. */
-  private fun inSightOnly(state: net.minecraft.world.level.block.state.BlockState) =
+  private fun inSightOnly(state: BlockState) =
     Marks.secret(state) || state.`is`(net.minecraft.world.level.block.Blocks.BUDDING_AMETHYST)
 
   /** Containers count only when the player could open them, as every tool that reads one asks. */
@@ -148,7 +150,7 @@ object PlayerTools {
     var checks = 0
     guarded.sortedBy { it.second }.forEach { (block, distance) ->
       val shown = if (inSightOnly(block.state)) chat.allay.modcore.automation.Blocks.exposed(block) && checks++ < SIGHT_CHECKS && chat.allay.modcore.automation.Blocks.sees(player, block)
-        else chat.allay.modcore.Claims.mayOpen(player, block.level, block.pos)
+        else Claims.mayOpen(player, block.level, block.pos)
       if (!shown) return@forEach
       counts.merge(block.state.block, 1, Int::plus)
       found += block to distance

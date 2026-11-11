@@ -11,10 +11,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import org.bukkit.Bukkit
 import org.bukkit.FluidCollisionMode
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Tag
+import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.Container
@@ -29,6 +31,7 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.DoubleChestInventory
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.ItemStack
+import org.bukkit.util.Vector
 
 /** What automation needs to know about blocks: which may be used, what's written on them, and who could see them. */
 object Blocks {
@@ -42,7 +45,7 @@ object Blocks {
 
   /** The block a [place] names, or null when its world is gone. */
   fun at(place: String): Block? {
-    val world = org.bukkit.Bukkit.getWorld(place.substringBeforeLast(':')) ?: return null
+    val world = Bukkit.getWorld(place.substringBeforeLast(':')) ?: return null
     val (x, y, z) = place.substringAfterLast(':').split(',').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 3 } ?: return null
     return world.getBlockAt(x, y, z)
   }
@@ -86,9 +89,9 @@ object Blocks {
     val eyes = player.eyeLocation
     if (eyes.world != block.world) return false
     val from = eyes.toVector()
-    val views = listOf(from) + STEPS.map { (x, z) -> from.clone().add(org.bukkit.util.Vector(x * ASIDE, 0.0, z * ASIDE)) }
+    val views = listOf(from) + STEPS.map { (x, z) -> from.clone().add(Vector(x * ASIDE, 0.0, z * ASIDE)) }
       .filter { view -> clear(null, block.world, from, view) && !block.world.getBlockAt(view.blockX, view.blockY - 1, view.blockZ).type.isOccluding }
-    return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.world, view, block.location.toVector().add(org.bukkit.util.Vector(x, y, z))) } }
+    return views.any { view -> SIGHT_POINTS.any { (x, y, z) -> clear(block, block.world, view, block.location.toVector().add(Vector(x, y, z))) } }
   }
 
   /** Whether any face of [block] touches a block that lets the view through: one sealed in stone can't be seen at all. */
@@ -101,7 +104,7 @@ object Blocks {
    * Walks the line from [from] to [to] in small steps; true when it reaches [target] (or, without one, the end) before
    * any opaque full block.
    */
-  private fun clear(target: Block?, world: org.bukkit.World, from: org.bukkit.util.Vector, to: org.bukkit.util.Vector): Boolean {
+  private fun clear(target: Block?, world: World, from: Vector, to: Vector): Boolean {
     val line = to.clone().subtract(from)
     val steps = (line.length() / SIGHT_STEP).toInt().coerceAtLeast(1)
     var last: Triple<Int, Int, Int>? = null

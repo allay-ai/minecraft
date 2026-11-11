@@ -2,6 +2,7 @@ package chat.allay.modcore.gametest
 
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tasks.Task
 import chat.allay.modcore.Mod
 import chat.allay.modcore.ModPlayer
@@ -13,6 +14,8 @@ import chat.allay.modcore.tools.Recipes
 import chat.allay.modcore.tools.ToolContext
 import chat.allay.modcore.tools.at
 
+import java.util.Optional
+import java.util.UUID
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -108,7 +111,7 @@ class FixesGameTests {
   fun sourcesTakeFromThePlayerAfterARespawn(helper: GameTestHelper) {
     val player = survivor(helper)
     player.inventory.setItem(9, ItemStack(Items.COBBLESTONE, 10))
-    val sources = Sources.around(player, 4, chat.allay.core.tasks.SourceScope())
+    val sources = Sources.around(player, 4, SourceScope())
     val fresh = respawn(player)
     val taken = sources.list.first().take({ it.`is`(Items.COBBLESTONE) }, 4)
     equal(helper, taken.sumOf { it.count }, 4, "taken")
@@ -213,7 +216,7 @@ class FixesGameTests {
   fun giveItemDropsWhatDoesntFitInCreativeAndStoresABooksEnchantments(helper: GameTestHelper) {
     val asker = survivor(helper)
     val server = helper.level.server
-    server.playerList.op(NameAndId(asker.gameProfile), java.util.Optional.of(LevelBasedPermissionSet.GAMEMASTER), java.util.Optional.of(false))
+    server.playerList.op(NameAndId(asker.gameProfile), Optional.of(LevelBasedPermissionSet.GAMEMASTER), Optional.of(false))
     try {
       asker.setGameMode(GameType.CREATIVE)
       (0 until 36).forEach { asker.inventory.setItem(it, ItemStack(Items.DIRT, 64)) }
@@ -319,7 +322,7 @@ class FixesGameTests {
   @GameTest
   fun aPlayerWithoutASaveIsKnownByTheNameCache(helper: GameTestHelper) {
     val platform = Mod.platform!!
-    val id = java.util.UUID.randomUUID()
+    val id = UUID.randomUUID()
     equal(helper, platform.known(id.toString()), null, "a stranger")
     helper.level.server.services().nameToIdCache().add(NameAndId(id, "al-gone"))
     equal(helper, platform.known(id.toString()), id to "al-gone", "a player the name cache knows, without a file")

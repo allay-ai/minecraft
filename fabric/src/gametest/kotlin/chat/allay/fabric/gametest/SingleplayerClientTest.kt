@@ -1,7 +1,10 @@
 package chat.allay.fabric.gametest
 
+import chat.allay.core.Permissions
 import chat.allay.core.tools.TrailClock
+import chat.allay.fabric.client.AllayClient
 import chat.allay.modcore.Mod
+import chat.allay.modcore.Perms
 import chat.allay.modcore.tools.Trails
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest
@@ -41,10 +44,10 @@ class SingleplayerClientTest : FabricClientGameTest {
       check(inSave) { "the world's server id isn't inside the world's save" }
       check(shared) { "config.yml and license.key aren't shared in config/allay/" }
       val admin = world.server.computeOnServer<Boolean, RuntimeException> { server ->
-        chat.allay.modcore.Perms.check(server.playerList.players.single(), chat.allay.core.Permissions.ADMIN)
+        Perms.check(server.playerList.players.single(), Permissions.ADMIN)
       }
       check(admin) { "the world's owner can't link a license" }
-      check(context.computeOnClient<Boolean, RuntimeException> { !chat.allay.fabric.client.AllayClient.mine() }) { "the mod in the game answers instead of the game's own server" }
+      check(context.computeOnClient<Boolean, RuntimeException> { !AllayClient.mine() }) { "the mod in the game answers instead of the game's own server" }
       world.server.runCommand("allay status")
       context.waitTicks(20)
       compassInTheNether(context, world)
@@ -54,7 +57,7 @@ class SingleplayerClientTest : FabricClientGameTest {
     context.worldBuilder().createServer().use { server ->
       server.connect().use { connection ->
         connection.waitForChunksRender()
-        val local = context.computeOnClient<Boolean, RuntimeException> { chat.allay.fabric.client.AllayClient.mine() }
+        val local = context.computeOnClient<Boolean, RuntimeException> { AllayClient.mine() }
         check(!local) { "the mod in the player's game answered for a server that has Allay" }
       }
     }

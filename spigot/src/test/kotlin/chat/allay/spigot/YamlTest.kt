@@ -1,9 +1,11 @@
 package chat.allay.spigot
 
+import java.time.ZoneId
 import org.bukkit.configuration.file.YamlConfiguration
 import chat.allay.core.Config
 import chat.allay.core.Texts
 import chat.allay.core.YamlConfig
+import chat.allay.core.tools.TimeZones
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -109,8 +111,8 @@ class YamlTest {
         val expected = when (index) {
           // auto is this machine's zone.
           20 -> (value as String).trim().let { zone ->
-            if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) java.time.ZoneId.systemDefault().id
-            else zone.takeIf { chat.allay.core.tools.TimeZones.parse(it) != null } ?: "UTC"
+            if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) ZoneId.systemDefault().id
+            else zone.takeIf { TimeZones.parse(it) != null } ?: "UTC"
           }
           24 -> value ?: core[24]
           else -> value

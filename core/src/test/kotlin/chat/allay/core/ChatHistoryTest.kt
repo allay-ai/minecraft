@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.lang.reflect.Proxy
+import java.net.InetAddress
 import java.util.UUID
 import java.util.logging.Logger
 import kotlin.test.Test
@@ -19,7 +20,7 @@ class ChatHistoryTest {
     override val operator = false
     override val online = true
     override val locale = "en_us"
-    override val address: java.net.InetAddress? = null
+    override val address: InetAddress? = null
     override val position = Protocol.Position(0, 64, 0, "overworld")
     override fun can(permission: String) = true
     override fun send(text: String) {}

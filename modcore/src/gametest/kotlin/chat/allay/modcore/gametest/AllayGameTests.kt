@@ -1,9 +1,13 @@
 package chat.allay.modcore.gametest
 
+import chat.allay.core.tools.CLIENT_TOOLS
+import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.ToolError
 import chat.allay.modcore.Mod
 import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
+import chat.allay.modcore.tools.Tools
+import chat.allay.modcore.tools.Marks
 
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -36,8 +40,8 @@ class AllayGameTests {
 
   @GameTest
   fun theModOffersExactlyTheToolsOfTheProtocol(helper: GameTestHelper) {
-    equal(helper, chat.allay.modcore.tools.Tools.all().map { it.name }.toSet(), chat.allay.core.tools.CLIENT_TOOLS, "the tools")
-    equal(helper, chat.allay.modcore.tools.Tools.all().filter { it.operator }.map { it.name }.toSet(), chat.allay.core.tools.OPERATOR_TOOLS, "the operator tools")
+    equal(helper, Tools.all().map { it.name }.toSet(), CLIENT_TOOLS, "the tools")
+    equal(helper, Tools.all().filter { it.operator }.map { it.name }.toSet(), OPERATOR_TOOLS, "the operator tools")
     helper.succeed()
   }
 
@@ -103,7 +107,7 @@ class AllayGameTests {
     equal(helper, output.result.jsonObject["shown"]!!.jsonPrimitive.int, 1, "marks shown")
     equal(helper, asker.packets().count { it is ClientboundAddEntityPacket }, 2, "the asker's box and label")
     equal(helper, other.packets().count { it is ClientboundAddEntityPacket }, 0, "what anyone else sees")
-    helper.assertTrue(chat.allay.modcore.tools.Marks.clear(asker), "the marks go on cancel")
+    helper.assertTrue(Marks.clear(asker), "the marks go on cancel")
     asker.discard()
     other.discard()
     helper.succeed()

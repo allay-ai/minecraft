@@ -1,6 +1,7 @@
 package chat.allay.core
 
 import chat.allay.core.tools.ClientTool
+import chat.allay.core.tools.Death
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.tools.ToolOutput
 import chat.allay.core.tools.ToolRegistry
@@ -13,9 +14,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 import kotlin.io.path.createTempDirectory
@@ -47,7 +50,7 @@ class ReconnectTest {
       exchange.close()
     }
     // A stream may hold its request open while a tool's result comes in on another, as with the real backend.
-    server.executor = java.util.concurrent.Executors.newCachedThreadPool()
+    server.executor = Executors.newCachedThreadPool()
     server.start()
     servers += server
     return "http://127.0.0.1:${server.address.port}" to seen
@@ -84,7 +87,7 @@ class ReconnectTest {
     val data = PlayerData(object : PlayerData.Backend {
       override suspend fun state(userId: String): PlayerState? = null
       override suspend fun saveState(userId: String, state: PlayerState) {}
-      override suspend fun death(userId: String, death: chat.allay.core.tools.Death) {}
+      override suspend fun death(userId: String, death: Death) {}
     }, scope, null, log, { false }, { false }, { false })
     val host = object : Host<Unit> {
       override val log = this@ReconnectTest.log
@@ -197,7 +200,7 @@ class ReconnectTest {
     assertEquals(listOf(1L, 2L, 4L, 8L, 15L, 15L), (1..6).map(Retry::pause))
     var now = 0L
     val reach = Reach(30) { now }
-    val dropped = java.io.IOException("connection reset")
+    val dropped = IOException("connection reset")
     assertEquals(1L, reach.next(dropped))
     now = 20_000
     assertEquals(2L, reach.next(dropped))

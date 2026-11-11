@@ -8,16 +8,27 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
+import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.Permissions
+import net.minecraft.tags.FluidTags
+import net.minecraft.util.Mth
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items as GameItems
+import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.level.GameType
+import net.minecraft.world.level.levelgen.Heightmap
+import net.minecraft.world.level.gamerules.GameRules
+import net.minecraft.world.level.Level
 import chat.allay.core.tools.Facts.round1
 
 /**
@@ -44,7 +55,7 @@ object OperatorTools {
   private fun key(id: String) = Identifier.tryParse(id) ?: throw ToolError("$id is not a valid id")
 
   /** The ids of a registry, as tools name them, for close matches in a refusal. */
-  private fun keys(registry: net.minecraft.core.Registry<*>) = registry.keySet().map { Worlds.key(it) }
+  private fun keys(registry: Registry<*>) = registry.keySet().map { Worlds.key(it) }
 
   /**
    * What `give_item` hands out: the game's item, or a mod's or data pack's item (`redbull:original`) as its recipe makes
@@ -69,7 +80,7 @@ object OperatorTools {
       val wanted = OperatorArgs.id(potion) ?: potion
       val type = BuiltInRegistries.POTION.get(key(wanted)).orElse(null)
         ?: throw ToolError("no potion called $wanted; close ones: ${Names.close(wanted, keys(BuiltInRegistries.POTION)).joinToString().ifEmpty { "none" }}")
-      stack.set(net.minecraft.core.component.DataComponents.POTION_CONTENTS, net.minecraft.world.item.alchemy.PotionContents(type))
+      stack.set(DataComponents.POTION_CONTENTS, PotionContents(type))
     }
     return stack
   }
@@ -81,7 +92,7 @@ object OperatorTools {
     val enchantments = (args["enchantments"] as? JsonObject)?.map { (name, level) ->
       val wanted = OperatorArgs.id(name) ?: name
       val registry = Anvils.registry(player)
-      val enchantment = registry.get(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.ENCHANTMENT, key(wanted))).orElse(null)
+      val enchantment = registry.get(ResourceKey.create(Registries.ENCHANTMENT, key(wanted))).orElse(null)
         ?: throw ToolError("there is no enchantment called $wanted; close ones: ${Names.close(wanted, registry.listElementIds().map { Worlds.key(it.identifier()) }.toList()).joinToString().ifEmpty { "none" }}")
       enchantment to OperatorArgs.enchantmentLevel((level as? JsonPrimitive)?.content?.toIntOrNull())
     }.orEmpty()
@@ -102,7 +113,7 @@ object OperatorTools {
     val given = Catalogs.id(template)
     val result = buildJsonObject {
       put("item", given)
-      args.string("potion")?.let { put("potion", template.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS)?.potion()?.orElse(null)?.unwrapKey()?.orElse(null)?.identifier()?.path) }
+      args.string("potion")?.let { put("potion", template.get(DataComponents.POTION_CONTENTS)?.potion()?.orElse(null)?.unwrapKey()?.orElse(null)?.identifier()?.path) }
       put("count", count)
       if (dropped > 0) put("dropped_at_feet", dropped)
     }
@@ -137,7 +148,7 @@ object OperatorTools {
       z = args.double("z") ?: throw ToolError("give either player, or x and z (and y when known)")
       if (Math.abs(x) > 29_999_984 || Math.abs(z) > 29_999_984) throw ToolError("the point is outside the world")
       // Without y (structures come without one), the top of the ground there, as Bukkit's `getHighestBlockYAt` + 1.
-      y = args.double("y") ?: level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, net.minecraft.util.Mth.floor(x), net.minecraft.util.Mth.floor(z)).toDouble()
+      y = args.double("y") ?: level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(x), Mth.floor(z)).toDouble()
       // Bukkit's `maxHeight` is the first height above the world.
       val top = level.maxY + 1
       if (y < level.minY || y > top + 64) throw ToolError("y must be ${level.minY}–${top + 64}")
@@ -147,10 +158,10 @@ object OperatorTools {
     if (level != player.level() && player.isVehicle) throw ToolError("the server refused the teleport")
     player.stopRiding()
     if (!player.teleportTo(level, x, y, z, emptySet(), yaw, pitch, true)) throw ToolError("the server refused the teleport")
-    val bx = net.minecraft.util.Mth.floor(x)
-    val by = net.minecraft.util.Mth.floor(y)
-    val bz = net.minecraft.util.Mth.floor(z)
-    val danger = danger(level, net.minecraft.core.BlockPos(bx, by, bz))
+    val bx = Mth.floor(x)
+    val by = Mth.floor(y)
+    val bz = Mth.floor(z)
+    val danger = danger(level, BlockPos(bx, by, bz))
     val result = buildJsonObject {
       put("x", bx)
       put("y", by)
@@ -164,11 +175,11 @@ object OperatorTools {
   }
 
   /** Why a player wouldn't stand safely with their feet at [feet], or null; Bukkit's `isPassable` is an empty collision shape. */
-  private fun danger(level: ServerLevel, feet: net.minecraft.core.BlockPos): String? {
-    fun solid(pos: net.minecraft.core.BlockPos) = !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty
+  private fun danger(level: ServerLevel, feet: BlockPos): String? {
+    fun solid(pos: BlockPos) = !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty
     val head = feet.above()
     val ground = (1..64).firstOrNull { down -> feet.below(down).let { solid(it) || !level.getFluidState(it).isEmpty || it.y <= level.minY } } ?: 64
-    val lava = listOf(feet, head, feet.below()).any { level.getFluidState(it).`is`(net.minecraft.tags.FluidTags.LAVA) }
+    val lava = listOf(feet, head, feet.below()).any { level.getFluidState(it).`is`(FluidTags.LAVA) }
     val water = listOf(feet, head).any { !level.getFluidState(it).isEmpty }
     return OperatorArgs.danger(solid(feet), solid(head), lava, water, ground - 1)
   }
@@ -238,7 +249,7 @@ object OperatorTools {
     val result = buildJsonObject {
       put("time", now)
       put("world", Dimensions.id(level))
-      if (!level.gameRules.get(net.minecraft.world.level.gamerules.GameRules.ADVANCE_TIME)) put("frozen", "the daylight cycle is off, so the time stays here")
+      if (!level.gameRules.get(GameRules.ADVANCE_TIME)) put("frozen", "the daylight cycle is off, so the time stays here")
       if (now != ticks) put("overridden", "a mod kept the time at $now")
     }
     ToolOutput(result, context.lang.text("summary.time", "ticks" to now), refused = now != ticks)
@@ -271,7 +282,7 @@ object OperatorTools {
       put("weather", now)
       put("world", Dimensions.id(level))
       put("seconds", ticks / 20)
-      if (!level.gameRules.get(net.minecraft.world.level.gamerules.GameRules.ADVANCE_WEATHER)) put("frozen", "the weather cycle is off, so it stays $now until changed again")
+      if (!level.gameRules.get(GameRules.ADVANCE_WEATHER)) put("frozen", "the weather cycle is off, so it stays $now until changed again")
       if (now != weather) put("overridden", "a mod kept the weather $now")
     }
     ToolOutput(result, context.lang.text("summary.weather", "weather" to context.lang.text("weather.$now")), refused = now != weather)
@@ -279,7 +290,7 @@ object OperatorTools {
 
   /** The world whose sky the player means: their own, or the overworld from the Nether or the End, which have none. */
   fun skyWorld(player: ServerPlayer): ServerLevel =
-    player.level().takeIf { it.dimension() == net.minecraft.world.level.Level.OVERWORLD } ?: player.level().server.overworld()
+    player.level().takeIf { it.dimension() == Level.OVERWORLD } ?: player.level().server.overworld()
 
   val all = listOf(give, teleport, gamemode, heal, effect, time, weather)
   val NAMES = all.map { it.name }.toSet()

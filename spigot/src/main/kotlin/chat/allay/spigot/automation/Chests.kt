@@ -1,5 +1,7 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.Lang
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.*
 import chat.allay.spigot.Claims
 import chat.allay.spigot.tools.Marks
@@ -17,6 +19,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.Tag
 import org.bukkit.block.Block
 import org.bukkit.entity.Player
@@ -74,7 +78,7 @@ object Chests {
   }
 
   /** Blocks, for a `block` selector in a layout or a pin. */
-  val block = { item: ItemData -> org.bukkit.Material.matchMaterial(item.id)?.isBlock == true }
+  val block = { item: ItemData -> Material.matchMaterial(item.id)?.isBlock == true }
 
   private fun contents(player: Player, block: Block): List<ItemStack?> = Blocks.inventory(player, block)!!.contents.map { it?.takeUnless { item -> item.type.isAir }?.clone() }
 
@@ -96,7 +100,7 @@ object Chests {
    */
   internal fun beyond(player: Player, block: Block, limit: Int): String? = when {
     block.world != player.world -> "the chest at ${block.x} ${block.y} ${block.z} is in another world"
-    org.bukkit.Location(block.world, block.x + 0.5, block.y + 0.5, block.z + 0.5).distance(player.location) > limit -> "the chest at ${block.x} ${block.y} ${block.z} is farther than $limit blocks from the player"
+    Location(block.world, block.x + 0.5, block.y + 0.5, block.z + 0.5).distance(player.location) > limit -> "the chest at ${block.x} ${block.y} ${block.z} is farther than $limit blocks from the player"
     !block.world.isChunkLoaded(block.x shr 4, block.z shr 4) -> "the chest at ${block.x} ${block.y} ${block.z} lies in a chunk that isn't loaded"
     else -> null
   }
@@ -125,7 +129,7 @@ object Chests {
       val automation = context.features.automation
       val lang = context.lang
       // Reading is what any agent may do, to find “the chest with the Gold sign”; moving things is a chests agent's.
-      if (args.string("action")?.lowercase() != "read") context.main { automation.require(context.requirePlayer(), task, chat.allay.core.tasks.Kind.CHESTS) }
+      if (args.string("action")?.lowercase() != "read") context.main { automation.require(context.requirePlayer(), task, Kind.CHESTS) }
       return when (val action = args.string("action")?.lowercase()) {
         "read" -> context.main<ToolOutput> {
           val player = context.requirePlayer()
@@ -424,7 +428,7 @@ object Chests {
   }
 
   /** Labels over the chests, only the player sees them: “Ores” over “Iron Ingot ×192”. */
-  private fun labels(context: ToolContext, player: Player, planned: Planned, lang: chat.allay.core.Lang, categories: Map<String, Storage.Category?> = emptyMap()) {
+  private fun labels(context: ToolContext, player: Player, planned: Planned, lang: Lang, categories: Map<String, Storage.Category?> = emptyMap()) {
     val settings = context.features.config().tools
     val marks = planned.blocks.map { block ->
       val after = planned.after[Blocks.place(block)]!!

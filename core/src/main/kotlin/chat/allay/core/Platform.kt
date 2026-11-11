@@ -1,5 +1,7 @@
 package chat.allay.core
 
+import chat.allay.core.tools.CommandCatalog
+
 import java.io.File
 import java.io.InputStream
 import java.net.InetAddress
@@ -186,7 +188,7 @@ interface Platform {
    * Whether [command] (without its `/`) would run for [who] now: it exists, they may run it, and, where the platform
    * can parse it beforehand, its arguments fit. Null where the platform can't tell. Server thread.
    */
-  fun check(who: Audience, command: String): chat.allay.core.tools.CommandCatalog.Check? = null
+  fun check(who: Audience, command: String): CommandCatalog.Check? = null
 
   /** Whether a vanish plugin or mod hides [player] from the others; false where there's none. */
   fun vanished(player: PlayerAudience): Boolean = false

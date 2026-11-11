@@ -1,5 +1,9 @@
 package chat.allay.core
 
+import java.io.IOException
+import java.net.ConnectException
+import java.net.UnknownHostException
+
 /**
  * A request the backend never started may go again: it was restarting, busy, or rate-limited. A failure mid-answer
  * never repeats as it was, since tools may have acted already; an automation agent may go on from it once ([broke]).
@@ -16,7 +20,7 @@ object Retry {
       error?.code == "QUEUE_ERROR" -> SECONDS
       // A proxy in front of a backend that restarts answers 502–504 without a body of ours.
       error?.code == "HTTP_ERROR" && error.statusCode in 502..504 -> SECONDS
-      generateSequence(failure) { it.cause }.any { it is java.net.ConnectException || it is java.net.UnknownHostException } -> SECONDS
+      generateSequence(failure) { it.cause }.any { it is ConnectException || it is UnknownHostException } -> SECONDS
       else -> null
     }
   }
@@ -29,7 +33,7 @@ object Retry {
     val error = (failure as? ApiErrorException)?.apiError
     return when {
       error != null -> error.code in PASSING || (error.code == "HTTP_ERROR" && (error.statusCode ?: 0) >= 500)
-      else -> generateSequence(failure) { it.cause }.any { it is java.io.IOException }
+      else -> generateSequence(failure) { it.cause }.any { it is IOException }
     }
   }
 
@@ -52,7 +56,7 @@ object Retry {
     return when {
       error != null -> error.code == "RATE_LIMITED" || error.code == "QUEUE_ERROR" || error.code == ErrorCodes.NETWORK_ERROR ||
         (error.code == "HTTP_ERROR" && error.statusCode in 502..504)
-      else -> generateSequence(failure) { it.cause }.any { it is java.io.IOException }
+      else -> generateSequence(failure) { it.cause }.any { it is IOException }
     }
   }
 

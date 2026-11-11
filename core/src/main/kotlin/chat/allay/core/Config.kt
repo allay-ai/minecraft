@@ -1,11 +1,16 @@
 package chat.allay.core
 
+import chat.allay.core.building.BuildTiers
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.BUILD_TOOLS
 import chat.allay.core.tools.EXPERIMENTAL_TOOLS
+import chat.allay.core.tools.GameNames
 import chat.allay.core.tools.OPERATOR_TOOLS
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.tools.TrailBar
 import chat.allay.core.tools.TrailClock
+
+import java.time.ZoneId
 
 /**
  * Settings from `config.yml`. Every key has a default; texts live in `lang/`, so the message keys of 2.3 configs are ignored.
@@ -163,7 +168,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
    */
   val automation = Automation() ; inner class Automation {
     val enabled = config.boolean("automation.enabled", true)
-    fun on(kind: chat.allay.core.tasks.Kind) = enabled && config.boolean("automation.${kind.wire}.enabled", true)
+    fun on(kind: Kind) = enabled && config.boolean("automation.${kind.wire}.enabled", true)
     /** Agents one player may run at once, sub-agents included. */
     val maxTasks = config.int("automation.max_tasks", 2).coerceIn(1, 8)
     val maxMinutes = config.int("automation.max_minutes", 30).coerceIn(1, 240)
@@ -189,7 +194,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   /** Builds from Allay's catalog: the preview and building from the player's blocks (since 6.37). */
   val building = Building() ; inner class Building {
     val enabled = config.boolean("building.enabled", false)
-    val tiers = chat.allay.core.building.BuildTiers.parse(config)
+    val tiers = BuildTiers.parse(config)
     /** The longest a downloaded build stays in memory after its last use. */
     val keepMinutes = config.int("building.keep_minutes", 30).coerceIn(1, 240)
   }
@@ -204,7 +209,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   /** What `search_items` and the recipe tools find things by. */
   val catalog = Catalog() ; inner class Catalog {
     /** The game's languages whose names Allay downloads once per game version from Mojang, beside English. */
-    val languages = config.strings("catalog.languages").map(chat.allay.core.tools.GameNames::code).ifEmpty { DEFAULT_LANGUAGES }
+    val languages = config.strings("catalog.languages").map(GameNames::code).ifEmpty { DEFAULT_LANGUAGES }
     /** false: no downloads; names in other languages come only from mods, plugins, and expansions. */
     val download = config.boolean("catalog.download", true)
   }
@@ -234,7 +239,7 @@ class Config(private val config: YamlConfig, private val pluginVersion: String) 
   val time = Time() ; inner class Time {
     /** `auto` (the default) is the server machine's own zone: players who never named theirs most likely live near it. */
     val zone = config.string("time.zone", "auto").trim().let { zone ->
-      if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) java.time.ZoneId.systemDefault().id else zone.takeIf { TimeZones.parse(it) != null } ?: "UTC"
+      if (zone.isEmpty() || zone.equals("auto", ignoreCase = true)) ZoneId.systemDefault().id else zone.takeIf { TimeZones.parse(it) != null } ?: "UTC"
     }
   }
 

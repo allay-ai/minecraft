@@ -1,6 +1,7 @@
 package chat.allay.spigot.automation
 
 import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Reservations
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.BrewingRecipes
@@ -327,7 +328,7 @@ object Stands {
    * cauldrons, a level a bottle. Each water bottle goes back where its glass bottle was, else to the inventory. Returns
    * how many it filled and how many of those fell at the player's feet for want of room.
    */
-  private fun fill(player: Player, sources: Sources, count: Int, holds: chat.allay.core.tasks.Reservations, task: Task): Pair<Int, Int> {
+  private fun fill(player: Player, sources: Sources, count: Int, holds: Reservations, task: Task): Pair<Int, Int> {
     val near = Water.near(player) ?: return 0 to 0
     val n = minOf(count, near.first, sources.free(plain(Material.GLASS_BOTTLE), "glass_bottle", holds, task.id))
     if (n <= 0) return 0 to 0

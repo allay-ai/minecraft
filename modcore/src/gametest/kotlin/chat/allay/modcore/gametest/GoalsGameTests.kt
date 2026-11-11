@@ -13,7 +13,9 @@ import chat.allay.modcore.gametest.Players.run
 import chat.allay.modcore.gametest.Players.survivor
 import chat.allay.modcore.tools.Drafts
 
+import eu.pb4.placeholders.api.ServerPlaceholderContext
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -28,6 +30,7 @@ import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.players.NameAndId
 import net.minecraft.stats.Stats
+import net.minecraft.world.BossEvent
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
@@ -51,7 +54,7 @@ class GoalsGameTests {
 
   private fun refused(block: () -> Unit): String? = (runCatching(block).exceptionOrNull() as? ToolError)?.message
 
-  private fun goal(player: ServerPlayer, build: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): JsonObject =
+  private fun goal(player: ServerPlayer, build: JsonObjectBuilder.() -> Unit): JsonObject =
     run(player, "goals", buildJsonObject {
       put("action", "set")
       build()
@@ -78,8 +81,8 @@ class GoalsGameTests {
     val bar = Players.features.goals.bar(player.uuid, id)
     helper.assertTrue(bar != null, "the goal has a bar")
     equal(helper, bar!!.progress, 0.4f, "the bar's fill")
-    equal(helper, bar.color, net.minecraft.world.BossEvent.BossBarColor.PURPLE, "the bar's color")
-    equal(helper, bar.overlay, net.minecraft.world.BossEvent.BossBarOverlay.NOTCHED_10, "the bar's style")
+    equal(helper, bar.color, BossEvent.BossBarColor.PURPLE, "the bar's color")
+    equal(helper, bar.overlay, BossEvent.BossBarOverlay.NOTCHED_10, "the bar's style")
     helper.assertTrue("Level five" in bar.name.string, "the bar says the title: ${bar.name.string}")
     helper.assertTrue(player.packets().any { it is ClientboundBossEventPacket }, "the player's client hears of the bar")
     player.setExperienceLevels(5)
@@ -285,7 +288,7 @@ class GoalsGameTests {
       put("title", "Ten")
       put("target", 10)
     }
-    val context = eu.pb4.placeholders.api.ServerPlaceholderContext.of(player)
+    val context = ServerPlaceholderContext.of(player)
     fun allay(name: String) = eu.pb4.placeholders.api.Placeholders.parseServerPlaceholder(Identifier.fromNamespaceAndPath("allay", name), null, context).component().string
     equal(helper, allay("goals"), "1", "%allay:goals%")
     equal(helper, allay("chat_mode"), "no", "%allay:chat_mode%")

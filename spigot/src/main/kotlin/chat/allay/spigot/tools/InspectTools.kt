@@ -5,20 +5,26 @@ import chat.allay.core.tools.*
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import org.bukkit.Location
 import org.bukkit.Nameable
+import org.bukkit.block.BlockState
 import org.bukkit.block.BrewingStand
 import org.bukkit.block.Container
 import org.bukkit.entity.Player
 import org.bukkit.inventory.DoubleChestInventory
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
+import org.bukkit.loot.Lootable
 import chat.allay.core.tools.Facts.place
+import chat.allay.spigot.automation.Blocks
+import chat.allay.spigot.Claims
 
 /** Tools that search and inspect what is around the player: containers, items, brewing. */
 object InspectTools {
@@ -28,9 +34,9 @@ object InspectTools {
   }
 
   /** Block entities within the radius, reading only the chunks the radius touches. */
-  private fun blockEntitiesNear(origin: org.bukkit.Location, radius: Int): List<org.bukkit.block.BlockState> {
+  private fun blockEntitiesNear(origin: Location, radius: Int): List<BlockState> {
     val world = origin.world ?: return emptyList()
-    val result = mutableListOf<org.bukkit.block.BlockState>()
+    val result = mutableListOf<BlockState>()
     for (cx in ((origin.blockX - radius) shr 4)..((origin.blockX + radius) shr 4)) for (cz in ((origin.blockZ - radius) shr 4)..((origin.blockZ + radius) shr 4)) {
       if (!world.isChunkLoaded(cx, cz)) continue
       world.getChunkAt(cx, cz).tileEntities.filterTo(result) { it.location.distanceSquared(origin) <= radius * radius }
@@ -39,7 +45,7 @@ object InspectTools {
   }
 
   /** Chunks the radius touches that aren't loaded, so a search there read nothing. */
-  private fun unloadedNear(origin: org.bukkit.Location, radius: Int): Int {
+  private fun unloadedNear(origin: Location, radius: Int): Int {
     val world = origin.world ?: return 0
     var unloaded = 0
     for (cx in ((origin.blockX - radius) shr 4)..((origin.blockX + radius) shr 4)) for (cz in ((origin.blockZ - radius) shr 4)..((origin.blockZ + radius) shr 4)) {
@@ -54,7 +60,7 @@ object InspectTools {
    * an unopened structure chest stays out of every count, as anti-xray hides it.
    */
   private class Reach(val containers: List<Container>, val locked: Int, val unloaded: Int) {
-    fun report(into: kotlinx.serialization.json.JsonObjectBuilder) {
+    fun report(into: JsonObjectBuilder) {
       if (locked > 0) into.put("locked_containers", locked)
       if (unloaded > 0) into.put("unloaded_chunks", unloaded)
     }
@@ -66,10 +72,10 @@ object InspectTools {
    */
   private fun containersNear(player: Player, radius: Int): Reach {
     val (open, closed) = blockEntitiesNear(player.location, radius).filterIsInstance<Container>()
-      .partition { chat.allay.spigot.Claims.mayOpen(player, it) }
+      .partition { Claims.mayOpen(player, it) }
     fun distinct(list: List<Container>) = list.sortedBy { it.location.distanceSquared(player.location) }
       .distinctBy { ((it.inventory as? DoubleChestInventory)?.leftSide?.location ?: it.location).toVector() }
-    val locked = distinct(closed.filter { (it as? org.bukkit.loot.Lootable)?.lootTable == null }).size
+    val locked = distinct(closed.filter { (it as? Lootable)?.lootTable == null }).size
     return Reach(distinct(open), locked, unloadedNear(player.location, radius))
   }
 
@@ -252,11 +258,11 @@ object InspectTools {
     // A chest that holds several of the items asked for gets one mark with every label.
     val byChest = found.groupBy({ it.first.block }, { it.second })
     val marks = byChest.entries.take(settings.maxMarks).flatMap { (block, labels) ->
-      chat.allay.spigot.automation.Blocks.halves(block).mapIndexed { index, half -> Marks.Mark(half, null, if (index == 0) labels.joinToString(", ") else null, Marks.Hue.YELLOW) }
+      Blocks.halves(block).mapIndexed { index, half -> Marks.Mark(half, null, if (index == 0) labels.joinToString(", ") else null, Marks.Hue.YELLOW) }
     }
     Marks.show(context.plugin, player, marks, settings.marksSeconds)
     val nearest = byChest.keys.minBy { it.location.distanceSquared(player.location) }
-    if (nearest.location.distance(player.location) > 12 || !chat.allay.spigot.automation.Blocks.sees(player, nearest)) {
+    if (nearest.location.distance(player.location) > 12 || !Blocks.sees(player, nearest)) {
       if (context.buttons.size < 6) context.buttons += Button.Point(context.lang.text("buttons.way_to_chest"), nearest.x, nearest.y, nearest.z, Dimensions.id(player.world))
     }
     return true
@@ -279,7 +285,7 @@ object InspectTools {
     val inside = Items.inside(contents.data()).filterKeys { it in ids }
     val origin = player.location
     // A stand is a container like any other: only the ones the player could open show.
-    val near = blockEntitiesNear(origin, 8).filterIsInstance<BrewingStand>().filter { chat.allay.spigot.Claims.mayOpen(player, it) }
+    val near = blockEntitiesNear(origin, 8).filterIsInstance<BrewingStand>().filter { Claims.mayOpen(player, it) }
       .sortedBy { it.location.distanceSquared(origin) }
     val stands = near.take(MAX_STANDS)
     val result = buildJsonObject {

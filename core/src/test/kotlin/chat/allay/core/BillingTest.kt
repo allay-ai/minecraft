@@ -5,6 +5,7 @@ import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.Instant
+import java.time.Year
 import java.time.ZoneOffset
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
@@ -177,7 +178,7 @@ class BillingTest {
     val utc = ZoneOffset.UTC
     assertEquals(
       "&eAllay has used up this server's limit for now. It refills on 14 November, or sooner if an admin tops it up.",
-      ErrorHandler.message(en, ApiError("QUOTA_EXCEEDED", "", 402, resetsAt = "${java.time.Year.now(utc)}-11-14T10:00:00Z"), utc),
+      ErrorHandler.message(en, ApiError("QUOTA_EXCEEDED", "", 402, resetsAt = "${Year.now(utc)}-11-14T10:00:00Z"), utc),
     )
     assertEquals(en.text("errors.quota_spent"), ErrorHandler.message(en, ApiError("QUOTA_EXCEEDED", "", 402), utc))
     assertEquals("&eAllay is swamped with questions from this server. Try again in 1 second.", ErrorHandler.message(en, ApiError("RATE_LIMITED", "", 429, retryAfter = 1)))

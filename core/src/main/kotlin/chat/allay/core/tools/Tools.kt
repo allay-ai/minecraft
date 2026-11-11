@@ -1,5 +1,6 @@
 package chat.allay.core.tools
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -28,7 +29,7 @@ fun JsonObject.string(key: String) = (get(key) as? JsonPrimitive)?.takeIf { it.i
  * characters, repeats dropped. Null when neither is there; a [ToolError] for more than [max].
  */
 fun JsonObject.asked(many: String, one: String, max: Int): List<String>? {
-  val list = (get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { element ->
+  val list = (get(many) as? JsonArray)?.mapNotNull { element ->
     (element as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.ifEmpty { null }?.take(64)
   }?.distinct()
   if (list != null && list.size > max) throw ToolError("ask for at most $max at once")
@@ -100,7 +101,7 @@ object ToolLabels {
     val plain = args.orEmpty().mapNotNull { (key, value) -> (value as? JsonPrimitive)?.contentOrNull?.let { key to shown(key, it).take(60) } }
     // A lookup of several names (since 6.13) shows them all where the label names one: “beacon, anvil”.
     val listed = LISTS.mapNotNull { (many, one) ->
-      (args?.get(many) as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let { value -> shown(many, value) } }?.ifEmpty { null }?.let { one to it.joinToString().take(60) }
+      (args?.get(many) as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.let { value -> shown(many, value) } }?.ifEmpty { null }?.let { one to it.joinToString().take(60) }
     }
     val values = plain.filter { (key, _) -> listed.none { it.first == key } } + listed
     // Tools with an action (reminders, goals) take a label per action, list when the call names none: tools.reminders.add.

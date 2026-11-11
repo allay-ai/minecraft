@@ -13,6 +13,7 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.AbstractCookingRecipe
+import net.minecraft.world.item.crafting.Recipe
 import net.minecraft.world.item.crafting.RecipeHolder
 import net.minecraft.world.item.crafting.ShapedRecipe
 import net.minecraft.world.item.crafting.ShapelessRecipe
@@ -115,7 +116,7 @@ class RecipeMenu(player: ServerPlayer, private val lang: Lang, first: Target) : 
     draw()
   }
 
-  private fun station(recipe: net.minecraft.world.item.crafting.Recipe<*>): ItemStack {
+  private fun station(recipe: Recipe<*>): ItemStack {
     val lore = if (recipe is AbstractCookingRecipe) {
       listOf(lang.text("menus.recipe.cooking", "seconds" to trim(recipe.cookingTime() / 20.0), "xp" to trim(recipe.experience().toDouble())))
     } else emptyList()

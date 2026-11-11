@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
 class ApiTest {
@@ -59,7 +60,7 @@ class ApiTest {
 
   @Test
   void laterResultsCarryTheirStage() {
-    java.util.concurrent.CompletableFuture<ToolResult> stage = new java.util.concurrent.CompletableFuture<>();
+    CompletableFuture<ToolResult> stage = new CompletableFuture<>();
     ToolResult later = ToolResult.later(stage);
     assertSame(stage, later.pending());
     assertNull(ToolResult.text("now").pending());

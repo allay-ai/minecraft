@@ -3,11 +3,13 @@ package chat.allay.fabric
 import chat.allay.modcore.Loader
 import chat.allay.modcore.ModGame
 
+import me.lucko.fabric.api.permissions.v0.Permissions
 import net.fabricmc.fabric.api.recipe.v1.ingredient.FabricIngredient
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.crafting.Ingredient
+import java.nio.file.Files
 import java.nio.file.Path
 
 /** Fabric as the shared mod's loader: Fabric Loader's mod list, Fabric API's ingredients, and fabric-permissions-api. */
@@ -35,7 +37,7 @@ object OnFabric : Loader {
     val host = type.name.substringBefore("$$")
     if (host in owners) return owners[host]
     val path = host.replace('.', '/') + ".class"
-    val mod = FabricLoader.getInstance().allMods.firstOrNull { mod -> mod.rootPaths.any { root -> runCatching { java.nio.file.Files.exists(root.resolve(path)) }.getOrDefault(false) } }
+    val mod = FabricLoader.getInstance().allMods.firstOrNull { mod -> mod.rootPaths.any { root -> runCatching { Files.exists(root.resolve(path)) }.getOrDefault(false) } }
     var top = mod
     while (top != null && top.containingMod.isPresent) top = top.containingMod.get()
     return top?.metadata?.id.also { owners[host] = it }
@@ -45,10 +47,10 @@ object OnFabric : Loader {
   private val permissions by lazy { loaded("fabric-permissions-api-v0") }
 
   override fun permission(source: CommandSourceStack, permission: String, fallback: Boolean) =
-    if (permissions) me.lucko.fabric.api.permissions.v0.Permissions.check(source, permission, fallback) else fallback
+    if (permissions) Permissions.check(source, permission, fallback) else fallback
 
   override fun permission(player: ServerPlayer, permission: String, fallback: Boolean) =
-    if (permissions) me.lucko.fabric.api.permissions.v0.Permissions.check(player, permission, fallback) else fallback
+    if (permissions) Permissions.check(player, permission, fallback) else fallback
 
   override fun integrations(game: ModGame): List<AutoCloseable> {
     if (!Plan.available) return emptyList()

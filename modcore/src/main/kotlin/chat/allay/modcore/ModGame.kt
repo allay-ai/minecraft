@@ -3,7 +3,10 @@ package chat.allay.modcore
 import chat.allay.core.*
 import chat.allay.core.building.Blueprints
 import chat.allay.modcore.automation.Automation
+import chat.allay.modcore.menus.Menu
 import chat.allay.modcore.menus.Menus
+import chat.allay.modcore.tools.BrewingRecipes
+import chat.allay.modcore.tools.Catalogs
 import chat.allay.modcore.tools.Deaths
 import chat.allay.modcore.tools.Drafts
 import chat.allay.modcore.tools.Features
@@ -51,7 +54,7 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   )
 
   init {
-    automation.catalog = { chat.allay.modcore.tools.Catalogs.build(server, features.expansions, features.names()) }
+    automation.catalog = { Catalogs.build(server, features.expansions, features.names()) }
   }
 
   override fun tools() = Tools.all()
@@ -87,8 +90,8 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
 
   override fun loaded(player: UUID, state: PlayerState) = goals.loaded(player, state)
 
-  override fun names(locale: String) = chat.allay.modcore.tools.Catalogs.names(locale)
-  override fun itemName(id: String, locale: String?) = chat.allay.modcore.tools.Catalogs.build(server, features.expansions, features.names()).label(id, locale)
+  override fun names(locale: String) = Catalogs.names(locale)
+  override fun itemName(id: String, locale: String?) = Catalogs.build(server, features.expansions, features.names()).label(id, locale)
 
   /** On the server thread, where boss bars live. */
   override fun forget(player: UUID) {
@@ -104,9 +107,9 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   override fun languages(player: PlayerAudience): Unit = Menus.languages(player, allay) { settings(player) }
 
   override fun start() {
-    chat.allay.modcore.tools.BrewingRecipes.bind(features)
+    BrewingRecipes.bind(features)
     Expansions.discover(platform.log)
-    chat.allay.modcore.menus.Menu.start()
+    Menu.start()
     Marks.start()
     Drafts.start(platform.scheduler, locales)
     Previews.start(platform.scheduler, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
@@ -119,9 +122,9 @@ class ModGame(val platform: ModPlatform, val allay: Allay<ToolContext>) : Allay.
   }
 
   override fun stop() {
-    chat.allay.modcore.tools.BrewingRecipes.bind(null)
+    BrewingRecipes.bind(null)
     // The catalog holds this server's recipes; a singleplayer game starts the next world's server with its own.
-    chat.allay.modcore.tools.Catalogs.clear()
+    Catalogs.clear()
     placeholders?.close()
     integrations.forEach { it.close() }
     automation.stop()

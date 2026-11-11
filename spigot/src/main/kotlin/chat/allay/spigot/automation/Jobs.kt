@@ -1,6 +1,8 @@
 package chat.allay.spigot.automation
 
 import chat.allay.core.PlayerSettings
+import chat.allay.core.building.BuildSave
+import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.ToolError
@@ -53,12 +55,12 @@ object Jobs : Listener {
   fun restore(task: Task, player: Player, saved: JsonObject): Lasting? = when (saved.string("type")) {
     Furnaces.TYPE -> Furnaces.restore(task, player, saved)
     Stands.TYPE -> Stands.restore(task, player, saved)
-    chat.allay.core.building.BuildSave.TYPE -> Building.restore(task, player, saved)
+    BuildSave.TYPE -> Building.restore(task, player, saved)
     else -> null
   }
 
   /** Lets [job] go without undoing anything: the furnaces and stands keep what's in them, and the game carries on. */
-  fun detach(job: chat.allay.core.tasks.Agents.Job) {
+  fun detach(job: Agents.Job) {
     // A build stops ticking; what it placed stays, and its snapshot carries on from there.
     if (job is Building.Job) job.cancel() else if (job is BlockJob) remove(job)
   }
@@ -87,7 +89,7 @@ object Jobs : Listener {
   fun loaded(block: Block) = block.world.isChunkLoaded(block.x shr 4, block.z shr 4)
 
   /** Whether [job] still works; a finished one stays on its agent for collect. */
-  fun active(job: chat.allay.core.tasks.Agents.Job) = job is BlockJob && job in running
+  fun active(job: Agents.Job) = job is BlockJob && job in running
 
   fun start(plugin: Plugin) {
     plugin.server.scheduler.runTaskTimer(plugin, Runnable { running.toList().forEach(BlockJob::check) }, 20L, 20L)

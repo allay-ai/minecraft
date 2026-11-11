@@ -5,6 +5,7 @@ import chat.allay.core.tools.Brewing
 import chat.allay.core.tools.Catalog
 import chat.allay.core.tools.CatalogCache
 import chat.allay.core.tools.GameNames
+import chat.allay.core.tools.SpecialRecipes
 import chat.allay.modcore.Mod
 
 import net.minecraft.core.component.DataComponents
@@ -21,6 +22,7 @@ import net.minecraft.world.item.crafting.ShapedRecipe
 import net.minecraft.world.item.crafting.ShapelessRecipe
 import net.minecraft.world.item.crafting.SmithingTransformRecipe
 import net.minecraft.world.item.crafting.StonecutterRecipe
+import net.minecraft.world.item.crafting.TransmuteRecipe
 
 /**
  * The [Catalog] in the mods, from the server as it runs: every item and potion in the registries (mods' included), the
@@ -60,7 +62,7 @@ object Catalogs {
       if (id != Recipes.id(result.item) && id !in custom) custom[id] = custom(id, result, source(holder.id().identifier().namespace))
     }
     // Fireworks and the rest of the special recipes have no result to read: crafted all the same.
-    chat.allay.core.tools.SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
+    SpecialRecipes.made(keys).forEach { made.getOrPut(it) { mutableSetOf() } += "crafting" }
     val brewed = brews(server, null).map { it.to.potion }.toSet()
     val items = BuiltInRegistries.ITEM.filter { it != Items.AIR }.map { item ->
       val key = BuiltInRegistries.ITEM.getKey(item)
@@ -80,7 +82,7 @@ object Catalogs {
   }
 
   private fun kind(recipe: Recipe<*>): String? = when (recipe) {
-    is ShapedRecipe, is ShapelessRecipe, is net.minecraft.world.item.crafting.TransmuteRecipe -> "crafting"
+    is ShapedRecipe, is ShapelessRecipe, is TransmuteRecipe -> "crafting"
     is AbstractCookingRecipe -> "smelting"
     is StonecutterRecipe -> "stonecutting"
     is SmithingTransformRecipe -> "smithing"

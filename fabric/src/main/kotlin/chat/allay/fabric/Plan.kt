@@ -30,6 +30,7 @@ import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -61,7 +62,7 @@ object Plan {
       return AutoCloseable {}
     }
     val extension = Extension(sources)
-    val on = java.util.concurrent.atomic.AtomicBoolean(true)
+    val on = AtomicBoolean(true)
     fun register() = runCatching { ExtensionService.getInstance().register(extension) }
       .onFailure { log.warn("Couldn't add Allay to Plan: ${it.message}") }
     register()

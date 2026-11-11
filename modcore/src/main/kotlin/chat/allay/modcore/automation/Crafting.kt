@@ -1,7 +1,11 @@
 package chat.allay.modcore.automation
 
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Reservations
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.modcore.Mod
 import chat.allay.modcore.tools.BlockAt
 import chat.allay.modcore.tools.Catalogs
 import chat.allay.modcore.tools.FireworkItems
@@ -36,6 +40,7 @@ import net.minecraft.world.item.crafting.ShapedRecipe
 import net.minecraft.world.item.crafting.ShapelessRecipe
 import net.minecraft.world.item.crafting.SmithingTransformRecipe
 import net.minecraft.world.item.crafting.StonecutterRecipe
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Blocks as GameBlocks
 import net.minecraft.world.level.block.state.BlockState
 
@@ -50,7 +55,7 @@ import net.minecraft.world.level.block.state.BlockState
  */
 object Crafting {
   /** What a look from chat reads: everything the player could reach themself, the ender chest too. */
-  private val LOOK = chat.allay.core.tasks.SourceScope(ender_chest = true)
+  private val LOOK = SourceScope(ender_chest = true)
 
   /** The most one craft call makes: a full inventory of stacks of 64. */
   const val MAX_COUNT = 2304
@@ -132,7 +137,7 @@ object Crafting {
       if (results[id]?.let { Slots.similar(it, result) } == false) ambiguous += id
       results.putIfAbsent(id, result.copyWithCount(1))
       found.getOrPut(id) { mutableListOf() } += Workshop.Recipe(id, result.count, choices, station)
-      slots.filterNotNull().filter { chat.allay.modcore.Mod.loader.custom(it) }.forEach { choice -> ids(choice, known).forEach { exact.getOrPut(it) { mutableSetOf() } += choice } }
+      slots.filterNotNull().filter { Mod.loader.custom(it) }.forEach { choice -> ids(choice, known).forEach { exact.getOrPut(it) { mutableSetOf() } += choice } }
     }
     if (water) {
       found.getOrPut(Workshop.WATER_BOTTLE) { mutableListOf() } += Workshop.FILL
@@ -161,7 +166,7 @@ object Crafting {
   /** The items an ingredient takes; for the loader's own kind, those of [known] it accepts. */
   private fun ids(choice: Ingredient?, known: List<Pair<String, ItemStack>> = emptyList()): Set<String> {
     if (choice == null) return emptySet()
-    if (chat.allay.modcore.Mod.loader.custom(choice)) return known.filter { choice.test(it.second) }.map { it.first }.toSet()
+    if (Mod.loader.custom(choice)) return known.filter { choice.test(it.second) }.map { it.first }.toSet()
     return choice.items().map { Recipes.id(it.value()) }.toList().toSet()
   }
 
@@ -282,7 +287,7 @@ object Crafting {
     val server = player.level().server
     val (itemId, item) = target(context, name)
     val stations = Stations(player, settings.radius, settings.lineOfSight)
-    val find = { type: net.minecraft.world.level.block.Block -> stations.find { it.`is`(type) } }
+    val find = { type: Block -> stations.find { it.`is`(type) } }
     val needs = mutableListOf<String>()
     val cutter = find(GameBlocks.STONECUTTER)
     val water = Water.near(player)
@@ -408,7 +413,7 @@ object Crafting {
       val task = context.requireTask()
       val automation = context.features.automation
       val holds = automation.reservations
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       // Crafting is instant, so a whole order goes in one call: 36 stacks, a full inventory.
       val count = (args.int("count") ?: 1).coerceIn(1, MAX_COUNT)
       val lang = context.lang
@@ -519,7 +524,7 @@ object Crafting {
   }
 
   /** Takes everything first, each id by [match]; if anything falls short, it all goes back where it was and nothing is crafted. */
-  private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
+  private fun takeAll(player: ServerPlayer, task: Task, sources: Sources, holds: Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
     // A refusal puts each stack back where it came from and drops only the holds this call made.
     val booking = Booking(holds, task.id)
     val taken = mutableListOf<Pair<Sources.Source, List<ItemStack>>>()

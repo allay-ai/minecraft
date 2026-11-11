@@ -1,7 +1,11 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Reservations
+import chat.allay.core.tasks.SourceScope
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
+import chat.allay.core.tools.Catalog
 import chat.allay.spigot.tools.Catalogs
 import chat.allay.spigot.tools.FireworkItems
 import chat.allay.spigot.tools.InteractTools
@@ -43,7 +47,7 @@ import org.bukkit.inventory.meta.PotionMeta
  */
 object Crafting {
   /** What a look from chat reads: everything the player could reach themself, the ender chest too. */
-  private val LOOK = chat.allay.core.tasks.SourceScope(ender_chest = true)
+  private val LOOK = SourceScope(ender_chest = true)
 
   /** The most one craft call makes: a full inventory of stacks of 64. */
   const val MAX_COUNT = 2304
@@ -220,13 +224,13 @@ object Crafting {
   private fun target(context: ToolContext, name: String): Pair<String, Material?> {
     if (Workshop.water(name)) return Workshop.WATER_BOTTLE to null
     val catalog = Catalogs.build(context)
-    val custom = catalog.find(name.trim().lowercase(), chat.allay.core.tools.Catalog.Kind.CUSTOM)
+    val custom = catalog.find(name.trim().lowercase(), Catalog.Kind.CUSTOM)
     if (custom != null) return custom.id to null
     runCatching { InteractTools.material(name).let { it.key.key to it } }.getOrNull()?.let { return it }
     // A name in any language, or one a step from the id (“iron bucket”, «ведро»), as get_recipes reads it.
-    val kinds = setOf(chat.allay.core.tools.Catalog.Kind.ITEM, chat.allay.core.tools.Catalog.Kind.CUSTOM)
+    val kinds = setOf(Catalog.Kind.ITEM, Catalog.Kind.CUSTOM)
     val entry = catalog.resolve(name, context.nameLocale, kinds) ?: throw ToolError(catalog.missing(name, context.nameLocale, kinds))
-    if (entry.kind == chat.allay.core.tools.Catalog.Kind.CUSTOM) return entry.id to null
+    if (entry.kind == Catalog.Kind.CUSTOM) return entry.id to null
     return entry.id to Material.matchMaterial(entry.id)
   }
 
@@ -371,7 +375,7 @@ object Crafting {
       val task = context.requireTask()
       val automation = context.features.automation
       val holds = automation.reservations
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       // Crafting is instant, so a whole order goes in one call: 36 stacks, a full inventory.
       val count = (args.int("count") ?: 1).coerceIn(1, MAX_COUNT)
       val lang = context.lang
@@ -475,7 +479,7 @@ object Crafting {
   }
 
   /** Takes everything first, each id by [match]; if anything falls short, it all goes back where it was and nothing is crafted. */
-  private fun takeAll(player: Player, task: Task, sources: Sources, holds: chat.allay.core.tasks.Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
+  private fun takeAll(player: Player, task: Task, sources: Sources, holds: Reservations, takes: Map<String, Int>, match: (String) -> (ItemStack) -> Boolean) {
     // A refusal puts each stack back where it came from and drops only the holds this call made.
     val booking = Booking(holds, task.id)
     val taken = mutableListOf<Pair<Sources.Source, List<ItemStack>>>()

@@ -17,10 +17,13 @@ import kotlinx.serialization.json.putJsonObject
 import chat.allay.modcore.Loader
 import chat.allay.modcore.Mod
 import net.minecraft.SharedConstants
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.packs.repository.PackSource
 import net.minecraft.core.HolderSet
 import net.minecraft.core.registries.Registries
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.levelgen.WorldgenRandom
+import net.minecraft.world.level.Level
 import chat.allay.core.tools.Facts.round1
 
 /** Tools about the world around the asker and the server itself. */
@@ -76,8 +79,8 @@ object WorldTools {
             put("region", "r.${cx shr 5}.${cz shr 5}.mca")
             put("in_chunk", "${at.x and 15} ${at.z and 15}")
             put("section", at.y shr 4)
-            if (world.dimension() == net.minecraft.world.level.Level.OVERWORLD) {
-              put("slime_chunk", net.minecraft.world.level.levelgen.WorldgenRandom.seedSlimeChunk(cx, cz, world.seed, 987234911L).nextInt(10) == 0)
+            if (world.dimension() == Level.OVERWORLD) {
+              put("slime_chunk", WorldgenRandom.seedSlimeChunk(cx, cz, world.seed, 987234911L).nextInt(10) == 0)
             }
             world.chunkSource.getChunkNow(cx, cz)?.let { put("inhabited_minutes", it.inhabitedTime / 1200) }
           }
@@ -141,7 +144,7 @@ object WorldTools {
    * The data packs the world runs, a server owner's or the world's own (not the game's or a mod's), and the game's
    * experiments turned on: what adds recipes, items' looks, structures, and rules a model can't know.
    */
-  fun datapacks(server: net.minecraft.server.MinecraftServer, hidden: Set<String>): Pair<List<JsonObject>, List<String>> {
+  fun datapacks(server: MinecraftServer, hidden: Set<String>): Pair<List<JsonObject>, List<String>> {
     val selected = server.packRepository.selectedPacks
     val packs = selected.filter { it.packSource == PackSource.WORLD || it.packSource == PackSource.SERVER }.mapNotNull { pack ->
       val name = pack.id.removePrefix("file/")

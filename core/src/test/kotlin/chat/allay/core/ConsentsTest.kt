@@ -1,7 +1,9 @@
 package chat.allay.core
 
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Files
 import java.util.UUID
+import java.util.logging.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -136,8 +138,8 @@ class ConsentsTest {
   }
 
   @Test fun `the sealed list holds who agreed here, and loses them the ways they leave`() = runBlocking {
-    val file = java.nio.file.Files.createTempDirectory("allay-consented").resolve(Consented.FILE).toFile()
-    val log = java.util.logging.Logger.getAnonymousLogger()
+    val file = Files.createTempDirectory("allay-consented").resolve(Consented.FILE).toFile()
+    val log = Logger.getAnonymousLogger()
     fun list() = Consented(SealedFile(file, { "lic.secret-value" }, "allay consented v1", log), log)
     val backend = FakeBackend()
     val consents = Consents(backend, { notice }, local = list())

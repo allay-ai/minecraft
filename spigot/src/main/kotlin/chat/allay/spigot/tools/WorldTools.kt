@@ -11,9 +11,14 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.bukkit.Bukkit
+import org.bukkit.NamespacedKey
 import org.bukkit.Registry
 import org.bukkit.World
+import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.packs.DataPack
 import chat.allay.core.tools.Facts.round1
+import chat.allay.spigot.paper.PaperCatalog
+import chat.allay.spigot.Vanish
 
 /** Tools about the world around the asker and the server itself. */
 object WorldTools {
@@ -45,7 +50,7 @@ object WorldTools {
         // so a jar built against Spigot breaks on Paper when it touches GameRule's static members.
         putJsonObject("rules") {
           world.gameRules.filter { it in RULES }.forEach { name ->
-            val rule = org.bukkit.NamespacedKey.fromString(name.lowercase())?.let { Registry.GAME_RULE.get(it) } ?: return@forEach
+            val rule = NamespacedKey.fromString(name.lowercase())?.let { Registry.GAME_RULE.get(it) } ?: return@forEach
             when (val value = world.getGameRuleValue(rule)) {
               is Boolean -> put(name, value)
               is Number -> put(name, value)
@@ -63,7 +68,7 @@ object WorldTools {
             put("region", "r.${chunk.x shr 5}.${chunk.z shr 5}.mca")
             put("in_chunk", "${at.blockX and 15} ${at.blockZ and 15}")
             put("section", at.blockY shr 4)
-            if (world.environment == org.bukkit.World.Environment.NORMAL) put("slime_chunk", chunk.isSlimeChunk)
+            if (world.environment == World.Environment.NORMAL) put("slime_chunk", chunk.isSlimeChunk)
             put("inhabited_minutes", chunk.inhabitedTime / 1200)
           }
         }
@@ -89,13 +94,13 @@ object WorldTools {
       val server = Bukkit.getServer()
       val version = version(server.bukkitVersion)
       // Vanished players stay out of the count, unless the asker is one of them or an operator.
-      val online = chat.allay.spigot.Vanish.visibleTo(context.sender, server.onlinePlayers).size.toLong()
+      val online = Vanish.visibleTo(context.sender, server.onlinePlayers).size.toLong()
       val result = buildJsonObject {
         put("software", server.name)
         put("version", version)
         put("online", online)
         put("max_players", server.maxPlayers)
-        put("plugin_version", org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(WorldTools::class.java).description.version)
+        put("plugin_version", JavaPlugin.getProvidingPlugin(WorldTools::class.java).description.version)
         val hidden = context.features.config().tools.hiddenPlugins
         put("plugins", buildJsonArray {
           server.pluginManager.plugins.filter { it.isEnabled && it.name.lowercase() !in hidden }.sortedBy { it.name.lowercase() }.forEach { plugin ->
@@ -120,10 +125,10 @@ object WorldTools {
    * experiments turned on: what adds recipes, items' looks, structures, and rules a model can't know.
    */
   fun datapacks(hidden: Set<String>): Pair<List<Pair<String, String?>>, List<String>> {
-    val (packs, features) = if (Catalogs.paper) runCatching { chat.allay.spigot.paper.PaperCatalog.datapacks() }.getOrDefault(emptyList<Pair<String, String?>>() to emptyList()) else runCatching {
+    val (packs, features) = if (Catalogs.paper) runCatching { PaperCatalog.datapacks() }.getOrDefault(emptyList<Pair<String, String?>>() to emptyList()) else runCatching {
       val all = Bukkit.getDataPackManager().getEnabledDataPacks(Bukkit.getWorlds().first())
-      all.filter { it.source == org.bukkit.packs.DataPack.Source.WORLD || it.source == org.bukkit.packs.DataPack.Source.SERVER }.map { it.key.key.removePrefix("file/") to Legacy.strip(it.description).ifBlank { null } } to
-        all.filter { it.source == org.bukkit.packs.DataPack.Source.FEATURE }.map { it.key.key }
+      all.filter { it.source == DataPack.Source.WORLD || it.source == DataPack.Source.SERVER }.map { it.key.key.removePrefix("file/") to Legacy.strip(it.description).ifBlank { null } } to
+        all.filter { it.source == DataPack.Source.FEATURE }.map { it.key.key }
     }.getOrDefault(emptyList<Pair<String, String?>>() to emptyList())
     return packs.filter { it.first.lowercase() !in hidden } to features
   }

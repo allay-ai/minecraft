@@ -7,8 +7,11 @@ import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.ItemData
 import chat.allay.core.tools.Layout
 import chat.allay.core.tools.Pins
+import chat.allay.core.tools.Storage
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.Workshop
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -167,7 +170,7 @@ class AutomationTest {
   }
 
   /** Items without durability stack to 64, as in the game. */
-  private val stacks = object : chat.allay.core.tools.Storage.Stacks<ItemData> {
+  private val stacks = object : Storage.Stacks<ItemData> {
     override fun id(item: ItemData) = item.id
     override fun amount(item: ItemData) = item.count
     override fun max(item: ItemData) = if (item.maxDamage > 0 || item.id == "bundle") 1 else 64
@@ -179,7 +182,7 @@ class AutomationTest {
 
   /** Sorts [items] as `sort_inventory` does and returns every slot after it. */
   private fun arrange(
-    items: Map<Int, ItemData>, pins: List<Pins.Pin>, hotbar: Boolean, spec: chat.allay.core.tools.Layout.Spec = chat.allay.core.tools.Layout.Spec(),
+    items: Map<Int, ItemData>, pins: List<Pins.Pin>, hotbar: Boolean, spec: Layout.Spec = Layout.Spec(),
     block: (ItemData) -> Boolean = { false },
   ): Map<Int, ItemData?> = items + Pins.arrange(items, Pins.pick(pins, items, block), hotbar, offhand = false, spec, stacks, block)!!.slots
 
@@ -508,9 +511,9 @@ class AutomationTest {
 
   @Test fun `a daily budget unlocks the month day by day`() {
     val settings = quota("quota:\n  enabled: true\n  monthly_usd: 31\n  tiers:\n    default: 1")
-    assertEquals(10.0, settings.unlocked(java.time.ZonedDateTime.of(2026, 10, 10, 12, 0, 0, 0, java.time.ZoneOffset.UTC)), 1e-9)
+    assertEquals(10.0, settings.unlocked(ZonedDateTime.of(2026, 10, 10, 12, 0, 0, 0, ZoneOffset.UTC)), 1e-9)
     val monthly = quota("quota:\n  enabled: true\n  daily: false\n  monthly_usd: 31\n  tiers:\n    default: 1")
-    assertEquals(31.0, monthly.unlocked(java.time.ZonedDateTime.of(2026, 10, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC)))
+    assertEquals(31.0, monthly.unlocked(ZonedDateTime.of(2026, 10, 1, 0, 0, 0, 0, ZoneOffset.UTC)))
   }
 
   @Test fun `the book counts each active player's weight once`() {

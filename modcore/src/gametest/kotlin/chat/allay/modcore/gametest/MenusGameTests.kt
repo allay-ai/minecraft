@@ -21,6 +21,7 @@ import chat.allay.modcore.menus.Menus
 import chat.allay.modcore.menus.RecipeMenu
 import chat.allay.modcore.menus.SettingsMenu
 import chat.allay.modcore.menus.VillagerMenu
+import chat.allay.modcore.menus.ZoneMenu
 import chat.allay.modcore.of
 import chat.allay.modcore.tools.Anvils
 import chat.allay.modcore.tools.Catalogs
@@ -265,7 +266,7 @@ class MenusGameTests {
     zones.forget(player.uuid)
     var back = 0
     Menus.zones(audience, allay, Players.features) { back++ }
-    helper.assertTrue(view(player)?.menu is chat.allay.modcore.menus.ZoneMenu, "the zone window opens")
+    helper.assertTrue(view(player)?.menu is ZoneMenu, "the zone window opens")
     // The test player plays from nowhere GeoIP knows, so the countries show first, each a map.
     equal(helper, view(player)!!.getSlot(0).item.item, Items.MAP, "a country")
     click(player, 0, 0, ContainerInput.PICKUP)

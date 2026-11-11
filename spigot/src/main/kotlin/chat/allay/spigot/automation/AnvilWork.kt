@@ -1,5 +1,6 @@
 package chat.allay.spigot.automation
 
+import chat.allay.core.tasks.Kind
 import chat.allay.core.tools.*
 import chat.allay.spigot.tools.Anvils
 import chat.allay.spigot.tools.InteractTools
@@ -23,6 +24,7 @@ import org.bukkit.NamespacedKey
 import org.bukkit.Registry
 import org.bukkit.Sound
 import org.bukkit.block.Block
+import org.bukkit.block.data.Directional
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.EnchantmentStorageMeta
@@ -54,7 +56,7 @@ object AnvilWork {
       val task = context.requireTask()
       val automation = context.features.automation
       val settings = automation.settings()
-      automation.require(player, task, chat.allay.core.tasks.Kind.CRAFTING)
+      automation.require(player, task, Kind.CRAFTING)
       val apply = when (val action = args.string("action")?.lowercase()) {
         "plan", null -> false
         "apply" -> true
@@ -182,7 +184,7 @@ object AnvilWork {
       }
       if (next == Material.AIR) anvil.type = Material.AIR
       else anvil.blockData = next.createBlockData().also { data ->
-        (anvil.blockData as? org.bukkit.block.data.Directional)?.facing?.let { (data as? org.bukkit.block.data.Directional)?.facing = it }
+        (anvil.blockData as? Directional)?.facing?.let { (data as? Directional)?.facing = it }
       }
       if (next == Material.AIR) return Material.AIR
     }

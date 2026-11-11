@@ -5,6 +5,7 @@ import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.Kind
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.Button
+import chat.allay.core.tools.Mechanics
 import chat.allay.core.tools.ToolError
 import chat.allay.core.tools.ToolOutput
 import chat.allay.modcore.Mod
@@ -15,7 +16,12 @@ import chat.allay.modcore.gametest.Players.survivor
 import chat.allay.modcore.mixin.FurnaceAccess
 import chat.allay.modcore.tools.ToolContext
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.logging.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -28,6 +34,9 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
+import net.minecraft.tags.EnchantmentTags
 import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
@@ -46,9 +55,11 @@ import net.minecraft.world.level.block.ChestBlock
 import net.minecraft.world.level.block.LayeredCauldronBlock
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity
 import net.minecraft.world.level.block.entity.ChestBlockEntity
+import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity
 import net.minecraft.world.level.block.state.properties.ChestType
 import net.minecraft.world.level.storage.loot.BuiltInLootTables
 import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 
 /**
  * Automation on a real server with real players and real blocks: chests sorted, moved, and put back, furnaces and
@@ -210,7 +221,7 @@ class AutomationGameTests {
     })
     // The second chest broken and a shulker box placed there, holding the same.
     helper.level.setBlockAndUpdate(second, Blocks.SHULKER_BOX.defaultBlockState())
-    (helper.level.getBlockEntity(second) as net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity).setItem(0, ItemStack(Items.STONE, 5))
+    (helper.level.getBlockEntity(second) as ShulkerBoxBlockEntity).setItem(0, ItemStack(Items.STONE, 5))
     val reason = refused { run(player, task, "chests", buildJsonObject { put("action", "apply") }) }
     helper.assertTrue(reason?.contains("another block now") == true, "a chest swapped for a shulker box stops the apply: $reason")
     equal(helper, count(contents(helper, first), Items.SHULKER_BOX), 1, "the shulker box stayed in the chest")
@@ -262,8 +273,8 @@ class AutomationGameTests {
     run(player, task, "chests", buildJsonObject {
       put("action", "plan")
       put("mode", "take")
-      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("diamond")) }
-      putJsonArray("from") { add(kotlinx.serialization.json.JsonPrimitive("nearby")) }
+      putJsonArray("items") { add(JsonPrimitive("diamond")) }
+      putJsonArray("from") { add(JsonPrimitive("nearby")) }
     })
     run(player, task, "chests", buildJsonObject { put("action", "apply") })
     equal(helper, carried(player, Items.DIAMOND), 9, "every diamond taken once")
@@ -282,7 +293,7 @@ class AutomationGameTests {
       put("action", "apply")
       put("mode", "take")
       put("chests", spots(store))
-      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("apple")) }
+      putJsonArray("items") { add(JsonPrimitive("apple")) }
     }).result.jsonObject
     equal(helper, applied["applied"]!!.jsonPrimitive.boolean, true, "applied: $applied")
     equal(helper, carried(player, Items.APPLE), 16, "the apples")
@@ -307,7 +318,7 @@ class AutomationGameTests {
       put("action", "plan")
       put("mode", "take")
       put("chests", spots(output))
-      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_ingot")) }
+      putJsonArray("items") { add(JsonPrimitive("iron_ingot")) }
     })
     val reason = refused { run(player, task, "chests", buildJsonObject { put("action", "apply") }) }
     equal(helper, reason, null, "apply takes from it as the plan did")
@@ -340,7 +351,7 @@ class AutomationGameTests {
   fun theEnderChestTakesAndGivesThePlayersOwn(helper: GameTestHelper) {
     val player = survivor(helper)
     val task = agent(player, Kind.CHESTS)
-    val ender = kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive("ender_chest")) }
+    val ender = kotlinx.serialization.json.buildJsonArray { add(JsonPrimitive("ender_chest")) }
     val none = refused { run(player, task, "chests", buildJsonObject { put("action", "read"); put("chests", ender) }) }
     helper.assertTrue(none?.contains("no ender chest") == true, "without an ender chest near, it's out of reach: $none")
 
@@ -352,8 +363,8 @@ class AutomationGameTests {
       put("action", "plan")
       put("mode", "move")
       put("to", ender)
-      putJsonArray("from") { add(kotlinx.serialization.json.JsonPrimitive("inventory")) }
-      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_block")); add(kotlinx.serialization.json.JsonPrimitive("gold_block")) }
+      putJsonArray("from") { add(JsonPrimitive("inventory")) }
+      putJsonArray("items") { add(JsonPrimitive("iron_block")); add(JsonPrimitive("gold_block")) }
     })
     run(player, task, "chests", buildJsonObject { put("action", "apply") })
     val stored = (0 until player.enderChestInventory.containerSize).map { player.enderChestInventory.getItem(it) }
@@ -368,7 +379,7 @@ class AutomationGameTests {
       put("action", "plan")
       put("mode", "take")
       put("chests", ender)
-      putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("iron_block")) }
+      putJsonArray("items") { add(JsonPrimitive("iron_block")) }
     })
     run(player, task, "chests", buildJsonObject { put("action", "apply") })
     equal(helper, carried(player, Items.IRON_BLOCK), 40, "a take reaches the ender chest too")
@@ -402,12 +413,12 @@ class AutomationGameTests {
     val closed = run(player, task, "chests", buildJsonObject { put("action", "read"); put("chests", spots(loot)) }).result.jsonObject["chests"]!!.jsonArray[0].jsonObject
     helper.assertTrue(closed["unsuitable"]?.jsonPrimitive?.content?.contains("can't open it") == true, "a structure chest stays closed: $closed")
     helper.assertTrue(closed["top"] == null, "and what's in it stays hidden: $closed")
-    val taking = refused { run(player, task, "chests", buildJsonObject { put("action", "plan"); put("mode", "take"); put("chests", spots(loot)); putJsonArray("items") { add(kotlinx.serialization.json.JsonPrimitive("diamond")) } }) }
+    val taking = refused { run(player, task, "chests", buildJsonObject { put("action", "plan"); put("mode", "take"); put("chests", spots(loot)); putJsonArray("items") { add(JsonPrimitive("diamond")) } }) }
     helper.assertTrue(taking?.contains("can't open it") == true, "nothing is taken from it: $taking")
 
     // A chest open in someone's window stays out.
     val open = chest(helper, BlockPos(5, 2, 4), ItemStack(Items.STONE, 1), ItemStack(Items.DIRT, 1))
-    val viewer = survivor(helper, net.minecraft.world.phys.Vec3(5.5, 2.0, 5.5))
+    val viewer = survivor(helper, Vec3(5.5, 2.0, 5.5))
     viewer.openMenu(helper.level.getBlockEntity(open) as ChestBlockEntity)
     val busy = refused { run(player, task, "chests", buildJsonObject { put("action", "plan"); put("mode", "sort"); put("chests", spots(open)) }) }
     helper.assertTrue(busy?.contains("someone has it open") == true, "an open chest is left alone: $busy")
@@ -646,7 +657,7 @@ class AutomationGameTests {
     run(player, task, "grindstone", buildJsonObject { put("action", "apply") })
     val ground = player.inventory.getItem(0)
     equal(helper, ground.get(DataComponents.ENCHANTMENTS)?.size(), 1, "only the curse is left: $ground")
-    helper.assertTrue(helper.level.getEntitiesOfClass(ExperienceOrb::class.java, net.minecraft.world.phys.AABB(grindstone).inflate(2.0)).isNotEmpty(), "experience drops at the grindstone")
+    helper.assertTrue(helper.level.getEntitiesOfClass(ExperienceOrb::class.java, AABB(grindstone).inflate(2.0)).isNotEmpty(), "experience drops at the grindstone")
     // Two worn pickaxes become one with both durabilities and 5% more; the one in a chest comes along.
     val worn = ItemStack(Items.IRON_PICKAXE).apply { damageValue = 200 }
     player.inventory.setItem(1, worn)
@@ -665,8 +676,8 @@ class AutomationGameTests {
     // The plugin reads these from a table; the mods read the game itself. Both must agree.
     helper.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements().forEach { holder ->
       val key = holder.key().identifier().path
-      for (level in 1..holder.value().maxLevel) equal(helper, chat.allay.core.tools.Mechanics.minCost(key, level), holder.value().getMinCost(level), "$key $level")
-      equal(helper, key in chat.allay.core.tools.Mechanics.CURSES, holder.`is`(net.minecraft.tags.EnchantmentTags.CURSE), "$key is a curse")
+      for (level in 1..holder.value().maxLevel) equal(helper, Mechanics.minCost(key, level), holder.value().getMinCost(level), "$key $level")
+      equal(helper, key in Mechanics.CURSES, holder.`is`(EnchantmentTags.CURSE), "$key is a curse")
     }
     helper.succeed()
   }
@@ -799,7 +810,7 @@ class AutomationGameTests {
     val plain = player.inventory.getItem(0)
     helper.assertTrue(ItemStack.isSameItemSameComponents(plain, ItemStack(Items.BOOK)), "a plain book that stacks with any other: ${plain.componentsPatch}")
     // A named book keeps its name, as the game's grindstone does.
-    val name = net.minecraft.network.chat.Component.literal("Notes")
+    val name = Component.literal("Notes")
     player.inventory.setItem(1, storedBook(helper).apply { set(DataComponents.CUSTOM_NAME, name) })
     player.inventory.selectedSlot = 1
     run(player, task, "grindstone", buildJsonObject { put("action", "apply") })
@@ -851,7 +862,7 @@ class AutomationGameTests {
     helper.level.setBlockAndUpdate(stand, Blocks.BREWING_STAND.defaultBlockState())
     // A pack's drink built on a water bottle, with a model of its own: no water bottle to brew from.
     val drink = PotionContents.createItemStack(Items.POTION, Potions.WATER).apply {
-      set(DataComponents.ITEM_MODEL, net.minecraft.resources.Identifier.fromNamespaceAndPath("allay_gametest", "energy_drink"))
+      set(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("allay_gametest", "energy_drink"))
     }
     (0..2).forEach { player.inventory.setItem(9 + it, drink.copy()) }
     player.inventory.setItem(12, ItemStack(Items.NETHER_WART))
@@ -871,7 +882,7 @@ class AutomationGameTests {
 
   /** A backend that keeps agents in memory, as allay.chat would between a player's visits. */
   private class Kept : AgentStore.Backend {
-    val agents = java.util.concurrent.ConcurrentHashMap<String, List<JsonObject>>()
+    val agents = ConcurrentHashMap<String, List<JsonObject>>()
     override suspend fun agents(userId: String, serverId: String) = agents[userId].orEmpty()
     override suspend fun saveAgents(userId: String, serverId: String, agents: List<JsonObject>) {
       this.agents[userId] = agents
@@ -882,7 +893,7 @@ class AutomationGameTests {
   private fun keeping(backend: Kept): AgentStore? {
     val agents = Players.features.automation.agents
     val before = agents.store
-    agents.store = AgentStore({ backend }, "gametest", kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined), java.util.logging.Logger.getLogger("allay-gametest"), debounceMs = 0)
+    agents.store = AgentStore({ backend }, "gametest", CoroutineScope(Dispatchers.Unconfined), Logger.getLogger("allay-gametest"), debounceMs = 0)
     return before
   }
 

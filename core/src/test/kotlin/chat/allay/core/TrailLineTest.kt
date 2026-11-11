@@ -2,6 +2,7 @@ package chat.allay.core
 
 import chat.allay.core.tools.TrailLine
 import chat.allay.core.tools.TrailLine.Point
+import kotlin.math.floor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -41,7 +42,7 @@ class TrailLineTest {
     // Ground up to y 64 here, then a slope that rises a block for every two blocks from z 4 on.
     val hill = { _: Int, y: Int, z: Int -> y <= 64 + maxOf(0, (z - 4) / 2) }
     val points = TrailLine.points(from, Point(0.5, 65.1, 300.5), hill)
-    points.forEach { assertTrue(!hill(0, kotlin.math.floor(it.y).toInt(), kotlin.math.floor(it.z).toInt()), "a point in the ground at $it") }
+    points.forEach { assertTrue(!hill(0, floor(it.y).toInt(), floor(it.z).toInt()), "a point in the ground at $it") }
   }
 
   @Test fun `a wall higher than three blocks doesn't lift it into the sky`() {

@@ -1,5 +1,6 @@
 package chat.allay.core
 
+import chat.allay.core.tasks.Agents
 import chat.allay.core.tools.Books
 import chat.allay.core.tools.Button
 import chat.allay.core.tools.ButtonStore
@@ -26,7 +27,7 @@ class Clicks(
   /** Stops the player's question with this request id, if it still runs. */
   private val stopQuestion: (PlayerAudience, String) -> Unit = { _, _ -> },
   /** The automation agents, for their stop buttons. */
-  private val agents: () -> chat.allay.core.tasks.Agents? = { null },
+  private val agents: () -> Agents? = { null },
 ) {
   /** The buttons that reach into the game, on this platform. */
   interface Game {

@@ -1,6 +1,7 @@
 package chat.allay.core.tools
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -16,6 +17,7 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.logging.Logger
 
 /**
@@ -34,7 +36,7 @@ class GameNames(
   private val tables = ConcurrentHashMap<String, Map<String, String>>()
   private val fetching = ConcurrentHashMap.newKeySet<String>()
   private val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(15)).build()
-  private val changes = java.util.concurrent.atomic.AtomicInteger()
+  private val changes = AtomicInteger()
   @Volatile private var downloaded: Set<String>? = null
 
   /** Goes up whenever names already read may have changed: a download, [forget]. A cached catalog builds again then. */
@@ -93,7 +95,7 @@ class GameNames(
   }
 
   private fun assetIndex(): JsonObject {
-    val versions = Json.parseToJsonElement(get(MANIFEST)).jsonObject["versions"] as? kotlinx.serialization.json.JsonArray ?: throw IOException("no versions in the manifest")
+    val versions = Json.parseToJsonElement(get(MANIFEST)).jsonObject["versions"] as? JsonArray ?: throw IOException("no versions in the manifest")
     val version = versions.map { it.jsonObject }.firstOrNull { it["id"]?.jsonPrimitive?.content == gameVersion }
       ?: throw IOException("Mojang lists no version $gameVersion")
     val details = Json.parseToJsonElement(get(version["url"]!!.jsonPrimitive.content)).jsonObject

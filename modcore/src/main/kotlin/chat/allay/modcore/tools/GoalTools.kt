@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
@@ -61,7 +62,7 @@ object GoalTools {
           }
           Statistics.Kind.ITEM -> material = Recipes.id(InteractTools.item(args.string("item") ?: throw ToolError("$name needs item")))
           Statistics.Kind.ENTITY -> entity = (Goals.entityType(args.string("entity") ?: throw ToolError("$name needs entity, such as zombie"))
-            ?: throw ToolError("no mob called ${args.string("entity")}")).let { net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(it).path }
+            ?: throw ToolError("no mob called ${args.string("entity")}")).let { BuiltInRegistries.ENTITY_TYPE.getKey(it).path }
           else -> {}
         }
         // Distances are counted in centimeters; the player thinks in blocks.

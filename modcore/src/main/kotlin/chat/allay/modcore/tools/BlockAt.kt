@@ -6,6 +6,7 @@ import net.minecraft.core.Holder
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.biome.Biome
+import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.phys.AABB
@@ -23,7 +24,7 @@ class BlockAt(val level: ServerLevel, pos: BlockPos) {
 
   val state: BlockState get() = level.getBlockState(pos)
   val entity: BlockEntity? get() = level.getBlockEntity(pos)
-  val block: net.minecraft.world.level.block.Block get() = state.block
+  val block: Block get() = state.block
 
   /** The block's id as the model reads it: `chest`, or `mod:thing`. */
   val key: String get() = Worlds.key(BuiltInRegistries.BLOCK.getKey(block))

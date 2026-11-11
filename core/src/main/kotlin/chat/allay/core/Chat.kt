@@ -1,5 +1,8 @@
 package chat.allay.core
 
+import chat.allay.core.building.BuildTiers
+import chat.allay.core.tasks.Kind
+
 /** Permissions as the plugin names them; each platform checks them its own way. */
 object Permissions {
   const val ASK = "allay.ask"
@@ -12,7 +15,7 @@ object Permissions {
   const val ADMIN = "allay.admin"
   /** Automation agents at all; each kind also needs its own, `allay.automation.chests` and so on. */
   const val AUTOMATION = "allay.automation"
-  fun automation(kind: chat.allay.core.tasks.Kind) = "$AUTOMATION.${kind.wire}"
+  fun automation(kind: Kind) = "$AUTOMATION.${kind.wire}"
   /** A tier of `quota.tiers` in config.yml: `allay.quota.vip`. */
   fun quota(tier: String) = "allay.quota.$tier"
   /** A tier of `models` in config.yml: `allay.model.vip`. */
@@ -43,10 +46,10 @@ object Permissions {
   fun all(config: YamlConfig?): List<String> {
     val tiers = config?.let {
       QuotaSettings.parse(it).tiers.keys.map(::quota) + ModelTiers.parse(it).models.keys.map(::model) +
-        chat.allay.core.building.BuildTiers.parse(it).tiers.keys.filter { tier -> tier != chat.allay.core.building.BuildTiers.DEFAULT }.map(::build)
+        BuildTiers.parse(it).tiers.keys.filter { tier -> tier != BuildTiers.DEFAULT }.map(::build)
     }.orEmpty()
-    return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION, BUILD, build(chat.allay.core.building.BuildTiers.UNLIMITED)) +
-      chat.allay.core.tasks.Kind.entries.filterNot { it.solo }.map(::automation) + tiers).distinct()
+    return (listOf(ASK, ASKX, ASKALL, ASKALL_NO_COOLDOWN, CHAT, RELOAD, ADMIN, AUTOMATION, BUILD, build(BuildTiers.UNLIMITED)) +
+      Kind.entries.filterNot { it.solo }.map(::automation) + tiers).distinct()
   }
 }
 

@@ -2,7 +2,11 @@ package chat.allay.expansion.v2;
 
 import chat.allay.expansion.Asker;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -58,8 +62,8 @@ public final class Tool<T> {
   private final Handler<T> handler;
   private final LaterHandler<T> later;
   private final List<Arg<?>> args = new ArrayList<>();
-  private final java.util.Set<Arg<?>> required = new java.util.HashSet<>();
-  private final java.util.Map<Arg<?>, Object> fallbacks = new java.util.HashMap<>();
+  private final Set<Arg<?>> required = new HashSet<>();
+  private final Map<Arg<?>, Object> fallbacks = new HashMap<>();
   private Access access = Access.READ;
   private String permission;
   private boolean inPublic;

@@ -1,5 +1,7 @@
 package chat.allay.spigot.tools
 
+import chat.allay.core.Lang
+import chat.allay.core.Locales
 import chat.allay.spigot.of
 import chat.allay.spigot.code
 import chat.allay.spigot.audience
@@ -40,7 +42,7 @@ import kotlin.math.max
  */
 class Goals(
   private val plugin: Plugin,
-  private val locales: chat.allay.core.Locales,
+  private val locales: Locales,
   private val data: PlayerData,
   private val max: () -> Int,
 ) : Listener {
@@ -103,7 +105,7 @@ class Goals(
   }
 
   /** What the bar says, in the player's language: the title, then where the player stands. */
-  fun label(goal: Goal, lang: chat.allay.core.Lang): String = when (goal.kind) {
+  fun label(goal: Goal, lang: Lang): String = when (goal.kind) {
     "reach" -> if (goal.baseline == Goal.UNSET) goal.title else lang.text("goals.bar_distance", "title" to goal.title, "blocks" to max(0, goal.target - goal.progress))
     "advancement", "biome", "dimension" -> goal.title
     else -> lang.text("goals.bar_count", "title" to goal.title, "progress" to goal.progress / goal.scale, "target" to goal.target / goal.scale)

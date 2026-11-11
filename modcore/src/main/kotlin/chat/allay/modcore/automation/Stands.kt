@@ -1,6 +1,7 @@
 package chat.allay.modcore.automation
 
 import chat.allay.core.tasks.Kind
+import chat.allay.core.tasks.Reservations
 import chat.allay.core.tasks.Task
 import chat.allay.core.tools.*
 import chat.allay.modcore.audience
@@ -31,6 +32,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.alchemy.PotionContents
 import net.minecraft.world.level.block.Blocks as GameBlocks
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity
 
@@ -84,7 +86,7 @@ object Stands {
    */
   private fun fresh(item: ItemStack): Boolean {
     val potion = item.get(DataComponents.POTION_CONTENTS)?.potion()?.orElse(null) ?: return false
-    return Slots.similar(item, net.minecraft.world.item.alchemy.PotionContents.createItemStack(item.item, potion))
+    return Slots.similar(item, PotionContents.createItemStack(item.item, potion))
   }
 
   /** A plain bottle of [kind]: nothing of its own, exactly as the game makes it. */
@@ -354,7 +356,7 @@ object Stands {
    * cauldrons, a level a bottle. Each water bottle goes back where its glass bottle was, else to the inventory. Returns
    * how many it filled and how many of those fell at the player's feet for want of room.
    */
-  private fun fill(player: ServerPlayer, sources: Sources, count: Int, holds: chat.allay.core.tasks.Reservations, task: Task): Pair<Int, Int> {
+  private fun fill(player: ServerPlayer, sources: Sources, count: Int, holds: Reservations, task: Task): Pair<Int, Int> {
     val near = Water.near(player) ?: return 0 to 0
     val n = minOf(count, near.first, sources.free(plain(Items.GLASS_BOTTLE), "glass_bottle", holds, task.id))
     if (n <= 0) return 0 to 0

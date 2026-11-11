@@ -21,6 +21,7 @@ import net.minecraft.world.item.Items as GameItems
 import net.minecraft.world.item.MapItem
 import net.minecraft.world.item.component.FireworkExplosion
 import net.minecraft.world.item.component.ItemAttributeModifiers
+import net.minecraft.world.item.enchantment.ItemEnchantments
 import net.minecraft.world.level.Level
 
 /**
@@ -80,7 +81,7 @@ fun contents(item: ItemStack): List<ItemStack?>? = when {
 /** What Bukkit's `PotionMeta` covers. */
 private val POTIONS = setOf(GameItems.POTION, GameItems.SPLASH_POTION, GameItems.LINGERING_POTION, GameItems.TIPPED_ARROW)
 
-private fun enchantments(enchantments: net.minecraft.world.item.enchantment.ItemEnchantments?): Map<String, Int> =
+private fun enchantments(enchantments: ItemEnchantments?): Map<String, Int> =
   enchantments?.entrySet()?.associate { Worlds.key(it.key) to it.intValue }.orEmpty()
 
 private fun effect(effect: MobEffectInstance) =

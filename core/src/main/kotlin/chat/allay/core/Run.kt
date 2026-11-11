@@ -1,6 +1,11 @@
 package chat.allay.core
 
+import chat.allay.core.tasks.Task
+import chat.allay.core.tools.Button
+
 import okhttp3.Call
+import java.util.Collections
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -8,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong
  * One question in flight, or one wake of an automation agent ([task]): what the display shows and what cancelling
  * stops. Touched from several threads.
  */
-class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, val public: Boolean = false, val task: chat.allay.core.tasks.Task? = null) {
+class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, val public: Boolean = false, val task: Task? = null) {
   enum class Mode(val wire: String) { ASK("ask"), ASKX("askx"), TASK("task") }
 
   val startedAt = System.currentTimeMillis()
@@ -19,7 +24,7 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   @Volatile var call: Call? = null
   @Volatile var cancelled = false
   /** The question's own name on the backend, the same on every try, so it never runs twice (backend 6.31). */
-  val requestId: String = java.util.UUID.randomUUID().toString()
+  val requestId: String = UUID.randomUUID().toString()
   /** The backend numbers its events: a dropped stream reads on after [lastEventId] instead of failing. */
   @Volatile var resumable = false
   @Volatile var lastEventId = 0L
@@ -50,7 +55,7 @@ class Run(val asker: Asker, val mode: Mode, val lang: Lang, verbSeconds: Long, v
   val others = OtherPlayers()
 
   /** Buttons the tools asked for; they go under the answer. */
-  val buttons: MutableList<chat.allay.core.tools.Button> = java.util.Collections.synchronizedList(mutableListOf())
+  val buttons: MutableList<Button> = Collections.synchronizedList(mutableListOf())
 
   /** The expansions' tools this run offers, decided on the server thread when it starts: the backend may call only these. */
   @Volatile var expansionTools: List<Protocol.ExpansionTool> = emptyList()

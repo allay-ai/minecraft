@@ -6,13 +6,16 @@ import chat.allay.core.tools.*
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.Registry
 import org.bukkit.Server
+import org.bukkit.Statistic
 import org.bukkit.World
+import org.bukkit.entity.Item
 import org.bukkit.entity.Player
 
 /** Places that matter to the asker: where they respawn, where the world starts, and where they last died. */
@@ -31,7 +34,7 @@ object LocationTools {
     if (spawn !is JsonObject) return spawn
     // Through the registry, as WorldTools reads rules: GameRule's static members differ between Spigot and Paper.
     val radius = Registry.GAME_RULE.get(NamespacedKey.minecraft("respawn_radius"))?.let { world.getGameRuleValue(it) as? Number }
-    return JsonObject(spawn + listOfNotNull(radius?.let { "respawn_radius" to kotlinx.serialization.json.JsonPrimitive(it.toInt()) }))
+    return JsonObject(spawn + listOfNotNull(radius?.let { "respawn_radius" to JsonPrimitive(it.toInt()) }))
   }
 
   /** A place as the model needs it, with distance and direction when the player can walk there. */
@@ -83,12 +86,12 @@ object LocationTools {
       val place = record?.let { player.server.getWorld(it.world)?.let { world -> Location(world, it.x + 0.5, it.y.toDouble(), it.z + 0.5) } }
         ?: player.lastDeathLocation ?: throw ToolError("this player hasn't died yet")
       val world = place.world ?: throw ToolError("the world of the last death is gone")
-      val minutes = player.getStatistic(org.bukkit.Statistic.TIME_SINCE_DEATH) / 1_200
+      val minutes = player.getStatistic(Statistic.TIME_SINCE_DEATH) / 1_200
       val loaded = world.isChunkLoaded(place.blockX shr 4, place.blockZ shr 4)
       // Only items of the kinds the player dropped count, so someone else's junk nearby doesn't.
       val kinds = record?.drops?.keys.orEmpty()
       val items = if (loaded) {
-        world.getNearbyEntities(place, 8.0, 8.0, 8.0).filterIsInstance<org.bukkit.entity.Item>().filter { record == null || it.itemStack.type.key.key in kinds }
+        world.getNearbyEntities(place, 8.0, 8.0, 8.0).filterIsInstance<Item>().filter { record == null || it.itemStack.type.key.key in kinds }
       } else emptyList()
       val result = buildJsonObject {
         put("place", describe(place, player))

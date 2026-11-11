@@ -3,6 +3,8 @@ package chat.allay.modcore.tools
 import chat.allay.core.*
 import chat.allay.core.tools.*
 import chat.allay.modcore.Texts
+import chat.allay.modcore.mixin.RecipeAccess
+import chat.allay.modcore.automation.Crafting
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -25,6 +27,7 @@ import net.minecraft.world.item.crafting.ShapelessRecipe
 import net.minecraft.world.item.crafting.SmithingTransformRecipe
 import net.minecraft.world.item.crafting.SmokingRecipe
 import net.minecraft.world.item.crafting.StonecutterRecipe
+import net.minecraft.world.item.crafting.TransmuteRecipe
 
 /** What this server knows that the model might not: its exact recipes, and the asker's advancements. */
 object KnowledgeTools {
@@ -41,7 +44,7 @@ object KnowledgeTools {
       // Items in one call share the player's things: a set of armor counts the same ingots once.
       // counts, since 6.27, says how many of each item in its place («1 факел и 6 повторителей»); count is for the rest.
       val counts = (args["counts"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.intOrNull }
-      val plan = { at: Int -> if (args.bool("plan") == true) (counts.getOrNull(at) ?: args.int("count") ?: 1).coerceIn(1, chat.allay.modcore.automation.Crafting.MAX_COUNT) else null }
+      val plan = { at: Int -> if (args.bool("plan") == true) (counts.getOrNull(at) ?: args.int("count") ?: 1).coerceIn(1, Crafting.MAX_COUNT) else null }
       val spent = mutableMapOf<String, Int>()
       read(context)
       // One item answers as before 6.13; several (items) answer each in its place, an error among them, with fewer recipes each.
@@ -93,7 +96,7 @@ object KnowledgeTools {
         put("recipes", JsonArray(found))
         if (all.size > found.size) put("more_recipes", all.size - found.size)
         if (entry.id in SpecialRecipes.FIREWORK_ITEMS && special.isNotEmpty()) put("fireworks", SpecialRecipes.fireworks())
-        if (plan != null) put("plan", try { chat.allay.modcore.automation.Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
+        if (plan != null) put("plan", try { Crafting.look(context, entry.id, plan, spent) } catch (error: ToolError) { buildJsonObject { put("error", error.message.orEmpty()) } })
       }
     }
 
@@ -107,7 +110,7 @@ object KnowledgeTools {
      * generation]: data packs, `/reload`, the next singleplayer world, which keeps this object). Server thread only.
      */
     private var tags: Map<Set<Item>, String> = emptyMap()
-    private var byResult: Map<String, List<net.minecraft.world.item.crafting.Recipe<*>>> = emptyMap()
+    private var byResult: Map<String, List<Recipe<*>>> = emptyMap()
     /** The recipe map [tags] and [byResult] were read from; only the map, so no old server stays in memory. */
     private var readFrom: Any? = null
 
@@ -170,8 +173,8 @@ object KnowledgeTools {
           put("base", choice(recipe.baseIngredient()))
           put("addition", choice(recipe.additionIngredient().orElse(null)))
         }
-        is net.minecraft.world.item.crafting.TransmuteRecipe -> {
-          val access = recipe as chat.allay.modcore.mixin.RecipeAccess.Transmute
+        is TransmuteRecipe -> {
+          val access = recipe as RecipeAccess.Transmute
           put("type", "crafting_transmute")
           put("input", choice(access.`allay$input`()))
           put("material", choice(access.`allay$material`()))

@@ -1,6 +1,7 @@
 package chat.allay.spigot.tools
 
 import chat.allay.core.*
+import chat.allay.core.Lang
 import chat.allay.core.tools.*
 
 import kotlinx.serialization.json.buildJsonArray
@@ -58,7 +59,7 @@ object Villagers {
   }
 
   /** “3 × Emerald” in the reader's language; the window's lore can't ask the client to translate, so `items.<id>` in the language file names what villagers usually ask for. */
-  fun price(lang: chat.allay.core.Lang, item: ItemStack): String {
+  fun price(lang: Lang, item: ItemStack): String {
     val id = item.type.key.key
     val name = if (lang.has("items.$id")) lang.text("items.$id") else id.replace('_', ' ')
     return "${item.amount} × $name"

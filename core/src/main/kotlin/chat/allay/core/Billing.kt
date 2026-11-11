@@ -9,9 +9,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.logging.Logger
 
 /** Keys and licenses as people may see them: a few characters at each end, never the whole thing. */
 object Secrets {
@@ -64,7 +66,7 @@ class License(folder: File) {
     cached?.takeIf { it.first == modified }?.let { return it.second }
     val line = try {
       file.readLines().firstOrNull()?.trim()
-    } catch (_: java.io.IOException) {
+    } catch (_: IOException) {
       return null
     }
     val value = line?.takeIf(::valid)
@@ -183,7 +185,7 @@ class Credentials(private val config: Config, val license: License) {
  * free. Before a request, a byok server without `server.token` and without a license gets one and keeps it in
  * `license.key`. A self-hosted backend answers `billing: false`, and the server asks no more. Blocking; off the server thread.
  */
-class Identity(private val billing: Billing, private val config: Config, private val serverName: () -> String?, private val log: java.util.logging.Logger, private val now: () -> Long = System::currentTimeMillis) {
+class Identity(private val billing: Billing, private val config: Config, private val serverName: () -> String?, private val log: Logger, private val now: () -> Long = System::currentTimeMillis) {
   @Volatile private var settled = false
   @Volatile private var lastTry: Long? = null
 

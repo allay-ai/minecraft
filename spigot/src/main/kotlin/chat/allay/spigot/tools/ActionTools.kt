@@ -8,12 +8,14 @@ import chat.allay.core.tools.*
 import chat.allay.spigot.automation.Chests
 import chat.allay.spigot.automation.Undo
 import chat.allay.spigot.send
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.Sound
@@ -117,7 +119,7 @@ object ActionTools {
     val before = Chests.pack(player)
     // Slots 9–35 by default: the hotbar is muscle memory, armor and offhand live elsewhere. The player may ask for both,
     // and the hotbar then holds the pins and what's held in hand, not the first items of the alphabet.
-    val pins = (args["pins"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }?.map { pin ->
+    val pins = (args["pins"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.map { pin ->
       val slot = (pin["slot"] as? JsonPrimitive)?.content?.let(Pins::slot)
         ?: throw ToolError("a pin's slot is 1–9 for the hotbar, inventory:1–inventory:27 for the main inventory, or offhand")
       Pins.Pin(slot, Pins.normalize(pin.string("item") ?: throw ToolError("each pin needs an item: an id or a group (${Pins.GROUPS.keys.joinToString()})")))
@@ -140,7 +142,7 @@ object ActionTools {
       block = Chests.block,
     ) ?: throw ToolError("the inventory has overstacked items or wouldn't fit back, so it can't be sorted safely")
     // In creative the client keeps its own copy of an open inventory and would write it back over this.
-    if (player.gameMode == org.bukkit.GameMode.CREATIVE) player.closeInventory()
+    if (player.gameMode == GameMode.CREATIVE) player.closeInventory()
     sorted.slots.forEach { (slot, stack) -> inventory.setItem(slot, stack) }
     val after = Chests.pack(player)
     if (after != before) {

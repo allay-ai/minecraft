@@ -2,6 +2,8 @@ package chat.allay.core
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -79,7 +81,7 @@ class PrivacyCommands(
     val lang = locales.of(player)
     val paragraphs = buildList {
       if (changed) {
-        val since = consents.previous(player.uuid)?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
+        val since = consents.previous(player.uuid)?.let { runCatching { OffsetDateTime.parse(it).toLocalDate().toString() }.getOrNull() }
         add(lang.text(if (since != null) "consent.changed" else "consent.changed_undated", "date" to since))
         add(lang.text("consent.changed_summary"))
       }
@@ -350,7 +352,7 @@ class PrivacyCommands(
     scope.launch {
       val line: () -> Unit = try {
         val link = service.exportLink(uuid.toString())
-        val until = link.expires_at?.let { runCatching { java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(UNTIL) }.getOrNull() } ?: "24 h"
+        val until = link.expires_at?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()).format(UNTIL) }.getOrNull() } ?: "24 h"
         val intro = if (name == null) lang.text("privacy.export_ready", "until" to until) else lang.text("privacy.export_ready_for", "player" to name, "until" to until)
         ({
           if (sender is PlayerAudience) {

@@ -4,6 +4,7 @@ import chat.allay.core.tasks.AgentStore
 import chat.allay.core.tasks.Agents
 import chat.allay.core.tasks.TaskBook
 import chat.allay.core.tools.Books
+import chat.allay.core.tools.Death
 import chat.allay.core.tools.GameNames
 import chat.allay.expansion.AllayExpansions
 import chat.allay.core.tools.ButtonStore
@@ -11,6 +12,7 @@ import chat.allay.core.tools.ClientTool
 import chat.allay.core.tools.Reminders
 import chat.allay.core.tools.TimeZones
 import chat.allay.core.tools.ToolRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +20,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.io.File
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.UUID
 
 /** What the backend takes as a server's name (backend 6.7): letters of any script, digits, spaces, and . _ ' - . */
@@ -158,7 +162,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
       backend = object : PlayerData.Backend {
         override suspend fun state(userId: String) = service.state(userId)
         override suspend fun saveState(userId: String, state: PlayerState) = service.saveState(userId, state)
-        override suspend fun death(userId: String, death: chat.allay.core.tools.Death) = service.death(userId, death)
+        override suspend fun death(userId: String, death: Death) = service.death(userId, death)
       },
       scope = scope,
       spool = Spool(File(platform.shared, Spool.FILE), secret, log),
@@ -180,7 +184,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
     chat = ChatMode(platform, locales, settings, { handler }, { history }, { config.chatHistory.whisperCommand })
     // Outlives /allay reload, so reminders already set keep their schedule.
     reminders = Reminders(platform, locales, { effects }) { config.tools.maxReminders }
-    quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.shared, log) { runCatching { java.time.ZoneId.of(config.time.zone) }.getOrDefault(java.time.ZoneOffset.UTC) })
+    quota = QuotaGate(platform, locales, { config }, QuotaBook(platform.shared, log) { runCatching { ZoneId.of(config.time.zone) }.getOrDefault(ZoneOffset.UTC) })
     game = build(this)
     names = GameNames(platform.shared, game.gameVersion, log, game::names)
     data.loaded = game::loaded
@@ -302,7 +306,7 @@ class Allay<C>(val platform: Platform, private val build: (Allay<C>) -> Game<C>)
           error.apiError.statusCode in setOf(401, 402, 403, 404, 405) -> Unit
           else -> log.warning("Couldn't register this server with the backend: ${error.apiError.code}")
         }
-      } catch (error: kotlinx.coroutines.CancellationException) {
+      } catch (error: CancellationException) {
         // Allay stopped before the backend answered: nothing went wrong.
         throw error
       } catch (error: Exception) {
