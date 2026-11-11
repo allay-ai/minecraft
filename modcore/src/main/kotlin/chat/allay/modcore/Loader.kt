@@ -1,6 +1,7 @@
 package chat.allay.modcore
 
 import net.minecraft.commands.CommandSourceStack
+import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.crafting.Ingredient
 import java.nio.file.Path
@@ -45,6 +46,12 @@ interface Loader {
    * its code lives in, since Brigadier keeps no owner. Server thread.
    */
   fun owner(type: Class<*>): String? = null
+
+  /**
+   * What the chat makes of [text] that Allay says for [player], or null when a mod refused it (a mute, a filter): the
+   * loader's chat event where the game's broadcast doesn't fire it. Fabric's fires there, so its line stays as it is.
+   */
+  fun chatting(player: ServerPlayer, text: String): Component? = Component.literal(text)
 
   /** What only this loader integrates, started with Allay on a server and closed when it stops. */
   fun integrations(game: ModGame): List<AutoCloseable> = emptyList()

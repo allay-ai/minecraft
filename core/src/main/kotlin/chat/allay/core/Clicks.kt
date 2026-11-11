@@ -195,8 +195,12 @@ class Clicks(
       is Button.Command -> command(player, button.command)
       is Button.Say -> when (val to = button.to) {
         null -> chat.say(player, button.text)
-        // The addressee may have left since the answer.
-        else -> if (chat.whisper(player, to, button.text) == null) lang.send(player, "buttons.whisper_gone", "name" to to)
+        // The addressee may have left since the answer. A mute or a filter that stopped the line told the player itself.
+        else -> when (val sent = chat.whisper(player, to, button.text)) {
+          ChatMode.Sent.Nobody -> lang.send(player, "buttons.whisper_gone", "name" to to)
+          is ChatMode.Sent.Forbidden -> lang.send(player, "buttons.whisper_forbidden", "command" to sent.command)
+          else -> Unit
+        }
       }
       is Button.Note -> memory().rememberAt(player, button.text, button.x, button.y, button.z, button.dimension)
       // Copying happens in the client and never reaches the store; kept for a complete `when`.

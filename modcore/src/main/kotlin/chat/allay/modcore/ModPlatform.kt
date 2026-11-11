@@ -81,7 +81,8 @@ class ModPlayer(private val last: ServerPlayer) : ModSender(last.createCommandSo
   override fun closeWindow() = Windows.close(player)
   override fun chat(text: String) {
     val player = player
-    player.level().server.playerList.broadcastChatMessage(PlayerChatMessage.unsigned(uuid, text), player, ChatType.bind(ChatType.CHAT, player))
+    val content = Mod.loader.chatting(player, text) ?: return
+    player.level().server.playerList.broadcastChatMessage(PlayerChatMessage.unsigned(uuid, text).withUnsignedContent(content), player, ChatType.bind(ChatType.CHAT, player))
   }
 
   override fun equals(other: Any?) = other is ModPlayer && other.uuid == uuid

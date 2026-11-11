@@ -126,6 +126,12 @@ class BukkitPlatform(private val plugin: JavaPlugin) : Platform {
   }
 
   override fun dispatch(who: Audience, command: String) = server.dispatchCommand(who.sender, command)
+  // dispatchCommand skips PlayerCommandPreprocessEvent, where mute and anti-spam plugins stop /msg; the chat doesn't.
+  override fun type(player: PlayerAudience, command: String): Boolean {
+    (player as BukkitPlayer).player.chat("/$command")
+    return true
+  }
+  override val hearsTyped = true
   override fun check(who: Audience, command: String) = chat.allay.spigot.tools.CommandTools.check(who.sender, command)
   override fun vanished(player: PlayerAudience) = Vanish.vanished(player.player)
   override fun placeholders(about: Audience?) = Placeholders.about((about as? BukkitSender)?.sender)

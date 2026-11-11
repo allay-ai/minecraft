@@ -49,8 +49,13 @@ class ChatHistory(
   private val sending = Mutex()
   /** Whom each player last wrote to or heard from privately: where `/r` goes. */
   private val partners = ConcurrentHashMap<UUID, UUID>()
-  /** Players Allay is sending a line for right now, and whether the platform's hook already heard it. */
-  private val own = ConcurrentHashMap<UUID, Boolean>()
+  /** A line Allay sends for a player, while it goes out: the thread that sends it, and whether a hook heard it there. */
+  private class Pending(val thread: Thread) {
+    @Volatile var heard = false
+  }
+
+  /** Players Allay is sending a line for right now. */
+  private val own = ConcurrentHashMap<UUID, Pending>()
   /** The last moment taken per sender: the backend keeps one line per sender and millisecond. */
   private val moments = ConcurrentHashMap<UUID, Long>()
   @Volatile private var loop: Job? = null
@@ -87,6 +92,8 @@ class ChatHistory(
    * the last one (`/r hi`) goes in, anything else is none of the chat's business.
    */
   fun command(sender: PlayerAudience, line: String) {
+    // Any command a hook lets through counts as heard: one Allay types for a player went out.
+    heard(sender.uuid)
     if (!on) return
     val words = line.trim().split(' ', limit = 3)
     val name = words[0].substringAfter(':').lowercase()
@@ -106,16 +113,23 @@ class ChatHistory(
   }
 
   /**
-   * A line Allay sends for [sender] through [send] (a say button, `send_message`): the platform's chat hook hears it
-   * where the platform fires one, and [fallback] records it where it doesn't, so it's kept exactly once.
+   * A line Allay sends for [sender] through [send] (a say button, `send_message`); true when it went out. The platform's
+   * hooks hear it on the thread that sends it, so a line the player typed meanwhile on another thread never counts.
+   * Where they hear whatever [send] does ([hooked]), a line they didn't hear was refused (a mute, a chat filter, an
+   * anti-spam) and isn't kept. Where they may not (a mod's own `/msg`), [record] keeps it once [send] says it ran.
    */
-  fun <T> sent(sender: UUID, fallback: () -> Unit, send: () -> T): T {
-    own[sender] = false
-    try {
-      return send()
+  fun sent(sender: UUID, hooked: Boolean, record: () -> Unit = {}, send: () -> Boolean): Boolean {
+    val pending = Pending(Thread.currentThread())
+    own[sender] = pending
+    val ran = try {
+      send()
     } finally {
-      if (own.remove(sender) == false) fallback()
+      own.remove(sender, pending)
     }
+    if (pending.heard) return true
+    if (hooked || !ran) return false
+    record()
+    return true
   }
 
   fun quit(uuid: UUID) {
@@ -150,11 +164,18 @@ class ChatHistory(
         if (failing) log.info("Chat history reaches the backend again")
         failing = false
       } catch (error: Exception) {
-        if ((error as? ApiErrorException)?.apiError?.statusCode in OLD_BACKEND) {
+        val status = (error as? ApiErrorException)?.apiError?.statusCode
+        if (status in OLD_BACKEND) {
           old = true
           queue.clear()
           log.warning("The backend keeps no chat history (it's older than Allay Server 6.34): chat_history stays off until it's updated")
           return@withLock
+        }
+        // The backend refused the batch itself: sent again, it would hold up every line after it for good. Anything
+        // else (a key being fixed, a backend down, too many lines a minute) waits for the next round.
+        if (status in REFUSED) {
+          log.warning("The backend refused ${batch.size} lines of the chat history (${(error as ApiErrorException).apiError.code}: ${error.apiError.message}); they're dropped")
+          continue
         }
         batch.asReversed().forEach(queue::addFirst)
         trim()
@@ -194,7 +215,7 @@ class ChatHistory(
   }
 
   private fun heard(sender: UUID) {
-    own.computeIfPresent(sender) { _, _ -> true }
+    own[sender]?.takeIf { it.thread === Thread.currentThread() }?.heard = true
   }
 
   /** Now, or a millisecond after the sender's last line when two come at once (a /msg to several players). */
@@ -212,5 +233,7 @@ class ChatHistory(
     const val MAX_AUDIENCE = 200
     const val MAX_WAITING = 2000
     private val OLD_BACKEND = setOf(404, 405)
+    /** Answers about the batch itself: malformed, too big, or lines the backend can't take. */
+    private val REFUSED = setOf(400, 413, 422)
   }
 }

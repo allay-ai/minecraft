@@ -26,37 +26,66 @@ class ChatMode(
   /** Players whose chat line comes from a say button right now, so chat mode lets it through. */
   private val saying: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
+  /** How a line Allay sent for a player went. */
+  sealed interface Sent {
+    /** It went out in [lines] of the game's lines; [to] got it privately. */
+    data class Out(val lines: Int, val to: PlayerAudience? = null) : Sent
+
+    /** Nobody by that name is online for the player to see. */
+    data object Nobody : Sent
+
+    /** The server's private message command won't run for the player: [command] with the game's [check]. */
+    data class Forbidden(val command: String, val check: chat.allay.core.tools.CommandCatalog.Check) : Sent
+
+    /**
+     * The chat didn't let it through after [after] of its [lines]: a mute, a chat filter, an anti-spam, or nothing left
+     * to send. The plugin that stopped it told the player why.
+     */
+    data class Refused(val after: Int, val lines: Int) : Sent
+  }
+
   /**
-   * A say button: [text] goes to the public chat as the player, through every chat plugin, as if they typed it. On the
-   * server thread the game fires the chat event at once, so chat mode sees the mark.
+   * A say button: [text] goes to the public chat as the player, through every chat plugin, as if they typed it, in as
+   * many of the game's lines as it takes. On the server thread the game fires the chat event at once, so chat mode
+   * sees the mark.
    */
-  fun say(player: PlayerAudience, text: String) {
-    val line = text.replace('§', '&')
+  fun say(player: PlayerAudience, text: String): Sent {
+    val lines = lines(clean(text), MAX_LINE)
+    // The chat would run a line starting with / as a command.
+    if (lines.isEmpty() || lines[0].startsWith("/")) return Sent.Refused(0, lines.size)
+    val history = history()
     saying += player.uuid
     try {
-      val history = history()
-      if (history == null) player.chat(line) else history.sent(player.uuid, { history.chat(player, line) }) { player.chat(line) }
+      for ((k, line) in lines.withIndex()) {
+        val out = if (history == null) true.also { player.chat(line) } else history.sent(player.uuid, hooked = true) { player.chat(line); true }
+        if (!out) return Sent.Refused(k, lines.size)
+      }
     } finally {
       saying -= player.uuid
     }
+    return Sent.Out(lines.size)
   }
 
   /**
    * A private message from [player] to the player named [to], through the server's own command (`/msg`, or Essentials'
-   * in its place), so the server's chat plugins format and log it as if the player typed it. Null when nobody by that
-   * name is online for them to see; otherwise who got it. Server thread.
+   * in its place) as the player typed it, so the server's chat plugins format, log, and mute it as usual: in as many of
+   * the game's lines as it takes. Server thread.
    */
-  fun whisper(player: PlayerAudience, to: String, text: String): PlayerAudience? {
-    val target = platform.player(to)?.takeIf { it.uuid != player.uuid && platform.visible(player, it) } ?: return null
-    val line = text.replace('§', '&').replace('\n', ' ').trim()
-    if (line.isEmpty()) return null
-    val command = "${whisperCommand()} ${target.name} $line"
+  fun whisper(player: PlayerAudience, to: String, text: String): Sent {
+    val target = platform.player(to)?.takeIf { it.uuid != player.uuid && platform.visible(player, it) } ?: return Sent.Nobody
+    val prefix = "${whisperCommand()} ${target.name} "
+    // The game's line counts the command's / too.
+    val lines = lines(clean(text), MAX_LINE - 1 - prefix.length)
+    if (lines.isEmpty()) return Sent.Refused(0, 0)
+    platform.check(player, prefix + lines[0])?.takeIf { it.verdict != chat.allay.core.tools.CommandCatalog.Verdict.OK }?.let { return Sent.Forbidden(prefix.trim().substringBefore(' '), it) }
     val history = history()
-    if (history == null) return target.takeIf { platform.dispatch(player, command) }
-    // Kept only once the server ran the command: a server without one has nothing to keep.
-    var sent = false
-    history.sent(player.uuid, { if (sent) history.whisper(player, target, line) }) { sent = platform.dispatch(player, command) }
-    return target.takeIf { sent }
+    for ((k, line) in lines.withIndex()) {
+      val command = prefix + line
+      // Kept only once the server ran the command: a server without one has nothing to keep.
+      val out = history?.sent(player.uuid, platform.hearsTyped, { history.whisper(player, target, line) }) { platform.type(player, command) } ?: platform.type(player, command)
+      if (!out) return Sent.Refused(k, lines.size)
+    }
+    return Sent.Out(lines.size, target)
   }
 
   /**
@@ -146,5 +175,58 @@ class ChatMode(
     val count = asked.merge(player.uuid, 1, Int::plus)!!
     val wants = settings.of(player.uuid).let { it.hints && !it.chat_mode } && player.can(Permissions.CHAT)
     return count >= 2 && wants && tipped.add(player.uuid)
+  }
+
+  companion object {
+    /** The most the game's chat box takes in one line, a command's / included. */
+    const val MAX_LINE = 256
+
+    private val CODE = Regex("&([0-9a-fk-or])", RegexOption.IGNORE_CASE)
+
+    /** What the game's chat takes: one line, colors as & codes, no control characters. */
+    fun clean(text: String): String =
+      text.replace('§', '&').map { if (it == '\n' || it == '\r' || it == '\t') ' ' else it }.filter { it >= ' ' && it != '\u007f' }.joinToString("").trim()
+
+    /**
+     * [text] as the game's chat lines of at most [room] characters, split between words. A color or format set before
+     * a split carries on into the next line, and no line starts with `/`, which the chat would run as a command.
+     */
+    fun lines(text: String, room: Int): List<String> {
+      val out = mutableListOf<String>()
+      var rest = text.trim()
+      var carry = ""
+      while (rest.isNotEmpty()) {
+        if (carry.length + rest.length <= room) {
+          out += carry + rest
+          break
+        }
+        val space = room - carry.length
+        // The last space that fits, unless the next line would then start with /.
+        val found = (space downTo 1).firstOrNull { rest[it] == ' ' && rest.substring(it).trimStart().firstOrNull() != '/' }
+        var cut = found ?: space
+        // A word longer than a line: cut it, but never between & and its code, nor right before a /.
+        if (found == null) while (cut > 1 && (rest[cut - 1] == '&' || rest.substring(cut).trimStart().firstOrNull() == '/')) cut--
+        val head = rest.substring(0, cut).trimEnd()
+        out += carry + head
+        carry = codes(carry + head)
+        rest = rest.substring(cut).trimStart()
+      }
+      return out
+    }
+
+    /** The & color and format codes in force at the end of [line], for the line after it. */
+    private fun codes(line: String): String {
+      var color = ""
+      val formats = linkedSetOf<Char>()
+      for (match in CODE.findAll(line)) {
+        val code = match.groupValues[1].lowercase()[0]
+        when (code) {
+          'r' -> color = "".also { formats.clear() }
+          in "0123456789abcdef" -> color = "&$code".also { formats.clear() }
+          else -> formats += code
+        }
+      }
+      return color + formats.joinToString("") { "&$it" }
+    }
   }
 }

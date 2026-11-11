@@ -93,7 +93,10 @@ interface PlayerAudience : Audience {
 
   fun closeWindow()
 
-  /** Says [text] in the public chat as the player, through every chat plugin, as if they typed it. */
+  /**
+   * Says [text] in the public chat as the player, through every chat plugin, as if they typed it: on the calling
+   * thread, past the hooks that hand the chat to [ChatHistory], so a line they don't hear was refused (a mute, a filter).
+   */
   fun chat(text: String)
 }
 
@@ -169,6 +172,15 @@ interface Platform {
 
   /** Runs [command] (without its `/`) as [who], as if they typed it; true when the platform ran it. */
   fun dispatch(who: Audience, command: String): Boolean
+
+  /**
+   * Runs [command] (without its `/`) as [player] typed it, through whatever watches typed commands (a mute, a cooldown,
+   * a log) where the platform has that, else as [dispatch]. True when it ran, as far as the platform can tell.
+   */
+  fun type(player: PlayerAudience, command: String): Boolean = dispatch(player, command)
+
+  /** Whether [type] reaches the hook that hands typed commands to [ChatHistory.command], so one it didn't hear was refused. */
+  val hearsTyped: Boolean get() = false
 
   /**
    * Whether [command] (without its `/`) would run for [who] now: it exists, they may run it, and, where the platform

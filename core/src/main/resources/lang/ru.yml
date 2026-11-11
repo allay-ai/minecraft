@@ -461,6 +461,7 @@ buttons:
     say_to: "&7Отправит &f{name}&7 личное сообщение от твоего имени: &f{text}"
   expired: "&7Эта кнопка уже не работает. Спроси ещё раз."
   whisper_gone: "&f{name}&7 уже не в сети, так что сообщение осталось у тебя."
+  whisper_forbidden: "&7Тебе здесь нельзя &f/{command}&7, так что сообщение осталось у тебя."
   question: "&7› {question}"
   path_shown: "&7Показываю путь: &f{distance} &7{distance|блок|блока|блоков} на {direction}."
   path_to_player: "&7Показываю путь к &f{name}&7: &f{distance} &7{distance|блок|блока|блоков} на {direction}. Тропа идёт следом."

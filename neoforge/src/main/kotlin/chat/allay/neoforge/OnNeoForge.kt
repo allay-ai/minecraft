@@ -6,10 +6,12 @@ import chat.allay.modcore.Loader
 import chat.allay.modcore.Folders
 
 import net.minecraft.commands.CommandSourceStack
+import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.crafting.Ingredient
 import net.neoforged.fml.ModList
 import net.neoforged.fml.loading.FMLPaths
+import net.neoforged.neoforge.common.CommonHooks
 import net.neoforged.neoforge.server.permission.PermissionAPI
 import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent
 import net.neoforged.neoforge.server.permission.nodes.PermissionNode
@@ -73,6 +75,9 @@ object OnNeoForge : Loader {
   // A command block or the console has no player to ask PermissionAPI about.
   override fun permission(source: CommandSourceStack, permission: String, fallback: Boolean) =
     source.player?.let { permission(it, permission, fallback) } ?: fallback
+
+  // ServerChatEvent fires while the game reads a typed line, not in its broadcast: without it a mute mod never sees Allay's.
+  override fun chatting(player: ServerPlayer, text: String): Component? = CommonHooks.onServerChatSubmittedEvent(player, text, Component.literal(text))
 
   override fun permission(player: ServerPlayer, permission: String, fallback: Boolean): Boolean {
     val node = nodes[permission] ?: return fallback

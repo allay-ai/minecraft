@@ -8,6 +8,7 @@ import java.util.UUID
 import java.util.logging.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -98,11 +99,29 @@ class ChatHistoryTest {
     assertTrue(two.at > one.at, "the backend keeps one line per sender and millisecond")
   }
 
-  @Test fun `a line Allay sends is kept once, whether or not the platform's hook heard it`() {
+  @Test fun `a line Allay sends is kept once, and one no hook heard was refused`() {
     val history = history()
-    history.sent(steve.uuid, { history.chat(steve, "fallback") }) { history.chat(steve, "heard by the hook") }
-    history.sent(steve.uuid, { history.chat(steve, "no hook here") }) { }
-    assertEquals(listOf("heard by the hook", "no hook here"), history.waiting.map { it.text })
+    assertTrue(history.sent(steve.uuid, hooked = true) { history.chat(steve, "heard by the hook"); true })
+    assertFalse(history.sent(steve.uuid, hooked = true) { true }, "a mute cancelled the chat event")
+    assertTrue(history.sent(steve.uuid, hooked = false, { history.whisper(steve, alex, "a mod's own /msg") }) { true })
+    assertFalse(history.sent(steve.uuid, hooked = false, { history.whisper(steve, alex, "never ran") }) { false })
+    assertEquals(listOf("heard by the hook", "a mod's own /msg"), history.waiting.map { it.text })
+  }
+
+  @Test fun `a line the player typed meanwhile on another thread doesn't pass for Allay's`() {
+    val history = history()
+    val sent = history.sent(steve.uuid, hooked = true) {
+      Thread { history.chat(steve, "typed by Steve") }.apply { start() }.join()
+      true
+    }
+    assertFalse(sent)
+    assertEquals(listOf("typed by Steve"), history.waiting.map { it.text })
+  }
+
+  @Test fun `a typed command the hooks let through counts as heard, even one the chat keeps nothing of`() {
+    val history = history("tools:\n  enabled:\n    chat_history: false")
+    assertTrue(history.sent(steve.uuid, hooked = true) { history.command(steve, "msg alex hi"); true })
+    assertEquals(emptyList(), history.waiting)
   }
 
   @Test fun `switched off it keeps nothing, and the owner's command lists count`() {
@@ -133,5 +152,24 @@ class ChatHistoryTest {
     assertTrue(history.old)
     history.chat(steve, "four")
     assertEquals(emptyList(), history.waiting)
+  }
+
+  @Test fun `a batch the backend refuses is dropped, so the lines after it go on`() = runBlocking {
+    val history = history()
+    history.chat(steve, "refused")
+    failure = ApiErrorException(ApiError("BAD_REQUEST", "lines.0: bad", 400))
+    history.flush()
+    assertEquals(emptyList(), history.waiting)
+    history.chat(steve, "too many")
+    failure = ApiErrorException(ApiError("RATE_LIMITED", "wait", 429))
+    history.flush()
+    assertEquals(listOf("too many"), history.waiting.map { it.text })
+    // A license being fixed keeps the chat for when it works again.
+    failure = ApiErrorException(ApiError("LICENSE_INVALID", "revoked", 401))
+    history.flush()
+    assertEquals(listOf("too many"), history.waiting.map { it.text })
+    failure = null
+    history.flush()
+    assertEquals(listOf(listOf("too many")), sent.map { batch -> batch.map { it.text } })
   }
 }

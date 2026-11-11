@@ -461,6 +461,7 @@ buttons:
     say_to: "&7Schickt &f{name}&7 in deinem Namen eine private Nachricht: &f{text}"
   expired: "&7Dieser Knopf geht nicht mehr. Frag einfach noch mal."
   whisper_gone: "&f{name}&7 ist nicht mehr online, also ging die Nachricht nicht raus."
+  whisper_forbidden: "&7Du darfst &f/{command}&7 hier nicht nutzen, also ging die Nachricht nicht raus."
   question: "&7› {question}"
   path_shown: "&7Ich zeige dir den Weg: &f{distance} &7{distance|Block|Blöcke} nach {direction}."
   path_to_player: "&7Ich zeige dir den Weg zu &f{name}&7: &f{distance} &7{distance|Block|Blöcke} nach {direction}. Die Spur folgt mit."

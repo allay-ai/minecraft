@@ -463,6 +463,7 @@ buttons:
     say_to: "&7Sends a private message to &f{name}&7 as you: &f{text}"
   expired: "&7This button doesn't work anymore. Ask again."
   whisper_gone: "&f{name}&7 isn't online anymore, so the message stayed with you."
+  whisper_forbidden: "&7You may not use &f/{command}&7 here, so the message stayed with you."
   question: "&7› {question}"
   path_shown: "&7Showing the way: &f{distance} &7{distance|block|blocks} {direction}."
   path_to_player: "&7Showing the way to &f{name}&7: &f{distance} &7{distance|block|blocks} {direction}. The trail follows them."

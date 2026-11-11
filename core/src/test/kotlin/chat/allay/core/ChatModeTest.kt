@@ -29,4 +29,24 @@ class ChatModeTest {
     assertEquals(setOf("plain text", "!", "?", "~"), Guide.prefixes((player + Permissions.ASKX)::contains).keys)
     assertEquals(emptyMap(), Guide.prefixes(setOf(Permissions.ASK)::contains))
   }
+
+  @Test fun `a long text goes out in the game's lines, split between words, colors carried on`() {
+    val text = "&bhello " + "word ".repeat(70) + "&lend"
+    val lines = ChatMode.lines(text, ChatMode.MAX_LINE)
+    assertTrue(lines.size == 2 && lines.all { it.length <= ChatMode.MAX_LINE }, "$lines")
+    assertTrue(lines[1].startsWith("&bword"), lines[1])
+    assertEquals(text.replace(" ", ""), lines.joinToString("").replace(" ", "").replaceFirst("&bword", "word"))
+    assertEquals(listOf("short"), ChatMode.lines("  short ", ChatMode.MAX_LINE))
+  }
+
+  @Test fun `no line but a typed one starts with a slash, and a code stays whole`() {
+    val lines = ChatMode.lines("aaaa /op me", 6)
+    assertTrue(lines.drop(1).none { it.startsWith("/") }, "$lines")
+    assertTrue(ChatMode.lines("x".repeat(9) + "&cy", 10).none { it.endsWith("&") }, "a code cut in half")
+    assertTrue(ChatMode.lines("ab/cdefghij", 3).drop(1).none { it.startsWith("/") })
+  }
+
+  @Test fun `the chat takes one line without control characters, colors as & codes`() {
+    assertEquals("&ahi there you", ChatMode.clean(" §ahi\nthere\u0007 you\t"))
+  }
 }

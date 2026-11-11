@@ -14,6 +14,11 @@ import org.bukkit.event.player.PlayerQuitEvent
 
 /** Bukkit's events for the core's pieces: logins, joins, quits, languages, and chat. */
 class Events(private val allay: Allay<*>) : Listener {
+  companion object {
+    /** Whether Paper's AsyncChatEvent is there, and with it who really read a line. */
+    val paperChat = runCatching { Class.forName("io.papermc.paper.event.player.AsyncChatEvent") }.isSuccess
+  }
+
   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
   fun onPreLogin(event: AsyncPlayerPreLoginEvent) {
     if (event.loginResult == AsyncPlayerPreLoginEvent.Result.ALLOWED) allay.locales.login(event.uniqueId, event.address)
@@ -61,10 +66,13 @@ class Events(private val allay: Allay<*>) : Listener {
     }
   }
 
-  /** What the chat really showed, after every chat plugin had its say, for `chat_history`; its recipients tell a local line. */
+  /**
+   * What the chat really showed, after every chat plugin had its say, for `chat_history`; its recipients tell a local
+   * line. On Paper the chat plugins have their say after this, so [chat.allay.spigot.paper.PaperChat] hears it there.
+   */
   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
   fun onChatSent(event: AsyncPlayerChatEvent) {
-    allay.history.chat(event.player.audience, event.message, event.recipients.map { it.uniqueId })
+    if (!paperChat) allay.history.chat(event.player.audience, event.message, event.recipients.map { it.uniqueId })
   }
 
   /** A private message (`/msg`, `/r`, Essentials' too) for `chat_history`. */

@@ -460,6 +460,7 @@ buttons:
     say_to: "&7Envia uma mensagem privada para &f{name}&7 em seu nome: &f{text}"
   expired: "&7Esse botão não funciona mais. Pergunte de novo."
   whisper_gone: "&f{name}&7 não está mais online, então a mensagem ficou com você."
+  whisper_forbidden: "&7Você não pode usar &f/{command}&7 aqui, então a mensagem ficou com você."
   question: "&7› {question}"
   path_shown: "&7Mostrando o caminho: &f{distance} &7{distance|bloco|blocos} ao {direction}."
   path_to_player: "&7Mostrando o caminho até &f{name}&7: &f{distance} &7{distance|bloco|blocos} ao {direction}. O rastro acompanha."

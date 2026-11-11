@@ -2,6 +2,14 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.38.1
+
+- 🔇 **Mutes count for Allay too.** A private message Allay sent for a player went around `PlayerCommandPreprocessEvent`, so a muted player could still whisper through a Reply button or `send_message`. It goes out as a typed `/msg` now, which LiteBans, AdvancedBan, and anti-spam plugins see. On NeoForge Allay's lines now pass `ServerChatEvent` too.
+- ✅ **“Sent” means sent.** A line a mute, a chat filter, or an anti-spam stopped was still reported as sent and kept in the chat history as public. Now Allay tells the model the chat refused it, and keeps nothing. Without the right to use `/msg` the player hears so, and the model no longer says the addressee is offline.
+- 🔒 **Paper's chat channels stay closed.** On Paper a chat plugin such as CarbonChat narrows who reads a staff, party, or local line after Spigot's chat event, so such a line was kept as public. Allay reads Paper's `AsyncChatEvent` now, with the readers the plugin left.
+- 📏 **Long messages in the game's lines.** A text longer than 256 characters goes out as several lines, split between words, colors carried on, never a line starting with `/`. Control characters are dropped. Needs Allay Server 6.34.1 for texts over 256.
+- 📦 A batch of chat lines the backend calls malformed (400, 413, 422) no longer blocks every line after it: it's dropped with a warning. Anything else, a backend down, a license being fixed, too many lines a minute, waits for the next round as before. A line the player typed while Allay sent one for them no longer passes for Allay's.
+
 ## 6.38.0
 
 - 📜 **Allay reads the chat with you.** Ask “what did he just write?”, “translate what Steve said”, “who swore the most today, and how often?”, or “is his offer a scam?”, and Allay reads the server's chat of the last 72 hours: the public chat, local lines you saw, and your own private messages, never anyone else's. It pages back as far as you like, finds words in any form and language, counts by player, and reads the talk around a line before it judges it. Needs Allay Server 6.34.

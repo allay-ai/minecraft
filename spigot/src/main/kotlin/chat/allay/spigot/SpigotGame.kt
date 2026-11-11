@@ -128,6 +128,7 @@ class SpigotGame(private val plugin: JavaPlugin, private val allay: Allay<ToolCo
     val expansions = Expansions(plugin, plugin.logger)
     listOf(goals, deaths, menus, Marks, Drafts, Previews, automation, automation.picking, Jobs, Events(allay), expansions, chat.allay.spigot.tools.Catalogs.Changes).forEach { server.pluginManager.registerEvents(it, plugin) }
     if (chat.allay.spigot.tools.Catalogs.paper) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperCatalog.reloads(chat.allay.spigot.tools.Catalogs::reloaded), plugin)
+    if (Events.paperChat) server.pluginManager.registerEvents(chat.allay.spigot.paper.PaperChat.lines { player, text, readers -> allay.history.chat(player.audience, text, readers) }, plugin)
     Drafts.start(plugin, locales)
     Previews.start(plugin, locales, Blueprints({ allay.config.building.keepMinutes * 60_000L }))
     chat.allay.spigot.automation.Building.plugin = plugin
