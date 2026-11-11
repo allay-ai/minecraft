@@ -144,6 +144,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         for word in ["Reading", " the", " question", "…"]:
             self.event("reasoning", {"delta": word}, 0.35)
         read = 2100
+        # The backend's own tools (chat_history) show only their status line; the plugin runs none of them.
+        for n, tool in enumerate(item.get("server_tools", [])):
+            call = {"call_id": f"s{n}", "name": tool["name"], "kind": "server", "args": tool.get("args", {})}
+            self.event("tool_status", {**call, "state": "started"}, 1.4)
+            done = {k: tool[k] for k in ("summary", "summary_key", "summary_values") if k in tool}
+            self.event("tool_status", {**call, "state": "finished", **done}, 0.4)
+            read += 2600
+            self.event("usage", {"input_tokens": read, "output_tokens": 30}, 0.6)
         for n, tool in enumerate(item.get("tools", [])):
             self.event("tool_call", {"call_id": f"c{n}", "name": tool["name"], "args": localized(tool.get("args", {}), item, lang)}, 0.2)
             read += 1900 + 700 * n

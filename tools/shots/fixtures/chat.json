@@ -1,0 +1,28 @@
+{
+  "about": "Another player writes in a language the player doesn't read; the player asks what he wrote and to answer, Allay reads the chat (chat_history, a server tool), translates, and offers the reply in his language; the player clicks Reply.",
+  "question": {
+    "en": "what did he write? reply that I have no diamonds",
+    "ru": "что он написал? ответь ему, что у меня нет алмазов",
+    "es": "¿qué escribió? respóndele que no tengo diamantes"
+  },
+  "line": {
+    "en": "¿Alguien tiene diamantes? Cambio un libro de Reparación por 10.",
+    "ru": "Anyone got diamonds? Trading a Mending book for 10.",
+    "es": "Anyone got diamonds? Trading a Mending book for 10."
+  },
+  "tools": [],
+  "server_tools": [
+    {
+      "name": "chat_history",
+      "args": {},
+      "summary": "12 lines",
+      "summary_key": "chat_lines",
+      "summary_values": { "count": 12 }
+    }
+  ],
+  "answer": {
+    "en": "Notch wrote in Spanish: “Anyone got diamonds? Trading a Mending book for 10.” You could reply in Spanish: &f“Lo siento, no tengo diamantes, ¡quizá mañana!”&r <button action=\"say\" text=\"Lo siento, no tengo diamantes, ¡quizá mañana!\">Reply</button>",
+    "ru": "Notch пишет: «У кого есть алмазы? Меняю книгу „Починка“ на 10». Ответить можно так: &f“Sorry, I'm out of diamonds, maybe tomorrow!”&r <button action=\"say\" text=\"Sorry, I'm out of diamonds, maybe tomorrow!\">Ответить</button>",
+    "es": "Notch escribió: «¿Alguien tiene diamantes? Cambio un libro de Reparación por 10». Puedes responder en inglés: &f“Sorry, I'm out of diamonds, maybe tomorrow!”&r <button action=\"say\" text=\"Sorry, I'm out of diamonds, maybe tomorrow!\">Responder</button>"
+  }
+}

@@ -33,6 +33,9 @@
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/say.gif" width="760" alt="A player asks Allay to ask the others for diamonds politely, clicks Send under the answer, and the line goes out in chat as theirs">
   <br><sub>Allay writes to the others for you, and nothing goes out until you press Send</sub></p>
 
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/chat.gif" width="760" alt="Notch writes in Spanish, the player asks what he wrote and to answer, Allay reads the chat, translates the line, and offers a reply in Spanish with a Reply button, which sends it">
+  <br><sub>Ask what someone wrote, and Allay translates it and drafts your reply in their language</sub></p>
+
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/en/recipe.gif" width="760" alt="A player asks how to craft a beacon, clicks Recipe in the answer, and the recipe window opens">
   <br><sub>Ask for a recipe, press Recipe, and the server’s own recipe opens</sub></p>
 

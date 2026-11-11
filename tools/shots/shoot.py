@@ -8,8 +8,8 @@ the stills and record.swift (ScreenCaptureKit) the animation, both of the game's
     python3 -I tools/shots/shoot.py [--langs en,ru,es] [--keep ru]
 
 Writes media/screenshots/<lang>/: consent.webp, answer.webp, say.webp, memory.webp, memory-one.webp, privacy.webp,
-chests.webp (find_item's glowing chests), trail.webp (the way to a village), recipe.webp (the recipe window), and
-status.gif with status.mp4 and status.webp, its last frame. say, recipe, chests, and trail are also recorded whole, from
+chests.webp (find_item's glowing chests), chat.webp (a line translated and answered from the chat history), trail.webp (the way to a village), recipe.webp (the recipe window), and
+status.gif with status.mp4 and status.webp, its last frame. say, chat, recipe, chests, and trail are also recorded whole, from
 the question typed to what it brings, as <name>.gif for the READMEs and <name>.mp4 for the site, with <name>-end.webp, its last frame, as the poster. --keep leaves the server, the stub, and the client in that language
 running afterwards, to press the buttons by hand; --stop ends them. --remake crops and encodes the last run again.
 """
@@ -64,7 +64,7 @@ MENU = (0.25, 0.20, 0.75, 0.80)
 # What the player holds, so the hotbar looks lived in; the coal and sticks are what the torches answer counts.
 HOTBAR = ["torch 24", "diamond_pickaxe", "iron_sword", "coal 7", "stick 4", "bread 12", "compass", "oak_log 48", "crafting_table"]
 # What each scene's clip keeps: the chat and the hotbar where only the chat moves, the whole window where the world does.
-CLIPS = {"say": STATUS, "recipe": WORLD, "chests": WORLD, "trail": WORLD}
+CLIPS = {"say": STATUS, "chat": STATUS, "recipe": WORLD, "chests": WORLD, "trail": WORLD}
 # How long the recording runs before the question, so the animation starts on a quiet screen.
 LEAD = 1.0
 # The chat shows a line for ten seconds; a scene waits that long first, so only its own lines show.
@@ -454,7 +454,7 @@ def render(lang: str, name: str):
 
 def remake(lang: str):
     """Crops and encodes again from what the last run grabbed, after a change to the boxes or the encoding."""
-    boxes = {"consent": DIALOGS["consent"], "say": CHAT, "memory": DIALOGS["memory"], "memory-one": DIALOGS["memory-one"], "privacy": DIALOGS["privacy"],
+    boxes = {"consent": DIALOGS["consent"], "say": CHAT, "chat": CHAT, "memory": DIALOGS["memory"], "memory-one": DIALOGS["memory-one"], "privacy": DIALOGS["privacy"],
              "chests": WORLD, "trail": WORLD, "recipe": MENU}
     for name, box in boxes.items():
         crop(WORK / "raw" / lang / f"{name}.png", OUT / lang / f"{name}.webp", box, 1400)
@@ -464,7 +464,40 @@ def remake(lang: str):
     log(f"{lang}: remade")
 
 
-def scenes(lang: str):
+def talk(lang: str):
+    """
+    The chat history: Notch writes in a language the player doesn't read, the player asks what he wrote and to answer,
+    and clicks Reply under the translation; the line goes out as theirs.
+    """
+    chat = fixture("chat")
+    drive("!clear", wait=FADE)
+
+    def act():
+        drive("@tellraw @a " + json.dumps(f"<Notch> {chat['line'][lang]}"), wait=2.5)
+        typed(f"ask {chat['question'][lang]}")
+        time.sleep(8)
+        click_last_button()
+        shot(lang, "chat", CHAT)
+        press("escape", wait=1.5)
+
+    record(lang, "chat", act, cursor=True)
+
+
+def scenes(lang: str, only: set[str] | None = None):
+    if only:
+        drive(
+            "!respawn", f"@gamemode survival {PLAYER}", "@time set 6000", "@weather clear", f"@clear {PLAYER}",
+            *[f"@give {PLAYER} {item}" for item in HOTBAR], f"@recipe give {PLAYER} *", f"@setblock {FLOOR} barrier", f"@tp {PLAYER} {VIEW}", "allay hints off", wait=FADE,
+        )
+        stub("reset", {})
+        # Agreeing as a player does, so the plugin holds the notice's hash.
+        consent(False)
+        drive(f"ask {fixture('torches')['question'][lang]}", wait=3)
+        drive("allay privacy age 18", wait=2)
+        drive("allay privacy agree", wait=10)
+        if "chat" in only:
+            talk(lang)
+        return
     torches = fixture("torches")
     diamonds = fixture("diamonds")
     memories = fixture("memories")
@@ -499,6 +532,7 @@ def scenes(lang: str):
         press("escape", wait=1.5)
 
     record(lang, "say", say, cursor=True)
+    talk(lang)
 
     # The windows: memory, one memory, then privacy.
     # A window puts the pointer at its middle, over a button; it goes to a corner first, so no button lights up.
@@ -565,6 +599,7 @@ def main():
     parser.add_argument("--keep", help="leave the game running in this language afterwards")
     parser.add_argument("--stop", action="store_true", help="stop what --keep left running")
     parser.add_argument("--remake", action="store_true", help="crop and encode again from the last run's raw captures")
+    parser.add_argument("--only", help="play only these scenes, comma-separated (chat), after the setup and an agreement")
     args = parser.parse_args()
     if args.stop:
         return stop_all()
@@ -578,7 +613,7 @@ def main():
     try:
         for lang in args.langs.split(","):
             start_client(lang)
-            scenes(lang)
+            scenes(lang, set(args.only.split(",")) if args.only else None)
             stop_client()
         if args.keep:
             consent(True)

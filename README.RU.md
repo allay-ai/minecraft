@@ -51,6 +51,9 @@ Allay работает на Moonlands — моём хардкорном выжи
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/say.gif" width="760" alt="Игрок просит Allay вежливо попросить у других алмазы, нажимает «Отправить» под ответом, и строка уходит в чат от его имени">
   <br><sub>Allay пишет другим за вас, и ничего не уйдёт, пока вы не нажмёте «Отправить»</sub></p>
 
+<p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/chat.gif" width="760" alt="Notch пишет по-английски, игрок спрашивает, что он написал, и просит ответить, Allay читает чат, переводит и предлагает ответ на английском с кнопкой «Ответить», которая его отправляет">
+  <br><sub>Спросите, что кто-то написал, — Allay переведёт и подготовит ответ на его языке</sub></p>
+
 <p align="center"><img src="https://raw.githubusercontent.com/allay-ai/minecraft/master/media/screenshots/ru/recipe.gif" width="760" alt="Игрок спрашивает, как скрафтить маяк, нажимает «Рецепт» в ответе, и открывается окно рецепта">
   <br><sub>Спросите рецепт, нажмите «Рецепт», и откроется рецепт этого сервера</sub></p>
 
