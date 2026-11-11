@@ -119,7 +119,7 @@ def prepare_server() -> pathlib.Path:
     shutil.rmtree(plugins / "Allay" / "lang", ignore_errors=True)
     (plugins / "Allay").mkdir(exist_ok=True)
     # The particles over the player's head drift across a camera looking down as large glyphs, like a glitch.
-    (plugins / "Allay" / "config.yml").write_text(f'server:\n  url: "http://127.0.0.1:{STUB_PORT}"\n  name: "Moonlands"\nui:\n  particles:\n    enabled: false\n')
+    (plugins / "Allay" / "config.yml").write_text(f'server:\n  url: "http://127.0.0.1:{STUB_PORT}"\n  name: "Moonlands"\nui:\n  particles:\n    enabled: false\nbuilding:\n  enabled: true\n')
     return server
 
 
@@ -497,6 +497,8 @@ def scenes(lang: str, only: set[str] | None = None):
         drive("allay privacy agree", wait=10)
         if "chat" in only:
             talk(lang)
+        if "house" in only:
+            house(lang)
         return
     torches = fixture("torches")
     diamonds = fixture("diamonds")
@@ -544,6 +546,24 @@ def scenes(lang: str, only: set[str] | None = None):
     # The last window stays until it's closed, and would cover the world's shots. Escape would press its Back.
     drive(f"@dialog clear {PLAYER}", wait=1)
     world(lang)
+
+
+def house(lang: str):
+    """
+    A build from the catalog as its preview: the player asks on the ground, the plugin downloads the medieval house and
+    shows it in front of them, then they look at it from a few blocks back and up. The stills stay in the work folder.
+    """
+    stand(180, 0)
+    drive(f"@gamemode creative {PLAYER}", wait=1)
+    typed(f"ask {fixture('house')['question'][lang]}")
+    time.sleep(20)
+    raw = WORK / "raw" / lang
+    raw.mkdir(parents=True, exist_ok=True)
+    grab(raw / "house-near.png")
+    x, z = (int(v) for v in GROUND.split())
+    drive(f"@gamemode spectator {PLAYER}", f"@execute positioned {x} 0 {z + 24} positioned over motion_blocking_no_leaves run tp {PLAYER} ~ ~8 ~ 180 15", wait=6)
+    grab(raw / "house-far.png")
+    log(f"{lang}: house, in {raw}")
 
 
 def stand(yaw: float, pitch: float):
@@ -599,7 +619,7 @@ def main():
     parser.add_argument("--keep", help="leave the game running in this language afterwards")
     parser.add_argument("--stop", action="store_true", help="stop what --keep left running")
     parser.add_argument("--remake", action="store_true", help="crop and encode again from the last run's raw captures")
-    parser.add_argument("--only", help="play only these scenes, comma-separated (chat), after the setup and an agreement")
+    parser.add_argument("--only", help="play only these scenes, comma-separated (chat, house), after the setup and an agreement")
     args = parser.parse_args()
     if args.stop:
         return stop_all()

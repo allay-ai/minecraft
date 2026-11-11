@@ -1,0 +1,34 @@
+{
+  "about": "A build from the catalog: the medieval house shows as a preview in front of the player, as the backend's build preview hands it to the plugin.",
+  "question": {
+    "en": "show me a medieval house",
+    "ru": "покажи средневековый дом",
+    "es": "muéstrame una casa medieval"
+  },
+  "tools": [
+    {
+      "name": "build",
+      "args": {
+        "action": "preview",
+        "schematic": {
+          "id": "minelite/medieval-house-i",
+          "url": "https://raw.githubusercontent.com/allay-ai/schematics/c3be813f0f064462ed602d8739cdefb3ee94d7be/catalog/minelite/medieval-house-i/build.schem",
+          "sha256": "f1d09d91731834e8f90d3e91a548afae31a418f6f0660bec12f97c074a4c063c",
+          "bytes": 10737,
+          "title": "__title__",
+          "author": "b333nja"
+        }
+      }
+    }
+  ],
+  "title": {
+    "en": "Medieval House I",
+    "ru": "Средневековый дом I",
+    "es": "Casa medieval I"
+  },
+  "answer": {
+    "en": "&6Medieval House I&r by b333nja stands in front of you: 32×34×26, 5457 blocks. Say where to move or turn it.",
+    "ru": "&6Средневековый дом I&r от b333nja стоит перед тобой: 32×34×26, 5457 блоков. Скажи, куда сдвинуть или повернуть.",
+    "es": "&6Casa medieval I&r de b333nja está delante de ti: 32×34×26, 5457 bloques. Dime adónde moverla o girarla."
+  }
+}
