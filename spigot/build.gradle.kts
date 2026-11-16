@@ -13,7 +13,7 @@ val paper: SourceSet by sourceSets.creating
 
 dependencies {
   "paperCompileOnly"(project(":core"))
-  "paperCompileOnly"("io.papermc.paper:paper-api:26.3.build.245-stable")
+  "paperCompileOnly"("io.papermc.paper:paper-api:26.3.build.253-stable")
   implementation(paper.output)
   implementation(project(":core"))
   compileOnly("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")
@@ -22,7 +22,7 @@ dependencies {
   compileOnly("me.clip:placeholderapi:2.12.3")
   compileOnly("com.djrapitops:plan-api:5.9-R1.3")
   // WorldAPI 4.5.0 and newer bring these classes: Allay's numbers show at /extensions/allay when it runs.
-  compileOnly("com.mairwunnx:worldapi-expansion:2.0.0")
+  compileOnly("com.mairwunnx:worldapi-expansion:2.1.0")
   compileOnly("com.github.GriefPrevention:GriefPrevention:16.18.8") { isTransitive = false }
 
   testImplementation("org.spigotmc:spigot-api:26.3-R0.1-SNAPSHOT")

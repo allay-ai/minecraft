@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.38.3
+
+- ⬆️ Updated kotlinx-serialization to 1.13.0, Fabric API to 0.166.2, NeoForge to 26.3.0.103, paper-api to build 253, and the WorldAPI expansion library to 2.1.0.
+
 ## 6.38.2
 
 - 👻 **The preview stands as the build will.** It shows as full-size blocks only you see, the whole build at once, with no outlines over everything: the server tells your game a block stands there, and the world itself never changes. Where something of the world is in the way, a red box marks it. Your game takes the preview's blocks for solid, so you walk into its walls as into a real house; they go back to the world's own the moment you clear, move, or build it. Big builds no longer show only their nearest 1 500 blocks, and the preview costs the server no entities.
