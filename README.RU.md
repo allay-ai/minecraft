@@ -1,5 +1,7 @@
 # Allay
 
+![Allay: ИИ-помощник в чате Minecraft](https://raw.githubusercontent.com/allay-ai/.github/master/media/preview-minecraft.png)
+
 <p align="center">
   <a href="https://www.curseforge.com/projects/1766142"><img alt="CurseForge for Paper" src="https://img.shields.io/curseforge/dt/1766142?logo=curseforge&label=CurseForge%20for%20Paper&color=F16436"></a>
   <a href="https://www.curseforge.com/projects/1766195"><img alt="CurseForge for Fabric &amp; NeoForge" src="https://img.shields.io/curseforge/dt/1766195?logo=curseforge&label=CurseForge%20for%20Fabric%20%26%20NeoForge&color=F16436"></a>
