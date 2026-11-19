@@ -6,8 +6,10 @@ click), wait until the Portal says PUBLISHED, then until repo1.maven.org serves 
     python3 -I tools/central.py expansion/build/staging chat.allay allay-expansion 1.0.0
     python3 -I tools/central.py expansion/build/staging chat.allay allay-expansion 1.0.0 --bundle-only
 
-MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD are a Portal user token. A version can't be published twice, so the
-script stops when it's already on Central.
+MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD are a Portal user token. A version can't be published twice, so before
+the upload the script asks the Portal for a deployment of this version. One that Central still validates or publishes it
+waits for, a published one it only waits for on repo1, and a failed or unpublished one stops the run with what to do in
+the Portal. A rerun after a failed or cancelled run therefore never uploads the bundle again.
 """
 
 from __future__ import annotations
@@ -37,12 +39,25 @@ def auth() -> str:
 
 
 def request(method: str, url: str, body: bytes | None = None, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
-    req = urllib.request.Request(url, data=body, method=method, headers=headers or {})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as response:
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read()
+    """The status and body of an answer. A network error or a 5xx gets four more tries; then the last 5xx comes back,
+    or the run stops when nothing answered."""
+    for attempt in range(5):
+        if attempt:
+            time.sleep(15)
+        req = urllib.request.Request(url, data=body, method=method, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            answer = error.code, error.read()
+            if error.code < 500:
+                return answer
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            answer = None
+            reason = error
+    if answer is None:
+        sys.exit(f"No answer from {url.split('?')[0]}: {reason}")
+    return answer
 
 
 def bundle(staging: Path, group: str, artifact: str, version: str) -> bytes:
@@ -67,6 +82,32 @@ def published(group: str, artifact: str, version: str, token: str) -> bool:
     if status != 200:
         sys.exit(f"The Portal didn't say whether {version} is published: HTTP {status} {body[:200]!r}")
     return bool(json.loads(body).get("published"))
+
+
+def deployment(group: str, artifact: str, version: str, token: str) -> dict | None:
+    """The newest deployment on the Portal that holds this version, or None. GET /deployments is in the Portal's OpenAPI
+    (https://central.sonatype.com/api-doc), not on its documentation page."""
+    purl = f"pkg:maven/{group}/{artifact}@{version}"
+    page, pages = 0, 1
+    while page < min(pages, 10):
+        status, body = request(
+            "GET", f"{PORTAL}/deployments?page={page}&size=50&sortField=createTimestamp&sortDirection=desc",
+            headers={"Authorization": token, "Accept": "application/json"},
+        )
+        if status != 200:
+            sys.exit(f"The Portal didn't list its deployments: HTTP {status} {body[:200]!r}")
+        answer = json.loads(body)
+        for item in answer.get("deployments") or []:
+            if any((part.get("purl") or "").split("?")[0] == purl for part in item.get("deploymentComponents") or []):
+                return item
+        page, pages = page + 1, answer.get("pageCount") or 0
+    return None
+
+
+def refused(deployment: str, errors: object) -> None:
+    print(json.dumps(errors, indent=2) if errors else "The Portal gave no details")
+    sys.exit(f"The Portal refused deployment {deployment}, nothing was published. Drop it in the Portal under Publish → "
+             "Deployments, fix the cause, and run again")
 
 
 def upload(data: bytes, name: str, token: str) -> str:
@@ -98,10 +139,10 @@ def wait_published(deployment: str, token: str, minutes: int) -> None:
             if state == "PUBLISHED":
                 return
             if state == "FAILED":
-                print(json.dumps(answer.get("errors", answer), indent=2))
-                sys.exit("The Portal refused the deployment; nothing was published")
+                refused(deployment, answer.get("errors"))
         time.sleep(15)
-    sys.exit(f"Not published after {minutes} minutes; the Portal may still finish: check deployment {deployment}")
+    sys.exit(f"Deployment {deployment} is still {last} after {minutes} minutes. VALIDATED waits for Publish in the Portal; "
+             "otherwise the Portal may still finish: run again, and the script waits for this deployment")
 
 
 def wait_repo(group: str, artifact: str, version: str, minutes: int) -> None:
@@ -129,11 +170,23 @@ def main() -> int:
     if args.bundle_only:
         return 0
     token = auth()
-    if published(args.group, args.artifact, args.version, token):
-        sys.exit(f"{args.group}:{args.artifact}:{args.version} is already on Maven Central; a version is published once")
-    deployment = upload(data, f"{args.artifact}-{args.version}", token)
-    print(f"Uploaded as deployment {deployment}, to be published at once", flush=True)
-    wait_published(deployment, token, args.minutes)
+    coordinates = f"{args.group}:{args.artifact}:{args.version}"
+    found = deployment(args.group, args.artifact, args.version, token)
+    state = found.get("deploymentState") if found else None
+    if state == "PUBLISHED" or (found is None and published(args.group, args.artifact, args.version, token)):
+        print(f"{coordinates} is published already, the script skips the upload", flush=True)
+    elif state == "FAILED":
+        refused(found["deploymentId"], [error for part in found.get("deploymentComponents") or [] for error in part.get("errors") or []])
+    elif state == "VALIDATED":
+        sys.exit(f"Deployment {found['deploymentId']} of {coordinates} is validated and waits to be published: press Publish "
+                 "in the Portal under Publish → Deployments, then run again")
+    elif found:
+        print(f"Deployment {found['deploymentId']} of {coordinates} is {state} already, the script waits for it instead of uploading again", flush=True)
+        wait_published(found["deploymentId"], token, args.minutes)
+    else:
+        uploaded = upload(data, f"{args.artifact}-{args.version}", token)
+        print(f"Uploaded as deployment {uploaded}, to be published at once", flush=True)
+        wait_published(uploaded, token, args.minutes)
     wait_repo(args.group, args.artifact, args.version, args.minutes)
     return 0
 
