@@ -8,7 +8,7 @@ plugins {
 }
 
 val minecraft = "26.3"
-val neoforgeVersion = "26.3.0.103"
+val neoforgeVersion = "26.3.0.115"
 
 base {
   archivesName = "allay-neoforge"

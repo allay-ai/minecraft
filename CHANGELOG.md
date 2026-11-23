@@ -2,6 +2,10 @@
 
 The “Release” workflow takes the notes for a version from its section here, unless you type them into its `changelog` field.
 
+## 6.38.4
+
+- ⬆️ Updated NeoForge to 26.3.0.115, paper-api to build 259, and Flan's API to 1.12.9.
+
 ## 6.38.3
 
 - ⬆️ Updated kotlinx-serialization to 1.13.0, Fabric API to 0.166.2, NeoForge to 26.3.0.103, paper-api to build 253, and the WorldAPI expansion library to 2.1.0.
